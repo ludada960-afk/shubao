@@ -9049,3 +9049,63 @@ Hallmark 的 critical 反模式「渐变标题」，同时违反站内"品牌渐
   · `video-model-group-label` 出现 **0** 次 —— 家族标题行彻底消失
   · `hero-gradient-text` 出现 **0** 次；新规则 `hero-accent-text{color:var(--sb-ink-brand);font-weight:900;background:none}`
   · `--sb-font-display: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", …`（系统展示栈，无网字体）
+
+## 2026-09-26 批 BS：h1 渐变与字体**按用户要求改回** + 主 CTA 渐变**跨度拉开** + 分段控件 hover 判据
+
+提交 `8c007173`；部署：`Deployed 8c007173 to https://shuimg.cn/`（第一次因远端锁瞬时失败，重跑即成功）。用户看过实机后的三条反馈（其中两条是**推翻我上一批**的决定）。
+
+### 用户原话（逐字）
+- 「算了，h1 与字体这个**改回去吧，越改越不好看，不如之前的渐变好**啊。」
+- 「而且你这按钮为什么还是没按流影AI那个按钮规则去改呢，你这个样式**依然没有渐变变化**呀，我不是叫你去改了吗」
+- 「然后你这种按钮区也有个问题，就是我鼠标只要停留在任意按钮区，**你第一个按钮就会亮起来**，莫名其妙啊，
+  肯定是鼠标放到任意一个地方才会有交互啊，不是放在任意一个区第一个会亮啊」
+
+### 一、h1 渐变与字体：改回去（**用户改向**，两次口径都留档）
+- 撤回 `.hero-accent-text`（品牌色 + 900），恢复 `.hero-gradient-text`（原三色渐变字）；JSX 类名同步。
+- `--sb-font-display` 恢复成 `'Fredoka', 'ZCOOL KuaiLe', …` 那一套。
+- **时间线写进 CSS 注释与门禁断言**：批 BR 是用户批准按 Hallmark 改的 → 批 BS 他看过实机要求改回。
+  ⇒ Hallmark 那条「渐变标题」critical 会复现，属**知情接受**，不是漏改；门禁 ⑤ 从"不许有渐变标题"
+  回到"登记在案、不擅自改"。
+
+### 二、主 CTA 渐变：把跨度拉开（"依然没有渐变变化"的真因）
+实测（`.qa/bs-diag2.mjs`）：改前的渐变**在**，但两端只差一档、肉眼几乎看不出 ——
+静止 `#7C3AED → #6D28D9`、悬停 `#8B5CF6 → #7C3AED`。
+⇒ 学留影那块磁贴的**大跨度**（亮蓝 `#0076F5` → 深紫 `#7D28CC`）：
+| | 改前 | 改后（实测） |
+|---|---|---|
+| 静止 | `#7C3AED → #6D28D9` | **`#8B5CF6 → #6D28D9`**（差两档，看得出来） |
+| 悬停 | `#8B5CF6 → #7C3AED` | **`#A78BFA 0% → #7C3AED 55% → #7C3AED 100%`** + 上移 1px + 阴影 |
+
+悬停那个亮端只占左上角、55% 处就落回 brand-600 —— 文字所在的中间区保持深色，白字对比度不掉
+（这是"看得出来"与"读得清"之间的取舍，写在 CSS 注释里）。
+
+### 三、"任意处第一个按钮就亮" —— 本版**复现不出**，但把规矩钉成判据
+实机逐颗量了三个位置（`.qa/bs-diag2.mjs`）：
+| 鼠标位置 | 结果 |
+|---|---|
+| 组内缝隙 (285,408) | **0 颗**按钮样式变化 |
+| 第 2 颗按钮 | **只有第 2 颗**变化（底 rgba(12,10,9,.06) + 深描边 + 阴影） |
+
+⇒ 当前实现里 hover 只挂在按钮自己身上（`.media-field-segmented button:hover:not(:disabled)`），
+JSX 里也没有 hover 状态；用户截图里那颗「1:1 方图」是**真的被鼠标悬停**的那颗（其余是白底）。
+为防这类写法以后再溜进来，新增门禁 ⑥：**不许有组级 hover 规则、不许给组内第一颗单独上样式、
+hover 不许由 JS 状态实现**。
+
+### 四、一个并发信号（值得记）
+第一次部署失败在 **`Could not acquire remote deployment lock`**（不是我的改动有问题）：
+当时 `F:/da/_deploy-b39` 的 HEAD 指向 `9090c994`（另一条线的「方案预览模型调用挪进幂等边界」计费修复）。
+我核对过：**那个提交是本批的祖先**（我的部署包含它，不会回滚别人的工作）；
+且当时服务器上没有并发的部署进程 ⇒ 属于锁的瞬时状态，重跑一次即成功。
+
+### 五、验证
+- `npm run test` **4131 / pass 4121 / fail 0 / skipped 10**；`npm run precommit` 全绿
+- 实机 `.qa/bs-diag2.mjs`：渐变两态 + hover 逐颗 + 悬停缝隙 0 变化，三条数字都落档
+- 门禁：`hallmark-mobile-and-sloplint-0926` 6 条、`workbench-cta-width-0925` 6 条全绿
+
+### 部署与线上复验
+- `Deployed 8c007173 to https://shuimg.cn/` + `Released remote deployment lock`；产物换成
+  `assets/index-oobSvCu-.js` + `assets/style-uoO6hpv3.css`；`/api/health` = **200**。
+- 服务器端核到：
+  · `--sb-cta-grad: linear-gradient(135deg, var(--sb-brand-500) 0%, var(--sb-brand-700) 100%)`（跨度两档）
+  · `--sb-cta-grad-hover: linear-gradient(135deg, var(--sb-brand-400) 0%, var(--sb-brand-600) 55%, var(--sb-brand-600) 100%)`
+  · `hero-gradient-text` 回到 1 处（h1 渐变恢复）；`hero-accent-text` 出现 **0** 次
