@@ -10171,3 +10171,14 @@ e2e 266 → **268**（存到资产按钮存在 + 素材带回创作台；后者*
 **这一轮学到的两条（已在上一条记录里写过，这里只留指针）**
 - precommit / e2e **不许并行**（端口现在是 `SHUBO_E2E_PORT` 可覆盖，并发前先设不同端口）；
 - e2e "卡在可见性"时，用「隔离 worktree + 失败 dump 页面」那套手法直接看错误明文，别猜。
+
+### 批 CG 部署确认（补记，2026-09-27）
+
+- **`Deployed 0afd67e1 to https://shuimg.cn/`** + `Released remote deployment lock`（无 "lock lost"）
+  —— 部署脚本那条唯一成功判据已出现，本批**正式上线**。
+- 线上复验（服务器上跑）：release=`/var/www/shubao/releases/20260927-112906-0afd67e1`、
+  `/api/health` 200；index.html 引用 `index-C4lmBaou.js` + `style-DA_0WHLw.css`（844,848 B），
+  CSS 里 `media-workbench-history-host[hidden]`=1、`media-workbench-pane .video-history`=1；
+  挂载点属性在懒加载块 `index-Bp9OwbFL.js` / `index-zM1UyeBH.js` 各 1（entry 只做引导，不含页面代码）。
+- 提醒下一个接手的人：**右栏挂载点 + portal 是"搬"不是"删"**，左栏那份**必须没有**内联副本
+  （第一版就是漏删它，探针立刻报 `histInHost:false / histInLeft:true`）。
