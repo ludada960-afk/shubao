@@ -101,6 +101,21 @@ test('CB-⑨ 三步方案弹窗的视频侧抬头也是站内叫法（图片侧�
   assert.ok(image && image[1] === '生成预览', '图片侧本来就是「生成预览」，不许被顺手改掉');
 });
 
+test('CD-① 「生成记录」在右栏历史区（不是删掉，是搬走）', () => {
+  const shell = read('src/components/media/WorkbenchShell.jsx');
+  assert.match(shell, /data-history-host/, '右栏要有一个挂载点');
+  assert.match(shell, /className="media-workbench-history-host"[^>]*hidden=\{activeTab !== 'history'\}/,
+    '挂载点必须**常驻**（e2e 在默认「示例」页签下就断言 .video-history 存在），切页签才显示');
+  const page = read('src/pages/VideoStudio/index.jsx');
+  assert.match(page, /createPortal\(videoHistoryBlock, historyHost\)/, '视频侧要把同一段标记 portal 进右栏');
+  assert.match(page, /const videoHistoryBlock = \(\s*<div className="video-history">/,
+    '类名与结构不许改（e2e / 门禁按 .video-history 找；它是全部视频任务的唯一入口）');
+  assert.match(page, /document\.querySelector\('\[data-history-host\]'\)/, '挂载点要在 effect 里取（首帧没有 DOM）');
+  const css = read('src/pages/VideoStudio/VideoStudio.css');
+  assert.ok(ruleBody(css, '.media-workbench-pane .video-history'),
+    '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
+});
+
 test('CB-⑦ 站内叫法统一：独立创作台那颗入口也叫「生成脚本」（类名不变）', () => {
   const page = read('src/pages/VideoStudio/index.jsx');
   const entry = page.match(/video-dawei-entry[\s\S]{0,400}?<\/button>/);

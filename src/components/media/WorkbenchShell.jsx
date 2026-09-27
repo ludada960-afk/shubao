@@ -385,6 +385,16 @@ export default function WorkbenchShell({
           )}
         </div>
         <div className="media-workbench-pane" role="tabpanel">
+          {/* ═══ 2026-09-27 批 CD：「生成记录」在右栏的**常驻挂载点**（用户原话，逐字）════════════
+               「你看你下面还是有这个生成结果的一个展示区，为什么还会有呢？我都跟你说了很多遍了，
+                你这个生成结果**必须在右边的历史区里面**呀。这个地方一定是要删掉的呀。」
+              视频侧那颗 `.video-history`（全部视频任务的唯一入口）由一个 portal 渲染进这里；
+              左栏/下方那一份不再渲染。
+              ⚠️ 这里**常驻挂载**（不是 `activeTab === 'history'` 才建）：端到端脚本在**默认「示例」
+                页签**下就断言 `document.querySelector('.video-history')` 必须存在；切到「历史」才显示
+                （`hidden` ⇒ 不在屏上，但仍在 DOM 里，切页签、读 textContent、点按钮都照旧）。
+              几何：挂在 pane 里、「空态那句话」之前 —— 两个页签共用同一块滚动区。 */}
+          <div className="media-workbench-history-host" data-history-host hidden={activeTab !== 'history'} />
           {activeTab === 'history' && !children ? <p className="media-workbench-empty">{historyEmpty}</p> : children}
         </div>
       </div>

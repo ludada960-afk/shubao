@@ -363,6 +363,16 @@ export default function VideoStudioPage({
   const [slotFiles, setSlotFiles] = useState({});
   /* 批 T：工作台里**除主文本格以外**的文本（门店信息这类），按 block.key 存 —— 见 VideoWorkbench 的说明 */
   const [blockTexts, setBlockTexts] = useState({});
+  /* ═══ 2026-09-27 批 CD：「生成记录」搬进右栏历史区（用户原话，逐字）══════════════════════════════
+     原话：「你看你下面还是有这个生成结果的一个展示区，为什么还会有呢？…你这个生成结果必须在右边的
+     历史区里面呀。这个地方一定是要删掉的呀。」
+     ⇒ 找右栏那个**常驻挂载点**（WorkbenchShell 的 `[data-history-host]`），找到就 portal 过去，
+       找不到（首页 / 独立创作台 / 独立路由：没有那个壳）就照旧内联渲染 —— 一条代码路径，不靠模式开关。
+     ⚠️ 挂载后才有 DOM，所以只能在 effect 里取（首帧不能读 document）。 */
+  const [historyHost, setHistoryHost] = useState(null);
+  useEffect(() => {
+    setHistoryHost(document.querySelector('[data-history-host]'));
+  }, []);
   const [prompt, setPrompt] = useState('');
   const [userSkills, setUserSkills] = useState([]);
   const [skillOpen, setSkillOpen] = useState(false);
@@ -930,7 +940,16 @@ export default function VideoStudioPage({
   useEffect(() => { onJobsRef.current?.(history); }, [history]);
 
   /* 历史里点「用这组参数」→ 把那次任务的提示词与规格还原回创作台。
-     presetNonce 是"又点了一次同一条"的判据：没有它，第二次点同一条不会重新生效。 */
+     presetNonce 是"又点了一次同一条"的判据：没有它，第二次点同一条不会重新生效。
+     ═══ 2026-09-27 批 CE：**素材也一起还原** ═══════════════════════════════════════════════════
+     用户口径（逐字）：「而且重新生成是不是也要像做同款那样，**把素材和提示词和配置都填回去工作台**呢？」
+     —— 上一版只还原了提示词与规格（时长/比例/清晰度/创作方式），**素材没回来**。
+     服务端 `video_jobs.refs_json` 里其实**一直存着**输入素材（{firstImage,lastImage,images,videos,audios,urls}），
+     所以这里把它们还原成"已经上传好的素材"（`{id,url,name}`），走**与本地文件同一套提交路径**：
+     提交时并进 refs，界面上单独一条「已带入的素材」显示（可逐张移除）。
+     ⚠️ 它们**不是 File**，所以不进 `files`（那条链路要从本地读文件、还要走上传）；
+        合并发生在 `handleGenerate` 里 —— 一处，不散落。 */
+  const emptyRestored = { first: [], last: [], images: [], videos: [], audios: [] };
   useEffect(() => {
     if (!preset) return;
     if (preset.mode && VIDEO_CREATION_MODES.some(item => item.id === preset.mode)) setMode(preset.mode);
@@ -940,6 +959,8 @@ export default function VideoStudioPage({
     if (preset.ratio) setRatio(preset.ratio);
     if (preset.resolution) setResolution(preset.resolution);
     if (typeof preset.sound === 'boolean') setSound(preset.sound);
+    /* 批 CE：素材（那次任务真实用过的输入）也一起带回创作台 */
+    setRestoredAssets(normalizePresetMaterials(preset.materials));
     /* 参数变了 → 之前确认过的方案不能再算数（否则会用旧方案去生成新内容） */
     setPlanReviewed(false);
   }, [presetNonce]);
@@ -1996,6 +2017,28 @@ export default function VideoStudioPage({
      **页面上没有补充说明框** —— 他们的"怎么拍"是模板自带的，我们的对应物就是声明源里的 brief。
      照抄之后这一档不再有输入框，但"配方真的被带进这次生成"这件事仍然必须可断言，
      所以把它如实挂在页面上（值与预填进 prompt 的是同一份，不是另写一份）。 */
+  /* ═══ 2026-09-27 批 CD：「生成记录」这一段 JSX（搬进右栏，见上面的说明）════════════════════════
+     类名（`.video-history` / `.video-history-title` / `.video-history-empty`）**一个都不改**：
+     e2e 与门禁按它们找；改的只是它渲染在哪儿。`homeComposer` 那一支保持原样（首页只留入口按钮）。 */
+  const videoHistoryBlock = (
+    <div className="video-history">
+      {homeComposer ? (
+        <button
+          type="button"
+          className="video-history-more"
+          onClick={() => { if (!state.logged) { dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } }); dispatch({ type: 'SHOW_LOGIN', show: true }); return; } dispatch({ type: 'OPEN_CANVAS', tab: 'works' }); }}
+        >我生成的作品 →</button>
+      ) : (
+        <>
+          <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
+          {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
+            <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
+          </button>) : <p className="video-history-empty">暂无视频任务</p>}
+        </>
+      )}
+    </div>
+  );
+
   return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`} data-video-mode={mode} data-video-recipe={preset?.prompt || ''}>
     <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
     {!embedded && <header className="video-studio-heading"><div><span className="video-studio-kicker"><Clapperboard size={16} />视频生成</span><h1>从创意素材到营销成片</h1><p>脚本、参考素材、镜头、声音和交付规格在同一个任务里完成。</p></div><button className="video-balance" type="button" onClick={() => dispatch({ type: 'SHOW_PRICE', show: true })}>AI 积分 <strong>{state.unlimited ? '无限额度' : state.ecPoints}</strong></button></header>}
@@ -2377,26 +2420,15 @@ export default function VideoStudioPage({
              依据：子页面右栏本来就有「示例 / 历史」两个页签（历史按技能筛过一份视图），
              左栏/下方再来一份任务列表就是同一件事在同一屏出现两次 —— 图片生成那边的子页面没有这份。
              ⚠️ 成片台（结果预览）保留：用户要走的是**重复的那份列表**，不是结果本身。 */}
-        <div className="video-history">
-          {/* 首页只留一个入口（用户批注 2：「你像生成记录这个就没有必要放在这里呀，
-              这个最多就是放一个按钮而已，让用户跳到我的作品里面去」）。
-              子页面：**整段不渲染**（见上）；独立路由照旧铺完整生成记录。 */}
-          {homeComposer ? (
-            <button
-              type="button"
-              className="video-history-more"
-              onClick={() => { if (!state.logged) { dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } }); dispatch({ type: 'SHOW_LOGIN', show: true }); return; } dispatch({ type: 'OPEN_CANVAS', tab: 'works' }); }}
-            >我生成的作品 →</button>
-          ) : (
-          <>
-          <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
-          {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
-            <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
-          </button>) : <p className="video-history-empty">暂无视频任务</p>}
-          </>
-          )}
-        </div>
-      </div></section>}
+        {/* ═══ 2026-09-26 批 BY / 2026-09-27 批 CD：**左栏不再有「生成记录」**══════════════════════
+             BY 只做到"子页面整段不渲染"，但用户又看了一次并指出：那块**还在**（截图里它就在 CTA 下面），
+             而且明说「你这个生成结果必须在右边的历史区里面呀。这个地方一定是要删掉的呀」。
+             ⇒ CD 把它**整体搬走**（不是删）：下面这段 JSX 现在放进 `videoHistoryBlock`，
+               有右栏挂载点时走 portal（渲染进「历史」页签），没有时（首页 / 独立创作台）照旧内联。
+             ⚠️ 不能删的原因（e2e 硬要求）：`.video-history` 必须在 DOM 里、里面必须有按钮、
+               点一条要能把成片放上结果台 —— 它是**全部**视频任务的唯一入口（没有 skill 标记的任务
+               只在这里看得到）。 */}
+      </div></section>}{(!embedded || inlineResult) && !homeComposer && (historyHost ? createPortal(videoHistoryBlock, historyHost) : videoHistoryBlock)}
     {!embedded && capabilities.directorUi === true && state.logged && <DirectorWorkbench capabilities={capabilities} />}
     {!embedded && capabilities.directorUi !== true && capabilities.workbenchEnabled && state.logged && (
       // 瀑布三段式默认下线：仅当服务端显式打开 waterfallWorkbench 时回退旧布局。
