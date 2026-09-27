@@ -10012,3 +10012,56 @@ e2e 265 → **266**（加"历史按天分组"）。
    `.media-workbench-pane .video-history{width:100%;margin:0;padding:0;border-top:0}`；
 4. 门禁 CD-① 改回"必须 portal"那版（本文件上文有原文），跑 `.qa/cd-history-portal.mjs` 复验
    （默认页签在 DOM、切「历史」可见、左栏已无）。
+
+### 批 CD + CE（2026-09-27）：存到我的资产 + 视频素材还原；顺带解决并发会话撞 e2e 端口
+
+**用户口径（逐字，两条纠正/要求）**：
+①「**我的资产这边没有办法选项目呀，本来就没有新建项目的渠道吧，能新建的只有画布呀，
+   你到底自己有没有去核查呀**」—— 这是**纠正我上一轮说错的话**：我写了"或者让用户每次选一个项目"，
+   而站里根本没有手动建项目的入口。**已核查并改正**（结论写进了 `saveWorkToAssets.js` 的文件头）：
+   · 项目只由画布媒体保存（`createProject({kind:'ecommerce'|'video', title:'Canvas 媒体项目', idempotencyKey})`）、
+     视频项目 / 导演台 / 视频交付弹窗这几条链路**隐式**产生；
+   · `project_assets.project_id` 是 **NOT NULL + 外键**（`server/projects/schema.mjs`）
+     ⇒ 资产不可能不挂在项目下，没有"无项目的资产"这种落点；
+   · 「我的资产」是**跨项目**视图（卡片上带项目名），没有项目选择器。
+②「**视频素材还原不要因为麻烦就不做**，只要用户体验是最佳的，对我们的架构不产生 bug，那就可以做。」
+
+**批 CD：存到我的资产**（历史卡片上的「存到资产」）
+- `src/pages/Home/saveWorkToAssets.js`（新）：照**已有的隐式建项目**做法 —— 自动建/复用一个名为
+  「生成作品」的项目（固定幂等键），再 `registerGeneratedAssetToProject` + `addToProjectAssetLibrary`。
+  幂等两道：项目先按标题找；素材先比对资产库里的 `stableUrl`，**重复点不堆重复素材**。
+  kind 取 `ecommerce`（`PROJECT_KINDS` 只有四档、没有"通用图片"；画布那条链路对图片也是它）。
+- 按钮只对**有生成图**的记录出现；过期墓碑不给（文件已回收）；存入中禁用并显示"存入中…"防连点。
+
+**批 CE：视频素材还原**（用户点名"不要因为麻烦就不做"）
+服务端 `video_jobs.refs_json` 里**一直存着**那次任务的输入素材，这一批把它接上了：
+- `src/pages/VideoStudio/videoMaterialsModel.js`（新，纯函数）：`videoJobMaterials(references)`
+  把服务端 refs 翻成 `{first|last|images|videos|audios:[{id,url,name}]}`；`normalizePresetMaterials`
+  做校验（缺 id/url 的一律丢掉）。放 `.js` 模块是因为 `.jsx` node 直接 import 会报扩展名错，
+  而这两件事必须有门禁真跑。
+- 创作台：新增 `restoredAssets` + 一条「已带入的素材（N）」显示（可逐张移除）；
+  **提交时并进 refs**（合并点只有一处），素材计数也算上它们。
+- ⚠️ **踩到并修掉的坑**：它一开始渲染在 `{!workbenchMode && …}` 里，而技能子页面走的正是
+  **workbenchMode** ⇒ 子页面上根本看不见（e2e 当场判红）。移到两种形态都覆盖的那一层。
+
+**并发协调（用户要求"你们自己做好调配"）——本轮做了三件事**：
+1. **e2e 端口可覆盖**：`SHUBO_E2E_PORT`（默认 4197 不变）。同一工作树两个会话同时跑 e2e 会
+   `EADDRINUSE`（本轮撞了 3 次，**且看起来像代码坏了**——precommit 报"端到端失败"却一条断言都没有）。
+   现在一个跑 4197、另一个 `set SHUBO_E2E_PORT=4198 && npm run precommit` 互不打扰。
+2. 只 `git add` 我的路径；提交前逐个核对 `git status`。
+3. ⚠️ **如实记一次真实冲突**：并发会话在 `c23dcd81` 把**我改到一半的 `VideoStudio/index.jsx` 一起提交了**
+   （随即 `63724654` 因产物 ReferenceError 回退、再 `1baab8ce` 把工作区状态连同"并线的 restore-assets
+   在制品快照"落进历史）。**我的 CE 改动因此是被对方提交进 HEAD 的** —— 已逐个核对 HEAD 里
+   `restoredAssets` / 提交合并 / 显示条 / CSS 全都在（`git show HEAD:…` 检查过），
+   且随后那次 precommit + e2e（268 条）正是跑的这份内容 ⇒ 功能完整。
+
+**门禁**：`save-to-assets-and-video-materials-0927`（4 条：核查结论写在代码里 / 只认生成图地址 /
+两种形状转换 / 合并点只有一处）；`media-history-layout-0927` 的锚点放宽（memo 里加了 `saving` 字段）。
+e2e 266 → **268**（存到资产按钮存在 + 素材带回创作台；后者**必须排在"用这组参数"点击之后** ——
+第一版我放在点击之前，永远查不到，当场红）。
+
+**验证与上线**：`npm run test` 4183 / 0 fail（10 skipped）；`npm run precommit` 全绿
+（构建 exit 0 + 冒烟 + e2e 268 条 + BLOCKING 门禁 260 条）。提交 `d9bf4626` →
+`Deployed d9bf4626 to https://shuimg.cn/`；服务器侧复验：release `20260927-101538-d9bf4626`、
+入口块里命中 CD/CE 标记、CSS 里 `video-restored-materials` / `skill-history-save` 都在，
+健康 + 站点 + 概念方案子页 + 视频子页全 200。
