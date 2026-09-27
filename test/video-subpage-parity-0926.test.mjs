@@ -101,17 +101,19 @@ test('CB-⑨ 三步方案弹窗的视频侧抬头也是站内叫法（图片侧�
   assert.ok(image && image[1] === '生成预览', '图片侧本来就是「生成预览」，不许被顺手改掉');
 });
 
-test('CD-① 已回退：右栏挂载点/portal 不在仓库里（原因见 RTK，别当成"没做过"）', () => {
-  /* 2026-09-27：CD 把「生成记录」portal 进右栏的方案**做通过**（探针 + 门禁都绿），但提交时
-     `src/pages/VideoStudio/index.jsx` 正被并行的另一条线改到一半（`setRestoredAssets` 的调用点已进、
-     声明未进）⇒ 产物在视频子页面抛 ReferenceError、e2e 判红 ⇒ 已回退。等那个文件稳定后按 RTK 配方重落。
-     所以这一条现在守的是**回退后的状态**，而不是"没做过"。 */
+test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）—— 批 CD 回退后于批 CG 重落', () => {
   const shell = read('src/components/media/WorkbenchShell.jsx');
-  assert.doesNotMatch(shell, /data-history-host/, '回退后 shell 里不该还有挂载点');
+  assert.match(shell, /data-history-host/, '右栏要有一个挂载点');
+  assert.match(shell, /className="media-workbench-history-host"[^>]*hidden=\{activeTab !== 'history'\}/,
+    '挂载点必须**常驻**（e2e 在默认「示例」页签下就断言 .video-history 存在），切页签才显示');
   const page = read('src/pages/VideoStudio/index.jsx');
-  assert.doesNotMatch(page, /videoHistoryBlock|historyHost/, '回退后不该还有 portal 变量');
-  assert.match(page, /className="video-history"/, '原样内联渲染的那段必须还在（e2e 靠它认全量任务）');
-  assert.match(page, /批 CD 曾把它 portal 进右栏历史区/, '回退的**原因**必须留在代码里，否则下一个人会以为从没做过');
+  assert.match(page, /createPortal\(videoHistoryBlock, historyHost\)/, '视频侧要把同一段标记 portal 进右栏');
+  assert.match(page, /const videoHistoryBlock = \(\s*<div className="video-history">/,
+    '类名与结构不许改（e2e / 门禁按 .video-history 找；它是全部视频任务的唯一入口）');
+  assert.match(page, /document\.querySelector\('\[data-history-host\]'\)/, '挂载点要在 effect 里取（首帧没有 DOM）');
+  const css = read('src/pages/VideoStudio/VideoStudio.css');
+  assert.ok(ruleBody(css, '.media-workbench-pane .video-history'),
+    '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
 });
 
 test('CB-⑦ 站内叫法统一：独立创作台那颗入口也叫「生成脚本」（类名不变）', () => {

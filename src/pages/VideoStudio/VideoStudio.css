@@ -760,6 +760,14 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
 .video-empty span { font-size: 12px; }
 .video-empty progress { width: min(260px,80%); accent-color: var(--sb-brand-600); }
 .video-history { width: min(100%,860px); margin-top: 18px; padding-top: 14px; display: grid; gap: 7px; border-top: 1px solid #e8e3dd; }
+/* ═══ 2026-09-27 批 CG：搬进右栏历史区之后的两条几何 ═══════════════════════════════════════════
+   ① 挂载点：`.media-workbench-pane` 的一个子节点，切页签靠 `hidden` 显隐
+      （数据没变、DOM 一直在 —— e2e 在默认「示例」页签下就断言它必须在）。
+   ② 那一份 `.video-history` 原来是按**左栏**的排版写的（`margin-top: 18px` + `padding-top: 14px`
+      + 上限 860 宽度 + 一条上分割线）。搬进右栏后这些全成了多余的外缩与一条飘着的线
+      ⇒ 在 pane 里把它归零，宽度交给 pane 自己。类名与结构一个都没改（e2e 按它们找）。 */
+.media-workbench-history-host[hidden] { display: none; }
+.media-workbench-pane .video-history { width: 100%; margin: 0; padding: 0; border-top: 0; }
 .video-history-title { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
 .video-history-title span,.video-history-empty { color: #8a837b; font-size: 11px; }
 .video-history button { min-height: 46px; padding: 8px 10px; display: flex; justify-content: space-between; gap: 12px; border: 1px solid #e7e2dc; background: var(--sb-neutral-0); text-align: left; cursor: pointer; }

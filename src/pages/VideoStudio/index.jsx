@@ -370,6 +370,16 @@ export default function VideoStudioPage({
   const [restoredAssets, setRestoredAssets] = useState(() => normalizePresetMaterials(null));
   /* 批 T：工作台里**除主文本格以外**的文本（门店信息这类），按 block.key 存 —— 见 VideoWorkbench 的说明 */
   const [blockTexts, setBlockTexts] = useState({});
+  /* ═══ 2026-09-27 批 CG：「生成记录」搬进右栏历史区（用户原话，逐字）══════════════════════════════
+     原话：「你看你下面还是有这个生成结果的一个展示区，为什么还会有呢？…你这个生成结果必须在右边的
+     历史区里面呀。这个地方一定是要删掉的呀。」
+     ⇒ 找右栏那个**常驻挂载点**（WorkbenchShell 的 `[data-history-host]`），找到就 portal 过去，
+       找不到（首页 / 独立创作台 / 独立路由：没有那个壳）就照旧内联渲染 —— 一条代码路径，不靠模式开关。
+     ⚠️ 挂载后才有 DOM，所以只能在 effect 里取（首帧不能读 document）。 */
+  const [historyHost, setHistoryHost] = useState(null);
+  useEffect(() => {
+    setHistoryHost(document.querySelector('[data-history-host]'));
+  }, []);
   const [prompt, setPrompt] = useState('');
   const [userSkills, setUserSkills] = useState([]);
   const [skillOpen, setSkillOpen] = useState(false);
@@ -2062,10 +2072,28 @@ export default function VideoStudioPage({
      **页面上没有补充说明框** —— 他们的"怎么拍"是模板自带的，我们的对应物就是声明源里的 brief。
      照抄之后这一档不再有输入框，但"配方真的被带进这次生成"这件事仍然必须可断言，
      所以把它如实挂在页面上（值与预填进 prompt 的是同一份，不是另写一份）。 */
-  /* 批 CD 已回退（见 RTK）：`.video-history` 暂时回到原位内联渲染。
-     回退原因不是这段代码本身，而是**提交时那个文件正被并行的另一条线改到一半**
-     （`setRestoredAssets` 的调用点进去了、声明还没进去）⇒ 运行时 ReferenceError ⇒ e2e 红。
-     等他们把 `src/pages/VideoStudio/index.jsx` 提交完，按 RTK 里那份配方重新落一遍即可。 */
+  /* ═══ 2026-09-27 批 CG：「生成记录」这一段 JSX（搬进右栏历史区）═════════════════════════════════
+     类名（`.video-history` / `.video-history-title` / `.video-history-empty`）**一个都不改**：
+     e2e 与门禁按它们找；改的只是它渲染在哪儿。`homeComposer` 那一支保持原样（首页只留入口按钮）。
+     （批 CD 走过一版又被回退，原因与时间线见下面渲染处那段注释。） */
+  const videoHistoryBlock = (
+    <div className="video-history">
+      {homeComposer ? (
+        <button
+          type="button"
+          className="video-history-more"
+          onClick={() => { if (!state.logged) { dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } }); dispatch({ type: 'SHOW_LOGIN', show: true }); return; } dispatch({ type: 'OPEN_CANVAS', tab: 'works' }); }}
+        >我生成的作品 →</button>
+      ) : (
+        <>
+          <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
+          {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
+            <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
+          </button>) : <p className="video-history-empty">暂无视频任务</p>}
+        </>
+      )}
+    </div>
+  );
 
   return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`} data-video-mode={mode} data-video-recipe={preset?.prompt || ''}>
     <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
@@ -2447,40 +2475,17 @@ export default function VideoStudioPage({
           </div>
           {job?.status === 'completed' && job.resultUrl && <button className="video-open-canvas" type="button" onClick={() => openJobInCanvas(job)}>在画布中继续</button>}
         </>}
-        {/* ═══ 2026-09-26 批 BY：**子页面不再重复一份「生成记录」**（用户原话，逐字）══════════════════
-             「然后你的**生成记录为什么会在这里呢**？**右边不是有示例和历史区吗**？我觉得你现在视频生成
-              这边做的是乱七八糟的，你整体的规格和设计方案是完全没有按照我们整体图片生成的那些子页面
-              以及知渔他们那边的做法去做设计的。」
-             依据：子页面右栏本来就有「示例 / 历史」两个页签（历史按技能筛过一份视图），
-             左栏/下方再来一份任务列表就是同一件事在同一屏出现两次 —— 图片生成那边的子页面没有这份。
-             ⚠️ 成片台（结果预览）保留：用户要走的是**重复的那份列表**，不是结果本身。 */}
-        {/* ═══ 2026-09-26 批 BY：**子页面不再重复一份「生成记录」**（用户原话，逐字）══════════════════
-             「然后你的**生成记录为什么会在这里呢**？**右边不是有示例和历史区吗**？我觉得你现在视频生成
-              这边做的是乱七八糟的，你整体的规格和设计方案是完全没有按照我们整体图片生成的那些子页面
-              以及知渔他们那边的做法去做设计的。」
-             ⚠️ 批 CD 曾把它 portal 进右栏历史区（走通了，探针与门禁都绿），但**提交时这个文件正被并行的
-                另一条线改到一半**（`setRestoredAssets` 的调用点已进、声明未进）⇒ 产物在视频子页面
-                抛 ReferenceError、e2e 判红 ⇒ 已回退，等那个文件稳定后按 RTK 的配方重落。 */}
-        <div className="video-history">
-          {/* 首页只留一个入口（用户批注 2：「你像生成记录这个就没有必要放在这里呀，
-              这个最多就是放一个按钮而已，让用户跳到我的作品里面去」）。
-              子页面：**整段不渲染**（见上）；独立路由照旧铺完整生成记录。 */}
-          {homeComposer ? (
-            <button
-              type="button"
-              className="video-history-more"
-              onClick={() => { if (!state.logged) { dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } }); dispatch({ type: 'SHOW_LOGIN', show: true }); return; } dispatch({ type: 'OPEN_CANVAS', tab: 'works' }); }}
-            >我生成的作品 →</button>
-          ) : (
-          <>
-          <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
-          {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
-            <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
-          </button>) : <p className="video-history-empty">暂无视频任务</p>}
-          </>
-          )}
-        </div>
-      </div></section>}
+        {/* ═══ 2026-09-26 批 BY / 2026-09-27 批 CG：**左栏不再有「生成记录」**════════════════════════
+             BY 只做到"子页面整段不渲染"，但用户又看了一次并指出：那块**还在**（截图里它就在 CTA 下面），
+             并明说「你这个生成结果必须在右边的历史区里面呀。这个地方一定是要删掉的呀」。
+             ⇒ 原来这一处的 JSX 已提成 `videoHistoryBlock`（**类名一个都不改**），在 `</section>` 之后
+               统一渲染：有右栏挂载点就 portal 进「历史」页签，没有（首页 / 独立创作台 / 独立路由）才内联。
+             ⚠️ **不能删**（e2e 硬要求）：`.video-history` 必须在 DOM 里、里面必须有按钮、点一条要把
+                成片放上结果台 —— 它是**全部**视频任务的唯一入口（没有 skill 标记的任务只在这里看得到）。
+             📌 时间线：批 CD（提交 c23dcd81）走过一版又被回退 —— 那次提交把**正在被另一条线改到一半**
+                的这个文件抓进了历史（`setRestoredAssets` 调用点在、声明不在）⇒ 产物抛 ReferenceError。
+                他们的批 CD/CE 完整落库后，本批 CG 重落（此注释即那次事故的留档，别再踩）。 */}
+      </div></section>}{(!embedded || inlineResult) && !homeComposer && (historyHost ? createPortal(videoHistoryBlock, historyHost) : videoHistoryBlock)}
     {!embedded && capabilities.directorUi === true && state.logged && <DirectorWorkbench capabilities={capabilities} />}
     {!embedded && capabilities.directorUi !== true && capabilities.workbenchEnabled && state.logged && (
       // 瀑布三段式默认下线：仅当服务端显式打开 waterfallWorkbench 时回退旧布局。
