@@ -8119,6 +8119,9 @@ const handlePointerUp = useCallback((e) => {
         onNotify={showToast}
         onClose={() => setWorkflowGalleryOpen(false)}
         onInstantiate={template => { setWorkflowGalleryOpen(false); return handleInstantiateWorkflowTemplate(template); }}
+        /* 2026-09-28 批 CX（CV-3）：集合页里的「新建空白画布」（用户点名要的那颗按钮）——
+           走的就是顶栏「新建画布」同一条链路（就地清空成空白画布）。 */
+        onNewBlank={() => { setWorkflowGalleryOpen(false); void handleNew(); }}
       />
 
       <style>{`

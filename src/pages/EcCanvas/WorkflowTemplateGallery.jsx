@@ -4,8 +4,8 @@
    T4/T5（requiresAudioVideo）= "视频/音频能力即将上线（待 P3）" 灰态徽标, 铺开可用但画布内 P3 节点灰态、
    运行入口由 index.jsx 按 P0.5 门控（不变式①: 不确认不扣费, T4/T5 永不提供扣费运行）。
    与 L2 提示词模板（CanvasTemplateMarketplace）并存, 本库是"图工作流"层。*/
-import React, { useCallback, useEffect, useState } from 'react';
-import { Heart, Layers3, Loader2, Star, Video, Workflow, X, Zap } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Heart, Layers3, Loader2, Plus, Star, Video, Workflow, X, Zap } from 'lucide-react';
 import { fetchWorkflowTemplates, likeWorkflowTemplate, workflowSlotIds } from './workflowTemplates.js';
 
 const OVERLAY = { position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' };
@@ -82,7 +82,7 @@ function sortFeatured(list = []) {
   return [...list].sort((a, b) => ((Number(b?.usageCount) || 0) - (Number(a?.usageCount) || 0)) || ((Number(b?.likeCount) || 0) - (Number(a?.likeCount) || 0)));
 }
 
-export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, email = '', onNotify }) {
+export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, onNewBlank = null, email = '', onNotify }) {
   const [tab, setTab] = useState('featured');
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -90,6 +90,12 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
   const [likes, setLikes] = useState({});
   const [busySlug, setBusySlug] = useState('');
   const [likeBusy, setLikeBusy] = useState(new Set());
+  /* ═══ 2026-09-28 批 CX（CV-3）：**类目筛选**（照知渔那一屏的类目 chip，实证见 docs/design/89 §9.1）═══
+     用户原话（他描述的那种集合页）：「**一个集满了各种工作流的集合页**」；他登录态实拍到的知渔模板墙
+     就是"19 个类目 chip + 解锁方式四档"的形态。我们的服务端本来就有 `category` 字段
+     （`/api/workflow-templates?category=`），所以类目**从已加载的列表里现算**即可 ——
+     不额外加一次请求，也永远不会出现"chips 里有一个空类目"这种假选项。 */
+  const [category, setCategory] = useState('全部');
 
   /* 拉列表: 精选 = public（按 usage/like 真数排序）; 我的 = mine=email（需登录）; 分类 = public + category。*/
   const load = useCallback(async key => {
@@ -160,9 +166,21 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
     }
   }, [busySlug, onInstantiate, onNotify]);
 
+  /* 类目 chip 从**已加载的列表**里现算（不额外发请求、也不会出现空类目）。
+     ⚠️ 这两个 hook/derive 必须在下面那句 `if (!open) return null` **之前** —— 早退之后调用 hook
+     会变成条件调用（React 直接报 "Rendered fewer hooks than expected"）。 */
+  const categories = useMemo(
+    () => ['全部', ...new Set(templates.map(item => String(item?.category || '').trim()).filter(Boolean))],
+    [templates],
+  );
+  const shown = category === '全部'
+    ? templates
+    : templates.filter(item => String(item?.category || '').trim() === category);
+  /* 换页签时把类目重置（"我的"里的类目与公开库不一定重合，留着会筛出空列表） */
+  useEffect(() => { setCategory('全部'); }, [tab]);
+
   if (!open) return null;
 
-  const shown = templates;
   const mineTab = tab === 'mine';
   const emptyCopy = mineTab
     ? (email
@@ -183,12 +201,31 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
           <strong style={{ fontSize: 16, color: '#0f172a', flex: '0 0 auto' }}>工作流模板</strong>
           <span style={{ marginLeft: 'auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: '#64748b' }}>一键铺开 · 拖图即跑</span>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+        {/* ═══ 2026-09-28 批 CX（CV-3）：**「新建空白画布」**（用户点名要的那颗按钮，逐字）═════════════
+            用户原话：「就是**一个集满了各种工作流的集合页**，然后**上面是一个新建空白画布的按钮**。
+            用户可以通过点击任意一个工作流进去之后修修改改」——这是他描述的两种入口形态里的第一种。
+            docs/design/89 §9.2 的结论是"主入口是画布 + 画布内有集合页"，但**这颗按钮在任何形态下都该在**：
+            集合页里最该有的第二个动作就是"我什么都不挑，直接开干"。
+            行为：关掉集合页 → 走画布既有的 `handleNew`（就地清空成空白画布，与顶栏「新建画布」同一条链路）。 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12, alignItems: 'center' }}>
           <button type="button" onClick={() => setTab('featured')} style={tab === 'featured' ? TAB_ACTIVE : TAB}><Star size={12} />精选</button>
           <button type="button" onClick={() => setTab('mine')} style={tab === 'mine' ? TAB_ACTIVE : TAB}><Layers3 size={12} />我的</button>
           <button type="button" onClick={() => setTab('image')} style={tab === 'image' ? TAB_ACTIVE : TAB}>图像</button>
           <button type="button" onClick={() => setTab('video')} style={tab === 'video' ? TAB_ACTIVE : TAB}><Video size={12} />视频</button>
+          {onNewBlank && <button type="button" onClick={() => onNewBlank()} style={{ ...TAB, marginLeft: 'auto', borderColor: 'var(--sb-brand-600)', color: 'var(--sb-brand-700)', fontWeight: 700 }} data-canvas-control="true">
+            <Plus size={12} />新建空白画布
+          </button>}
         </div>
+        {/* 类目 chip（照知渔那一屏的形态）：从已加载列表现算；只有一个类目时不渲染这一行（不做无意义的筛选） */}
+        {categories.length > 2 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }} role="group" aria-label="按类目筛选模板">
+          {categories.map(name => <button key={name} type="button" data-canvas-control="true"
+            onClick={() => setCategory(name)}
+            aria-pressed={category === name}
+            style={category === name ? { ...TAB, background: 'var(--sb-brand-50)', borderColor: 'var(--sb-brand-200)', color: 'var(--sb-brand-700)' } : TAB}>
+            {name}
+          </button>)}
+          <span style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: 11, color: '#94a3b8' }}>共 {shown.length} 套</span>
+        </div>}
       </div>
 
       {loading ? <div style={{ padding: '24px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
