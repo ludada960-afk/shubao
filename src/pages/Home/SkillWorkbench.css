@@ -109,6 +109,7 @@
 }
 .skill-history-reuse,
 .skill-history-download,
+.skill-history-save,
 .skill-history-delete,
 .skill-history-more {
   padding: 4px 10px;
@@ -122,7 +123,10 @@
 }
 .skill-history-reuse:hover,
 .skill-history-download:hover,
+.skill-history-save:hover:not(:disabled),
 .skill-history-more:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
+/* 存入中：禁用态要看得出来（不是"点了没反应"） */
+.skill-history-save:disabled { opacity: .6; cursor: progress; }
 .skill-history-delete:hover { background: var(--sb-ink-1); color: var(--sb-surface-card); }
 .skill-history-more { justify-self: start; margin-top: 10px; padding: 7px 14px; font-size: 12px; }
 /* ═══ 到期墓碑：灰卡（批 CA）══════════════════════════════════════════════════════════════

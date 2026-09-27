@@ -37,6 +37,10 @@ export default function SkillWorkbench({
   onHistoryReuse = null,
   /* 批 BZ：下载（图片整组 / 视频成片）。没传就不渲染那颗按钮。 */
   onHistoryDownload = null,
+  /* 批 CD：存到我的资产（把这条记录里的生成图收进资产库）。没传就不渲染那颗按钮。 */
+  onHistorySaveAssets = null,
+  /* 正在存的那条（页面传下来；组内每项据此显示"存入中…"并禁用，防连点） */
+  historySavingId = '',
   /* 整块嵌入的既有工作台（小红书图文 / 视频）。见 WorkbenchShell.panel 的说明：
      非空时页面变成「通栏」形态 —— 不再渲染通用字段与通用 CTA。 */
   panel = null,
@@ -81,8 +85,13 @@ export default function SkillWorkbench({
      ⚠️ `__index` 是这条记录在**完整历史里的下标** —— 灯箱（`shown`）与 `setLightbox` 都按它取图，
         分组之后如果改用组内下标，点第 2 组的第一张会打开第 1 组的图（图文不符那种坑）。 */
   const visibleHistory = useMemo(
-    () => historyList.slice(0, historyLimit).map((item, index) => ({ ...item, __index: index })),
-    [historyList, historyLimit],
+    () => historyList.slice(0, historyLimit).map((item, index) => ({
+      ...item,
+      __index: index,
+      /* 批 CD：这一条是否正在存进资产库（按钮显示"存入中…"并禁用） */
+      saving: Boolean(historySavingId) && String(item.id || '') === String(historySavingId),
+    })),
+    [historyList, historyLimit, historySavingId],
   );
   const historyGroups = useMemo(() => groupHistoryByDay(visibleHistory), [visibleHistory]);
   /* ⚠️ 大图必须跟着**当前页签**取图：历史页签里点开"示例"的图，就是图文不符的 bug。 */
@@ -226,6 +235,13 @@ export default function SkillWorkbench({
                                 出片失败/还没有结果的那种记录，放一个点了没反应的下载是坑。 */}
                             {(row.cover || row.video || (Array.isArray(row.downloads) && row.downloads.length))
                               && <button type="button" className="skill-history-download" onClick={() => onHistoryDownload?.(row)}>下载</button>}
+                            {/* ═══ 批 CD：存到我的资产 ═══════════════════════════════════════════════
+                                用户问的「是不是会有……**导入到我的资产**里面的功能？」。
+                                ⚠️ 只对**有生成图**的记录给（存的是一张张图）；过期墓碑不给（文件已回收）；
+                                   正在存的那条显示"存入中…"并禁用，防连点堆重复素材。 */}
+                            {!row.expired && (row.cover || (Array.isArray(row.downloads) && row.downloads.some(Boolean)))
+                              && <button type="button" className="skill-history-save" disabled={row.saving === true}
+                                onClick={() => onHistorySaveAssets?.(row)}>{row.saving === true ? '存入中…' : '存到资产'}</button>}
                             <button type="button" className="skill-history-delete" onClick={() => onHistoryDelete?.(row)}>删除</button>
                           </div>
                         </div>

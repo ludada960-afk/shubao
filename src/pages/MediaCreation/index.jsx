@@ -31,7 +31,11 @@ import { contentResultPages, isContentResult } from '../Home/contentResultModel.
    否则会出现"示例里写着 5 样、实际只交付 3 样"这种自相矛盾（计价按张数走，写错就是钱的问题）。 */
 import { IMAGE_TYPES } from '../Home/ec/ecommercePlanModel.js';
 import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
+/* 批 CE：视频任务的输入素材 → 创作台形状（纯函数，门禁能直接跑） */
+import { videoJobMaterials } from '../VideoStudio/videoMaterialsModel.js';
 import { EXPIRED_NOTE, downloadFileName, isExpiredWork, videoStatusLabel } from '../Home/mediaHistoryModel.js';
+/* 批 CD：存到我的资产（自动建/复用「生成作品」项目 + 注册 + 入库，幂等） */
+import { saveGeneratedUrlsToAssets } from '../Home/saveWorkToAssets.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
 /* 批 BP-3：首页案例区「做同款」→ 落到哪条技能 + 预填什么，判断收在那一个纯函数模块里 */
 import { remixSeedValuesOf, remixSkillIdOf } from '../Home/galleryRemixTarget.js';
@@ -141,6 +145,9 @@ function formatWorkTime(value) {
    用户问：「他们是不是也得有一个遮罩的标签这样？那这个标签应该备注是什么呢？」
    实现与口径都在 `../Home/mediaHistoryModel.js`（纯函数，门禁能直接跑）。 */
 /* 历史操作③：下载（批 BZ）——见下方 downloadHistory */
+
+/* 批 CE：视频任务的输入素材 → 创作台能吃的形状 —— 纯函数收在 VideoStudio/videoMaterialsModel.js
+   （`.jsx` node 直接 import 会报扩展名错，而这件事必须有门禁真跑）。 */
 
 /* 错误就近显示：把人话放在 CTA 上方，而不是弹一个转瞬即逝的 Toast */
 function friendlyError(error) {
@@ -588,6 +595,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
                 ratio: String(job.aspectRatio || job.aspect_ratio || ''),
                 resolution: String(job.resolution || ''),
                 mode: skillVideoMode(skill) || 'smart',
+                /* ═══ 批 CE：**素材也一起带回去**（用户口径：「把素材和提示词和配置都填回去工作台」）═══
+                   服务端 `video_jobs.refs_json` 里一直存着那次任务的输入素材
+                   （`{firstImage,lastImage,images:[id],videos:[id],audios:[id],urls:{id:url}}`），
+                   这里把它翻成创作台能直接吃下的 `{id,url}` 形状（纯函数在 VideoStudio 里做归一）。
+                   ⚠️ 没有 refs 的老任务就退回空集合（新老任务都不炸）。 */
+                materials: videoJobMaterials(job.references),
               },
             },
           };
@@ -1266,6 +1279,28 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     setNotice(urls.length > 1 ? '已开始下载 ' + urls.length + ' 个文件' : '已开始下载');
   }
 
+  /* ═══ 历史操作④：存到我的资产（批 CD）═══════════════════════════════════════════════════
+     用户问的「是不是会有……**导入到我的资产**里面的功能？」。
+     落点：站里没有"手动建项目"的入口（核查过：项目只由画布媒体保存/视频项目那几条链路**隐式**产生），
+     `project_assets.project_id` 又是 NOT NULL ⇒ 照**已有的隐式建项目**做法，自动建/复用一个
+     名为「生成作品」的项目（幂等键写死），再把图注册进去并设成在资产库可见。细节见 saveWorkToAssets.js。 */
+  async function saveHistoryToAssets(item) {
+    const urls = (Array.isArray(item?.downloads) ? item.downloads : []).filter(Boolean);
+    if (!urls.length) { setError('这条记录没有可以存进资产库的图片'); return; }
+    setHistorySavingId(String(item?.id || ''));
+    setError('');
+    try {
+      const result = await saveGeneratedUrlsToAssets(urls, { title: item?.title || skill?.name || '' });
+      if (result.added) setNotice('已存到「我的资产」（' + result.added + ' 张）——长期保留，可当参考图继续用');
+      else if (result.skipped) setNotice('这些图已经在「我的资产」里了');
+      else setError('存进资产库失败，请稍后重试');
+    } catch (failure) {
+      setError(failure?.message || '存进资产库失败，请稍后重试');
+    } finally {
+      setHistorySavingId('');
+    }
+  }
+
   /* 历史操作②：删除（软删除，服务端可恢复） */
   async function deleteHistory(item) {
     const saveKey = item?.saveKey;
@@ -1329,6 +1364,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        关掉只把 opened 置 false —— 组件不卸载，方案与用户在步①/②/③ 改过的东西都还在。 */
   const [planSession, setPlanSession] = useState(null);
   const [planUnapplied, setPlanUnapplied] = useState(false);
+  /* 批 CD：正在存进资产库的那条记录（防连点，也用来显示"存入中…"） */
+  const [historySavingId, setHistorySavingId] = useState('');
   const closePlanPreview = () => setPlanSession(current => (current ? { ...current, opened: false } : null));
   /* 换技能就把这份会话丢掉：它的 prompt/materials 来自上一条技能的字段，留着会串味。
      ⚠️ 这同时是"确认离开"之后的收尾 —— 那份方案确实没地方可去了（提示里就是这么说的）。 */
@@ -1571,6 +1608,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onHistoryDelete={deleteHistory}
         onHistoryReuse={reuseHistory}
         onHistoryDownload={downloadHistory}
+        onHistorySaveAssets={saveHistoryToAssets}
+        historySavingId={historySavingId}
         history={history}
         panel={panel}
         tutorial={tutorial}

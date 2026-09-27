@@ -51,8 +51,10 @@ test('② 按天分组：分页先切再分组，且组内保留"完整历史里
   assert.deepEqual(groupHistoryByDay([], now), []);
   assert.deepEqual(groupHistoryByDay(undefined, now), []);
   const workbench = read('src/pages/Home/SkillWorkbench.jsx');
-  assert.match(workbench, /const visibleHistory = useMemo\(\s*\n?\s*\(\) => historyList\.slice\(0, historyLimit\)\.map\(\(item, index\) => \(\{ \.\.\.item, __index: index \}\)\)/,
-    '分页要先切（不然"显示更多"会把某一整天的组切开跑掉）');
+  /* ⚠️ 锚点别写死整行：这个 memo 后面又加过字段（批 CD 的 `saving`），
+     判据守的是"**分页先切、分组在切好的那一页上**"，不是那一行的字面量。 */
+  const memoBlock = workbench.slice(workbench.indexOf('const visibleHistory = useMemo('), workbench.indexOf('const historyGroups = useMemo('));
+  assert.match(memoBlock, /historyList\.slice\(0, historyLimit\)/, '分页要先切（不然"显示更多"会把某一整天的组切开跑掉）');
   assert.match(workbench, /groupHistoryByDay\(visibleHistory\)/, '分组作用在切好的那一页上');
   assert.match(workbench, /setLightbox\(row\.__index\)/, '灯箱要用**完整历史里的下标**（组内下标会打开别人的图）');
 });

@@ -33,7 +33,13 @@ import { nearestLegalRatio, skillVideoMode } from '../src/skills/skillRun.js';
    手抄一份 ['image2'] 会在目录加档时变成"页面能选、请求判非法"的假红。 */
 import { SELECTABLE_IMAGE_MODELS, generationUnits } from '../src/services/imageModelCatalog.js';
 
-const PORT = 4197;
+/* ═══ 端口：默认 4197，可用 `SHUBO_E2E_PORT` 覆盖（2026-09-27 批 CD 加的）══════════════════════
+   为什么要有这个开关：**同一个工作树里可能有两个会话同时在跑**（本仓真的有），
+   而两边都要起这个 e2e —— 抢同一个端口的结果是后来者当场 `EADDRINUSE` 退出，
+   precommit 报"端到端失败"却看不到任何断言，**看起来像代码坏了，其实是撞端口**（本轮撞了三次）。
+   ⇒ 一个会话跑 4197、另一个 `SHUBO_E2E_PORT=4198 npm run precommit` 即可互不打扰，
+     默认值一个字没变（对单会话场景完全透明）。 */
+const PORT = Number(process.env.SHUBO_E2E_PORT) > 0 ? Number(process.env.SHUBO_E2E_PORT) : 4197;
 const ROOT = resolve('dist');
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -820,6 +826,13 @@ try {
        桩里原来漏了它 —— 于是"历史卡要带时间"这条断言拿到空值判红。
        按本仓规矩：把桩补齐成与真机一致的形状，而不是把断言放宽。 */
     createdAt: '2026-09-26 14:05:00', updatedAt: '2026-09-26 14:06:00',
+    /* ⚠️ 批 CE：**真机返回里也有 references**（`refs_json`：那次任务的输入素材），
+       桩里同样要补 —— 否则"素材也一起带回去"这条在 e2e 里永远验不到。 */
+    references: {
+      firstImage: 'e2e-in-1', lastImage: '',
+      images: ['e2e-in-1'], videos: [], audios: [],
+      urls: { 'e2e-in-1': '/images/home/workspace-video.png' },
+    },
   }];
   await page.goto('http://127.0.0.1:' + PORT + '/video-creation?id=video.smart', { waitUntil: 'load', timeout: 40000 });
   await page.waitForSelector('.media-workbench-panel .video-studio-page', { timeout: 20000 });
@@ -864,6 +877,10 @@ try {
   check(stageAfterPick.stage, '点生成记录后，结果台就在这一页出现（不必跳画布）');
   check(stageAfterPick.player, '结果台里是可播放的成片（不是一句"去画布看"）');
   check(tagged.actions.includes('用这组参数'), '历史条目能还原参数', JSON.stringify(tagged.actions));
+  /* ═══ 批 CD：历史条目上要有「存到资产」（用户问的"导入到我的资产"）═══════════════════════════
+     ⚠️ 只验**按钮在不在**：真点下去会打 /api/projects/... 那几个接口，本 e2e 的打桩里没有它们
+        （那是另一条链路的契约），点了必然是 404 —— 那不是"功能坏了"。落库行为由门禁与生产复验保证。 */
+  check(tagged.actions.includes('存到资产'), '历史条目有「存到资产」（导入到我的资产）', JSON.stringify(tagged.actions));
   /* ═══ 批 BZ：出片的那条要有「下载」；保留期那句要写在**看得见这条流的地方** ═══════════════
      用户口径：「是不是会有……**下载**的功能？」「作品保留 7 天」这条以前只写在「我的作品」工作区里，
      而结果真正被翻看的地方是这条技能的历史 —— 这里也要说，且说的是**同一个数**（服务端保留期）。 */
@@ -888,6 +905,14 @@ try {
     active: (document.querySelector('.video-mode-tabs button.is-selected strong')?.textContent || document.querySelector('.video-studio-page')?.dataset.videoMode || ''),
   }));
   check(videoRestored.prompt.includes('白底化妆水瓶'), '提示词还原回创作台', videoRestored.prompt.slice(0, 40));
+  /* ═══ 批 CE：素材也要一起带回去（用户口径：「把素材和提示词和配置都填回去工作台」）═══════════
+     ⚠️ 这条必须**排在"用这组参数"点击之后**：上一版我把它放在列表断言那一段（点之前），
+        于是永远查不到那条素材带 —— e2e 当场红（不是功能坏了，是断言站错了位置）。 */
+  const restoredStrip = await page.evaluate(() => {
+    const box = document.querySelector('.video-restored-materials');
+    return { shown: Boolean(box), text: box?.textContent || '', items: box?.querySelectorAll('li').length || 0 };
+  });
+  check(restoredStrip.shown && restoredStrip.items >= 1, '「用这组参数」把那次任务的素材也带回创作台（看得见）', JSON.stringify(restoredStrip).slice(0, 120));
   check(videoRestored.notice.includes('重新计费'), '明确告诉用户"确认后才会重新计费"', videoRestored.notice.slice(0, 40));
   check(videoRestored.active.includes('智能成片') || videoRestored.active.includes('smart'),
     '创作方式也跟着还原', videoRestored.active);
