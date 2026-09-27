@@ -152,6 +152,26 @@ test('CP-① 那一行两个板块共用一份（图片侧从此也有 @ / 放�
   assert.ok(ruleBody(shell, '.media-field-meta-expand {'), '放大按钮在这一行里是普通按钮（不绝对定位）');
 });
 
+test('CW-① 字数：**页面显示的数 = 真正能输入的数**（用户拍板）', () => {
+  /* ═══ 2026-09-27 批 CW：**用户拍板**（原话逐字）═══════════════════════════════════════════════
+     「字数上限既然只能8000，那就计数显示也只写8000呀。为什么你要走不一样的方式呢？
+      **实际是多少就写多少呀**。」
+     背景（批 CS 量的实测）：脚本块声明 `max: 10000`（照知渔页面上写的数），而真的截断在
+     `VIDEO_PROMPT_MAX_LENGTH = 8000` ⇒ 页面写 `0 / 10000`、用户只能打到 8000，
+     同一页放大弹窗分母还写 8000 —— **一处三样**；而声明 2000 的补充说明反过来（门槛 2000 就提示、
+     实际能打到 8000）。用户口径：全页只认一个数。 */
+  const video = read('src/components/media/VideoWorkbench.jsx');
+  assert.match(video, /const limit = declaredLimit > 0 && globalLimit > 0[\s\S]{0,40}Math\.min\(declaredLimit, globalLimit\)/,
+    '必须按 min(区块声明的 max, 全局上限) 算出**唯一**的那个数');
+  assert.match(video, /<PromptMetaRow[\s\S]{0,220}maxLength=\{limit\}/, '框下那一行的分母 = limit');
+  assert.match(video, /<MentionPromptField[\s\S]{0,200}maxLength=\{limit\}/, '输入框的截断 = limit（同一个数）');
+  assert.match(video, /<span>\{text\.length\}\/\{limit\}<\/span>/, '放大弹窗的分母 = limit（不许再写 maxLength）');
+  assert.ok(!/maxLength=\{counterMax \|\| maxLength\}/.test(video),
+    '不许再出现 `counterMax || maxLength`（那正是"显示 10000、实际 8000"的写法）');
+  /* 实测（.qa/cs-motion-and-counter.mjs）：video.smart 显示 0/8000、塞 9500 只剩 8000；
+     video.product_motion 显示 0/2000、塞 3000 只剩 2000；图片侧三处都是 2000。 */
+});
+
 test('CO-① 脚本框右下角的拉高手柄（图片侧是原生手柄，视频侧自己做同位置同用途）', () => {
   /* 用户原话（逐字）：「你的提示词框的右下角在图片生成那边，它不是有一个可以**拉动高度**的一个按钮吗？
      为什么你图片生成这边又没有呢？……同等级的东西，你应该同等级的去进行设计呀。」

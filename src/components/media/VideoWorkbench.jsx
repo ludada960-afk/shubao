@@ -159,6 +159,21 @@ function ScriptField({
         下面的 atOpen / insertMention 都搬进那个组件了，这里只留 mentions 数据源。 */
   const text = String(value || '');
   const atItems = Array.isArray(mentions) ? mentions.filter(Boolean) : [];
+  /* ═══ 2026-09-27 批 CW：**显示的数 = 真正能输入的数**（用户拍板，原话逐字）══════════════════════
+     「字数上限既然只能8000，那就计数显示也只写8000呀。为什么你要走不一样的方式呢？
+      **实际是多少就写多少呀**。」
+     背景（批 CS 量出来的三处口径）：脚本块声明 `max: 10000`（那是照知渔页面上写的数），
+     而全局真的截断在 `VIDEO_PROMPT_MAX_LENGTH = 8000` ⇒ 页面上显示 `0 / 10000`、
+     用户却只能打到 8000（塞 9500 进去实测只剩 8000），同一页的放大弹窗分母还写着 8000 —— **一处三样**。
+     ⇒ 现在全页只认一个数：`limit = min(区块声明的 max, 全局上限)`，
+       **输入框按它截断、计数显示它、放大弹窗分母也是它、`已到字数上限` 也在它这里出现**。
+       脚本（声明 10000）→ 8000；补充说明（声明 2000/5000）→ 就按它自己的声明。
+     这样"人能输多少"与"页面写的多少"永远相等，不会再出现"显示能输、实际被截断"。 */
+  const declaredLimit = Number(counterMax) || 0;
+  const globalLimit = Number(maxLength) || 0;
+  const limit = declaredLimit > 0 && globalLimit > 0
+    ? Math.min(declaredLimit, globalLimit)
+    : (declaredLimit || globalLimit || 0);
   /* ═══ 2026-09-27 批 CO：**右下角的拉高手柄**（用户原话，逐字）═════════════════════════════════
      「你的提示词框的右下角在图片生成那边，它不是有一个可以**拉动高度**的一个按钮吗？为什么你图片
      生成这边又没有呢？你应该同步把这些东西给一起做进来呀，就那边有的东西你这边也得有呀，同等级的
@@ -189,7 +204,7 @@ function ScriptField({
       ref={fieldRef}
       value={value}
       mentions={mentions}
-      maxLength={maxLength}
+      maxLength={limit}
       onChange={onChange}
       onFilesPasted={onFilesPasted || undefined}
       placeholder={placeholder}
@@ -210,11 +225,12 @@ function ScriptField({
         title="拖动调整高度"
         onPointerDown={disabled ? undefined : startResize}
       />
-      {/* 框下方那一行：@ / 放大 / 字数 —— **与图片侧共用同一份组件**（批 CP 合并，样式只有一份） */}
+      {/* 框下方那一行：@ / 放大 / 字数 —— **与图片侧共用同一份组件**（批 CP 合并，样式只有一份）
+          ⚠️ 批 CW：分母必须是 `limit`（= 真正能输入的数），不能再写区块声明的 10000 */}
       <PromptMetaRow
         label={label || '脚本'}
         value={text}
-        maxLength={counterMax || maxLength}
+        maxLength={limit}
         assets={atItems}
         disabled={disabled}
         onInsert={next => onChange(next)}
@@ -231,13 +247,15 @@ function ScriptField({
           <div className="media-field-expand-body">
             <header>
               <strong>{label || '脚本'}</strong>
-              <span>{text.length}/{maxLength}</span>
+              {/* 批 CW：放大弹窗的分母与框下那一行**同一个数**（原来这里写 maxLength=8000、
+                  框下写 counterMax=10000 —— 同一页两个数，用户口径不接受） */}
+              <span>{text.length}/{limit}</span>
               <button type="button" className="media-field-expand-close" aria-label="关闭放大编辑" onClick={() => setExpanded(false)}><X size={16} /></button>
             </header>
             <MentionPromptField
               value={value}
               mentions={mentions}
-              maxLength={maxLength}
+              maxLength={limit}
               onChange={onChange}
               onFilesPasted={onFilesPasted || undefined}
               placeholder={placeholder}
@@ -433,7 +451,10 @@ export default function VideoWorkbench({
                    两处必须长得一样（这一条也是端到端脚本读提示词的锚点） */
                 className="video-prompt-mentions video-wb-prompt"
               />
-              {value.length >= Number(block.max || 0) && <div className="video-wb-counter is-full">已到字数上限</div>}
+              {/* 批 CW：上限提示也按**同一个数**判（min(区块声明, 全局上限)）——
+                  原来写 `>= block.max`，脚本块声明 10000 而实际只能到 8000 ⇒ 这句提示**永远不会出现**；
+                  而在声明 2000 的补充说明上又会在还能继续打字时就出现。现在与计数同源，不可能再错位。 */}
+              {Number(block.max || 0) > 0 && value.length >= Math.min(Number(block.max), promptMaxLength || Number(block.max)) && <div className="video-wb-counter is-full">已到字数上限</div>}
               {block.emptyTitle && !String(value || '').trim() && (
                 <div className="video-wb-empty">
                   <strong>{block.emptyTitle}</strong>
