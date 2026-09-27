@@ -759,6 +759,25 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
 .video-empty strong { color: #55504a; }
 .video-empty span { font-size: 12px; }
 .video-empty progress { width: min(260px,80%); accent-color: var(--sb-brand-600); }
+/* ═══ 2026-09-27 批 CM：**「生成脚本」搬到页面底部动作区**（与图片侧那颗分析按钮同级）═════════════
+   用户原话（逐字）：「你这里还是没改啊？这个生成脚本的按钮我不是跟你说了吗？它应该是跟图片生成里面
+   那个**一键分析**的那个按钮是**同等级**的东西啊……你现在放在左边很明显就是**很挤占现在的空间**呀。
+   你应该跟图片生成那边的一键分析那种按钮做同样的规划才对呀。」
+   ⇒ 它原来长在脚本框里（`width:100%` 的通栏之上还压着一行说明），现在移到 `.video-submit-actions`
+     里当**次按钮**（与「查看方案」同一个形态），主 CTA 仍是那颗渐变大按钮。 */
+.video-script-trigger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; padding: 0 16px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-lg);
+  background: var(--sb-surface-card); color: var(--sb-ink-1);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.video-script-trigger:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
+.video-script-trigger:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.video-script-trigger:disabled { opacity: .5; cursor: not-allowed; }
+.video-script-trigger-points { color: var(--sb-brand-700); font-weight: 700; }
+
 .video-history { width: min(100%,860px); margin-top: 18px; padding-top: 14px; display: grid; gap: 7px; border-top: 1px solid #e8e3dd; }
 /* ═══ 2026-09-27 批 CG：搬进右栏历史区之后的两条几何 ═══════════════════════════════════════════
    ① 挂载点：`.media-workbench-pane` 的一个子节点，切页签靠 `hidden` 显隐

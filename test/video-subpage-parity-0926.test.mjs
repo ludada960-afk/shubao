@@ -125,6 +125,22 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
 });
 
+test('CM-① 「生成脚本」搬到页面底部动作区（与图片侧那颗分析按钮同级）', () => {
+  /* 用户原话（逐字）：「它应该是跟图片生成里面那个一键分析的那个按钮是**同等级**的东西啊……你现在
+     放在左边很明显就是**很挤占现在的空间**呀。」实测（.qa/cm-script-button.mjs）：
+     video.smart → 脚本框里的动作按钮 **0** 个、说明行 0 行；底部动作区顺序 = video-script-trigger → video-generate-trigger。 */
+  const wb = read('src/components/media/VideoWorkbench.jsx');
+  assert.match(wb, /block\.action\.key !== 'script' \? block\.action : null/,
+    '脚本块里不许再渲染「生成脚本」那颗（由页面底部接管）');
+  const page = read('src/pages/VideoStudio/index.jsx');
+  assert.match(page, /className="video-script-trigger"/, '底部动作区要有这颗次按钮');
+  assert.match(page, /const scriptAction = \(\(workbench && workbench\.blocks\) \|\| \[\]\)\.find/,
+    '它只在这条 skill 真的声明了 script 动作时才出现（别的技能页面不该多一颗）');
+  assert.match(page, /onClick=\{runDawei\}/, '点的还是原来那条链路（与「做同款/生成脚本」同一份实现）');
+  const css = read('src/pages/VideoStudio/VideoStudio.css');
+  assert.ok(ruleBody(css, '.video-script-trigger {'), '次按钮要有自己的样式（不是套主 CTA）');
+});
+
 test('CL-① 配方提示词不再预填，但"用这组参数"的还原必须保留', () => {
   /* 用户改向（逐字）：「你现在这个提示词框里面依然是默认会有这段提示词出来…我现在只要一刷新页面，
      它这段提示词就会出现的。」⇒ 进子页面输入框必须是空的；历史还原那一份不受影响。

@@ -2095,6 +2095,10 @@ export default function VideoStudioPage({
      类名（`.video-history` / `.video-history-title` / `.video-history-empty`）**一个都不改**：
      e2e 与门禁按它们找；改的只是它渲染在哪儿。`homeComposer` 那一支保持原样（首页只留入口按钮）。
      （批 CD 走过一版又被回退，原因与时间线见下面渲染处那段注释。） */
+  /* 批 CM：工作台声明的「生成脚本」动作（键 script）—— 它现在渲染在底部动作区，与图片侧同级 */
+  const scriptAction = ((workbench && workbench.blocks) || []).find(block => block.kind === 'text' && block.action && block.action.key === 'script')?.action || null;
+  const disabledForActions = !capabilities.generationEnabled || !state.logged || planning;
+
   const videoHistoryBlock = (
     <div className="video-history">
       {homeComposer ? (
@@ -2459,7 +2463,7 @@ export default function VideoStudioPage({
               {submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}
             </div></div>
           ) : (
-          <div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}{submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}</div></div>
+          <div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{workbenchMode && scriptAction ? <button type="button" className="video-script-trigger" disabled={disabledForActions} onClick={runDawei}><Sparkles size={14} />{scriptAction.label}<span className="video-script-trigger-points">{scriptAction.points} 积分</span></button> : null}{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}{submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}</div></div>
           )}
         </footer>
       </div>

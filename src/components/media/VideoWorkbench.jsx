@@ -376,7 +376,10 @@ export default function VideoWorkbench({
           );
         }
         if (block.kind === 'text') {
-          const action = block.action;
+          /* 批 CM：「生成脚本」这颗动作**不在框里渲染**了 —— 它被搬到页面底部动作区，与图片侧
+             那颗分析按钮同级（用户原话：「它应该是跟图片生成里面那个一键分析的那个按钮是同等级的
+             东西啊……你现在放在左边很明显就是很挤占现在的空间呀」）。其它动作（如解析素材）仍留在块内。 */
+          const action = block.action && block.action.key !== 'script' ? block.action : null;
           /* 主文本格（补充说明 / 脚本）走 prompt；其它文本格（门店信息这类）走 blockValues */
           const isPrimary = block.key === 'prompt';
           const value = isPrimary ? prompt : String(blockValues[block.key] || '');
