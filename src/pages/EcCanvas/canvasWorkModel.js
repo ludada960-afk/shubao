@@ -148,6 +148,23 @@ function normalizePanelWork(work = {}) {
   const videoUrl = workVideoUrl(work);
   const mediaAssets = collectCanvasMediaAssets(work);
   const projectAssetRefs = collectCanvasProjectAssetRefs({ work });
+  /* ═══ 2026-09-27 批 CH：**到期墓碑也要留在列表里**（灰卡），不许凭空消失 ═══════════════════
+     背景：保留期到期后服务端留的是"清空了媒体字段 + 记 expired_at"的墓碑。子页面历史把它渲染成
+     「已过期」灰卡，但**这里**原来会因为"没有图/视频/素材引用"被 `return null` 悄悄丢掉 ——
+     同一条记录两处表现不一致（用户口径：两处都该看得见）。⇒ 墓碑优先判，原样留着并打 `expired` 标记。 */
+  const expired = work?._expired === true || Boolean(String(work?.expired_at || '').trim());
+  if (expired) {
+    return {
+      ...work,
+      id: work.id || work._saveKey || work.title || 'expired-work',
+      name: displayName(work) || '生成记录',
+      expired: true,
+      images: [],
+      videoUrl: '',
+      mediaAssets: [],
+      projectAssetRefs: [],
+    };
+  }
   if (!images.length && !videoUrl && !mediaAssets.length && !projectAssetRefs.length) return null;
   return {
     ...work,

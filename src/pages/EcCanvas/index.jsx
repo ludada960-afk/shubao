@@ -7617,6 +7617,21 @@ const handlePointerUp = useCallback((e) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16 }}>
               {(tab === 'trash' ? trashWorks : visibleWorks).map(work => (
                 <div key={work.id} style={{ borderRadius: 16, overflow: 'hidden', background: '#fff', border: '1px solid rgba(12,10,9,0.06)', boxShadow: '0 2px 8px rgba(12,10,9,0.04)' }}>
+                  {/* ═══ 批 CH：到期墓碑在这里也要**看得见**（灰卡），不许凭空消失 ═══════════════════
+                      用户口径：「子页面生成的作品不仅会进子页面右边的历史区，还应该进我的作品里面」
+                      ——那么"过期了"这件事两处就得说同一种话：子页面是灰卡 + 已过期，这里原来直接没了
+                      （整理逻辑要求有图/视频/素材引用，墓碑被清空了就被丢掉）。现在同款灰卡。 */}
+                  {work.expired ? (
+                    <div role="note" style={{ display: 'grid', gap: 6, padding: '14px', background: 'var(--sb-surface-sunken)' }}>
+                      <span style={{ justifySelf: 'start', padding: '2px 8px', borderRadius: 999, background: 'var(--sb-surface-tint-strong)', color: 'var(--sb-ink-3)', fontSize: 11 }}>已过期</span>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--sb-ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{work.name}</div>
+                      <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--sb-ink-3)' }}>这条记录已过期（作品保留 7 天），图片文件已清理，无法再打开或下载。</div>
+                      <div style={{ display: 'flex', gap: 4, justifySelf: 'end' }}>
+                        <button type="button" aria-label="移入回收站" title="移入回收站" onClick={() => deleteWork(work.id)} style={{ width: 30, height: 30, padding: 0, border: 0, borderRadius: 8, background: 'rgba(239,68,68,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ) : (
+                  <>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px' }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a' }}>{work.name}</div>
@@ -7673,6 +7688,8 @@ const handlePointerUp = useCallback((e) => {
                       ) : null;
                     })}
                   </div>
+                  </>
+                  )}
                 </div>
               ))}
             </div>
