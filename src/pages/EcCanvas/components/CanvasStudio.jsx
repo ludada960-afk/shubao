@@ -58,6 +58,7 @@ import {
   ChevronDown,
   Music,
   Wand2,
+  ListChecks,
 } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 import ModelLogo from '../../../components/ModelLogo.jsx';
@@ -150,6 +151,15 @@ const ADD_ACTIONS = [
   { id: 'text-generation', label: '生成文案', description: '结合提示词和参考图生成可编辑文案', icon: MessageSquareText },
   { id: 'ecommerce', label: '生成电商套图', description: '从商品素材创建完整套图', icon: WandSparkles },
   { id: 'video', label: '生成视频', description: '用提示词、图片或视频创建营销成片', icon: ImagePlay },
+  /* ═══ 2026-09-28 批 CX（CV-1）：**「按技能开始」** ═══════════════════════════════════════════════
+     docs/design/89 §5 第 1 步"一份声明三处复用"的第一处落地：同一条技能声明（`src/skills/*.js`）
+     现在只在**子页面工作台**里能选，画布上得"先建生成框、再点技能按钮"两步。
+     用户对画布的定位是工作流生产地（原话：「画布可能最终要走向像知渔AI他们那样……
+     把各种各样的工作流**集合成模板**」）⇒ "我要做爆款复刻"应该能**一步**落到画布上。
+     行为：关菜单 → 开技能库（与首页/视频页同一个 modal）→ 选中后建出带这条技能的节点
+     （技能正文预填进提示词、`skill`/`skillLabel` 记名）。
+     ⚠️ **建节点 0 收费**：跑生成仍走原来的"报价 → 用户确认 → 扣费"链路，这里不碰钱。 */
+  { id: 'by-skill', label: '按技能开始', description: '从全部技能里挑一条，直接建一个带它的节点', icon: ListChecks },
   /* 9-06 恢复: 用户确认左侧 + 是"无素材起点"的完整创作菜单, 应包含全部生成入口;
      与派生菜单不冲突 — 派生带源素材引用, 这里是全新创建 */
 ];

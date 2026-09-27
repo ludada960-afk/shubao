@@ -127,6 +127,7 @@ export function CanvasAddNodePanel({
   onAdd,
   onUpload,
   onPickFromLibrary,
+  onStartFromSkill = null,
   onClose,
   viewportWidth = 1440,
   viewportHeight = 900,
@@ -161,6 +162,13 @@ export function CanvasAddNodePanel({
   const resourceTypes = [
     { id: 'upload-local', label: '本地上传', icon: ImagePlus, onClick: onUpload },
     { id: 'from-library', label: '从资产库选择', icon: Folder, onClick: onPickFromLibrary },
+    /* ═══ 2026-09-28 批 CX（CV-1）：**「按技能开始」**（docs/design/89 §5 第 1 步"一份声明三处复用"）═══
+       同一条技能声明现在只在**子页面工作台**里能选；画布上得"先建生成框、再点技能按钮"两步。
+       用户对画布的定位是"工作流生产地"（他原话：「画布可能最终要走向像知渔AI他们那样……
+       把各种各样的工作流集合成模板」），所以"我要做爆款复刻"应该能**一步**落到画布上：
+       挑一条技能 → 直接建出带这条技能的节点（技能正文预填进提示词、skill/skillLabel 记名）。
+       ⚠️ 这里是**选中技能后才建节点**，不是"点了就扣费"：建节点 0 收费，跑生成仍走原来的报价→确认链路。 */
+    ...(onStartFromSkill ? [{ id: 'by-skill', label: '按技能开始', icon: Sparkles, hint: '从全部技能里挑一条，直接建一个带它的节点', onClick: onStartFromSkill }] : []),
   ];
 
   const filtered = nodeTypes.filter(n => !query || n.label.includes(query) || n.hint.includes(query));

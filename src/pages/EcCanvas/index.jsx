@@ -1166,11 +1166,34 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const openSkillLibrary = useCallback((nodeId, domain) => {
     setSkillLibraryTarget({ nodeId, domain: domain || 'image' });
   }, []);
+  /* ═══ 2026-09-28 批 CX（CV-1）：**「按技能开始」**——技能库不只服务"已有节点"，也能"起一个新节点" ═══
+     为什么要有（docs/design/89 §5 第 1 步"一份声明三处复用"）：同一条技能声明现在只在**子页面工作台**里
+     能选（画布上是"先建生成框、再点技能按钮"）。用户对画布的定位是"工作流生产地"，
+     所以"我要做爆款复刻"这件事应该能**一步**落在画布上 —— 选一条技能 → 直接建出带这条技能的节点。
+     ⚠️ `addCanvasComposer` 定义在本文件第 4109 行（远在下面），**不能**进这个 handler 的 deps 数组
+     （deps 在渲染期求值 → TDZ 白屏，本仓踩过）。用 ref 拿最新实现，见下面 addCanvasComposer 之后的 effect。 */
+  const addCanvasComposerRef = useRef(null);
+  const openSkillLibraryForNew = useCallback((domain = 'image') => {
+    setSkillLibraryTarget({ nodeId: null, domain, create: true });
+  }, []);
   const handleSkillLibraryPick = useCallback(skill => {
     const target = skillLibraryTarget;
     setSkillLibraryTarget(null);
-    if (!target?.nodeId || !skill) return;
+    if (!skill) return;
     const body = String(skill.body || skill.skillPrompt || '').trim();
+    /* 起一个新节点（"按技能开始"）：按技能所属板块建对应生成框，并把技能打在它身上 */
+    if (target?.create) {
+      const kind = target.domain === 'video' ? 'video' : 'image';
+      const composer = addCanvasComposerRef.current?.(kind, body ? { prompt: body } : {});
+      if (!composer?.id) { showToast('新建节点失败，请重试', 'error'); return; }
+      const applied = applyCanvasSkill({ prompt: body, skill: skill.slug || skill.name, skillBody: body });
+      setNodes(previous => previous.map(node => node.id === composer.id
+        ? { ...node, ...applied, skillLabel: applied.skillLabel || skill.name }
+        : node));
+      showToast(`已按「${skill.name}」新建节点，可以直接改参数生成`, 'success');
+      return;
+    }
+    if (!target?.nodeId) return;
     setNodes(previous => previous.map(node => node.id === target.nodeId ? (() => {
       const next = applyCanvasSkill({ prompt: node.prompt || '', skill: skill.slug || skill.name, skillBody: body });
       return { ...node, ...next, skillLabel: next.skillLabel || skill.name };
@@ -4139,6 +4162,11 @@ const handlePointerUp = useCallback((e) => {
     return composer;
   }, [createComposerPlacement, nodes, result.platform]);
 
+  /* 2026-09-28 批 CX（CV-1）：「按技能开始」要用到 `addCanvasComposer`，而它定义在本文件**更靠后**的地方
+     （`handleSkillLibraryPick` 在前面）—— 把引用挂到 ref 上（本 effect 在它之后求值），
+     这样既避开 deps 求值期的 TDZ 白屏，也不会拿到过期闭包。 */
+  useEffect(() => { addCanvasComposerRef.current = addCanvasComposer; }, [addCanvasComposer]);
+
   const updateComposerNode = useCallback((nodeId, change) => {
     setNodes(previous => previous.map(node => node.id === nodeId ? { ...node, ...change } : node));
   }, []);
@@ -6816,6 +6844,9 @@ const handlePointerUp = useCallback((e) => {
               else if (actionId === 'works') handleTabChange('works');
               else if (actionId === 'asset-library') setAssetPickerOpen(true);
               else if (actionId === 'upload-audio') audioUploadRef.current?.click();
+              /* 2026-09-28 批 CX（CV-1）：「按技能开始」→ 技能库（与首页/视频页同一个 modal）→
+                 选中后建一个带这条技能的节点（见 handleSkillLibraryPick 的 create 分支）。 */
+              else if (actionId === 'by-skill') openSkillLibraryForNew('image');
               /* 应用类：需要先在画布上选中一个素材；未选中时给提示，不做隐式动作 */
               else if (['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video'].includes(actionId)) {
                 /* 9-13 用户批注：应用有**适用对象**，不能任意节点都能点——
@@ -7829,6 +7860,9 @@ const handlePointerUp = useCallback((e) => {
           }}
           onUpload={() => sourceUploadRef.current?.click?.()}
           onPickFromLibrary={() => { setActiveFilter && setActiveFilter('资产库'); }}
+          /* 2026-09-28 批 CX（CV-1）：「按技能开始」→ 打开技能库（与首页/视频页同一个 modal），
+             选中后由 handleSkillLibraryPick 的 create 分支建出带这条技能的节点。 */
+          onStartFromSkill={() => { setAddNodePanel(null); openSkillLibraryForNew('image'); }}
           onClose={() => setAddNodePanel(null)}
           viewportWidth={typeof window !== 'undefined' ? window.innerWidth : 1440}
           viewportHeight={typeof window !== 'undefined' ? window.innerHeight : 900}
