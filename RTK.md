@@ -10925,3 +10925,21 @@ CV-5 社区闭环**。需要用户拍板 5 条（模板是否收费/解锁模式
 
 **证据**：`npm run test` —— tests **4198** / pass **4188** / **fail 0** / skipped 10；
 `npm run precommit` —— 构建 exit 0 + `[media-e2e] 通过：280 条断言全绿` + 38 门禁全绿。
+
+### 批 CU 第二次部署确认（2026-09-27 收尾）
+
+- **`Deployed f2f3a1b8 to https://shuimg.cn/`** + **`Released remote deployment lock`**。
+  线上 release = **`/var/www/shubao/releases/20260927-220531-f2f3a1b8`**；入口 `assets/index-*.js` +
+  `assets/style-CgwvdjVX.css`；`/` = 200、`/api/health` = 200；`PM2 shubao-production` online。
+- 服务器侧复验（ssh + grep 线上 CSS）：三条关键声明都在线上 ——
+  · `.ec-canvas-video-controls{display:flex;flex-wrap:wrap;…}`；
+  · `.ec-canvas-parameter-controls{…flex:0 1 auto;min-width:0;flex-wrap:wrap}`；
+  · `.ec-canvas-composer-footer>.ec-canvas-parameter-controls{order:1;flex:0 1 auto;min-width:0}`。
+- ⚠️ **两条运维教训（都写进本文件，别再踩）**：
+  1. **部署命令不许接 `| more`**：9-27 那次 `pwsh … | more +0` 让整条流水线提前退出（日志停在测试中段、
+     退出码 0 却什么都没部署），而且当时远程锁被**另一个会话**的部署占着（owner token 带 9ff83b9b）。
+     正确做法：`> .tmp/deploy-xxx.txt 2>&1` 重定向到文件，再读文件判据。
+  2. **并发会话**：同一天另一个会话在同一分支提交并部署了 `9ff83b9b`（「我的作品：到期墓碑画成灰卡」）。
+     它是我 `289301ec` 的子提交、又是我 `b9983301` 的父提交 ⇒ **两边的改动互相包含**，没有冲突；
+     但**部署前必须 `fuser /tmp/.shubao-deploy-v2.lock` 看锁**，别人在跑就别抢。
+- 本批**未跑任何付费生成**；部署仍带 `-SkipPublicChecks`（本机连不上公网域名，如实记）。
