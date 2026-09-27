@@ -1476,10 +1476,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         autoOpenCanvas={false}
         initialMode={skillVideoMode(skill)}
         skillTag={skill.id}
-        /* 进子页面就把这条玩法的**配方提示词**预填进创作台（用户口径：skill = 一个具体玩法，
-           进去该看到"这条玩法该怎么拍"，而不是一个空白输入框 + 一个名字）。
-           历史里点「用这组参数」时，videoSeed 覆盖它（还原那次任务的提示词与规格）。 */
-        preset={videoSeed || { prompt: buildSkillBrief(skill, initialSkillValues(skill)), mode: skillVideoMode(skill) }}
+        /* ═══ 2026-09-27 批 CL：**配方提示词不再预填**（用户改向，原话逐字）══════════════════════
+           原话：「你现在这个提示词框里面**依然是默认会有这段提示词出来**，我不明白这是为什么呀？
+           你这个问题一定要把它解决掉呀。我现在只要一刷新页面，它这段提示词就会出现的。」
+           ⇒ 这条判据（"进子页面该看到这条玩法该怎么拍"）是 2026-09-17 定的，本轮被用户推翻：
+             输入框进去必须是**空的**（配方仍挂在 `data-video-recipe` 上做断言锚点，值不变）。
+           ⚠️ **历史里点「用这组参数」仍然要还原**（那条是用户主动点的）⇒ 两件事必须分开：
+             这里的配方带 `source: 'skill'`，VideoStudio 见到它**只设规格、不填提示词**；
+             videoSeed（历史还原 / 做同款）不带这个标记，照旧预填提示词与规格。 */
+        preset={videoSeed || { prompt: buildSkillBrief(skill, initialSkillValues(skill)), mode: skillVideoMode(skill), source: 'skill' }}
         presetNonce={videoSeedNonce}
         onJobs={setVideoJobs}
       />

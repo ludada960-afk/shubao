@@ -125,6 +125,19 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
 });
 
+test('CL-① 配方提示词不再预填，但"用这组参数"的还原必须保留', () => {
+  /* 用户改向（逐字）：「你现在这个提示词框里面依然是默认会有这段提示词出来…我现在只要一刷新页面，
+     它这段提示词就会出现的。」⇒ 进子页面输入框必须是空的；历史还原那一份不受影响。
+     实测（.qa/cl-prefill.mjs）：video.smart / video.product_motion / video.model_show 三条进去都是空框，
+     而 data-video-recipe 仍带着各自的配方（断言锚点没丢）。 */
+  const mc = read('src/pages/MediaCreation/index.jsx');
+  assert.match(mc, /source: 'skill'/, '子页面传下去的那份配方 preset 必须带来源标记');
+  const vs = read('src/pages/VideoStudio/index.jsx');
+  assert.match(vs, /preset\.source !== 'skill'\) setPrompt\(preset\.prompt\)/,
+    '只有**非配方**（历史还原 / 做同款）才允许写提示词');
+  assert.match(vs, /data-video-recipe=\{preset\?\.prompt \|\| ''\}/, '配方仍要挂在页面上（断言锚点）');
+});
+
 test('CK-① 框下面那一行：@ / 放大 / 字数（同一行，且在框外面）', () => {
   /* 用户原话（逐字）：「你把 @ 和放大按钮，还有字数的限制是多少？这三个东西都**放到同一行**去，
      这样不是更好吗？」「你与其写这句描述，你不如跟首页那边的做法一样，就直接把它做成一个按钮，

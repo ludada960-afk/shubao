@@ -744,11 +744,18 @@ try {
     url: location.pathname + location.search,
     /* 视频提示词是 contentEditable 的 div（mention-prompt-field），读 textContent */
     prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
+    recipe: document.querySelector('.video-studio-page')?.getAttribute('data-video-recipe') || '',
   }));
   check(videoState.composer, '视频工作台整块嵌进了子页面（不是又写一个壳）');
-  /* 用户口径：skill = 一个具体玩法，进子页面就该看到"这条玩法该怎么拍"，
-     而不是一个空白输入框 + 一个名字。所以每条视频技能的配方提示词必须被预填进创作台。 */
-  check(videoState.prompt.includes('开场 1 秒'), '进子页面就把这条玩法的配方提示词预填进创作台', videoState.prompt.slice(0, 40));
+  /* ═══ 2026-09-27 批 CL：**判据改判（用户改向）** ══════════════════════════════════════════════
+     用户原话（逐字）：「你现在这个提示词框里面**依然是默认会有这段提示词出来**，我不明白这是为什么呀？
+     你这个问题一定要把它解决掉呀。我现在只要一刷新页面，它这段提示词就会出现的。」
+     ⇒ 上一版判据（"进子页面就把配方提示词预填进创作台"）由用户**明确推翻**：进去必须是**空的**。
+     ⚠️ 配方本身没有删 —— 它仍然挂在 `<main data-video-recipe>` 上（值与声明源里的 brief 同一份），
+        所以下面补的那条断言守的是"配方仍然随页面走、只是不再写进输入框"。
+     ⚠️ 历史里点「用这组参数」的**还原**不受影响（那条 preset 不带 source:'skill'）。 */
+  check(!videoState.prompt.trim(), '进子页面的提示词框必须是**空的**（配方不再预填 —— 用户改向，2026-09-27）', videoState.prompt.slice(0, 40));
+  check(videoState.recipe.includes('开场 1 秒'), '配方仍随页面走（data-video-recipe 带着这条玩法该怎么拍），只是不再写进输入框', String(videoState.recipe).slice(0, 40));
   /* ⚠️ 批 N：子页面不再显示创作方式页签（依据见下面视频侧全量扫描那一段引用的用户原话），
      读的是 <main data-video-mode>。判据不变：这一页必须落在 video.smart 对应的那一档。 */
   check(videoState.activeMode.includes('智能成片') || videoState.activeMode.includes('smart'),
@@ -774,10 +781,15 @@ try {
        这比原来更强：原来只看一句文案有没有跟着换，现在看的是界面结构真的换成了两格。 */
     frameDeck: document.querySelector('.video-media-deck.is-frame')?.textContent || '',
     prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
+    /* 批 CL：配方单独读一份（页面上的 data-video-recipe），与"输入框里有没有东西"分开断言 */
+    recipe: document.querySelector('.video-studio-page')?.dataset.videoRecipe || '',
   }));
   check(frameMode.active.includes('首尾帧'), '另一条视频技能落在自己的页签上', frameMode.active);
   check(frameMode.frameDeck.includes('首帧') && frameMode.frameDeck.includes('尾帧'), '素材区跟着这条链路走（真的换成首帧 + 尾帧两格，不是只换一句文案）', frameMode.frameDeck.slice(0, 60));
-  check(frameMode.prompt.includes('第一张图作为镜头起点'), '换一条技能，预填的配方提示词也跟着换（不是一句写死的话）', frameMode.prompt.slice(0, 40));
+  /* 判据改判（用户改向，2026-09-27 批 CL）：预填被用户推翻 ⇒ 这条改守「配方**跟着技能换**、
+     但**不写进输入框**」——原来只看一句文案有没有跟着换，现在看输入框是空的 + 配方锚点跟着换。 */
+  check(!frameMode.prompt.trim(), '换一条技能，提示词框依然是空的（预填已由用户推翻）', frameMode.prompt.slice(0, 40));
+  check(String(frameMode.recipe || '').includes('第一张图作为镜头起点'), '换一条技能，配方（data-video-recipe）也跟着换 —— 只是不再写进输入框', String(frameMode.recipe).slice(0, 40));
 
   /* 建筑家装（用户 9-17 明确要求做的一档）：子页面 + 工作台 + 配方提示词都要在 */
   await openVideoSkill('video.floorplan_grow');
@@ -790,15 +802,18 @@ try {
          没有补充说明框**，见 docs/design/64 §8.3），所以我们也不再给这一档一个输入框。
        ⇒ 配方改读 <main class="video-studio-page" data-video-recipe="…">（页面如实挂着的当前配方）；
          有补充说明框的那几档（探店 / 爆款复刻 / 脚本型）仍然优先读输入框里的内容 ——
-         两种形态同一份断言。 */
-    prompt: document.querySelector('.video-prompt-mentions')?.textContent
-      || document.querySelector('.video-studio-page')?.dataset.videoRecipe
-      || '',
+         两种形态同一份断言。
+    ⚠️ 2026-09-27 批 CL：`recipe` 单独读一份（原来 `prompt` 里带 dataset 兜底，于是"输入框是空的"
+       这条永远测不出来 —— 兜底把配方填进去了，看起来像"还预填着"）。 */
+    prompt: document.querySelector('.video-prompt-mentions')?.textContent || '',
+    recipe: document.querySelector('.video-studio-page')?.dataset.videoRecipe || '',
     composer: Boolean(document.querySelector('.media-workbench-panel .video-studio-page')),
   }));
   check(archMode.title.includes('户型生长'), '建筑家装技能有自己的子页面', archMode.title);
   check(archMode.composer, '建筑家装技能的工作台就是嵌进来的创作台', String(archMode.composer));
-  check(archMode.prompt.includes('户型图开始生长出三维空间'), '建筑家装技能预填自己的配方提示词', archMode.prompt.slice(0, 40));
+  /* 同上：改守「配方在、输入框空」。 */
+  check(!String(archMode.prompt || '').trim(), '建筑家装技能进去也是空输入框', String(archMode.prompt).slice(0, 40));
+  check(String(archMode.recipe || '').includes('户型图开始生长出三维空间'), '建筑家装技能的配方随页面走（断言锚点没丢）', String(archMode.recipe).slice(0, 40));
 
   /* ═══ 视频侧的融合控件（运镜 / 只改一个元素）—— **批 W 整组删除**（用户原话，逐字）═══════════
      原话：「第 4 条**运镜这个没必要啊，这个没有什么意思，去掉**。」

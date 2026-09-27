@@ -966,7 +966,12 @@ export default function VideoStudioPage({
   useEffect(() => {
     if (!preset) return;
     if (preset.mode && VIDEO_CREATION_MODES.some(item => item.id === preset.mode)) setMode(preset.mode);
-    if (typeof preset.prompt === 'string') setPrompt(preset.prompt);
+    /* ═══ 2026-09-27 批 CL：**配方提示词不预填**（用户改向，逐字）═══════════════════════════════════
+       原话：「你现在这个提示词框里面依然是默认会有这段提示词出来，我不明白这是为什么呀？你这个问题
+       一定要把它解决掉呀。我现在只要一刷新页面，它这段提示词就会出现的。」
+       ⇒ 带 `source: 'skill'` 的 preset（配方）**只设规格、不写提示词**；历史「用这组参数」/做同款
+         那一份不带这个标记，提示词照旧还原。值本身仍然是挂在页面上的 `data-video-recipe`（断言锚点）。 */
+    if (typeof preset.prompt === 'string' && preset.source !== 'skill') setPrompt(preset.prompt);
     if (typeof preset.negativePrompt === 'string') setNegativePrompt(preset.negativePrompt);
     if (Number.isFinite(Number(preset.duration)) && Number(preset.duration) > 0) setDuration(Number(preset.duration));
     if (preset.ratio) setRatio(preset.ratio);

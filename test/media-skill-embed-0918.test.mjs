@@ -79,7 +79,18 @@ test('④ 历史这一块：图文按 mediaSkillId、视频按本机标记，两
   assert.match(workbench, /\{?\(row\.values \|\| row\.restore\)/);
   /* 视频历史能还原提示词与规格 */
   assert.match(media, /setVideoSeed\(\{ \.\.\.item\.restore\.videoJob \}\)/);
-  assert.match(video, /if \(typeof preset\.prompt === 'string'\) setPrompt\(preset\.prompt\)/);
+  /* ═══ 判据改判（用户改向，2026-09-27 批 CL）════════════════════════════════════════════════════
+     原判据：`if (typeof preset.prompt === 'string') setPrompt(preset.prompt)` —— 配方进页面就预填。
+     用户原话（逐字）：「你现在这个提示词框里面依然是默认会有这段提示词出来，我不明白这是为什么呀？
+     你这个问题一定要把它解决掉呀。我现在只要一刷新页面，它这段提示词就会出现的。」
+     ⇒ 现在守的是**两件事分家**：配方（source:'skill'）不写提示词；历史「用这组参数」仍要还原。
+     实测（.qa/cl-prefill.mjs）：video.smart / video.product_motion / video.model_show 进去都是空框，
+     而 data-video-recipe 仍带着各自的配方。 */
+  assert.match(video, /preset\.source !== 'skill'\) setPrompt\(preset\.prompt\)/,
+    '只有非配方（历史还原 / 做同款）才允许写提示词 —— 配方预填已被用户推翻');
+  assert.match(video, /data-video-recipe=\{preset\?\.prompt \|\| ''\}/,
+    '配方仍要挂在页面上（端到端脚本靠它证明"配方随技能走"）');
+  assert.match(media, /source: 'skill'/, '子页面传下去的配方 preset 必须带来源标记');
 });
 
 test('⑥ 板块切换必须重读地址栏（两个总页面共用一个组件，不重读就会停在旧技能上）', () => {

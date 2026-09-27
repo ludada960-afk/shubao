@@ -143,7 +143,7 @@ function SlotUpload({
      换成裸 textarea 会把 `@[名字](id)` 的标记直接露给用户（那是"两套东西"的开端）。
    ⚠️ 它必须是个**独立组件**：useState 不能写在 blocks.map 里（hooks 规则，写错整页崩）。 */
 function ScriptField({
-  id, value, mentions, maxLength, placeholder, className, disabled, onChange, onFilesPasted, fieldRef, label,
+  id, value, mentions, maxLength, counterMax, placeholder, className, disabled, onChange, onFilesPasted, fieldRef, label,
 }) {
   const [expanded, setExpanded] = useState(false);
   /* ═══ 2026-09-27 批 CK：**@ 做成按钮 + 把「放大 / 字数」搬到框下面同一行**（用户原话，逐字）═══
@@ -199,7 +199,9 @@ function ScriptField({
           title="放大编辑"
           onClick={() => setExpanded(true)}
         ><Maximize2 size={13} />放大</button>
-        <span className="video-wb-counter">{text.length} / {maxLength}</span>
+        {/* 显示的字数上限用**区块声明的那个数**（原来是 maxLength=8000，与声明源的 10000 不一致；
+            用户没提这一处，所以先把显示值恢复成原样，差异记在 RTK 里等人定） */}
+        <span className="video-wb-counter">{text.length} / {counterMax || maxLength}</span>
       </span>
       {atOpen && (
         <span className="video-wb-at-menu" role="menu" aria-label="选择要引用的素材">
@@ -413,6 +415,7 @@ export default function VideoWorkbench({
                 value={value}
                 mentions={mentions}
                 maxLength={promptMaxLength}
+                counterMax={block.max}
                 disabled={disabled}
                 onChange={change}
                 onFilesPasted={onFilesPasted}
