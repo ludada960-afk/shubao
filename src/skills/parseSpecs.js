@@ -118,9 +118,12 @@ export const PARSE_SPEC_FAMILIES = Object.freeze({
     directions: [
       /* 存量 10 条创意类技能**没有**自己的主题/手法格（表单是 assets/prompt/brand… 各不相同），
          所以族里给出本账号实测过的两套选项：五个色簇（调子）＋ 十种手法。
-         有 `theme`/`shot` 格的技能（概念视觉方案）会**继承它自己的那一份**，不重复。 */
+         有 `theme` 格的技能（概念视觉方案）会**继承它自己的那一份**，不重复。
+         ⚠️ 2026-09-27 批 DC（M2）：手法那条原来写 `fromField: 'shot'` 继承工作台的手法**字段** ——
+            现在手法不再是一个字段，而是「本篇手法」那份**可勾选清单**（skill.modules），
+            所以这里直接用导出的 CONCEPT_SHOT_OPTIONS（同一份来源），不再挂 fromField。 */
       { key: 'theme', label: '主题意象', fromField: 'theme', options: [AUTO, ...CONCEPT_PALETTE_OPTIONS()] },
-      { key: 'shot', label: '画面手法', fromField: 'shot', options: [AUTO, ...CONCEPT_SHOT_OPTIONS()] },
+      { key: 'shot', label: '画面手法', options: [AUTO, ...CONCEPT_SHOT_OPTIONS()] },
     ],
   },
 
@@ -292,9 +295,12 @@ export const PARSE_SPEC_OVERRIDES = Object.freeze({
     ],
     directions: [
       /* 这两组**直接继承工作台自己的两格**（主题意象 20 条母体 / 手法 10 种）:
-         预览里能选的与本篇方案里能选的永远是同一份，不会各漂各的。 */
+         预览里能选的与本篇方案里能选的永远是同一份，不会各漂各的。
+         ⚠️ 2026-09-27 批 DC（M2）：手法那一组不再 fromField（它从字段改成了「本篇手法」可勾选清单，
+            见 imageSkills 的 CONCEPT_SHOT_MODULES），改成显式列出同一份 CONCEPT_SHOT_OPTIONS ——
+            档位一个不多一个不少，与工作台那份仍是一份数据。 */
       { key: 'theme', label: '主题意象', fromField: 'theme', options: [AUTO] },
-      { key: 'shot', label: '本张手法', fromField: 'shot', options: [AUTO] },
+      { key: 'shot', label: '本张手法', options: [AUTO, ...CONCEPT_SHOT_OPTIONS()] },
       /* 3:4 是本账号**写死的签名**（工作台里「比例」字段的 default 就是 3:4），
          所以这里展示它=展示实际会下发的值 */
       { key: 'ratio', label: '比例口径', options: [pin('3:4', '3:4 竖版（本账号签名）', '', '与工作台「比例」字段声明的默认档一致，且是本账号签名的固定口径')] },

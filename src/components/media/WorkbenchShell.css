@@ -518,6 +518,16 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-field-control:focus-visible { outline: none; border-color: var(--sb-brand); box-shadow: var(--sb-focus-ring); }
 /* 字段说明：知渔 12.576px/400（我们原来 13px） */
 .media-field-hint { font-size: 12.576px; color: var(--sb-ink-3); }
+/* ═══ 2026-09-27 批 DC（M2）：被锁住的字段（disabledWhen）那句说明 ═════════════════════════════
+   锁住的格子必须是"看得出来锁着 + 说清为什么"，不能只是点不动（本项目铁律：不许死控件）。
+   颜色借 brand 系的浅色，而不是把字压成灰色 —— 灰色会被当成"禁用说明"直接跳过。 */
+.media-field-hint.is-locked {
+  color: var(--sb-brand-700);
+  display: block;
+  margin-top: 2px;
+}
+/* 锁住时那一排药丸也要看得出来（禁用态不能只靠 cursor） */
+.media-field[data-kind="segmented"]:has(.media-field-hint.is-locked) button:disabled { opacity: .55; }
 /* ── 多行文本的「放大」（照竞品那颗按钮：卖点框右上角）────────────────────────── */
 .media-field-textarea { position: relative; display: block; }
 /* ═══ 2026-09-27 批 CH：**给放大按钮留出通行空间**（用户原话，逐字）═══════════════════════════════

@@ -59,7 +59,10 @@ import {
   initialSkillValues,
   reconcileFieldValues,
   skillEmbedOf,
+  skillPieceMark,
   skillRunKind,
+  skillShotValues,
+  skillValuesForShot,
   skillVideoMode,
   skillGenerationSettings,
   skillPointsEstimate,
@@ -407,8 +410,10 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   );
   /* 勾了 0 个不是"没得选"，是一个**明确的未完成状态**：按钮禁用 + 说明缺什么。
      与其它必填项走同一条路（validation.missing），用户看到的是一句人话而不是灰按钮。 */
+  /* ⚠️ 2026-09-27 批 DC：这句话可以让技能自己声明（`modulesGate`）—— 概念的清单是"手法"、
+     套图/A+ 的清单是"内容模块"，用同一句话会说错东西。没声明的技能一个字不变。 */
   const moduleGate = skillModules.length > 0 && selectedModules.length === 0
-    ? '请先勾选要生成的内容模块'
+    ? (String(skill?.modulesGate || '').trim() || '请先勾选要生成的内容模块')
     : '';
   /* ═══ 2026-09-25 批 BO：禁用原因说**人话**（用户批注，逐字）══════════════════════════════════
      用户原话：「你这个按钮这里为什么要写**还差图片**呢？你面向用户，难道可以用这种简单的描述吗？
@@ -421,13 +426,27 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      ⚠️ 句子里**必须保留字段名原文**：media-workbench-e2e 第①幕是阻塞判据
         （禁用原因要"点名缺的是哪个字段"）。改文案时别把字段名改掉。 */
 
-  const effectiveValues = useMemo(() => {
+  const baseValues = useMemo(() => {
     const base = skill ? { ...initialSkillValues(skill), ...values } : values;
     /* ⚠️ 原来这里是 Math.max(1, …) —— 那是"全选为默认"时代的兜底；现在 0 要如实传下去，
        否则会出现"界面写着 0 张、后台按 1 张跑"的账实不符。 */
     if (skillModules.length) return { ...base, count: selectedModules.length };
     return base;
   }, [skill, values, skillModules, selectedModules]);
+  /* ═══ 2026-09-27 批 DC（M2）：「一篇」的把手法清单也放进生效值 ═══════════════════════════════
+     勾中的那几种手法 → `effectiveValues.shots`（这一篇每一张的 {{shots}}）。
+     ⚠️ 单独一层是**故意**的：上面那一行 `count: selectedModules.length` 是
+        `workbench-quantv-parity-0918` ④ 逐字钉着的锚点（"勾选数 → 张数"的唯一入口），
+        不能再往它后面塞东西；而报价/校验/下发三处都从 effectiveValues 取数，
+        所以注入进它 = 三处同时生效，页面里不必各写一遍。 */
+  const effectiveValues = useMemo(() => {
+    const shots = skillShotValues(skill, selectedModules);
+    const merged = shots.length ? { ...baseValues, shots } : baseValues;
+    /* ⚠️ 批 DC（M2）：下发前再夹一次（声明里 `disabledWhen` 锁住的字段回到它自己的默认档）。
+       面板里改字段时已经夹过（onFieldChange 的那条链），这一行管的是**带进来的旧值**那条路 ——
+       历史还原 / 做同款 / 断线补跑，免得出现"界面锁着、请求里还带着旧方向"。 */
+    return reconcileFieldValues(skill?.fields, merged);
+  }, [skill, baseValues, selectedModules]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
   const gateHint = useMemo(() => {
     if (moduleGate) return moduleGate;
@@ -480,7 +499,10 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     abortRef.current = controller;
     const pendingIndexes = saved.slots.flatMap((slot, index) => (slot.status === 'pending' || slot.status === 'generating') ? [index] : []);
     Promise.all(pendingIndexes.map(async index => {
-      const request = buildSkillRequest(skill, { ...saved.values }, { runId: saved.runId, slotIndex: index });
+      /* ⚠️ 批 DC（M2）：恢复也必须**逐张收窄**（第 i 张用第 i 种手法）——
+         否则补跑出来的图与前一次不是同一套（request_key 以外的提示词不一样）。
+         saved.values 里存着整份 shots，收窄是纯函数，不额外存东西。 */
+      const request = buildSkillRequest(skill, skillValuesForShot({ ...saved.values }, index), { runId: saved.runId, slotIndex: index });
       try {
         /* ⚠️ 必须用与生成时**同一个**构造器：request_key 是参数指纹的哈希，
            手拼一份"看起来一样"的请求体会导致指纹对不上、查不到任何结果。 */
@@ -546,8 +568,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
           expiredNote: expired ? EXPIRED_NOTE : '',
           /* 批 CB：按天分组要用到原始时间戳（`time` 是给人看的 `MM-DD HH:MM`，不能拿它算日期） */
           createdAt: stamp,
-          /* 批 BZ：「下载」要下的是**这一组全部**（图片/图文都是多张），不是只下封面那张 */
-          downloads: expired ? [] : urls,
+        /* 批 BZ：「下载」要下的是**这一组全部**（图片/图文都是多张），不是只下封面那张 */
+        downloads: expired ? [] : urls,
+        /* ═══ 批 DC（M2）：篇标记 —— 一次生成 = 一篇（历史里一篇一张卡，卡上写着它的手法清单）═══
+           过期墓碑不给（面板值早清空了，给了就是"点回去是空的"）。 */
+        piece: (!expired && work._piece && Array.isArray(work._piece.shots) && work._piece.shots.length)
+          ? { id: String(work._piece.id || ''), shots: work._piece.shots.map(String), size: Number(work._piece.size) || work._piece.shots.length }
+          : null,
           /* 「用这组参数」靠它还原面板：只认**这条技能自己**存下的参数；过期的记录不再给还原 */
           values: expired ? null : ((work.replay && work.replay.mediaSkillId === skill?.id && work.replay.panelValues) ? work.replay.panelValues : null),
           /* 图文没有"面板参数"可还原（它的输入就是一句话提示词）→ 还原提示词本身。
@@ -659,10 +686,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     if (!skill || !skillModules.length) return [];
     return [{
       key: 'modules',
-      title: '包含模块',
+      /* ⚠️ 批 DC（M2）：标题与说明可以**由技能自己声明** —— 概念的清单勾的是"手法"，
+         A+ 那条勾的是"内容模块"，同一句话套上去会说错东西。没声明的一律走原来的文案。 */
+      title: String(skill.modulesTitle || '').trim() || '包含模块',
       /* 用户批注 #3-2 原话：「选中多少个模块就是多少张，并且对应他自己的模块主题不是吗。」
          —— 所以那句说明也跟着改成"勾几个出几张"，不再说"全都交、不能改价"。 */
-      note: '勾几个出几张，价钱跟着勾选走（每张的单价与右下角那颗按钮同源）。',
+      note: String(skill.modulesNote || '').trim() || '勾几个出几张，价钱跟着勾选走（每张的单价与右下角那颗按钮同源）。',
       selectable: true,
       items: skillModules.map(module => ({ ...module, checked: !moduleOff.has(module.name) })),
       /* 勾选开关：只剩"点一下切换"这一件事 —— "最后一个不许取消"的禁令随默认值一起删掉了
@@ -959,7 +988,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         所以这里刻意写成具名函数，让门禁能把调用链追溯到手势，而不是靠豁免放行。 */
   async function runSlot(baseRun, index) {
     const slot = baseRun.slots[index];
-    const request = buildSkillRequest(skill, effectiveValues, { runId: baseRun.id, slotIndex: index });
+    /* ═══ 批 DC（M2）：**逐张换手法** —— 第 i 次请求的提示词只放第 i 种手法 ═══════════════════
+       其余字段（主题意象 / 人物形态 / 比例 / 清晰度 / 参考图）全篇相同，所以一篇里每张的
+       "方向"是同一份、只有手法不同 —— 这正是 docs/design/82 读出来的那套纪律。
+       ⚠️ 每次请求各自带报价（regenerateCanvasImage 内部先报价再扣费），所以某一张失败
+         只释放那一张的 hold、不牵连其它张（服务端 oneShotBilling 的 fail-safe）。 */
+    const request = buildSkillRequest(skill, skillValuesForShot(effectiveValues, index), { runId: baseRun.id, slotIndex: index });
     try {
       const result = await regenerateCanvasImage({
         prompt: request.prompt,
@@ -1014,9 +1048,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         ratio: settings.ratio,
         resolution: settings.resolution,
       });
+      /* ═══ 批 DC（M2）：**篇标记** —— 一次生成 = 一篇（同一个 run = 同一个 `_saveKey`）═══════════
+         这一篇勾了哪几种手法由 skillPieceMark 算出来，写进作品（服务端 payload 原样存回，
+         未知字段不会丢），历史据此把这一篇当**一组**展示、也据此还原面板的勾选。
+         ⚠️ 没有清单的技能拿到 null，这里就一个字段都不加（其余技能的作品形状不变）。 */
+      const piece = skillPieceMark(skill, { runId: finalRun.id, selectedModules, values: effectiveValues });
       /* 作品归到这条技能名下（buildVisualWorkRecord 只认四个视觉方向，这里补上我们的身份） */
       const work = {
         ...record,
+        ...(piece ? { _piece: piece } : {}),
         product_name: skill.name,
         title: skill.name,
         category: skill.category,
@@ -1182,6 +1222,14 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     const keys = new Set(((skill && skill.fields) || []).map(field => field.key));
     const restored = Object.fromEntries(Object.entries(item.values).filter(([key]) => keys.has(key)));
     setValues(prev => ({ ...prev, ...restored }));
+    /* ═══ 批 DC（M2）：勾选清单的勾也要还原 ═══════════════════════════════════════════════════
+       篇标记里存着这一篇勾过哪几种手法 —— 不还原的话，"用这组参数"会出现"参数回来了、
+       清单还是空的"，用户得自己重新勾（那一篇就不再是原来那一篇）。
+       ⚠️ 只对**有篇标记的记录**动手：老记录（没有 _piece）保持用户当前的勾选，不给他清空。 */
+    const pieceShots = Array.isArray(item.piece?.shots) ? item.piece.shots : [];
+    if (skillModules.length && pieceShots.length) {
+      setModuleOff(new Set(skillModules.filter(module => !pieceShots.includes(module.name)).map(module => module.name)));
+    }
     setError('');
     setNotice('参数已还原，确认后点「立即生成」——这一次会重新计费');
     window.scrollTo({ top: 0, behavior: 'smooth' });

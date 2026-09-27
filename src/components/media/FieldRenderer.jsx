@@ -6,6 +6,11 @@ import MediaAssetCard from './MediaAssetCard.jsx';
 import PromptMetaRow from './PromptMetaRow.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
 import { uploadEcommerceAsset } from '../../services/api';
+/* ═══ 2026-09-27 批 DC（M2）：`disabledWhen` 的判据只有一份，在 skillRun 里 ═══════════════════
+   真事（「构图方向」那一格）：实测没有人物时几乎不出方向，所以选了「空镜」之后这一格要锁住。
+   ⚠️ 渲染与取值**必须问同一份判据**（渲染禁用 + 取值夹回默认档）——
+      两处各写一遍就会出现"界面锁着、请求里还带着旧方向"（看着是 A、跑的是 B）。 */
+import { skillFieldLocked } from '../../skills/skillRun.js';
 
 /* ═══ FieldRenderer：Skill 工作台的字段渲染器（唯一实现）══════════════════════════
    来源：docs/design/43-media-architecture.md §5（Skill 契约）与 §4.3（门禁化）。
@@ -627,6 +632,10 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
     .filter(a => a && typeof a === 'object' && (a.id || a.url))
     .filter((a, i, arr) => arr.findIndex(x => (x.id || x.url) === (a.id || a.url)) === i);
   const labelId = isOptionGroup ? `${field.key || kind}-group-label` : undefined;
+  /* ═══ 批 DC（M2）：这一格被声明锁住了（disabledWhen）══════════════════════════════════════
+     锁住 = 禁用控件 + **就地说明为什么**（判据与"取值夹回默认档"同源，见 skillRun.skillFieldLocked）。
+     ⚠️ 不给说明的禁用控件等于死控件 —— 用户只会觉得点不动、不知道为什么（本项目铁律）。 */
+  const locked = skillFieldLocked(field, values);
   const Wrapper = isOptionGroup ? 'div' : 'label';
   const wrapperProps = isOptionGroup
     ? { role: 'group', 'aria-labelledby': labelId }
@@ -647,8 +656,10 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
         </span>
       ))}
       {/* 批 CP：把"这条技能里已经上传的素材"传给控件 —— 提示词框下面那一行的 @ 用它列素材 */}
-      {control(kind, renderField, value, onChange, disabled, uploadedAssets)}
+      {control(kind, renderField, value, onChange, disabled || locked, uploadedAssets)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
+      {/* 锁住时的那句说明（disabledHint）：说清"为什么现在选不了、想选要先改哪一格" */}
+      {locked && field.disabledHint ? <small className="media-field-hint is-locked">{field.disabledHint}</small> : null}
     </Wrapper>
   );
 }

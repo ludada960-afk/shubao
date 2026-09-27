@@ -1,0 +1,284 @@
+/* ═══ 门禁：「概念视觉方案」的**一篇** = 一次勾 N 种手法 → 逐张出 N 张（2026-09-27 批 DC / M2）══
+   用户口径（docs/design/90-aura-replication-plan.md §一-2 与 §6.5，逐字）：
+     · 「**「一套图片」可以按你说的做吧**」；
+     · 「「一套」= 一张一张计价（N 张 = N 张的钱），按钮上写清单价与总额」；
+     · 「两者都不做"自动批量扣费"：用户勾几张就是几张」。
+   依据（同文件 §二 与 §六）：现在这个技能 **0 条真实产出**；而实作是"一篇 8~18 张"，我们却是
+   "一次一张图、每换一种手法点一次生成"——一篇要点 8~18 次，这不是他的做法。
+
+   这一组断言守四件事（每条都带自证：把判据改坏必须变红）：
+     ① 勾 3 种 → **3 张请求**：3 个 slot、3 次请求，且第 i 张的提示词只放第 i 种手法；
+     ② 报价 = **单价 × 张数**：按钮上那个数就是 skillPointsEstimate 按 count=3 算出来的；
+     ③ 一张失败**不拖累其它张**，且**只算成功的那几张**：失败的只进重试队列、不进作品；
+     ④ **篇标记**写进作品（历史据此把一篇当一组展示、并还原面板的勾选）。 */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+import { getImageSkill, CONCEPT_SHOT_OPTIONS } from '../src/skills/imageSkills.js';
+import {
+  buildSkillRequest,
+  initialSkillValues,
+  pieceLayoutFamilyHolds,
+  reconcileFieldValues,
+  skillFieldLocked,
+  skillGenerationSettings,
+  skillPieceMark,
+  skillPointsEstimate,
+  skillShotValues,
+  skillValuesForShot,
+} from '../src/skills/skillRun.js';
+import {
+  buildVisualWorkRecord,
+  createVisualRun,
+  updateVisualRunSlot,
+  visualRetryIndexes,
+} from '../src/pages/Home/visualCreationModel.js';
+import { generationUnits } from '../src/services/imageModelCatalog.js';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const read = relative => readFileSync(join(ROOT, relative), 'utf8');
+
+const ID = 'image.concept_set';
+const skill = getImageSkill(ID);
+const PAGE = read('src/pages/MediaCreation/index.jsx');
+
+/* 勾了 N 种手法之后的生效值 —— 与页面同一条链：勾选数注入 count、勾中的定义注入 shots。
+   ⚠️ 这段"页面做的事"在测试里必须显式写出来（它就是判据的一部分，不是摆样子）。 */
+function valuesWithShots(names = []) {
+  const picked = skill.modules.filter(module => names.includes(module.name));
+  const shots = skillShotValues(skill, picked);
+  return { ...initialSkillValues(skill), count: picked.length, shots };
+}
+
+/* 服务器只认自家生成的稳定地址（worksStore/作品存盘那条判据） */
+const stableUrl = char => '/api/generated-assets/' + char.repeat(64) + '.jpg';
+
+test('① 勾 3 种手法 → 发 3 张请求，且每一张只带自己那一种手法', () => {
+  /* ⚠️ 顺序 = **清单里的顺序**（不是用户点击的顺序）：同一组勾选永远跑出同一个顺序，
+     历史还原 / 断线补跑 / "用这组参数"才不会跑出另一套图。 */
+  const picked = ['概念静物', '平铺集合', '材质静物'];
+  const names = skill.modules.filter(module => picked.includes(module.name)).map(module => module.name);
+  const values = valuesWithShots(picked);
+  assert.deepEqual(values.shots, names.map(name => skill.modules.find(module => module.name === name).value),
+    '勾中的手法要按清单顺序进提示词变量（顺序稳定 = 补跑出来的还是同一套）');
+  assert.equal(values.shots.length, 3, '三种手法没有全部进提示词变量');
+  assert.equal(skillGenerationSettings(skill, values).count, 3,
+    '勾 3 种就要跑 3 张（张数来自勾选数，不是另写一个数字）');
+
+  const run = createVisualRun({ count: skillGenerationSettings(skill, values).count });
+  assert.equal(run.slots.length, 3, '这一次运行必须是 3 个 slot（逐张，不是一张');
+
+  /* 三次请求各自的提示词：只出现自己那一种手法的定义，另外两种一个字都不许出现 */
+  const prompts = names.map((name, index) => buildSkillRequest(
+    skill, skillValuesForShot(values, index), { runId: run.id, slotIndex: index },
+  ).prompt);
+  for (const [index, name] of names.entries()) {
+    const own = skill.modules.find(module => module.name === name).value;
+    assert.ok(prompts[index].includes(own), '第 ' + (index + 1) + ' 张没有带「' + name + '」的定义');
+    for (const other of names.filter(item => item !== name)) {
+      const definition = skill.modules.find(module => module.name === other).value;
+      assert.ok(!prompts[index].includes(definition),
+        '第 ' + (index + 1) + ' 张里混进了「' + other + '」—— 一张只做一种手法');
+    }
+  }
+  assert.equal(new Set(prompts).size, 3, '三张的提示词必须各不相同（否则就是同一张画三遍）');
+  /* 整篇共用同一份方向：主题意象 / 人物形态 / 比例在三张里是一样的 */
+  for (const prompt of prompts) {
+    assert.ok(prompt.includes(values.theme), '三张都必须共用同一份主题意象');
+    assert.ok(prompt.includes(values.person), '三张都必须共用同一份人物形态');
+  }
+  assert.equal(skillGenerationSettings(skill, values).ratio, '3:4', '三张的比例仍是本账号签名 3:4');
+
+  /* ── 自证：不收窄（整份 shots 下发）时，三张的提示词会变成同一份 —— 证明上面测的就是"逐张" ── */
+  const unscoped = names.map(() => buildSkillRequest(skill, values, { runId: run.id }).prompt);
+  assert.equal(new Set(unscoped).size, 1, '不收窄时本该三张同一份提示词（自证的前提）');
+  assert.notEqual(prompts[0], unscoped[0], '收窄没有真的改变提示词 ⇒ 上面那些断言是空转');
+
+  /* ── 页面接线：逐张收窄 + 一次点击跑满 N 个 slot（缺一条，界面与引擎就对不上）────────── */
+  assert.match(PAGE, /buildSkillRequest\(skill, skillValuesForShot\(effectiveValues, index\)/,
+    '生成时必须**逐张**收窄手法（否则勾 3 种会画出 3 张一样的）');
+  assert.match(PAGE, /const fresh = createVisualRun\(\{ count: settings\.count \}\)/,
+    '张数必须来自 skillGenerationSettings（唯一真源）');
+  assert.match(PAGE, /await executeRun\(fresh, Array\.from\(\{ length: settings\.count \}, \(_, index\) => index\)\)/,
+    '一次点击要跑满 N 个 slot（用户勾几张就是几张）');
+});
+
+test('② 报价 = 单价 × 张数（按钮上写的就是这个数）', () => {
+  const unit = generationUnits('image2', '2K') / 1000;
+  assert.ok(unit > 0, '自证前提：2K 的单价必须能算出来，实际 ' + unit);
+  const one = skillPointsEstimate(skill, valuesWithShots(['概念静物']));
+  const three = skillPointsEstimate(skill, valuesWithShots(['概念静物', '平铺集合', '材质静物']));
+  const seven = skillPointsEstimate(skill, valuesWithShots(skill.modules.slice(0, 7).map(module => module.name)));
+  assert.equal(one, Number((unit * 1).toFixed(2)));
+  assert.equal(three, Number((unit * 3).toFixed(2)), '3 张的报价不等于 单价 × 3');
+  assert.equal(seven, Number((unit * 7).toFixed(2)), '张数一多就漏算（勾几张收几张的钱）');
+  /* ⚠️ 自证：把张数改掉，报价必须跟着变 —— 否则这个函数根本没在按张计价 */
+  assert.notEqual(one, three, '张数变了报价没变 ⇒ 报价测的不是张数');
+  /* 按钮上的积分与这套算法同源（两处各算一份才是会出事的地方） */
+  assert.match(PAGE, /ctaPoints=\{handoff \? null : \(\(skill\.previewStep && !planApplied\) \? PLAN_PREVIEW_POINTS : points\)\}/,
+    'CTA 上的积分数必须来自 points（与 skillPointsEstimate 同一份）');
+  assert.match(PAGE, /skillPointsEstimate\(skill, effectiveValues\)/, '报价必须从生效值取数');
+  /* 每张各自报价、各自结算：所以"一张失败"只影响那一张的钱（服务端 hold/settle/release 是按次的） */
+  const api = read('src/services/api.js');
+  assert.match(api, /const billing = await quoteCanvasAction\(billingSku, stableRequestKey, \{ signal \}\)/,
+    '每一次生成请求各自带报价（不是整篇一次报价）');
+});
+
+test('③ 一张失败不拖累其它张：只重试失败那张，作品里只有成功的那几张', () => {
+  const values = valuesWithShots(['概念静物', '平铺集合', '材质静物']);
+  let run = createVisualRun({ count: skillGenerationSettings(skill, values).count });
+  /* 第 2 张失败，另外两张成功（三张各自独立：Promise.all 里一个 reject 不影响别人） */
+  run = updateVisualRunSlot(run, 0, { status: 'completed', url: stableUrl('a'), taskId: 't1' });
+  run = updateVisualRunSlot(run, 1, { status: 'failed', error: '这一张没跑成' });
+  run = updateVisualRunSlot(run, 2, { status: 'completed', url: stableUrl('b'), taskId: 't2' });
+
+  assert.deepEqual(visualRetryIndexes(run), [1],
+    '只该重试失败的那一张 —— 成功的两张重跑会重复扣费');
+  const record = buildVisualWorkRecord({
+    run, prompt: buildSkillRequest(skill, values).prompt, skillId: 'brand-kv',
+  });
+  assert.equal(record.images.length, 2, '作品里只该有成功的两张（失败那张没有可保存的东西）');
+  assert.deepEqual(record.images.map(image => image.url), [stableUrl('a'), stableUrl('b')]);
+  assert.equal(record.generationStatus, 'needs_review', '没跑满就要如实标成需要复查，不许假装完成');
+
+  /* ── 自证：三张都成功时作品里是 3 张（证明上面那个 2 不是写死的）────────────── */
+  let allDone = createVisualRun({ count: 3 });
+  for (const [index, char] of ['a', 'b', 'c'].entries()) {
+    allDone = updateVisualRunSlot(allDone, index, { status: 'completed', url: stableUrl(char) });
+  }
+  assert.equal(buildVisualWorkRecord({ run: allDone, skillId: 'brand-kv' }).images.length, 3);
+  /* ── 自证：失败那张不被当成可保存的图（0 张时不许存出一条空作品）──────────────── */
+  let allFailed = createVisualRun({ count: 3 });
+  allFailed = updateVisualRunSlot(allFailed, 1, { status: 'failed', error: 'x' });
+  assert.throws(() => buildVisualWorkRecord({ run: allFailed, skillId: 'brand-kv' }),
+    /没有可保存的稳定图片/, '全失败时不许存出一条没有图的作品');
+
+  /* ── 服务端那一半：失败时不结算、把 hold 释放掉（所以"失败不扣那张"是真的）────────── */
+  const billing = read('server/billing/oneShotBilling.mjs');
+  assert.match(billing, /if \(hold && !delivered && current\?\.status !== 'settled' && !leaseLost\) \{[\s\S]{0,200}walletService\.releaseItem\(/,
+    '失败必须释放 hold（否则"一张失败不扣那张"就是句空话）');
+  /* 页面：一次运行结束只把**成功的那几张**存成作品 */
+  assert.match(PAGE, /if \(finished && finished\.slots\.some\(slot => slot\.status === 'completed' && slot\.url\)\) await persistRun\(finished\)/,
+    '只要有一张成功就存作品（失败的不进作品）');
+});
+
+test('④ 篇标记写进作品：历史把一篇当一组展示，并能还原面板的勾选', () => {
+  const names = ['概念静物', '平铺集合', '材质静物'];
+  /* 篇标记里的顺序与"逐张生成"的顺序**必须一致**（都用 skill.modules 的声明顺序）——
+     否则历史里写的手法顺序与那几张图的实际顺序对不上。 */
+  const order = skill.modules.filter(module => names.includes(module.name)).map(module => module.name);
+  const mark = skillPieceMark(skill, { runId: 'visual-run-1', selectedModules: skill.modules.filter(module => names.includes(module.name)) });
+  assert.deepEqual(mark, { id: 'visual-run-1', shots: order, size: 3 },
+    '篇标记要说清"这一篇是谁、勾了哪几种手法"（顺序 = 清单顺序 = 逐张生成顺序）');
+  assert.equal(skillPieceMark(getImageSkill('image.poster'), { runId: 'x', selectedModules: [] }), null,
+    '没有"篇骨架"的技能不该被写进这一笔（其余技能的作品形状必须一个字不变）');
+
+  /* 作品记录：一个 run = 一篇（同一个 _saveKey），篇标记跟着写进这一条作品 */
+  assert.match(PAGE, /const piece = skillPieceMark\(skill, \{ runId: finalRun\.id, selectedModules, values: effectiveValues \}\)/,
+    '存作品时要算篇标记（连版式族一起记进去 —— 刷新之后还知道自己该拼哪一种）');
+  assert.match(PAGE, /\.\.\.\(piece \? \{ _piece: piece \} : \{\}\)/, '篇标记要写进作品（_piece）');
+  /* 一篇 = 一条作品记录：作品的身份就是这一次 run（所以"归为一篇"不是靠拼字段，而是它本来就一条） */
+  assert.match(read('src/pages/Home/visualCreationModel.js'), /_saveKey: run\.id/,
+    '一篇的几张必须落在同一条作品记录里（_saveKey = 这一次 run）');
+  /* 历史：把篇标记取出来给右栏渲染 + 「用这组参数」时还原勾选 */
+  assert.match(PAGE, /piece: \(!expired && work\._piece[\s\S]{0,240}shots\.map\(String\)/,
+    '历史条目要带上篇标记（过期墓碑不给 —— 面板值早清空了）');
+  assert.match(PAGE, /setModuleOff\(new Set\(skillModules\.filter\(module => !pieceShots\.includes\(module\.name\)\)/,
+    '「用这组参数」要把这一篇勾过的手法也还原（否则参数回来了、清单还是空的）');
+  const workbench = read('src/pages/Home/SkillWorkbench.jsx');
+  assert.match(workbench, /row\.piece && \([\s\S]{0,200}skill-history-piece/,
+    '右栏历史要把篇标记画出来（一篇一张卡 + 它自己的手法骨架）');
+  assert.match(read('src/pages/Home/SkillWorkbench.css'), /\.skill-history-piece \{/,
+    '篇标记那一行要有样式（不许裸文本把网格撑歪）');
+
+  /* ── 自证：没有篇标记的记录，历史就该不给这一行（判据不是"永远为真"）────────────── */
+  const noPiece = { piece: null };
+  assert.equal(Boolean(noPiece.piece), false, '老记录（没有 _piece）不该被画出篇标记');
+});
+
+/* ═══ 2026-09-27 批 DC：构图方向（每张一档）与版式族（每篇一档）═══════════════════════════════
+   依据：`docs/research/2026-09-27-aura-composition-direction.md`（402 张全量逐张判定）——
+   用户说的"一张左→右、一张右→左"严格口径只成立 **3/41 篇（7.3%）**，放宽到"主体一左一右"
+   **9/41（22.0%）**；全站**真有横向引导的只有 33/402（8.2%）**、**63.7% 没有方向**、
+   **镜面对称 69/402（17.2%）**；**"镜像成对"0 组可确证**（4 组弱候选 / 16 组目视怀疑被原图否定）。
+   ⇒ 方向这一栏默认 = 居中/无方向，且**只在有人物在场时可选**（报告 §五-1 原文：
+     「左→右 / 右→左 只在有人物、有手伸入画面、或人物在行走的镜头里才允许出现」）；
+     拼版那一栏只给**现在真拼得出来的两族**，并且**同族至少复用 2 张**才算成立。 */
+
+test('⑤ 构图方向：默认居中/无方向、每张都带同一句，且"空镜"时锁住（不能选了不生效）', () => {
+  const field = skill.fields.find(item => item.key === 'direction');
+  assert.ok(field, '缺「构图方向」这一格');
+  assert.equal(field.kind, 'segmented', '沿用既有的药丸控件（不新造第五种）');
+  assert.deepEqual(field.options.map(option => option.label), ['居中/无方向', '左→右', '右→左', '居中对称']);
+  assert.equal(skill.fields[0].default, undefined, '自证前提：主题意象本来就是"声明默认"而不是这里要测的东西');
+  assert.equal(initialSkillValues(skill).direction, field.options[0].value,
+    '默认必须是"居中/无方向"（实测 63.7% 的图没有横向引导、真有引导的只有 8.2%）');
+  for (const option of field.options) {
+    assert.ok(String(option.label).length <= 6, '档位名 ≤6 字：' + option.label);
+    assert.ok(String(option.value).length >= 12, '每一档都要是能执行的整句：' + option.value);
+  }
+  assert.doesNotMatch(field.options.map(option => option.label).join(' '), /镜像/,
+    '「镜像成对」不许有 —— 实测 0 组可确证（4 组弱候选、23 组目视怀疑里 16 组被原图否定）');
+  /* 每一张都要带同一句方向（一篇里 N 张共用这一档，所以 N 张的提示词里都要出现它） */
+  const values = valuesWithShots(['概念静物', '平铺集合', '材质静物']);
+  const moved = { ...values, direction: field.options[1].value };
+  for (const index of [0, 1, 2]) {
+    assert.ok(buildSkillRequest(skill, skillValuesForShot(moved, index), { runId: 'r', slotIndex: index })
+      .prompt.includes(field.options[1].value), '第 ' + (index + 1) + ' 张没有带上构图方向');
+  }
+  /* 锁定：人物形态是「空镜」时这一格锁住（控件禁用 + 值夹回默认档） */
+  assert.equal(skillFieldLocked(field, values), true, '空镜时方向应当锁住');
+  const byHand = { ...values, person: skill.fields.find(item => item.key === 'person').options[1].value };
+  assert.equal(skillFieldLocked(field, byHand), false, '有人物在场（手或手臂）时必须能选方向');
+  const clamped = reconcileFieldValues(skill.fields, { ...values, direction: field.options[2].value });
+  assert.equal(clamped.direction, field.options[0].value,
+    '锁住时要把值夹回默认档 —— 否则就是"界面锁着、提示词却带着旧方向"');
+  const kept = reconcileFieldValues(skill.fields, { ...byHand, direction: field.options[2].value });
+  assert.equal(kept.direction, field.options[2].value, '没锁的时候不许乱夹（用户选的右→左要保住）');
+  /* ── 自证：把 lock 判据换成一个不相干的字段，上面那条夹取应当立刻失效 ───────────── */
+  const bogus = { ...field, disabledWhen: { key: 'theme', equals: '不存在的档' } };
+  assert.equal(skillFieldLocked(bogus, values), false, '锁判据换成不相干的字段后仍判"锁住" ⇒ 上面测的不是它');
+  assert.equal(reconcileFieldValues([bogus], { ...values, direction: field.options[2].value }).direction,
+    field.options[2].value, '没锁时不该被夹（证明夹取真的由 disabledWhen 驱动）');
+  /* 渲染器必须问同一份判据（否则禁用与否会和取值对不上） */
+  assert.match(read('src/components/media/FieldRenderer.jsx'), /skillFieldLocked\(field, values\)/,
+    '渲染器要问 skillRun 那一份锁判据（不许自己写一遍）');
+  assert.match(read('src/components/media/FieldRenderer.jsx'), /field\.disabledHint/,
+    '锁住时要就地说明为什么（不许变成点不动的死控件）');
+});
+
+test('⑥ 版式族：每篇一档、只给拼得出来的两族，且**同族至少复用 2 张**才算成立', () => {
+  const field = skill.fields.find(item => item.key === 'layout');
+  assert.ok(field, '缺「版式族」这一格（M3 的版式层按它决定拼哪一种）');
+  assert.equal(field.kind, 'cards', '每篇一档、卡内带说明 —— 用既有的选项卡控件（不新造第五种）');
+  assert.deepEqual(field.options.map(option => option.label), ['宫格', '底片条'],
+    '本批只做这两种语法（宝丽来画中画 / 品牌信息图排在下一批 —— 给做不出来的档是坑）');
+  assert.ok(field.options.every(option => String(option.hint || '').length >= 8), '每一族都要说清它长什么样');
+  assert.equal(initialSkillValues(skill).layout, '宫格', '默认档要取有真实依据的那一族（宫格是实测最常用的一种）');
+  /* ⚠️ 版式族**不进提示词**：实测过"让模型一次画一整张九宫格"会把分格线画歪、格内互相渗透，
+     正确做法是先出单图、再在版式层确定性拼（docs/design/90 §6.2）——这条是硬约束，不是偏好。 */
+  const brief = buildSkillRequest(skill, valuesWithShots(['概念静物', '平铺集合']), { runId: 'r' }).prompt;
+  assert.doesNotMatch(brief, /宫格|底片条/, '版式族不许进提示词（模型画不出一整张拼版）');
+
+  /* 同族至少复用 2 张：一张的篇谈不上"复用"，拼版层不出图 */
+  assert.equal(pieceLayoutFamilyHolds('宫格', 3), true);
+  assert.equal(pieceLayoutFamilyHolds('底片条', 2), true, '刚好 2 张也算复用（这是硬规则的下限）');
+  assert.equal(pieceLayoutFamilyHolds('宫格', 1), false, '一张的篇不该出拼版（没有"同族复用"这回事）');
+  assert.equal(pieceLayoutFamilyHolds('宫格', 0), false);
+  assert.equal(pieceLayoutFamilyHolds('', 3), false, '没选版式族就不拼');
+  /* ── 自证：把判据放松成 ">= 1"，一张的篇就会通过 —— 证明阈值真的咬住了"至少 2 张" ── */
+  const relaxed = (family, count) => Boolean(family) && Number(count) >= 1;
+  assert.equal(relaxed('宫格', 1), true, '自证：放松阈值后一张的篇会通过 ⇒ 上面那条不是空转');
+  assert.notEqual(relaxed('宫格', 1), pieceLayoutFamilyHolds('宫格', 1));
+  /* 版式族要记进篇标记（刷新之后还知道自己该拼哪一种） */
+  const mark = skillPieceMark(skill, {
+    runId: 'visual-run-9', selectedModules: skill.modules.slice(0, 3),
+    values: { layout: '底片条' },
+  });
+  assert.equal(mark.layout, '底片条', '篇标记要带版式族（历史里那条记录据此拼版）');
+  assert.equal(skillPieceMark(skill, { runId: 'x', selectedModules: skill.modules.slice(0, 1), values: {} }).layout,
+    undefined, '没选版式族时不写这个字段（不许凭空造一个）');
+});

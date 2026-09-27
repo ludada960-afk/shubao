@@ -38,11 +38,28 @@ test('① 每条技能都带得出提示词与服务端视觉方向', () => {
 });
 
 test('② brief 里的占位符必须都能对上字段（写错 key 会让提示词留空）', () => {
+  /* ⚠️ 2026-09-27 批 DC：「概念视觉方案」的 `{{shots}}` **不是字段** —— 它是「本篇手法」
+     那份可勾选清单**逐张注入**进提示词的变量（第 i 张只放第 i 种手法，见 skillRun.skillValuesForShot）。
+     这类占位符必须在声明里**逐个登记**（skill.injectedBriefKeys），所以判据一个字没放宽：
+     写错的 key 既不是字段、也不会被登记，照样判红。 */
   for (const skill of IMAGE_SKILLS) {
     const keys = new Set(skill.fields.map(field => field.key));
+    for (const key of Array.isArray(skill.injectedBriefKeys) ? skill.injectedBriefKeys : []) keys.add(key);
     const used = [...skill.brief.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]);
     for (const key of used) assert.ok(keys.has(key), 'brief 用了不存在的字段：' + skill.id + ' -> ' + key);
   }
+  /* 自证：把登记过的 key 写错一位，必须仍被判红（证明这条不是"有登记就全放行"） */
+  const concept = getImageSkill('image.concept_set');
+  assert.ok(Array.isArray(concept.injectedBriefKeys) && concept.injectedBriefKeys.length > 0,
+    '注入型占位符必须在声明里显式登记（不然下面那条自证没有作用对象）');
+  const declared = new Set([...concept.fields.map(field => field.key), ...concept.injectedBriefKeys]);
+  let caught = false;
+  try {
+    for (const key of [...concept.brief.replace('{{shots}}', '{{shot}}').matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1])) {
+      assert.ok(declared.has(key));
+    }
+  } catch { caught = true; }
+  assert.equal(caught, true, '把 {{shots}} 写成 {{shot}} 之后没被判红 ⇒ 这条判据被登记表绕过去了');
 });
 
 test('③ 上传位必须声明张数与合法角色，且真的走 upload 档', () => {

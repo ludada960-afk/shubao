@@ -137,11 +137,81 @@ export function skillFieldVisible(field, values = {}) {
   return values[rule.key] === rule.equals;
 }
 
+/* ═══ 2026-09-27 批 DC（M2）：字段被**锁住**吗（disabledWhen 的唯一定义处）══════════════════════
+   真事（「构图方向」那一格）：实测「左→右 / 右→左 只在有人物、有手伸入画面、或人物在行走的
+   镜头里才允许出现」（docs/research/2026-09-27-aura-composition-direction.md §五-1）——
+   而 63.7% 的图根本没有横向引导。所以选了「空镜」之后，方向那一格不该还能点。
+   两条一起才成立（缺一条就是"看着是 A、跑的是 B"）：
+     · 渲染：控件禁用 + 就地说明它为什么锁着（FieldRenderer 问这一份）；
+     · 取值：reconcileFieldValues 把它夹回**声明里的默认档**，提示词里不会再带旧方向。 */
+export function skillFieldLocked(field, values = {}) {
+  const rule = field && field.disabledWhen;
+  /* ⚠️ values 可能是 null（渲染器允许不传）—— 那时一律当成"没锁"，
+     与 visibleWhen 的行为一致（取不到依赖值时不做判断）。 */
+  if (!rule || !rule.key || !values || typeof values !== 'object') return false;
+  return String(values[rule.key] ?? '') === String(rule.equals ?? '');
+}
+
 /* counts 的合计（声明里的 minTotal 是**下限**，与界面末尾那行「当前共 N 张」同源） */
 export function skillCountsTotal(field, values = {}) {
   const value = values[field && field.key];
   const rows = Array.isArray(field && field.rows) ? field.rows : [];
   return rows.reduce((sum, row) => sum + Math.max(0, Number(value && value[row.key]) || 0), 0);
+}
+
+/* ═══ 2026-09-27 批 DC（M2）：**「一篇」= 勾 N 种手法 → 逐张出 N 张**（唯一实现）═════════════
+   用户口径（docs/design/90 §6.5，逐字）：「「一套」= 一张一张计价（N 张 = N 张的钱），
+   按钮上写清单价与总额」「用户勾几张就是几张」「两者都不做"自动批量扣费"」。
+   这条技能的手法是**可勾选清单**（skill.modules，每项带 `value` = 进提示词的那句定义），
+   于是「一篇」由三个纯函数构成：
+     · skillShotValues   勾中的那几种 → 这一篇每一张的提示词变量（顺序 = 声明顺序，稳定可复现）
+     · skillValuesForShot 第 i 张的取值：`shots` 收窄成第 i 种，其余字段全同
+     · skillPieceMark    篇标记：这一篇是谁、勾了哪几种（写进作品，历史据此按篇展示/还原）
+   张数与报价**不需要**在这里另算一份：勾选数由页面注入 effectiveValues.count（与 A+ 的
+   「勾几个出几个」同一条链），skillGenerationSettings / skillPointsEstimate 读的就是它。 */
+function moduleNameOf(module) {
+  return text(module && module.name);
+}
+
+export function skillShotValues(skill, selectedModules = []) {
+  const modules = Array.isArray(skill && skill.modules) ? skill.modules : [];
+  const picked = new Set((Array.isArray(selectedModules) ? selectedModules : []).map(moduleNameOf));
+  /* 认不出的模块名不会凭空造出一条手法；没有 `value` 的清单（A+ 那种纯说明型模块）返回空数组，
+     所以这一次改动对其它技能**一个字都不影响**。 */
+  return modules.filter(module => picked.has(moduleNameOf(module))).map(module => text(module.value)).filter(Boolean);
+}
+
+/* 第 i 张的取值。0/1 种时没有可收窄的（提示词照原样），所以直接把原值还回去 —— 这样
+   "只勾一种"跑出来的请求与改前逐字相同（老参数、老历史还原都不会变味）。 */
+export function skillValuesForShot(values = {}, index = 0) {
+  const shots = (Array.isArray(values && values.shots) ? values.shots : []).map(text).filter(Boolean);
+  if (shots.length < 2) return values;
+  const at = Math.min(Math.max(Number(index) || 0, 0), shots.length - 1);
+  return { ...values, shots: [shots[at]] };
+}
+
+export function skillPieceMark(skill, { runId = '', selectedModules = [], values = {} } = {}) {
+  const modules = Array.isArray(skill && skill.modules) ? skill.modules : [];
+  const picked = new Set((Array.isArray(selectedModules) ? selectedModules : []).map(moduleNameOf));
+  const shots = modules.filter(module => picked.has(moduleNameOf(module))).map(moduleNameOf).filter(Boolean);
+  /* 没有"篇骨架"的技能不写这一笔（其余技能的作品形状一个字不变）。 */
+  if (!shots.length) return null;
+  /* 版式族一并记进这一篇：M3 的版式层要按它拼，历史里那条记录也要在**刷新之后**
+     还记得自己该拼哪一种（不然"用这组参数"回来就不知道该拼宫格还是底片条）。 */
+  const layout = text(values.layout);
+  return { id: text(runId), shots, size: shots.length, ...(layout ? { layout } : {}) };
+}
+
+/* ═══ 版式族要成立，必须先**同族复用至少 2 张**（2026-09-27 批 DC，实测口径）═══════════════════
+   依据：`docs/research/2026-09-27-aura-composition-direction.md` §四-3 —— 篇内"同版式族反复用"
+   **74/402 张（18.4%）落在 21 篇**的同机位簇里（n4-1/7/8/10、n29-1/4/5/6/7/8/10、n31-1/2/3/6/7 …），
+   报告原话：「他的篇级做法是"一个版式/机位连着用几张，每张换道具/换材质/换文案"，
+   而不是"每张都换构图"」⇒ **"成套感"来自版式反复**，这是本批唯一据实照做的篇级规律。
+   所以：一张的篇谈不上"同族复用"，拼版层**不出图**（M3 的拼版函数按这条拒绝）。 */
+export function pieceLayoutFamilyHolds(family, imageCount = 0) {
+  const name = text(family);
+  const count = Number(imageCount);
+  return Boolean(name) && Number.isFinite(count) && count >= 2;
 }
 
 /* ── ① 必填校验：给工作台做「就近错误」，不是提交后才报错 ──
@@ -348,6 +418,15 @@ export function skillGenerationSettings(skill, values = {}) {
    所以换模型的同一刻，把依赖它的字段夹回合法档（唯一判据 = 声明里的 optionsFrom.map）。 */
 export function reconcileFieldValues(fields, values = {}) {
   const next = { ...values };
+  /* ═══ 批 DC（M2）：disabledWhen —— 条件成立时把这一格夹回**它自己的默认档** ═══════════════════
+     渲染层已经把控件禁掉了，但如果用户先选了"左→右"、再把人物形态换成"空镜"，
+     旧值会留在生效值里 —— 那就是"界面锁着、提示词照旧带着方向"（看着是 A、跑的是 B）。
+     ⚠️ 夹回的是**声明里的默认档**（不是空串）：界面上那一格仍然显示一个具体档位。 */
+  for (const field of Array.isArray(fields) ? fields : []) {
+    if (!skillFieldLocked(field, next)) continue;
+    const fallback = field.default ?? (Array.isArray(field.options) && field.options[0] ? field.options[0].value : '');
+    if (String(next[field.key] ?? '') !== String(fallback)) next[field.key] = fallback;
+  }
   for (const field of Array.isArray(fields) ? fields : []) {
     const rule = field && field.optionsFrom;
     if (!rule || !rule.key || !rule.map) continue;

@@ -165,6 +165,20 @@
   color: var(--sb-ink-3);
 }
 
+/* ═══ 2026-09-27 批 DC（M2）：篇标记那一行（一次生成 = 一篇）══════════════════════════════════
+   它是**常显**的（不像下面那排动作要悬停才浮出）：一篇的手法骨架是"这条记录是什么"，
+   不是操作。手法多的篇要截断（两行），不能把网格的列高撑歪。 */
+.skill-history-piece {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sb-ink-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* 日期分组标题（批 CB）：跨整行，照画布库那一套（今天 / 昨天 / 更早） */
 .skill-history-date {
   grid-column: 1 / -1;

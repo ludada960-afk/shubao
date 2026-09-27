@@ -635,9 +635,10 @@ try {
   scenario('⑪b 关掉弹窗不丢方案：再点一次入口回到同一份方案（不重新请求）');
   /* ⚠️ 这条场景要**预览型**技能（`previewStep`）——锚点 `image.live_ui` 不是。
      实测踩到过：在锚点上点 CTA 不会出弹窗，断言当场红（`点入口按钮打开的是方案预览弹窗 —— …`）。
-     预览型四条里挑「概念视觉方案」：它也是这条流水线**最重**的一页（解析条目 8 行 + 21/11/1 个档位），
-     ⚠️ 它的必填是「主题意象（select）+ 手法（segmented）」，所以要像真用户那样把那两格配齐
-        （用同一套通用配齐逻辑：下拉选第一项、分段控件没选中就点第一个）。 */
+     预览型四条里挑「概念视觉方案」：它也是这条流水线**最重**的一页（解析条目 8 行 + 21 个档位），
+     ⚠️ 它的必填是「主题意象（select）+ 本篇手法（**可勾选清单**）」——
+        批 DC（M2）把手法从 segmented 字段改成了清单，所以这里要像真用户那样把清单勾上一个
+        （勾几种就出几张；不勾 CTA 会被如实拦住，那是正确行为，会把断言打红 —— 属脚本没模拟到位）。 */
   const PREVIEW_SKILL_ID = 'image.concept_set';
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + PREVIEW_SKILL_ID, { waitUntil: 'load', timeout: 40000 });
   await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
@@ -651,6 +652,9 @@ try {
     document.querySelectorAll('.media-workbench-fields .media-field-segmented').forEach(group => {
       if (!group.querySelector('button.is-active')) group.querySelector('button')?.click();
     });
+    /* 本篇手法清单：勾第一个（勾几个出几张，勾一个就是 1 张 —— 与下面的请求数断言一致） */
+    const first = document.querySelector('.media-workbench-checklist.is-selectable .media-workbench-checklist-toggle');
+    if (first && first.getAttribute('aria-checked') !== 'true') first.click();
   });
   await fillRequiredText();
   const planCallsBefore = calls.planPreview.length;

@@ -95,17 +95,30 @@ test('③ 色板与概念同源：每个主题意象的 value 都带实测色簇
   assert.deepEqual(missing, [], '这些实测色簇没有对应的母体：' + missing.join(', '));
 });
 
-test('④ 十种画面手法来自一手实测，且互不重复', () => {
+test('④ 十种画面手法来自一手实测、互不重复，且是**可勾选清单**（批 DC / M2 用户改口径）', () => {
+  /* ═══ 2026-09-27 批 DC（M2）：口径从"单选手法字段"改成"可勾选的本篇手法清单" ═════════════════
+     用户原话（docs/design/90 §一-2）：「**「一套图片」可以按你说的做吧**」；
+     §6.5：「「一套」= 一张一张计价（N 张 = N 张的钱），按钮上写清单价与总额」。
+     改前是一次一张、每换一种手法点一次生成（一篇 8~18 张要点 8~18 次）；
+     现在是勾 N 种 → 一次触发 N 次生成、按张计费、结果归为一篇。
+     ⇒ 手法从 `fields` 里的单选格搬到 **skill.modules**（A+「包含模块」那**同一个**勾选清单控件），
+       并且**不许**两处都有（两个手法控件会让人不知道该看哪个）。 */
   const field = skill.fields.find(f => f.key === 'shot');
-  assert.ok(field && field.kind === 'segmented' && !field.multiple, '手法是单选（一套 = 逐张换手法，每换一次点一次生成）');
-  assert.ok(field.options.length >= 10, '手法至少 10 种，实际 ' + field.options.length);
-  const values = field.options.map(o => o.value);
+  assert.equal(field, undefined, '手法不再是一个字段（也不再是单选）—— 它现在只有一份：本篇手法清单');
+  assert.equal(skill.modulesTitle, '本篇手法', '清单的标题要说清它是什么（不能沿用"包含模块"）');
+  assert.ok(String(skill.modulesNote || '').length >= 8, '清单那句说明要写清"勾几种出几张、按张计价"');
+  assert.ok(String(skill.modulesGate || '').includes('勾选'), '一个都不勾时要有一句点名勾选的话');
+  const modules = skill.modules;
+  assert.ok(Array.isArray(modules) && modules.length >= 10, '手法至少 10 种，实际 ' + (modules ? modules.length : 0));
+  const values = modules.map(o => o.value);
   assert.equal(new Set(values).size, values.length, '手法值有重复');
-  for (const option of field.options) {
+  assert.equal(new Set(modules.map(o => o.name)).size, modules.length, '清单里的名字必须能当勾选键（不许重名）');
+  for (const option of modules) {
     /* value = 手法名 + 执行定义（定义要真的是一句话，否则模型不知道这一步怎么拍） */
     assert.match(option.value, /——/, '手法值必须是「名称 —— 执行定义」的形态：' + option.value);
     assert.ok(option.value.length >= 20, '手法定义太短，模型抓不到：' + option.value);
-    assert.ok(String(option.label).length <= 6, '手法名要短（门禁要求 ≤6 字）：' + option.label);
+    assert.ok(String(option.name).length <= 6, '手法名要短（门禁要求 ≤6 字）：' + option.name);
+    assert.ok(String(option.hint || '').length >= 6, '清单里每一行都要有说明（用户勾之前看得见它是什么）：' + option.name);
   }
 });
 

@@ -225,6 +225,16 @@ export default function SkillWorkbench({
                               onOpen={(row.cover || row.video) ? () => setLightbox(row.__index) : null}
                             />
                           )}
+                          {/* ═══ 2026-09-27 批 DC（M2）：**篇标记** ═══════════════════════════════════
+                              一次生成 = 一篇（这一篇的 N 张都在同一张卡里，下载/存到资产也是整篇一起）。
+                              这行写出这一篇的手法骨架：用户一眼认得出"这是我那篇出海的"，
+                              而不是一堆只写着"3 张 · 时间"的同款卡。
+                              ⚠️ 只有带篇标记的记录才有这一行（其余技能的历史一个字没变）。 */}
+                          {row.piece && (
+                            <p className="skill-history-piece">
+                              本篇 {row.piece.size} 种手法 · {row.piece.shots.join(' / ')}
+                            </p>
+                          )}
                           {/* 历史条目要有操作：不然用户只能看着，删不掉、也回不到那组参数 */}
                           <div className="skill-history-actions">
                             {/* ⚠️ 没有可还原的参数就别放这个按钮：点了只会弹一句"无法还原"，
