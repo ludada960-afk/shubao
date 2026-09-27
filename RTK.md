@@ -10260,3 +10260,12 @@ div role="group" + aria-labelledby，标题 span 带 id；单控件字段（文�
 
 **待办不变**（CH 记录里那份：面板截断复现需窗口宽度、左栏内缩根治、CTA 与必要性提示顺序、
 生成脚本按钮位置与那行说明、以及知渔/图片侧的全量对账）。
+
+### 批 CI 部署确认（2026-09-27）
+
+- **Deployed 138ece5d to https://shuimg.cn/** + Released remote deployment lock（无 lock lost）——
+  部署脚本那条唯一成功判据已出现，本批正式上线。
+- 线上复验：release = /var/www/shubao/releases/20260927-123552-138ece5d，/api/health = 200。
+- 这条修的就是用户那句「所有带按钮的区域，鼠标放到空地上第一个按钮都会有灰色的交互」——
+  根因（label 转发悬停给第一个 labelable 后代）与实测前后数值写在上一条记录里。
+  若日后有人再看到"第一颗按钮自己亮"，**先查这一格是不是又被 label 包住了**（门禁 CI-① 守着）。
