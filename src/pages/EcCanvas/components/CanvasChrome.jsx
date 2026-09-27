@@ -25,7 +25,9 @@ import {
   X,
 } from 'lucide-react';
 import AccountEntitlementControl from '../../../components/billing/AccountEntitlementControl.jsx';
-import { PUBLIC_TEMPLATES } from '../../../constants/publicTemplates.js';
+/* 2026-09-28 批 CX（CV-0）：删掉 `PUBLIC_TEMPLATES` 的 import —— 它只被下面那个
+   `hasTemplates`（一个**从未被使用**的常量）引用；而"模板为空就隐藏入口"的初衷已经不需要了：
+   入口只剩顶栏那一颗，指向服务端驱动的 `WorkflowTemplateGallery`（空库时它自己有空状态）。 */
 
 function IconButton({ label, children, active = false, disabled = false, onClick, className = '', ...rest }) {
   return <button
@@ -52,14 +54,13 @@ export function CanvasTopBar({
   onExport,
   onRestore,
   onNew,
-  onOpenTemplateMarketplace,
   onOpenWorkflowGallery,
   saving = false,
   canRestore = false,
   entitlement,
 }) {
-  // 4c183cd4 空态守卫: 模板数据为空时隐藏顶部入口按钮, 避免打开空壳白屏。
-  const hasTemplates = Array.isArray(PUBLIC_TEMPLATES) && PUBLIC_TEMPLATES.length > 0;
+  /* 4c183cd4 空态守卫（已随 CV-0 移除）：这里原有一个 `hasTemplates` 常量用于"模板为空就隐藏入口"，
+     但它**从未被任何 JSX 使用**（死变量），且假模板广场拿掉后入口只剩服务端驱动的那一颗。 */
   return <header className="ec-canvas-topbar">
     <div className="ec-canvas-topbar-leading">
       {/* data-canvas-leave-guard：显式标注「这是真正离开画布的入口」。

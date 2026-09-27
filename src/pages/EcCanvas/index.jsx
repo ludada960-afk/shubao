@@ -137,7 +137,9 @@ import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
 /* 4c183cd4 续命 P-G/P-A/P-E/P-H 画布完整集成 (8 大新规划 5/8 落地) */
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 CanvasChainOverlay import (1-click 视频 overlay 重复入口, 改走节点串联) */
 /* 2026-09-01 用户反对多模态串联: 移除该浮层 import, 视频/音频收敛到节点串联 */
-import CanvasTemplateMarketplace from './components/CanvasTemplateMarketplace.jsx';
+/* 2026-09-28 批 CX（CV-0）：`import CanvasTemplateMarketplace` 删除（组件文件已删）——
+   它是那个"点选只弹 toast、没有任何入口调用"的假模板广场；模板入口只剩顶栏那一颗
+   → `WorkflowTemplateGallery`（真图结构 + 一键铺开）。 */
 /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI 组件
    CanvasContextMenuPanel.jsx 内含: CanvasContextMenuPanel / CanvasAddNodePanel /
    CanvasShortcutHelp / CanvasMinimap / CanvasTaskLogPanel / SaveStatusIndicator / CanvasSticker */
@@ -700,6 +702,20 @@ export default function EcCanvas() {
   const [graphRunConfirm, setGraphRunConfirm] = useState(null);
   /* P2 工作流模板库: 库浮层 + 铺开后顶部的运行 offer（运行仍走 P0.5 二次确认; T4/T5 呈 P3 灰态、不提供扣费运行）*/
   const [workflowGalleryOpen, setWorkflowGalleryOpen] = useState(false);
+  /* ═══ 2026-09-28 批 CX（CV-0/CV-3）：**模板广场可以直达**（`?page=ec-canvas&tab=templates`）═══════
+     用户原话（逐字，他在问入口形态时说的）：「你也可以任意的在他这个画布页面上
+     https://laoyu.quantv.com/canvas?tab=featured **点击任意一个工作流也可以创建进入画布里面**。
+     这就是我说的两种方式，你自己帮我考虑一下，到底怎么做会更好？」
+     结论（docs/design/89 §9.2）：**主入口是画布**，但"先挑模板再干活"这条路径要在**链接层面**成立
+     —— 这样它能被分享、被投放、被记进收藏夹，也让"模板墙"以后能独立挂到任何入口上。
+     `tab` 取值接受 `templates` / `template` / `workflows`（三个写法都认，避免用户/外部链接拼错就静默失效）。 */
+  useEffect(() => {
+    let requested = '';
+    try {
+      requested = String(new URLSearchParams(globalThis.location?.search || '').get('tab') || '').toLowerCase();
+    } catch { requested = ''; }
+    if (['templates', 'template', 'workflows', 'workflow'].includes(requested)) setWorkflowGalleryOpen(true);
+  }, []);
   const [workflowRunOffer, setWorkflowRunOffer] = useState(null);
   /* 9-11 用户批注: 视频模型与首页同源 —— 拉 /api/video/capabilities (与 VideoStudio 同一 API),
      首页上新模型, 画布视频生成器同步出现; 拉取失败回落内置两档 (不阻塞画布)。 */
@@ -780,8 +796,8 @@ export default function EcCanvas() {
   const [chainRun, setChainRun] = useState(null);
   /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 chainOverlayOpen state
       2026-09-01 用户反对多模态串联: 移除该浮层开关状态
-      1-click 视频改走节点串联 (Quantv §10.2), 现只剩 1 个 overlay (templateMarketplace) */
-  const [templateMarketplaceOpen, setTemplateMarketplaceOpen] = useState(false);
+      1-click 视频改走节点串联 (Quantv §10.2) */
+  /* 2026-09-28 批 CX：`templateMarketplaceOpen` 随那个"假模板广场"一起删除（见下方渲染处的批注）。 */
   const [tab, setTab] = useState(state.canvasEntryTab || 'canvas');
   const [workCategory, setWorkCategory] = useState('all');
   const [pastWorks, setPastWorks] = useState([]);
@@ -6687,10 +6703,9 @@ const handlePointerUp = useCallback((e) => {
         onNew={handleNew}
         /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉顶部 [1-click 视频] overlay 入口
            用户原话 8-30: "你必须把这些重复的东西都给拿掉"
-           原 3 overlay (1-click 视频/多模态串联/模板广场) -> 1 overlay (模板广场)
-           1-click 视频改走节点串联: 选中图片节点 → 端口 → 应用节点 → 视频节点 → 音频节点
-           2026-09-01 用户反对多模态串联: 拿掉 入口回调 prop, 现只剩 模板广场 (公共资源入口) overlay */
-        onOpenTemplateMarketplace={() => setTemplateMarketplaceOpen(true)}
+           2026-09-01 用户反对多模态串联: 拿掉 入口回调 prop
+           2026-09-28 批 CX（CV-0）: 再拿掉 `onOpenTemplateMarketplace` —— 它驱动的那个
+           "假模板广场"实测**无任何按钮调用**（死代码），入口只剩顶栏那一颗 →工作流模板库。 */
         onOpenWorkflowGallery={() => setWorkflowGalleryOpen(true)}
         saving={canvasSessionBusy}
         canRestore={Boolean(canvasSession?.id || result.canvasSessionId)}
@@ -8086,19 +8101,16 @@ const handlePointerUp = useCallback((e) => {
         </div>
       )}
 
-      {/* B10: 全局键盘快捷键 */}
-
-      {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 CanvasChainOverlay JSX 渲染
-          1-click 视频改走节点串联: 图片节点 → 应用节点 → 视频节点 → 音频节点 (Quantv §10.2)
-          2026-09-01 用户反对多模态串联: 移除该浮层渲染, 现只剩 1 个 overlay (模板广场) */}
-      <CanvasTemplateMarketplace
-        open={templateMarketplaceOpen}
-        onClose={() => setTemplateMarketplaceOpen(false)}
-        onPickTemplate={(tpl, detail) => {
-          setTemplateMarketplaceOpen(false);
-          showToast(`已应用模板 ${tpl.name}`, 'success');
-        }}
-      />
+      {/* ═══ 2026-09-28 批 CX（CV-0）：**「模板广场」收敛成一套真的** ═══════════════════════════════
+         这里原来还渲染着第二个模板广场 `CanvasTemplateMarketplace`（100 套、缩略图是按 id 生成的 SVG），
+         它的 `onPickTemplate` 只做 `showToast('已应用模板 X')`、**不铺任何节点** —— 一颗"点了会骗人"的按钮。
+         实测（批 CW）：它的开合状态只由 prop `onOpenTemplateMarketplace` 驱动，而 CanvasChrome 里
+         **没有任何按钮调用它**（全仓只有"解构 1 处 + 传参 1 处 + 定义 1 处"，无 onClick）
+         ⇒ 它是**不可达的死代码**；用户真正点到的顶栏「模板广场」打开的是
+         `WorkflowTemplateGallery`（真图结构 + 一键铺开 + 服务端真实计数）。
+         用户口径（逐字，画布那条）：「像这个**商品信息**AI规划这些按钮现在其实都是**失效的状态**……
+         那我觉得这些东西**可以不要了，你就直接拿掉吧**。」—— 同一条铁律：**不许留着假按钮等人接**。
+         ⇒ 整个组件与它的状态/prop 一并删除；100 套那份目录仍服务于公开页 `?page=public-templates`，不受影响。 */}
 
       {/* P2 图工作流模板库（一键铺开层）: 铺开免费、点赞幂等真数、T4/T5 P3 灰态门控 */}
       <WorkflowTemplateGallery
