@@ -125,6 +125,25 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
 });
 
+test('CK-① 框下面那一行：@ / 放大 / 字数（同一行，且在框外面）', () => {
+  /* 用户原话（逐字）：「你把 @ 和放大按钮，还有字数的限制是多少？这三个东西都**放到同一行**去，
+     这样不是更好吗？」「你与其写这句描述，你不如跟首页那边的做法一样，就直接把它做成一个按钮，
+     用户点击这个按钮就可以随时去 @ 我们现在上传的任意素材……变成蓝色的字体呀。」
+     实测（.qa/ck-script-block.mjs）：脚本块 = 标题 → 动作 → 提示词框 → `.video-wb-meta`
+     （顺序 video-wb-at → media-field-expand → video-wb-counter）；旧那句说明 `.video-wb-mention-hint`
+     已不在页面上；@ 点开有 `.video-wb-at-menu`（无素材时给的是「还没有上传素材」而不是空白）。 */
+  const jsx = read('src/components/media/VideoWorkbench.jsx');
+  assert.match(jsx, /<span className="video-wb-meta">/, '框下面要有一行 meta');
+  const meta = jsx.slice(jsx.indexOf('video-wb-meta'), jsx.indexOf('video-wb-meta') + 900);
+  assert.match(meta, /className="video-wb-at"/, '@ 要是一个按钮（不是一句说明文字）');
+  assert.match(meta, /className="media-field-expand"/, '放大按钮要搬进这一行');
+  assert.match(meta, /className="video-wb-counter"/, '字数计数也在同一行');
+  assert.doesNotMatch(jsx, /video-wb-mention-hint\}>/, '旧那句「输入 @ 可引用 N 个素材」不再渲染');
+  const css = read('src/components/media/VideoWorkbench.css');
+  assert.match(css, /\.video-wb-meta \.media-field-expand \{ position: static/, '放大按钮在这一行里不许再绝对定位（否则会飘回框角）');
+  assert.match(css, /\.video-wb-at-menu/, '@ 点开的素材菜单要有样式');
+});
+
 test('CI-① 按钮组的字段不许用 <label> 包（会把整格悬停转给第一颗按钮）', () => {
   /* 用户现场复现（逐字）：「我鼠标放到现在这个区域的右下角这块空白的地方，它第一个按钮的确会有一个
      灰色的显示……所有带按钮的区域只要我把鼠标放到这块区域的空地上，它的第一个按钮都会有这个灰色的

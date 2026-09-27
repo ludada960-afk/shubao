@@ -146,7 +146,24 @@ function ScriptField({
   id, value, mentions, maxLength, placeholder, className, disabled, onChange, onFilesPasted, fieldRef, label,
 }) {
   const [expanded, setExpanded] = useState(false);
+  /* ═══ 2026-09-27 批 CK：**@ 做成按钮 + 把「放大 / 字数」搬到框下面同一行**（用户原话，逐字）═══
+     原话：「你这个@ 的描述应该放到其他地方呀……你与其写这句描述，你不如跟**首页那边的做法一样，
+     就直接把它做成一个按钮**，用户点击这个按钮就可以随时去 @ 我们现在上传的任意素材呀，然后把它
+     添加到提示词里面去呀，然后**变成蓝色的字体**呀……而且你这个按钮明显是可以把它做到**提示词框的
+     下面**去呀。」「我右边这个放大按钮，我觉得其实不能放在提示词框里面……你也可以把它考虑放到提示词
+     框的下面。就是你把 @ 和放大按钮，还有字数的限制是多少？这三个东西都**放到同一行**去。」
+     ⇒ 落地：框下方一行 = [@] [放大] [字数 N / max]；@ 点开列出**已上传的素材**，选一个就把
+       `@[名字](id)` 插进提示词（渲染成蓝色胶囊，与首页那套 @ 同一份解析）。 */
+  const [atOpen, setAtOpen] = useState(false);
   const text = String(value || '');
+  const atItems = Array.isArray(mentions) ? mentions.filter(Boolean) : [];
+  const insertMention = item => {
+    const id2 = item.id || item.assetId || item.url || '';
+    const name = item.name || item.label || item.title || '素材';
+    const sep = !text || /\s$/.test(text) ? '' : ' ';
+    onChange(`${text}${sep}@[${name}](${id2}) `);
+    setAtOpen(false);
+  };
   const field = (
     <MentionPromptField
       id={id}
@@ -163,14 +180,39 @@ function ScriptField({
   return (
     <span className="media-field-textarea">
       {field}
-      <button
-        type="button"
-        className="media-field-expand"
-        disabled={disabled}
-        aria-label={(label || '脚本') + '放大编辑'}
-        title="放大编辑"
-        onClick={() => setExpanded(true)}
-      ><Maximize2 size={13} />放大</button>
+      {/* 框下方那一行：@ / 放大 / 字数（三样同一行 —— 用户点名的排版） */}
+      <span className="video-wb-meta">
+        <button
+          type="button"
+          className="video-wb-at"
+          disabled={disabled}
+          aria-expanded={atOpen}
+          aria-label="引用素材"
+          title="引用已上传的素材"
+          onClick={() => setAtOpen(open => !open)}
+        >@</button>
+        <button
+          type="button"
+          className="media-field-expand"
+          disabled={disabled}
+          aria-label={(label || '脚本') + '放大编辑'}
+          title="放大编辑"
+          onClick={() => setExpanded(true)}
+        ><Maximize2 size={13} />放大</button>
+        <span className="video-wb-counter">{text.length} / {maxLength}</span>
+      </span>
+      {atOpen && (
+        <span className="video-wb-at-menu" role="menu" aria-label="选择要引用的素材">
+          {atItems.length ? atItems.map((item, i) => (
+            <button
+              key={item.id || item.url || i}
+              type="button"
+              role="menuitem"
+              onClick={() => insertMention(item)}
+            >{item.name || item.label || item.title || `素材 ${i + 1}`}</button>
+          )) : <small>还没有上传素材 —— 先在上面上传，再回来 @</small>}
+        </span>
+      )}
       {expanded && createPortal(
         <div
           className="media-field-expand-modal"
@@ -364,7 +406,7 @@ export default function VideoWorkbench({
                   )}
                 </div>
               )}
-              <div className="video-wb-mention-hint">{block.mentionHint}</div>
+              {/* 批 CK：@ 的说明句撤掉（改成一个 @ 按钮，在框下面那一行里）；字数计数也搬进同一行 */}
               <ScriptField
                 id={`video-workbench-prompt-${index}`}
                 label={block.title}
@@ -380,7 +422,6 @@ export default function VideoWorkbench({
                    两处必须长得一样（这一条也是端到端脚本读提示词的锚点） */
                 className="video-prompt-mentions video-wb-prompt"
               />
-              <div className="video-wb-counter">{value.length} / {block.max}</div>
               {value.length >= Number(block.max || 0) && <div className="video-wb-counter is-full">已到字数上限</div>}
               {block.emptyTitle && !String(value || '').trim() && (
                 <div className="video-wb-empty">
