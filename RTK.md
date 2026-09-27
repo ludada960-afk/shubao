@@ -10983,6 +10983,14 @@ CV-5 社区闭环**。需要用户拍板 5 条（模板是否收费/解锁模式
   **没有官方模板货架**。
 - ⇒ 一句话：**知渔是"卖工作流的商店"，刘颖AI 是"存工作流的工具"**；用户说的两种方式正好各对应一家。
 
+⚠️ **一处自查纠正（同一批内）**：我在 89 文档初稿里写"100 套那套模板广场是**假按钮**"，随后核实发现
+**它今天根本没有入口** —— 开合状态 `templateMarketplaceOpen` 只由 prop `onOpenTemplateMarketplace` 驱动，
+而 CanvasChrome 里**没有任何按钮调用它**（全仓 `grep -n onOpenTemplateMarketplace` 只 3 处：解构 1 处 + 传参 1 处 + 定义 1 处，**无 onClick**）。
+⇒ 准确说法是：**用户能点到的顶栏「模板广场」打开的是真的那个**（WorkflowTemplateGallery，259 行，真图结构 + 一键铺开）；
+假的 `CanvasTemplateMarketplace`（100 套，点选只 `showToast`）是**不可达的死代码**，
+风险在于"谁把它接上一个按钮就等于上线一颗假按钮"。89 文档 §1/§5/§9.3 已同步改准。
+**教训**：读代码得出"用户在用的功能坏了"这种结论前，先确认那个入口**有没有被调用**（有函数 ≠ 有入口）。
+
 **结论（写进 `docs/design/89` §9）**：**选 B（直接进画布 + 画布内有集合页）**，但保留 A 的三个东西
 ——「新建空白画布」按钮、**模板直达 URL**（`/ec-canvas?tab=templates`，可分享/投放）、
 以及**卡片形态照知渔那一屏**（类目 chip + 解锁方式四档 + 徽章 + 真实计数 + 作者 + 一键铺开）。
@@ -10990,3 +10998,13 @@ CV-5 社区闭环**。需要用户拍板 5 条（模板是否收费/解锁模式
 卡上写未落地的价格（钱的铁律）。
 
 ⚠️ 截图存在 `.playwright-shots/cw/`（**未入库**：里面有他账号的画布列表与积分，属于个人信息）。
+
+### 批 CW 部署确认（2026-09-27 深夜）
+
+- **`Deployed 73be9de3 to https://shuimg.cn/`** + **`Released remote deployment lock`**；
+  线上 release = `/var/www/shubao/releases/20260927-232742-73be9de3`；`/` = 200、`/api/health` = 200。
+- **产物完整性用"文件名哈希比对"而不是 grep**（这次踩到）：压缩后**局部变量名会被改写**
+  （`declaredLimit`/`globalLimit` 在线上 bundle 里根本搜不到，`grep` 会给出"没上线"的**假结论**）。
+  正确做法：比对**本地 `dist/index.html` 与线上 `current/index.html` 引用的入口文件名** ——
+  两边同为 `assets/index-CtcBPDSe.js` + `assets/style-CgwvdjVX.css` ⇒ 线上跑的就是本批测过的那份构建。
+  （字符串字面量类改动仍可 grep，例如类名 `ec-canvas-suite-settings-in-row`；**标识符类改动用哈希比对**。）
