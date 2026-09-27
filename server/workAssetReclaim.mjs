@@ -28,20 +28,35 @@ import { join } from 'node:path';
    改一处就要改另一处（门禁会核对这两处逐字一致）。 */
 export const GENERATED_ASSET_URL_RE = /^\/api\/generated-assets\/([a-f0-9]{64}\.(?:jpg|png|webp))$/;
 
-/* 把一条作品记录里出现过的**媒体地址**都收集出来（封面 / 多图 / pages / 其它嵌套字段）。 */
+/* 把一条作品记录里出现过的**媒体地址**都收集出来（封面 / 多图 / pages / payload 里嵌的 JSON…）。
+   ⚠️⚠️ 这里的"字符串也可能是 JSON"必须处理 —— 这是**生产 dry-run 抓出来的真缺陷**：
+     数据库里的行是**原始行**（`image_urls` / `pages` / `payload` 都是 **JSON 字符串**），
+     第一版只对整串做锚定正则（`^/api/generated-assets/…$`）⇒ **一个候选都找不到**，
+     于是"清理"会变成"立了墓碑、文件一个没删"——空间问题根本没解决（实测：可删文件 = 0）。
+   ⇒ 现在：字符串先当单个地址试；不像地址就看它像不像 JSON，是 JSON 就解析后递归（带深度上限）。 */
+const MAX_DEPTH = 8;
+
 export function collectWorkAssetUrls(work) {
   const found = new Set();
-  const push = value => {
+  const push = (value, depth = 0) => {
+    if (depth > MAX_DEPTH) return;
     if (typeof value === 'string') {
-      const matched = GENERATED_ASSET_URL_RE.exec(value.trim());
-      if (matched) found.add(matched[1]);
+      const trimmed = value.trim();
+      const matched = GENERATED_ASSET_URL_RE.exec(trimmed);
+      if (matched) { found.add(matched[1]); return; }
+      const head = trimmed[0];
+      if (head === '{' || head === '[') {
+        try { push(JSON.parse(trimmed), depth + 1); } catch { /* 不是 JSON 就算了 */ }
+      }
       return;
     }
-    if (Array.isArray(value)) { for (const item of value) push(item); return; }
-    if (value && typeof value === 'object') { for (const item of Object.values(value)) push(item); }
+    if (Array.isArray(value)) { for (const item of value) push(item, depth + 1); return; }
+    if (value && typeof value === 'object') { for (const item of Object.values(value)) push(item, depth + 1); }
   };
   if (!work || typeof work !== 'object') return [];
-  for (const key of ['cover_url', 'coverUrl', 'image_urls', 'imageRecords', 'images', 'pages', 'url', 'poster', 'video_url', 'resultUrl']) {
+  for (const key of ['cover_url', 'coverUrl', 'image_urls', 'imageRecords', 'images', 'pages', 'url', 'poster', 'video_url', 'resultUrl',
+    /* 原始行里图片地址多半就在 payload 这个 JSON 字符串里（实测：165 条里 70 条） */
+    'payload', 'replay', 'projectAssetRefs', 'productAssets', 'referenceAssets', 'mediaAssets']) {
     push(work[key]);
   }
   return [...found];

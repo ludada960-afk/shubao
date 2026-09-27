@@ -46,8 +46,7 @@ test('② 绝不误删：只认那一种地址形态，别的目录/穿越路径
       '/api/generated-assets/' + 'a'.repeat(63) + '.png',
     ],
   };
-  assert.deepEqual(collectWorkAssetUrls(work), ['d'.repeat(64) + '.png'], '只有合法的那一条被收下');
-  /* deleteAssetFiles 自己有第二道闸（名字不合法直接跳过）+ 只拼 assetDir 下的路径 */
+  assert.deepEqual(collectWorkAssetUrls(work), ['d'.repeat(64) + '.png'], '只有合法的那一条被收下');  /* deleteAssetFiles 自己有第二道闸（名字不合法直接跳过）+ 只拼 assetDir 下的路径 */
   const files = deleteAssetFiles(['../../etc/passwd', 'd'.repeat(64) + '.png', 'not-a-name'], join(ROOT, 'definitely-not-here'));
   assert.deepEqual(files.deleted, []);
   assert.deepEqual(files.missing, ['d'.repeat(64) + '.png'], '合法名字但文件不存在 → 记 missing，不报错');
@@ -59,6 +58,32 @@ test('② 绝不误删：只认那一种地址形态，别的目录/穿越路径
     '删文件前必须再校验一次文件名（防目录穿越的第二道闸）');
 });
 
+test('②b 原始行里的图片地址藏在**JSON 字符串**里 —— 必须能挖出来（生产 dry-run 抓出来的真缺陷）', () => {
+  /* 实测现场：生产库里 165 条作品，`cover_url`/`image_urls` 两列**一条**都没有生成图地址，
+     70 条把地址放在 `payload` 这个 **JSON 字符串**里（`image_urls` 列本身也是 `"[]"` 这样的字符串）。
+     第一版只对整串做锚定正则 ⇒ 候选 = 0 ⇒ "清理"变成"立了墓碑、文件一个不删"（空间问题没解决）。 */
+  const rawRow = {
+    id: 1,
+    cover_url: '',
+    image_urls: '[]',
+    pages: '[]',
+    payload: JSON.stringify({
+      images: [{ url: '/api/generated-assets/' + 'a'.repeat(64) + '.png' }],
+      imageRecords: [{ key: 'x', url: '/api/generated-assets/' + 'b'.repeat(64) + '.png' }],
+      nested: { deeper: JSON.stringify(['/api/generated-assets/' + 'c'.repeat(64) + '.png']) },
+      ignored: '/api/generated-assets/../../etc/passwd',
+    }),
+  };
+  assert.deepEqual(
+    collectWorkAssetUrls(rawRow).sort(),
+    ['a'.repeat(64) + '.png', 'b'.repeat(64) + '.png', 'c'.repeat(64) + '.png'],
+    'payload 里的（含再套一层 JSON 字符串的）都要挖出来，非法形态照旧不认',
+  );
+  /* 自证：把 JSON 解析那一步去掉（当普通字符串看），一条都挖不出来 ⇒ 这条判据不是空转 */
+  const naive = rawRow.payload.match(/^\/api\/generated-assets\/[a-f0-9]{64}\.(?:jpg|png|webp)$/);
+  assert.equal(naive, null, '不做 JSON 解析的话就是 0 命中 —— 与生产 dry-run 的"可删文件 0"完全对得上');
+});
+
 test('③ 到期不再整行删：清空媒体字段 + 记 expired_at（墓碑）', () => {
   const source = read('server/worksRetention.mjs');
   assert.match(source, /UPDATE works SET expired_at = \?, cover_url = '', image_urls = '\[\]', pages = '\[\]'/,
@@ -66,7 +91,16 @@ test('③ 到期不再整行删：清空媒体字段 + 记 expired_at（墓碑�
   assert.doesNotMatch(source, /DELETE FROM works WHERE id = \?/, '不许再整行删掉（那会让用户以为东西凭空消失）');
   /* ⚠️ 源码里这行 SQL 是**写在单引号字符串里**的，所以文件文本里带反斜杠转义 —— 判据要按文件原文写。 */
   assert.match(source, /COALESCE\(expired_at, \\'\\'\) = \\'\\'/, '已经过期的记录不该被反复扫出来处理');
-  assert.match(source, /collectOtherAssetRefs\(db\)/, '要按"其它引用者"过滤（我的资产 / 视频产物）');
+  assert.match(source, /collectOtherAssetRefs\(db\)/, '要按"其它引用者"过滤（我的资产 / 视频产物 / 画布快照）');
+  /* ═══ 开门前补的两条**真实误删**防护（2026-09-27，用户拍板要打开生产清理时加的）═══════════════
+     ① 回收站里的作品也属于"保护集合"——它是可以恢复的，图删了恢复回来就是一张裂图；
+     ② 画布快照里存的就是生成图地址，且画布**没有**对应的 works 行 —— 只看 works 会误删。 */
+  /* ⚠️ 这里用 includes 而不是正则：源码里那段 SQL 带一层 JS 字符串转义（`\'`），
+     写成正则要连反斜杠一起转义，极易写成非法表达式（第一版就是这么挂在 SyntaxError 上的）。 */
+  assert.ok(source.includes('SELECT * FROM works WHERE COALESCE(expired_at'),
+    '保护集合 = 所有还没立墓碑的作品（含回收站与白名单作者）');
+  assert.match(source, /canvas_sessions/, '画布快照要算引用者');
+  assert.match(source, /composition_layers/, '合成文档也要算引用者');
   /* 迁移：works 表要有 expired_at 列 */
   assert.match(read('server/db.mjs'), /ALTER TABLE works ADD COLUMN expired_at TEXT DEFAULT ''/, '缺列要能自动补上');
   assert.match(read('server/db.mjs'), /row\.expired_at \? \{ expired_at: row\.expired_at, _expired: true \}/,

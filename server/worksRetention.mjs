@@ -100,7 +100,12 @@ export function createWorksRetentionService({ db, now = () => Date.now(), logger
     const ids = expired.map(row => row.id);
     const placeholders = ids.map(() => '?').join(',');
     const expiredRows = db.prepare(`SELECT * FROM works WHERE id IN (${placeholders})`).all(...ids);
-    const liveRows = db.prepare('SELECT * FROM works WHERE COALESCE(deleted_at, \'\') = \'\' AND COALESCE(expired_at, \'\') = \'\' AND id NOT IN (' + placeholders + ')').all(...ids);
+    /* ⚠️ 保护集合 = **所有还没立墓碑的作品** —— 包括：
+         · 没过期的；
+         · 进过回收站的（`deleted_at` 有值）：回收站是可以恢复的，把它的图删了等于"恢复回来是一张裂图"；
+         · 白名单作者的（它们永远不会被立墓碑）。
+       只按"未过期"取会漏掉后两类，那是**真实的误删**（本批开门前专门补的一条）。 */
+    const liveRows = db.prepare('SELECT * FROM works WHERE COALESCE(expired_at, \'\') = \'\'').all();
     const otherRefs = collectOtherAssetRefs(db);
     const plan = planAssetReclaim({ expiredWorks: expiredRows, liveWorks: liveRows, otherRefs });
     const files = deleteAssetFiles(plan.deletable, assetDir);
@@ -128,21 +133,31 @@ export function createWorksRetentionService({ db, now = () => Date.now(), logger
     return result;
   }
 
-  /* 其它引用者：项目资产（我的资产）与视频资产。它们引用的文件**一个都不许删**。
-     ⚠️ 用 try 包住：这些表在老库上不一定存在（部署是滚动升级），缺表时按"没有引用者"处理 ——
-        但**只有**在缺表这一种情况下才这样，不能因为查询报错就把引用关系当成空。 */
+  /* 其它引用者：项目资产（我的资产）、视频任务、**画布快照**。
+     ⚠️ 画布快照是必须查的：画布节点里存的就是生成图地址，而画布**没有**对应的 works 行 ——
+        只看 works 的话，"作品过期了但那张图还挂在画布里"的文件会被删掉，用户打开画布就是一片裂图。
+     ⚠️ 用 try 包住：这些表在老库上不一定存在（部署是滚动升级），缺表时跳过这一类引用者。
+        但**只有**缺表这一种情况才这样，不能因为查询报错就把引用关系当成空。 */
   function collectOtherAssetRefs(database) {
     const refs = [];
-    const collect = (sql) => {
+    const NAME_RE = /[a-f0-9]{64}\.(?:jpg|png|webp)/gi;
+    const pushUrl = url => { if (url) refs.push(String(url)); };
+    const pushText = text => {
+      if (!text) return;
+      const matched = String(text).match(NAME_RE);
+      if (matched) for (const name of matched) refs.push('/api/generated-assets/' + name);
+    };
+    const collect = (sql, pick) => {
       try {
-        for (const row of database.prepare(sql).all()) {
-          if (row && row.url) refs.push(row.url);
-        }
+        for (const row of database.prepare(sql).all()) pick(row);
       } catch { /* 表不存在（老库）——跳过这一类引用者 */ }
     };
-    collect('SELECT stable_url AS url FROM project_assets');
-    collect('SELECT playback_url AS url FROM project_assets');
-    collect('SELECT result_url AS url FROM video_jobs');
+    collect('SELECT stable_url AS url FROM project_assets', row => pushUrl(row?.url));
+    collect('SELECT playback_url AS url FROM project_assets', row => pushUrl(row?.url));
+    collect('SELECT result_url AS url FROM video_jobs', row => pushUrl(row?.url));
+    /* 画布快照（canvas_sessions.snapshot）与合成文档：整段 JSON 扫一遍里面的生成图名 */
+    collect('SELECT snapshot AS text FROM canvas_sessions', row => pushText(row?.text));
+    collect('SELECT payload AS text FROM composition_layers', row => pushText(row?.text));
     return refs;
   }
 
