@@ -662,7 +662,15 @@
 .ec-canvas-composer-footer > span { order: 1; }
 .ec-canvas-composer-footer > button { order: 3; margin-left: auto; }
 .ec-canvas-composer-footer > .ec-canvas-composer-mention .image-mention-trigger { border: 1px solid #dfe3e8; background: #fff; }
-.ec-canvas-parameter-controls { position: relative; z-index: 5; display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; }
+/* ═══ 2026-09-27 批 CU：`flex-wrap: wrap` —— 放不下时槽位**换行**，不再整行溢出 ═══════════════
+   用户原话（逐字）：「可能不止电商套图有存在这个问题，其他的区域应该也有存在这些问题，
+   像**生成文案啊，生成图片啊，生成视频**啊，他们那边应该也有这些类似的问题存在，
+   那你都得去把他们给解决掉。」
+   实测（`.qa/cu-overflow-diag.mjs`，把创作台面板压到 320px）：
+     图片生成 / 生成文案的 `--slot` 行**固定宽 ≈290px** 且子项 `flex: 0 0`（不缩）⇒
+     在 216px 的底栏里**整行溢出 84px**（底栏自己换行也救不了"一个比容器还宽的子项"）。
+   与底栏那条同一个口径：**空间够时一行不变，真放不下就换行**。 */
+.ec-canvas-parameter-controls { position: relative; z-index: 5; display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; flex-wrap: wrap; }
 .ec-canvas-parameter-item { position: relative; }
 .ec-canvas-parameter-item > button { height: 32px; display: inline-flex; align-items: center; gap: 5px; max-width: 116px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
 .ec-canvas-parameter-item > button:hover, .ec-canvas-parameter-item > button[aria-expanded="true"] { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
@@ -741,7 +749,13 @@
    宽度按内容收敛（flex: 0 1 auto + 内容宽度），不再一律 1fr 撑满。 */
 .ec-canvas-video-controls {
   display: flex;
-  flex-wrap: nowrap;
+  /* ═══ 2026-09-27 批 CU：nowrap → **wrap**（用户原话，逐字）════════════════════════════════════
+     「可能不止电商套图有存在这个问题，其他的区域应该也有存在这些问题，像生成文案啊，生成图片啊，
+     **生成视频**啊，他们那边应该也有这些类似的问题存在，那你都得去把他们给解决掉。」
+     实测（`.qa/cu-overflow-diag.mjs`，面板压到 320px）：这一行的槽位是**固定 basis**
+     （24 / 112 / 62 / 52 / 56 / 56 / 23），nowrap 下最后三格分别**溢出 30 / 73 / 102px**。
+     改成换行：空间够时一行不变，不够时整格换到下一行。 */
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--cvl-sp2, 8px);
   padding: var(--cvl-sp3, 12px);
@@ -1672,9 +1686,17 @@
 .ec-canvas-composer-footer > .ec-canvas-composer-mention { order: 0; flex: 0 0 auto; margin-left: 0; }
 .ec-canvas-composer-footer > .ec-canvas-parameter-controls {
   order: 1;
-  /* 行宽 = 槽位之和 + 间距（定值），不参与收缩 —— 放不下时由底栏裁切，
-     绝不让槽位互相挤压（槽位宽度绝对固定）。 */
-  flex: 0 0 auto;
+  /* ═══ 2026-09-27 批 CU：`flex: 0 0 auto`（不收缩）→ **`0 1 auto`**（可收缩，收缩后槽位换行）═══
+     用户原话（逐字）：「可能不止电商套图有存在这个问题，其他的区域应该也有存在这些问题，
+     像生成文案啊，生成图片啊，生成视频啊，他们那边应该也有这些类似的问题存在，那你都得去把他们给解决掉。」
+     实测（`.qa/cu-overflow-diag.mjs`）：这一行的槽位之和是**定值 ≈290px**，
+     `flex: 0 0 auto` ⇒ 不收缩 ⇒ 在 216px 的底栏里**整行溢出 84px**（底栏自己换成 wrap 也救不了
+     "一个比容器还宽、且不肯缩的子项"）。
+     ⚠️ 原来 `flex: 1 1 auto` 只写在 `@media (max-width: 760px)` 里 —— 那是**视口**查询，
+     而这里真正的容器是**节点面板**：视口 1440、面板被收窄到 320 时，那条媒体查询根本不会命中，
+     所以"窄屏才换行"从来没在"窄面板"上生效过。改成**容器驱动**：恒可收缩 + 行内 `flex-wrap: wrap`
+     （见 `.ec-canvas-parameter-controls` 那条），槽位放不下就换行。 */
+  flex: 0 1 auto;
   min-width: 0;
 }
 .ec-canvas-composer-footer > span {

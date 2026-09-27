@@ -57,11 +57,20 @@ test('② @ 键在参数行**最前面**（视频模型之前）', () => {
   assert.ok(!/<ComposerMention/.test(footer), '视频框底栏不得再有第二个 @');
 });
 
-test('② 整行不换行、不溢出（nowrap + border-box + 宽度锁定）', () => {
+test('② 整行不溢出（wrap + border-box + 宽度锁定）；换行不是溢出', () => {
+  /* ═══ 2026-09-27 批 CU：**判据反转（用户改向）** ═════════════════════════════════════════════
+     原来是「必须不换行（flex-wrap: nowrap）」——那是"槽位宽固定、放不下就整行溢出/被容器裁掉"的口径。
+     用户原话（逐字）：「而且你这里现在这些**按钮区的适配现在也没有做好，很多部分，它现在都是
+     **超出框的边界**的……像生成文案啊，生成图片啊，**生成视频**啊，他们那边应该也有这些类似的问题存在，
+     那你都得去把他们给解决掉。」
+     实测（`.qa/cu-overflow-diag.mjs`，面板压到 320px）：nowrap 下这一行最后三格分别**溢出 30 / 73 / 102px**。
+     ⇒ 现在要求"**允许换行**"：空间够时一行不变（顺序与宽度都不动），不够时整格换到下一行。
+       border-box / width:100% / min-width:0 三条不变（它们保证行宽 = 生成框宽、子项可收缩）。 */
   const rule = css.match(/\.ec-canvas-video-controls \{([^}]*)\}/);
   assert.ok(rule, '必须能找到参数行规则');
   const body = rule[1];
-  assert.ok(/flex-wrap:\s*nowrap/.test(body), '必须不换行');
+  assert.ok(/flex-wrap:\s*wrap/.test(body), '必须允许换行（用户：不要超出框的边界）');
+  assert.ok(!/flex-wrap:\s*nowrap/.test(body), '不得再用 nowrap（实测窄面板下溢出 102px）');
   assert.ok(/box-sizing:\s*border-box/.test(body), '必须 border-box（否则 padding 会把行撑出容器）');
   assert.ok(/width:\s*100%/.test(body), '行宽必须等于生成框宽');
   assert.ok(/min-width:\s*0/.test(body), '必须允许子项收缩');

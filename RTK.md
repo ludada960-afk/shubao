@@ -10880,30 +10880,48 @@ CV-5 社区闭环**。需要用户拍板 5 条（模板是否收费/解锁模式
 `docs/superpowers/specs/2026-08-30-canvas-overall-*.md`；视频/导演生态缺口在
 `2026-08-26-director-ecosystem-audit.md`。⚠️ 实拍日期是 **2026-08-27**，已过 31 天，引用时注意时效。
 
-### 批 CH（2026-09-27）：到期墓碑在「我的作品」里也画成**灰卡 + 已过期**（不再凭空消失）
+### 批 CU 部署确认（2026-09-27）
 
-**用户口径（逐字）**：
-「那子页面生成的作品不仅会进子页面右边的历史区，还应该进我的作品里面，我的作品不仅收纳子页面的作品，
-也收纳画布生成的作品，是这样吗？」→ 我核对后确认**两件事都成立**（两处读的是**同一份 `works`**：
-子页面历史是按 `mediaSkillId` 筛过的视图，「我的作品」是全集；画布产物与视频成片也在同一张表里 ——
-视频是服务端 `upsertWork({ _saveKey: 'video:<id>', category: 'AI视频' })` 写进去的），
-并顺带报了一条**两处表现不一致**：过期作品在子页面历史里是灰卡，在「我的作品」里**直接消失**。
-用户回：「**可以**」（修掉它）。
+- **`Deployed 289301ec to https://shuimg.cn/`** + **`Released remote deployment lock`**。
+  线上 release = **`/var/www/shubao/releases/20260927-201323-289301ec`**；入口 `assets/index-D74kHuJ9.js` +
+  `assets/style-DrDAZSKu.css`；`/` = 200、`/api/health` = 200。
+- 服务器侧复验（ssh + grep 线上产物）：
+  · 新增类名 **`ec-canvas-suite-settings-in-row` 在 `assets/index-BW-i1sG2.js`** 里命中 ——
+    ⚠️ 注意：画布代码在**懒加载 chunk**里，不在入口 bundle；只 grep 入口那一个文件会得出"没上线"的**假结论**
+    （本次差点这么误判）。要 `grep -l '<标记>' *.js` 扫全部 chunk。
+  · 线上 CSS：`.ec-canvas-suite-controls{…flex-wrap:wrap…}` 与
+    `.ec-canvas-composer-footer{flex-wrap:wrap;align-items:center;overflow:visible}` 均已生效
+    （覆盖了早前那条"放不下就整体裁掉"的 nowrap+hover:hidden 口径）。
+- 本批**未跑任何付费生成**；部署照旧带 `-SkipPublicChecks`（本机连不上公网域名，如实记）。
 
-**根因**：`canvasWorkModel.normalizePanelWork` 要求"有图 / 视频 / 素材引用"，否则整条 `return null`；
-墓碑的媒体字段已经被清理逻辑清空 ⇒ 被丢掉，于是"凭空消失"。
-**改法**：墓碑**优先判**（`_expired` 或 `expired_at` 任一），原样留在列表并打 `expired: true`；
-没有墓碑标记的空记录**照旧丢掉**（防把噪声放进列表）。界面按 `expired` 走灰卡：
-「已过期」+ 说明（作品保留 7 天、图片文件已清理、无法再打开或下载），
-**不给**「打开作品 / 加入资产库 / 回到工作台」（文件与面板值都没了，给了就是坑），只留「移入回收站」。
-墓碑保留原 `title`（清理时**没有**清 title，就是为了让用户认得出这是哪一条）。
+### 批 CU 追加 —— 另外三个框（图片/文案/视频）的按钮区适配（同一天，第二次提交）
 
-**门禁** `test/canvas-works-expiry-0927.test.mjs`（2 条）：① 模型保留墓碑并带 `expired`（自证：没有标记的空记录
-仍必须被丢掉）；② 界面灰卡文案与"不给哪些动作"（逐条反断言）。
-**验证**：`npm run test` **4197 / 0 fail**；`precommit` 全绿（构建 exit 0 + 冒烟 + e2e **280** 条 + BLOCKING 门禁）。
-提交 `9ff83b9b` → `Deployed 9ff83b9b to https://shuimg.cn/`；服务器侧复验：release `20260927-205500-9ff83b9b`、
-入口加载的块里命中灰卡文案、健康与站点 200、数据侧仍是 165 条里 **74 条墓碑**、生成目录 **1.1 GB**。
+用户原话（逐字）：「而且你这里现在这些**按钮区的适配现在也没有做好，很多部分，它现在都是**超出框的边界**的。
+**可能不止电商套图有存在这个问题，其他的区域应该也有存在这些问题，像生成文案啊，生成图片啊，
+生成视频啊，他们那边应该也有这些类似的问题存在，那你都得去把他们给解决掉。**」
 
-**并发协调（本批新增一条做法）**：RTK.md 当时**同时**有并发会话的在制品（批 CV）。
-为了只提交我这一条：先把他们的工作区文本备份 → `git checkout -- RTK.md` 回到 HEAD → 追加我的条目 → 提交 →
-**把他们的文本原样写回工作区**（仍未提交，与我动手前一致）。全程没有改动、也没有提交他们的内容。
+上一批只修了套图那一行，这一批按他点名的"其他区域"逐条量、逐条修。探针 `.qa/cu-adapt-all.mjs`
+（把创作台面板强制成 620/540/480/435/380/320 六档，逐行量"子元素右缘 / scrollWidth 是否超过行右缘"）：
+
+| 框 | 改前（越界档位 → 溢出像素） | 改后 |
+|---|---|---|
+| 电商套图 | 480/435/380/320 → 22/53/90/131px | 六档 0 溢出 |
+| 图片生成 | 435/380/320 → 5/43/84px（底栏里的参数行整行溢出） | 六档 0 溢出 |
+| 生成文案 | 435/380/320 → 5/43/84px（同上） | 六档 0 溢出 |
+| 生成视频 | 435/380/320 → 24/61/102px（控件行最后三格） | 六档 0 溢出 |
+
+**三条根因（同一类"拿视口/固定宽当护栏"的历史写法）**
+1. `.ec-canvas-parameter-controls` 自身 nowrap ⇒ 加 `flex-wrap: wrap`；
+2. `.ec-canvas-composer-footer > .ec-canvas-parameter-controls` 是 `flex: 0 0 auto`（**不收缩**）
+   ⇒ 底栏自己变 wrap 也救不了"一个比容器还宽、且不肯缩的子项" ⇒ 改 `flex: 0 1 auto`。
+   ⚠️ **原来那条 `flex: 1 1 auto` 只写在 `@media (max-width: 760px)` 里** —— 那是 **视口**查询，
+   而这里真正的容器是**节点面板**：视口 1440 + 面板被收窄到 320 时它根本不命中
+   ⇒「窄屏才换行」从来没在「窄面板」上生效过。**这是个值得记的教训：容器级的适配别用视口媒体查询。**
+3. `.ec-canvas-video-controls` nowrap ⇒ `wrap`。
+
+**判据改判（都是用户改向，断言内写明原话与实测）**
+- `test/canvas-control-slot-width-0917.test.mjs`：新增「四个生成框的按钮行都允许换行，且参数行可收缩」；
+- `test/canvas-video-controls-layout-0917.test.mjs` ②：**反转**（原来要求 `flex-wrap: nowrap`）。
+
+**证据**：`npm run test` —— tests **4198** / pass **4188** / **fail 0** / skipped 10；
+`npm run precommit` —— 构建 exit 0 + `[media-e2e] 通过：280 条断言全绿` + 38 门禁全绿。

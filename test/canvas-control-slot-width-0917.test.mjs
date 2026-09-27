@@ -200,6 +200,27 @@ test('参数行不参与收缩（flex-shrink:0）；放不下**换行**，不再
   assert.match(suiteRow, /flex-wrap:\s*wrap/, '套图参数行同样必须换行（实测它是最容易溢出的那一条）');
 });
 
+/* ═══ 2026-09-27 批 CU：**四个生成框的按钮区都要经得起窄面板**（用户点名，逐字）═══════════════
+   用户原话：「可能不止电商套图有存在这个问题，其他的区域应该也有存在这些问题，像**生成文案啊，
+   生成图片啊，生成视频**啊，他们那边应该也有这些类似的问题存在，那你都得去把他们给解决掉。」
+   实测（`.qa/cu-adapt-all.mjs`，把创作台面板强制成 620/540/480/435/380/320 六档逐行量，改前）：
+     · 电商套图参数行：480/435/380/320 四档分别**溢出 22/53/90/131px**；
+     · 图片生成 / 生成文案底栏：435/380/320 三档**溢出 5/43/84px**；
+     · 生成视频控件行：435/380/320 三档**溢出 24/61/102px**。
+   改后四框六档**全部 0 溢出**。判据（静态可守的部分）：这几行必须写明 wrap，且参数行必须可收缩
+   —— `flex: 0 0 auto` 会让"比容器还宽的子项"永远溢出，光给底栏加 wrap 救不回来。 */
+test('四个生成框的按钮行都允许换行，且参数行可收缩（窄面板不溢出）', () => {
+  const videoRow = allRuleText(main, /\.ec-canvas-video-controls \{([\s\S]*?)\}/g);
+  assert.ok(videoRow.trim(), '必须有 .ec-canvas-video-controls 规则');
+  assert.match(videoRow, /flex-wrap:\s*wrap/, '视频控件行必须 wrap（实测窄面板下最后三格溢出 30/73/102px）');
+  const paramRow = allRuleText(main, /\.ec-canvas-parameter-controls \{([\s\S]*?)\}/g);
+  assert.match(paramRow, /flex-wrap:\s*wrap/, '参数行自身也要 wrap（否则它比底栏还宽时无处可去）');
+  const footerChild = allRuleText(main, /\.ec-canvas-composer-footer > \.ec-canvas-parameter-controls \{([\s\S]*?)\}/g);
+  assert.ok(!/flex:\s*0\s+0\s+auto/.test(footerChild),
+    '底栏里的参数行不许再用 flex: 0 0 auto（不收缩 ⇒ 窄面板下整行溢出 84px）');
+  assert.match(footerChild, /flex:\s*0\s+1\s+auto/, '参数行必须可收缩（收缩后由行内的 wrap 接管换行）');
+});
+
 /* ── 防回退：不得再出现 flex: 0 0 auto 作用于"内容自适应"的参数槽 ── */
 
 test('防回退：套图参数行不得退回 flex: 0 0 auto（内容自适应）', () => {
