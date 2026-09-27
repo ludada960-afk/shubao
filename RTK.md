@@ -9924,3 +9924,42 @@ e2e 265 → **266**（加"历史按天分组"）。
 一次 `image.retouch` 超时 + `48/49` 判红其实是**对方 e2e 占了端口**，让开重跑即 49/49），
 部署撞锁就等下一轮（本轮也撞到一次）。本轮把 5 个小批合成 **2 次提交 + 1 次部署**，
 就是为了少占锁、少跑整套测试。
+
+## 2026-09-27 批 CD —— 「生成记录」搬进右栏历史区（提交 c23dcd81，**未部署**，见文末阻塞）
+
+**用户原话（逐字）**
+「你看你下面还是有这个生成结果的一个展示区，为什么还会有呢？我都跟你说了很多遍了，你这个生成结果
+**必须在右边的历史区里面**呀。这个地方一定是要删掉的呀。」
+
+**为什么不能删**：`scripts/media-workbench-e2e.mjs` 三条硬要求 —— L753 默认「示例」页签下就要有
+`.video-history`；L832 要从 `.video-history button span` 读任务标题（没有 skill 标记的任务只在这里
+看得到）；L858 `click('.video-history button')` 后成片要出现在本页结果台。⇒ 用户要的是**搬**。
+
+**改法**
+1. `WorkbenchShell.jsx` 右栏 pane 里加**常驻**挂载点
+   `<div className="media-workbench-history-host" data-history-host hidden={activeTab !== 'history'} />`
+   （常驻是刻意的：L753 在示例页签下就要求它在 DOM；`hidden` 只管显隐 ⇒ L832/L858 照旧）。
+2. `VideoStudio/index.jsx`：把那段 JSX 原样提成 `const videoHistoryBlock`（**类名一个都没改**），
+   effect 里取 `[data-history-host]`，取到就 `createPortal`，取不到（首页/独立创作台/独立路由）内联。
+3. `VideoStudio.css`：进 pane 后把左栏那套几何归零（18/14/860 上限/上分割线）。
+
+**实测（.qa/cd-history-portal.mjs，1440 视口）**：默认页签 → 挂载点在、`.video-history` 在挂载点里、
+**左栏已无**、不可见；切「历史」→ 可见 `608,176 777×43`；pane 不产生嵌套滚动（`ovY=visible` 200/200）。
+另用端到端脚本那份 capabilities 夹具复跑（.qa/cd-regression.mjs）：`.media-workbench-panel
+.video-studio-page` = 376×748 **visible**、无运行时报错、host 处于 hidden。
+
+**⚠️ 未部署的原因（不是我的改动；下次接手先看这一段）**
+在**只含本次提交**的隔离 worktree 里跑 precommit，e2e 红在
+`waiting for locator('.media-workbench-panel .video-studio-page') to be visible`（20s 超时）。
+为了定性，我又在**另一条线自己的提交** `c310e108`（他们的"到期墓碑 + 回到生成它的工作台"，
+**不含**我这次改动）上开了隔离 worktree 跑 precommit —— **同样红**（`✖ precommit 未通过：技能工作台端到端`）。
+⇒ 共享的端到端脚本**在他们那次提交之后就已经是红的**，与本批改动无关；按 RTK §3.1-4 我没有代修他们的
+`src/pages/Home/*`、`scripts/media-workbench-e2e.mjs`、`test/media-history-layout-0927.test.mjs`。
+⇒ **本批代码已提交在本地 `c23dcd81`，未部署**；等那条 e2e 绿了直接 deploy 这个 sha 即可
+（部署流水线会用同一个 e2e，所以它红着的时候部署本身也会被拦下）。
+
+**同时留给下批的两条环境经验**
+- 隔离验证的具体做法（已验证两次有效）：`git worktree add <dir> --detach <sha>` +
+  `cmd /c mklink /J <dir>\\node_modules <主工作树>\\node_modules`（不重装包）→ 在里面跑
+  `npm run precommit` → `git worktree remove --force` + `rmdir` 那个联接。
+- 判断"红是不是自己的"最快的一招：**在对方提交上跑同一条 gate**。绿=自己的问题，红=对方的问题。
