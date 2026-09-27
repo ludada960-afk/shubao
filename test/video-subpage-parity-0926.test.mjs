@@ -125,6 +125,25 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
 });
 
+test('CN-① 脚本框吃掉尾部那段死空白（用户两次问「这块留白是要干什么呢？」）', () => {
+  /* 实测（.qa/cn-blanks.mjs，1440 视口）：内容区 619 高、最后一个块只到 662 ⇒ 框下 **73px 死空白**
+     （视频侧内容区是 flex 撑满的 —— 为了把 CTA 钉在最底部；图片侧是普通滚动流，没有这段）。
+     ⇒ 规则：让带脚本框的那一块吃掉它（最小仍是与图片侧同档的 150px）。
+     ⚠️ 第一次只写了 `.video-content-composer` 是够不着块的（真正的容器是 section.video-workbench-blocks
+        与里面的 .media-workbench-fields）—— 块没长、空白反而从 73 变成 108；两层都接上才对。 */
+  const css = read('src/components/media/VideoWorkbench.css');
+  const need = [
+    '.video-composer.is-workbench .video-content-composer',
+    '.video-composer.is-workbench .video-workbench-blocks {',
+    '.video-composer.is-workbench .video-workbench-blocks > .media-workbench-fields',
+    '.video-composer.is-workbench .video-wb-block:has(.video-wb-prompt)',
+    '.video-composer.is-workbench .video-wb-prompt { flex: 1 1 auto; }',
+  ];
+  need.forEach(sel => assert.ok(bare(css).includes(sel), `缺少这一层：${sel}（少一层块就吃不到那段空白）`));
+  assert.match(ruleBody(css, '.video-wb-block .video-wb-prompt'), /min-height:\s*150px/,
+    '伸缩的下限仍是与图片侧同一档 150px');
+});
+
 test('CM-① 「生成脚本」搬到页面底部动作区（与图片侧那颗分析按钮同级）', () => {
   /* 用户原话（逐字）：「它应该是跟图片生成里面那个一键分析的那个按钮是**同等级**的东西啊……你现在
      放在左边很明显就是**很挤占现在的空间**呀。」实测（.qa/cm-script-button.mjs）：

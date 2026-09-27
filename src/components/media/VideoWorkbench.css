@@ -152,6 +152,23 @@
       两边的多行字段本来就是同一套控件（`.media-field-control` / `MentionPromptField`），
       尺寸不一致就违反了"同级内容同一规格"这条标准。要更高就**两边一起提**（见 RTK 待办）。 */
 .video-wb-block .video-wb-prompt { margin: 0; width: 100%; min-height: 150px; }
+/* ═══ 2026-09-27 批 CN：**让脚本框吃掉尾部那段空白**（用户两次问「这块留白是要干什么呢？」）═════════
+   实测（.qa/cn-blanks.mjs，1440 视口）：内容区 116..735（619 高），里面最后一个块只到 662
+   ⇒ 框下面**73px 的死空白**；再往下才是底栏（CTA 常驻最底部，这是用户自己定的规则）。
+   两侧为什么不一样：图片侧左栏是**普通滚动流**（内容 1547 > 可见 888，没有死空白可言）；
+   视频侧内容区是 `flex: 1 1 auto` 撑满的（为了把 CTA 钉在底部）⇒ 内容比它短时尾部就空出来。
+   ⇒ 规则：视频侧这一支让**脚本块 / 提示词框**吃掉那段（最小仍是与图片侧同一档 150px），
+     于是"没有死空白"与"两侧最小值同一档"同时成立。
+   ⚠️ 用 `:has(.video-wb-prompt)` 精确限定到**带脚本框的那一块**：素材格、上传格不许跟着长。 */
+.video-composer.is-workbench .video-content-composer { display: flex; flex-direction: column; }
+/* ⚠️ 真正的容器是 `section.video-workbench-blocks`（里面才是 `.media-workbench-fields` 那个网格）——
+   第一次只写了 `.video-content-composer` 是**够不着**块的：块没长，尾部空白反而从 73 变成 108。
+   实测（.qa/cn-blanks.mjs）：必须在**这两层**都把"可伸缩的纵向流"接上，块才吃得到那段空白。 */
+.video-composer.is-workbench .video-workbench-blocks { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.video-composer.is-workbench .video-workbench-blocks > .media-workbench-fields { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.video-composer.is-workbench .video-wb-block:has(.video-wb-prompt) { flex: 1 1 auto; display: flex; flex-direction: column; }
+.video-composer.is-workbench .video-wb-block:has(.video-wb-prompt) .media-field-textarea { flex: 1 1 auto; display: flex; flex-direction: column; }
+.video-composer.is-workbench .video-wb-prompt { flex: 1 1 auto; }
 .video-wb-counter { text-align: right; font-size: 12px; color: var(--sb-ink-3); }
 .video-wb-empty {
   display: grid; gap: 2px; place-items: center;
