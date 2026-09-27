@@ -106,7 +106,7 @@
 
 /* ── 脚本块：@ 提示 / 输入区 / 计数 / 空态（知渔原文逐字）──────────────────────── */
 .video-wb-mention-hint { font-size: 12px; color: var(--sb-ink-3); }
-/* ═══ 2026-09-26 批 CB：**脚本框要跟区块左右齐平、并且吃掉下面那段空白**════════════════════════
+/* ═══ 2026-09-26 批 CB / 2026-09-27 批 CH：**脚本框与区块齐平、尺寸与图片侧同一档**══════════
    用户本轮批注（逐字）：「你这个框为什么会适配的这么差呀？就是你这个框左右两边都有一些留白呀，
    然后也没有做的很正。」「你看你下面一大片的留白，我不是跟你说过你要调整吗？你也没去调整呀。」
    「然后你这个框也实在是太小了吧。」
@@ -116,12 +116,11 @@
      `margin: 0 16px 14px; width: calc(100% - 32px)`，那是给**整宽页面**那一档写的；
    工作台里区块自己已经有内边距，于是 16 的外边距 + 100%-32 的宽度叠成了"左边空一块、右边冒出去"。
    ⇒ 工作台这一档把它归零，框与区块同宽同边。
-   ⚠️ min-height 从基类的 96 提到 240（≥1024 视口才提，窄屏保持小框可滚）：
-      用户要的"框太小"与"下面一大片留白"是同一件事的两面 —— 框长高了，那段空白就被吃掉。 */
-.video-wb-block .video-wb-prompt { margin: 0; width: 100%; }
-@media (min-width: 1024px) {
-  .video-wb-block .video-wb-prompt { min-height: 240px; }
-}
+   ⚠️ min-height 曾经在批 CB 提到 240（为了"吃掉下方那片空白"），批 CH **退回与图片侧同一档 150**：
+      用户在批注里直接问过「你的提示词框你确定是这个大小吗？图片生成那边也是这个大小吗？」——
+      两边的多行字段本来就是同一套控件（`.media-field-control` / `MentionPromptField`），
+      尺寸不一致就违反了"同级内容同一规格"这条标准。要更高就**两边一起提**（见 RTK 待办）。 */
+.video-wb-block .video-wb-prompt { margin: 0; width: 100%; min-height: 150px; }
 .video-wb-counter { text-align: right; font-size: 12px; color: var(--sb-ink-3); }
 .video-wb-empty {
   display: grid; gap: 2px; place-items: center;

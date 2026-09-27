@@ -21,21 +21,30 @@ const ruleBody = (css, sel) => {
   return i < 0 ? null : bare(css).slice(i, bare(css).indexOf('}', i));
 };
 
-test('CB-① 左栏两侧内缩必须相等（滚动条槽位两边都留）', () => {
+test('CB-① 左栏滚动槽位：只保右侧（判据 2026-09-27 批 CH 由用户改向推翻）', () => {
+  /* 判据改判（用户改向，逐字）：
+     原话「我不太明白你为什么现在工作区域的右边会有**两条这种上下拉的滑动轨道**呢？你里面这条
+     滑动轨道，我不管怎么滑都发现**没有什么意义**呀。」—— 那条"没意义"的轨道就是 `both-edges`
+     在左侧预留的空槽。⇒ 退回 `stable`（只保右槽），代价是右边多 11px 的滚动条宽（两者不可兼得，
+     真正的对称要把内边距挪到内层包裹元素上，记在 RTK）。 */
   const css = read('src/components/media/WorkbenchShell.css');
   const hits = [...bare(css).matchAll(/scrollbar-gutter:\s*([^;]+);/g)].map(m => m[1].trim());
   assert.ok(hits.length >= 2, '左栏两种形态各有一条 scrollbar-gutter');
-  hits.forEach(v => assert.match(v, /stable both-edges/, `只写 stable 会让右内缩多一条滚动条的宽：实测左 42 / 右 53（${v}）`));
+  hits.forEach(v => assert.equal(v, 'stable',
+    `both-edges 会在左侧留一条"滑了没意义"的空槽（用户点名）；只保右槽：${v}`));
 });
 
-test('CB-② 脚本框与区块同宽同边，且桌面上要够高（吃掉下方空白）', () => {
+test('CB-② 脚本框与区块同宽同边，且高度与图片侧同一档（判据 2026-09-27 批 CH 由用户改向推翻）', () => {
   const css = read('src/components/media/VideoWorkbench.css');
   const body = ruleBody(css, '.video-wb-block .video-wb-prompt');
   assert.ok(body, '工作台里必须把基类的 `margin: 0 16px 14px; width: calc(100% - 32px)` 归零');
   assert.match(body, /margin:\s*0/, '基类的左右 16 外边距会把框挤得左右留白还对不齐');
   assert.match(body, /width:\s*100%/);
-  const media = ruleBody(css, '@media (min-width: 1024px)');
-  assert.ok(media && /min-height:\s*2\d\dpx/.test(media), '桌面档要给一个 ≥200px 的 min-height —— 用户「框太小」与「下面一大片留白」是同一件事');
+  /* 判据改判（用户改向）：原本要求"桌面档 ≥200px 把下方空白吃掉"，但用户随即问
+     「你的提示词框你确定是这个大小吗？图片生成那边也是这个大小吗？」——
+     ⇒ 与图片侧（`textarea.media-field-control` 的 150）统一为一档；要更高就两边一起提。 */
+  assert.match(body, /min-height:\s*150px/, '与图片侧多行字段同一档 150（要更高必须两边一起提）');
+  assert.doesNotMatch(bare(css), /min-height:\s*2\d\dpx/, '不许再单方面把视频侧抬到 200+（那正是两边不一致的来源）');
 });
 
 test('CB-③ 模型按钮：图标底座不许抢空间，名字必须完整显示', () => {
@@ -114,6 +123,16 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
   const css = read('src/pages/VideoStudio/VideoStudio.css');
   assert.ok(ruleBody(css, '.media-workbench-pane .video-history'),
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
+});
+
+test('CH-① 放大按钮与文字不再重叠（两个板块一起改）', () => {
+  const css = read('src/components/media/WorkbenchShell.css');
+  const body = ruleBody(css, '.media-field-textarea > .media-field-control');
+  assert.ok(body, '带放大按钮的多行字段必须有这条通行空间规则');
+  assert.match(body, /padding-right:\s*8\dpx/, '右侧要留出 ≥80px（按钮 63 + 内缩 10 + 余量）');
+  assert.match(css, /\.media-field-textarea > \.mention-prompt-field/, '视频侧（contenteditable）用同一条，别只改一边');
+  /* 实测（.qa/ch-diag.mjs）：改前视频侧字段 172,524/332 宽、按钮 431,534/63×30、文字可用右沿 489
+     ⇒ 重叠=true；改后文字可用右沿 416 < 按钮左沿 431 ⇒ 重叠=false。图片侧同一颗粒子定位规则相同。 */
 });
 
 test('CB-⑦ 站内叫法统一：独立创作台那颗入口也叫「生成脚本」（类名不变）', () => {
