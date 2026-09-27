@@ -10065,3 +10065,47 @@ e2e 266 → **268**（存到资产按钮存在 + 素材带回创作台；后者*
 `Deployed d9bf4626 to https://shuimg.cn/`；服务器侧复验：release `20260927-101538-d9bf4626`、
 入口块里命中 CD/CE 标记、CSS 里 `video-restored-materials` / `skill-history-save` 都在，
 健康 + 站点 + 概念方案子页 + 视频子页全 200。
+
+### 批 CG（2026-09-27）：**打开生产保留期清理**（用户拍板「开吧」）+ 孤儿文件清理工具（已量清，**未执行**）
+
+**用户口径（逐字）**：「**开吧**」（针对我上一轮的那句：生产上的到期清理开关没开、
+"作品保留 7 天"从来没真正执行、`generated-assets` 已经 7.5GB）。
+
+**开门前先补了两处"会误删 / 会空转"的缺陷**（都是 dry-run 在生产库副本上抓出来的，提交 `…`）：
+1. **空转（更严重）**：`pruneExpiredWorks` 拿到的是**原始数据库行**，`image_urls`/`pages`/`payload`
+   都是 **JSON 字符串**，而 `collectWorkAssetUrls` 只对整串做锚定正则 ⇒ **候选恒为 0**。
+   实测：165 条作品里 `cover_url`/`image_urls` 两列**一条**生成图地址都没有，**70 条把地址放在
+   `payload` 这个 JSON 字符串里**；dry-run 报"可删文件 0"。不修的话，开门 = "立了墓碑、文件一个没删"。
+   ⇒ 修法：字符串先当单个地址试，不像地址就看它像不像 JSON，是 JSON 就解析后递归（深度上限 8）。
+2. **两处会误删**：① 回收站里可恢复的作品之前不在保护集合里（图删了恢复回来是裂图）；
+   ② **画布快照**（`canvas_sessions.snapshot`）里存的就是生成图地址且画布没有对应的 works 行。
+   ⇒ 保护集合改成"所有还没立墓碑的作品"；引用者加上画布快照与合成文档（整段 JSON 扫生成图名）。
+
+**开门结果（生产，2026-09-27 11:06 起）**：
+`.env` 加 `RETENTION_PURGE_ENABLED=true`（改前备份 `.env.bak-20260927-110615`）→ `pm2 restart` →
+启动日志：`{"dryRun":false,"scanned":165,"expired":74,"deleted":74,"reclaimedFiles":0,"reclaimedBytes":0,"keptByLiveWorks":3}`
+· 数据库复验：165 行里 **74 行已写 `expired_at`**（墓碑），样例行的 `cover_url=''`/`image_urls='[]'`/`payload='{}'` ✓
+· 被保护的那两张图**都还在**（`8c7707cb…` / `c0dc0a96…` = true）✓
+· **`reclaimedFiles: 0` 是符合预期的**：那 74 条过期作品只引用了 3 个文件，且都还被未过期作品引用着 ——
+  也就是说**保留期清理回收不了真正占空间的那部分**（见下）。
+
+**顺手查出真正占空间的东西（已量清，未动）**：
+`generated-assets` **2047 个文件 ≈ 6.98 GB**，被任何记录引用的只有 **171 个**，
+**1854 个 ≈ 6.46 GB 没有任何引用**（最早 60 天前）—— 早期生成后没被任何作品/资产/画布留着的产物。
+为此写了 `scripts/sweep-orphan-assets.mjs`（默认 dry-run；真删写审计清单；30 天年龄下限；
+只碰合法命名的文件），引用扫描**三层**（三层都是实测踩出来的）：
+① 数据库**每张表每个文本列**；② 部署出去的静态目录（**要跟着符号链接走** —— 部署目录里 gallery 是链接，
+第一版 `entry.isDirectory()` 对链接返回 false，磁盘扫描一个名字都没扫到）；
+③ **仓库侧名单**（`--refs-file`，由 `scripts/build-asset-refs.mjs` 生成 12 条）——
+案例 JSON 里直接写着生成图地址，但它们**只在仓库里、服务器上没有**（find 实测一个都没有），
+**第一版 dry-run 因此把那 12 张前台案例图（灵感发现/做同款的图）算成了孤儿**。
+最终 dry-run：`{referencedNames:171, deletableFiles:1854, deletableMb:6455, skippedYoung:22}`
+（2047 = 1854 + 22 + 171，账对得上；比第一版正好多保护了那 12 张）。
+
+⚠️ **`--apply` 没有执行**：这一条不在"开吧"覆盖的范围内（用户批的是**保留期清理**，
+这是另一件更大且不可逆的事），而且本轮我自己的"安全扫描"被抓出两次漏（回收站、案例图）——
+6.4GB 的不可逆删除要单独的明确点头。要跑就一行：
+`node scripts/sweep-orphan-assets.mjs --apply --scan-dir=/var/www/shubao/current --refs-file=scripts/data/gallery-asset-refs.txt`
+
+门禁 `test/orphan-asset-sweep-0927.test.mjs`（2 条）+ `work-expiry-tombstone-0926` 的 ②b（原始行 JSON 必须能挖出来，
+并自证"不做 JSON 解析就是 0 命中"——与生产 dry-run 的结论逐字对得上）。
