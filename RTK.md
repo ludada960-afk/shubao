@@ -10556,3 +10556,25 @@ npm run precommit 构建 exit 0 + [media-e2e] 通过：271 条断言全绿 + 38 
 汇成「已对齐（有两侧数值）／已知不一致或未量／纪律」三节，**并明确标出未量的四类**：
 字数上限口径（字段 8000 vs 区块 10000）、窄屏配置面板（1024/900 未量）、动效曲线（逐交互未对表）、
 **知渔 /apps 逐页对表（仍未做 —— 这是用户点名最重的一条）**。
+
+## 2026-09-27 批 CR —— 补量两处：窄屏浮层（闭环）+ 动效对表（部分）
+
+**探针**：`.qa/cr-narrow-and-motion.mjs`
+
+**① 窄屏浮层 —— 闭环**
+- vw=1024：模型菜单与设置面板都 108..588；vw=900：菜单 88..568、面板 408..888 ——
+  **两者都完整在视口内**，且都让开了左侧导航（右沿 96）。这条从"未量"变成"已量：无裁切"。
+
+**② 动效对表 —— 部分**
+- **共用件完全一致**：`.media-field-meta-at` 两侧都是 `0.18s ease`（background / color / border-color）
+  —— 因为它们是同一份组件+同一份 CSS（批 CP 合并的收益，这里量到了）。
+- 图片侧：`.media-field-segmented button` 0.18s ease、`.media-workbench-submit` 0.18s、
+  `.media-workbench-tabs button` 0.18s。
+- 视频侧：`.video-config-trigger` **0.2s ease**（transform / border-color / background / box-shadow）、
+  `.video-script-trigger` 0.18s。
+- ⚠️ **没量完的一档**：视频侧的"分段/胶囊"（`.media-field-segmented`）在 `video.smart` 上**没有实例**
+  （这条技能不声明 chips）⇒ 探针取到的是"元素不存在"，不是"没有动效"。
+  下批要挑一条**有 chips 的技能**（如爆款复刻的「替换对象」两颗胶囊）再对一次，
+  顺便把那 0.2s vs 0.18s 的差异也定个说法（要么统一，要么写明为什么配置按钮可以慢 20ms）。
+
+**纪律**：探针里凡是"没有输出"的项，要区分**元素不存在**与**值为空**（这次差点把"元素不存在"写成"没有动效"）。
