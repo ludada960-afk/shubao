@@ -1,0 +1,17 @@
+# 仓库里**静态引用**到的生成图（案例 JSON / 文档里的示例图等）
+# 孤儿清理（scripts/sweep-orphan-assets.mjs --refs-file=…）必须把它们当成"有人用"。
+# 为什么要有这份文件：那些案例 JSON 只存在于仓库里，**服务器上没有** ⇒ 服务器侧扫目录看不见它们，
+#  而它们在前台是真的会被展示的（灵感发现 / 做同款）。
+# 重新生成：node scripts/build-asset-refs.mjs（或删掉本文件后重跑清理脚本的提示）
+005142abdb99149deac6702d9a1c6312789592e6ff5e66b6bda2245fa19bf77e.png
+2016340d5f5573240462f3722738a8a007307e008d368f814d8420d898cf27d7.png
+305d054d70b5f239505fb9ac45f7cbbc68fc3802d019f86209211253182ba707.png
+36d6ea7f0549a53698159df68c2ee46cbbdf97058bb148ddb3ac7314a5a102ed.png
+6d59b478c39e1682ae6d1b598f29fb92c6313f575b58013eafe47ce7811a80bc.png
+71cdcc162181b2da4f1e89008bef36dd0975ffbaee8720f2dc5ca9ac5db7884e.png
+a3eec7f65476028ed519ef60365786f09543252eac8edf1b715ed395f13333e0.png
+b4c8ca2132a48176a501bc5d714330bd73e34365b2260387d95240145c59bf26.png
+b6fd78f68c6fe9b23c9b0b314fda177e1ceff876d49112225fb4553e47d6c692.png
+c8ede91e2f5d209bd107839bd2cc9f3189dacc3d707e33d01f7519ae7e6bf096.png
+eaf1015b0cf962e910119d0bf3dbcc20d39327dc2cfaf04091085e5740d04c9f.png
+f4ef553f33f6171b16e5c8ca6fc9a79d3d3a0fd3f0df6a8a24323afeec13ce95.png
