@@ -1039,12 +1039,26 @@ export default function VideoStudioPage({
 
   useEffect(() => () => clearTimeout(pollRef.current), []);
 
+  /* ═══ 2026-09-27 批 CJ：**浮层必须让开左侧导航栏**（用户实测给出的真因，逐字）═══════════════════
+     原话：「具体被截断是什么宽度？我也不知道呀，你自己看不就知道了吗？…目前的情况应该是**被左边
+     这个导航栏给盖住了**，所以显得是一个被截断的状态。」
+     ⇒ 实测确认：弹出层是 `position: fixed`，而它的 left 只 clamp 到 **12**；左侧导航是**不透明**的
+       浮层（z 更高），于是 `left=12` 的那一半被导航压住 ⇒ 看起来"左边被截断"。
+       菜单（模型）与面板（生成设置/镜头规格/声音）用的是同一个 clamp，所以**两处都得改**。
+     取法：运行时量导航的右沿（不写死宽度：窄屏导航会变成图标条），再留 12px 呼吸。 */
+  const floatingLeftInset = useCallback(() => {
+    const nav = document.querySelector('.app-side-nav, .app-sidebar, aside.app-side-nav, .app-shell > aside, nav[aria-label]');
+    const right = nav ? nav.getBoundingClientRect().right : 0;
+    return Math.max(12, Math.round(right) + 12);
+  }, []);
+
   const positionPanel = useCallback((key = activePanel) => {
     if (!key) return;
     const button = buttonRefs.current[key];
     if (!button) return;
     const rect = button.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
+    const minLeft = floatingLeftInset();
     /* ═══ 批 T：生成设置面板宽度取**知渔 dashboard 的实测值 521**（用户指着图八说照抄）═══════
        他们那一栏的内宽因此正好是 521 − 2×25 = 471 = 3 张 150 宽的比例卡 + 2 条 10 的缝 ——
        这不是随手写的数，是"照抄"这条要求落到的具体几何（实测见 .tmp/qy-settings-report.txt）。
@@ -1058,7 +1072,7 @@ export default function VideoStudioPage({
          全部对齐图片侧 `.visual-config-panel` 的 **480**。 */
     const preferred = key === 'settings' ? 480 : key === 'assets' ? 480 : 480;
     const width = Math.min(Math.max(360, preferred), viewportWidth - 24);
-    const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12));
+    const left = Math.max(minLeft, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12));
     setPanelPosition({
       left,
       bottom: Math.max(12, window.innerHeight - rect.top + 12),
@@ -1102,7 +1116,7 @@ export default function VideoStudioPage({
     const availableAbove = rect.top - 20;
     const maxHeight = Math.max(240, Math.min(520, availableAbove));
     setModelAnchor({
-      left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12)),
+      left: Math.max(floatingLeftInset(), Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 12)),
       bottom: Math.max(12, window.innerHeight - rect.top + 8),
       width,
       maxHeight,
@@ -2440,7 +2454,7 @@ export default function VideoStudioPage({
               {submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}
             </div></div>
           ) : (
-          <div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}</div></div>
+          <div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}{submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}</div></div>
           )}
         </footer>
       </div>
