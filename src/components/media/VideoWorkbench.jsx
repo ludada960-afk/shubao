@@ -164,6 +164,30 @@ function ScriptField({
     onChange(`${text}${sep}@[${name}](${id2}) `);
     setAtOpen(false);
   };
+  /* ═══ 2026-09-27 批 CO：**右下角的拉高手柄**（用户原话，逐字）═════════════════════════════════
+     「你的提示词框的右下角在图片生成那边，它不是有一个可以**拉动高度**的一个按钮吗？为什么你图片
+     生成这边又没有呢？你应该同步把这些东西给一起做进来呀，就那边有的东西你这边也得有呀，同等级的
+     东西，你应该同等级的去进行设计呀。」
+     说明：图片侧的多行字段是原生 `textarea`（带 `resize: vertical`）⇒ 浏览器自带那个手柄；
+     视频侧这个框是 contenteditable，**拿不到原生手柄**，所以自己做一个：位置（右下角）、
+     手感（拖动改高）、上下限（150 ~ 720）都跟图片侧那一档对齐。 */
+  const [dragHeight, setDragHeight] = useState(null);
+  const startResize = event => {
+    event.preventDefault();
+    const box = event.currentTarget.parentElement?.querySelector('.video-wb-prompt');
+    const startY = event.clientY;
+    const startH = box ? box.getBoundingClientRect().height : 150;
+    const onMove = moveEvent => {
+      const next = Math.max(150, Math.min(720, Math.round(startH + (moveEvent.clientY - startY))));
+      setDragHeight(next);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
   const field = (
     <MentionPromptField
       id={id}
@@ -178,8 +202,19 @@ function ScriptField({
     />
   );
   return (
-    <span className="media-field-textarea">
+    <span
+      className={'media-field-textarea' + (dragHeight ? ' is-resized' : '')}
+      style={dragHeight ? { '--video-prompt-h': `${dragHeight}px` } : undefined}
+    >
       {field}
+      {/* 右下角的拉高手柄（与图片侧 textarea 的原生手柄同位置、同用途） */}
+      <span
+        className="video-wb-resize"
+        role="separator"
+        aria-label="拖动调整提示词框高度"
+        title="拖动调整高度"
+        onPointerDown={disabled ? undefined : startResize}
+      />
       {/* 框下方那一行：@ / 放大 / 字数（三样同一行 —— 用户点名的排版） */}
       <span className="video-wb-meta">
         <button

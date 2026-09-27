@@ -125,6 +125,20 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
 });
 
+test('CO-① 脚本框右下角的拉高手柄（图片侧是原生手柄，视频侧自己做同位置同用途）', () => {
+  /* 用户原话（逐字）：「你的提示词框的右下角在图片生成那边，它不是有一个可以**拉动高度**的一个按钮吗？
+     为什么你图片生成这边又没有呢？……同等级的东西，你应该同等级的去进行设计呀。」
+     实测（.qa/co-resize.mjs，1440 视口）：手柄 18×18 落在框的右下角内；
+     拖 +120 ⇒ 框 244 → **364**；往上拖很多 ⇒ 夹在**下限 150**（与图片侧 min-height 同一档）。 */
+  const jsx = read('src/components/media/VideoWorkbench.jsx');
+  assert.match(jsx, /className="video-wb-resize"/, '右下角要有手柄元素');
+  assert.match(jsx, /Math\.max\(150, Math\.min\(720, /, '拖动要有上下限（150 ~ 720）');
+  assert.match(jsx, /onPointerDown=\{disabled \? undefined : startResize\}/, '禁用态不给拖');
+  const css = read('src/components/media/VideoWorkbench.css');
+  assert.match(ruleBody(css, '.video-wb-resize {') || css, /cursor:\s*ns-resize/, '光标要提示可上下拖');
+  assert.match(css, /\.media-field-textarea\.is-resized \.video-wb-prompt \{ flex: 0 0 auto; height: var\(--video-prompt-h/, '拖动后要脱离"被撑满"那份伸缩、按设定高度走');
+});
+
 test('CN-① 脚本框吃掉尾部那段死空白（用户两次问「这块留白是要干什么呢？」）', () => {
   /* 实测（.qa/cn-blanks.mjs，1440 视口）：内容区 619 高、最后一个块只到 662 ⇒ 框下 **73px 死空白**
      （视频侧内容区是 flex 撑满的 —— 为了把 CTA 钉在最底部；图片侧是普通滚动流，没有这段）。

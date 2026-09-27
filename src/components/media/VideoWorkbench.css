@@ -169,6 +169,20 @@
 .video-composer.is-workbench .video-wb-block:has(.video-wb-prompt) { flex: 1 1 auto; display: flex; flex-direction: column; }
 .video-composer.is-workbench .video-wb-block:has(.video-wb-prompt) .media-field-textarea { flex: 1 1 auto; display: flex; flex-direction: column; }
 .video-composer.is-workbench .video-wb-prompt { flex: 1 1 auto; }
+/* ═══ 2026-09-27 批 CO：**脚本框右下角的拉高手柄**（与图片侧原生手柄同位置、同用途）═══════════════
+   原话：「你的提示词框的右下角在图片生成那边，它不是有一个可以**拉动高度**的一个按钮吗？为什么你
+   图片生成这边又没有呢？……同等级的东西，你应该同等级的去进行设计呀。」
+   图片侧是 textarea + `resize: vertical`（浏览器自带手柄）；视频侧是 contenteditable，拿不到原生的
+   ⇒ 自己做一个：右下角一小块抓握区，拖动改高度（150~720），按下时把框从"被撑满"切成固定高。 */
+.video-wb-resize {
+  position: absolute; right: 2px; bottom: 38px; z-index: 2;
+  width: 18px; height: 18px; cursor: ns-resize;
+  background: linear-gradient(135deg, transparent 46%, var(--sb-ink-4) 46%, var(--sb-ink-4) 54%, transparent 54%),
+              linear-gradient(135deg, transparent 66%, var(--sb-ink-4) 66%, var(--sb-ink-4) 74%, transparent 74%);
+  opacity: .55; touch-action: none;
+}
+.video-wb-resize:hover { opacity: 1; }
+.media-field-textarea.is-resized .video-wb-prompt { flex: 0 0 auto; height: var(--video-prompt-h, 150px); }
 .video-wb-counter { text-align: right; font-size: 12px; color: var(--sb-ink-3); }
 .video-wb-empty {
   display: grid; gap: 2px; place-items: center;
