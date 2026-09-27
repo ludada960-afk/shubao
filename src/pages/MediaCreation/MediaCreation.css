@@ -143,6 +143,39 @@
 .media-run-global { display: flex; align-items: center; gap: 6px; margin: 0; padding: 9px 12px; border-radius: 12px; background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); font-size: 12px; }
 .media-run-notice { margin: 0; font-size: 12px; color: var(--sb-ink-2); }
 
+/* ═══ 版式层（拼版）2026-09-27 批 DC / M3 ══════════════════════════════════════════
+   实测：拼版 60/402（14.9%）分布在 36/41 篇（87.8%）—— 一张成品图之外再拼一张，
+   是"像不像他"差距最大的一层。拼完就**看得见**（结果不能藏在按钮里），再给下载/存资产两颗。
+   这一步不扣积分，所以没有任何价格展示（与付费动作明确区分开）。 */
+.media-run-sheet { display: grid; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--sb-surface-card); box-shadow: 0 0 0 1px rgba(17, 20, 45, .06); }
+.media-run-sheet-lead { margin: 0; font-size: 12px; color: var(--sb-ink-1); }
+.media-run-sheet-result { display: grid; gap: 10px; }
+.media-run-sheet-result img { display: block; width: 100%; max-height: 420px; object-fit: contain; border-radius: 10px; background: var(--sb-surface-tint); }
+.media-run-sheet-compose,
+.media-run-sheet-download,
+.media-run-sheet-save,
+.media-run-sheet-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.media-run-sheet-download { background: var(--sb-brand-600); color: var(--sb-surface-card); }
+.media-run-sheet-compose:hover,
+.media-run-sheet-download:hover,
+.media-run-sheet-save:hover,
+.media-run-sheet-again:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 20, 45, .14); }
+.media-run-sheet-compose:disabled,
+.media-run-sheet-save:disabled,
+.media-run-sheet-again:disabled { opacity: .6; cursor: default; transform: none; box-shadow: none; }
+
 /* ═══ 结果区的「拿这张图接着做」2026-09-18 ═════════════════════════════════════════
    辅助能力（提升质感 / 再来一张相似的）长在**主技能的结果区**，不再单独占一张卡。
    点它只把这张结果带到下一条链路的素材位上，不生成、不扣费。 */

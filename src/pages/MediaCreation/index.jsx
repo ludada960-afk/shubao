@@ -34,6 +34,8 @@ import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 /* 批 CE：视频任务的输入素材 → 创作台形状（纯函数，门禁能直接跑） */
 import { videoJobMaterials } from '../VideoStudio/videoMaterialsModel.js';
 import { EXPIRED_NOTE, downloadFileName, isExpiredWork, videoStatusLabel } from '../Home/mediaHistoryModel.js';
+/* 批 DC（M3）：版式层（客户端确定性拼版 —— 纯几何 + canvas，不调模型、不计费） */
+import { layoutSheetBlob, layoutSheetFileName, layoutSheetPlan } from '../Home/conceptLayoutSheet.js';
 /* 批 CD：存到我的资产（自动建/复用「生成作品」项目 + 注册 + 入库，幂等） */
 import { saveGeneratedUrlsToAssets } from '../Home/saveWorkToAssets.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
@@ -84,7 +86,11 @@ import {
   regenerateCanvasImage,
   deleteWork,
   saveWork,
+  uploadEcommerceAsset,
 } from '../../services/api';
+/* ⚠️ 上面那段 import 里**不许写注释**：`scripts/verify-exports.mjs` 用正则扫这段，
+   注释文字会被当成一个"被导入的符号"，构建直接判红（本批实测踩过一次）。
+   `uploadEcommerceAsset` 是批 DC（M3）加的：拼版成品图要留档时，先经既有上传链路落成稳定素材。 */
 import { quoteBillingAction } from '../../services/billing.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { useWorksSync } from '../../store/useWorksSync.js';
@@ -160,7 +166,7 @@ function friendlyError(error) {
   return message;
 }
 
-function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse }) {
+function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse, sheet = null }) {
   if (!run) return null;
   const done = run.slots.filter(slot => slot.status === 'completed' && slot.url);
   const failed = visualRetryIndexes(run);
@@ -204,6 +210,43 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
         <div className="media-run-actions">
           <a className="media-run-download" href={done[0].url} target="_blank" rel="noreferrer" download><Download size={14} />下载第一张</a>
           <button type="button" className="media-run-again" onClick={onDownload}><Sparkles size={14} />重新生成一组</button>
+        </div>
+      )}
+      {/* ═══ 2026-09-27 批 DC（M3）：**版式层**（客户端确定性拼版）══════════════════════════════
+          实测：拼版 60/402（14.9%）分布在 36/41 篇（87.8%），而我们现在只会一张一张出成品图 ——
+          这是"像不像他"的最大差距（docs/design/90 §六-2）。
+          ⚠️ 先出单图再拼：**绝不让模型一次画一整张九宫格**（分格线会画歪、格内内容互相渗透）。
+          ⚠️ 这一步**免费**：纯 canvas 几何，不调模型、不计费（所以按钮上不写积分）。
+          ⚠️ 不足 2 张不出现这颗按钮（"同族至少复用 2 张"是实测的成套感来源；一张的篇拼不出东西）。 */}
+      {finished && sheet?.available && (
+        <div className="media-run-sheet">
+          <p className="media-run-sheet-lead">
+            这一篇的 {sheet.count} 张可以按「{sheet.family}」拼成一张成品图（不额外扣积分）
+          </p>
+          {sheet.url
+            ? (
+              <div className="media-run-sheet-result">
+                <img src={sheet.url} alt={sheet.family + '拼版成品图'} />
+                <div className="media-run-actions">
+                  <button type="button" className="media-run-sheet-download" onClick={() => sheet.onDownload?.()}>
+                    <Download size={14} />下载这张拼版
+                  </button>
+                  <button type="button" className="media-run-sheet-save" disabled={sheet.saving} onClick={() => sheet.onSaveAssets?.()}>
+                    {sheet.saving ? '存入中…' : '存到我的资产'}
+                  </button>
+                  <button type="button" className="media-run-sheet-again" disabled={sheet.busy} onClick={() => sheet.onCompose?.()}>
+                    重新拼一次
+                  </button>
+                </div>
+              </div>
+            )
+            : (
+              <div className="media-run-actions">
+                <button type="button" className="media-run-sheet-compose" disabled={sheet.busy} onClick={() => sheet.onCompose?.()}>
+                  {sheet.busy ? '正在拼版…' : '拼成一张成品图'}
+                </button>
+              </div>
+            )}
         </div>
       )}
       {usable.length > 0 && (
@@ -1091,6 +1134,8 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     const fresh = createVisualRun({ count: settings.count });
     runRef.current = fresh;
     setRun(fresh);
+    /* 新的一轮 = 新的一篇：上一张拼版属于上一批图，不能再挂在这一轮下面（挂错了就是图文不符） */
+    setSheet(null);
     await executeRun(fresh, Array.from({ length: settings.count }, (_, index) => index));
   }
 
@@ -1349,6 +1394,75 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     }
   }
 
+  /* ═══ 2026-09-27 批 DC（M3）：版式层的三个动作（拼 / 下 / 存）════════════════════════════════
+     依据 docs/design/90 §6.2：版式层 = **确定性渲染**（我们自己的模板，不调模型），
+     所以这一整段**没有报价、没有扣费**，也不新增任何服务端端点。
+     ⚠️ 拼版只能由**用户手势**触发（按钮 onClick）—— 与"没有用户确认绝不扣费"同一纪律，
+        虽然它不花钱，但也不许偷偷占用户 CPU/内存。 */
+  async function composeSheet() {
+    const urls = (runRef.current?.slots || []).filter(slot => slot.status === 'completed' && slot.url).map(slot => slot.url);
+    const plan = layoutSheetPlan({ family: effectiveValues.layout, count: urls.length });
+    if (!plan) { setError('这一篇至少要有 2 张图，才能按版式族拼成一张'); return; }
+    setSheetBusy(true);
+    setError('');
+    try {
+      const blob = await layoutSheetBlob(plan, urls);
+      const url = URL.createObjectURL(blob);
+      setSheet({ url, blob, family: plan.family, count: urls.length, plan });
+      setNotice('拼好了：' + plan.family + ' · ' + plan.count + ' 张（这一步不扣积分）');
+    } catch (failure) {
+      setError(failure?.message || '拼版失败，请重试');
+    } finally {
+      setSheetBusy(false);
+    }
+  }
+
+  function downloadSheet() {
+    if (!sheet?.url) return;
+    const anchor = document.createElement('a');
+    anchor.href = sheet.url;
+    anchor.download = layoutSheetFileName({ title: skill?.name, family: sheet.family, count: sheet.count });
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setNotice('已开始下载这张拼版');
+  }
+
+  /* ═══ 存到我的资产：拼版图**服务端还不知道它**，所以要走既有的上传链路先落成稳定素材 ═══════════
+     实测（saveWorkToAssets / server/ecommerceEngine/assetUpload）：能进资产库的只有
+     `/api/generated-assets/<64hex>.(jpg|png|webp)` 这种稳定地址。
+     所以顺序是：① 把 blob 当 dataURL 传给既有的 /api/ecommerce/assets（本站上传链路，
+     role=reference）→ 拿回稳定地址；② 再用既有的 saveGeneratedUrlsToAssets 注册进资产库。
+     ⚠️ 全程不新增端点、不重复实现一遍资产注册（幂等由这两条既有链路各自保证）。 */
+  async function saveSheetToAssets() {
+    if (!sheet?.blob) return;
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    setSheetSaving(true);
+    setError('');
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('这张拼版读不出来，请重新拼一次'));
+        reader.readAsDataURL(sheet.blob);
+      });
+      const uploaded = await uploadEcommerceAsset({ data: dataUrl, role: 'reference' });
+      const result = await saveGeneratedUrlsToAssets([uploaded?.url].filter(Boolean), { title: skill?.name || '拼版成品图' });
+      if (result.added) setNotice('拼版已存到「我的资产」（长期保留，可当参考图继续用）');
+      else if (result.skipped) setNotice('这张拼版已经在「我的资产」里了');
+      else setError('存进资产库失败，请稍后重试');
+    } catch (failure) {
+      if (!handleError(failure)) setError(failure?.message || '存进资产库失败，请稍后重试');
+    } finally {
+      setSheetSaving(false);
+    }
+  }
+
   /* 历史操作②：删除（软删除，服务端可恢复） */
   async function deleteHistory(item) {
     const saveKey = item?.saveKey;
@@ -1414,12 +1528,22 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   const [planUnapplied, setPlanUnapplied] = useState(false);
   /* 批 CD：正在存进资产库的那条记录（防连点，也用来显示"存入中…"） */
   const [historySavingId, setHistorySavingId] = useState('');
+  /* ═══ 批 DC（M3）：版式层的成品图（拼完的结果 + 它用的是哪一族）══════════════════════════════
+     形状：{ url（objectURL）, blob, family, count }；没拼过就是 null。
+     ⚠️ objectURL 必须在换一篇/卸载时 revoke（否则每拼一次泄漏一份几 MB 的 blob）。 */
+  const [sheet, setSheet] = useState(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetSaving, setSheetSaving] = useState(false);
+  useEffect(() => () => { if (sheet?.url) { try { URL.revokeObjectURL(sheet.url); } catch { /* 忽略 */ } } },
+    [sheet?.url]);
   const closePlanPreview = () => setPlanSession(current => (current ? { ...current, opened: false } : null));
   /* 换技能就把这份会话丢掉：它的 prompt/materials 来自上一条技能的字段，留着会串味。
      ⚠️ 这同时是"确认离开"之后的收尾 —— 那份方案确实没地方可去了（提示里就是这么说的）。 */
   useEffect(() => {
     setPlanSession(null);
     setPlanUnapplied(false);
+    /* 换技能／换一篇就把上一张拼版丢掉：它是**这一篇**的成品图，留着只会让人以为拼错了 */
+    setSheet(null);
   }, [skill?.id]);
   /* ⚠️ 这个 hook 必须**放在那个 `if (!skill) return <MediaHub/>` 提前返回之前** ——
      放后面就会出现"这一轮少调了一个 hook"，整页塌成错误页（本文件踩过同类雷）。 */
@@ -1478,9 +1602,26 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       {carryHint && <p className="media-run-carry">{carryHint}</p>}
     </>
   );
+  /* 版式层（M3）：只有"能拼"时才把这颗入口交给结果区 ——
+     available 的判据与拼版函数同一份（layoutSheetPlan 返回 null 就是拼不了）。 */
+  const sheetDone = (run?.slots || []).filter(slot => slot.status === 'completed' && slot.url).length;
+  const sheetPlan = layoutSheetPlan({ family: effectiveValues.layout, count: sheetDone });
+  const sheetAction = sheetPlan
+    ? {
+        available: true,
+        family: sheetPlan.family,
+        count: sheetPlan.count,
+        url: sheet?.url || '',
+        busy: sheetBusy,
+        saving: sheetSaving,
+        onCompose: () => { void composeSheet(); },
+        onDownload: downloadSheet,
+        onSaveAssets: () => { void saveSheetToAssets(); },
+      }
+    : null;
   const status = (
     <>
-      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} />
+      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} sheet={sheetAction} />
       {announce}
     </>
   );
