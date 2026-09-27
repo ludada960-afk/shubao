@@ -7,8 +7,11 @@
      ① 声明形状合法（id 前缀 / 名称长度 / 分类 / 复杂度 / pipeline / 封面）——
         与 `skill-declaration-contract-0916` 同口径，但**这一条是它自己的**：
         新增技能删了/改名了，这组断言必须能自己发现；
-     ② **账号级签名写死在 brief 里**（不露脸 / 无品牌 / 留白 / 统一调色）——
+     ② **账号级签名写死在 brief 里**（不出现正脸 / 无品牌 / 留白 / 统一调色）——
         这是"对外是个正常子页面"的关键：用户不该每次手粘纪律；
+        ⚠️ 2026-09-27 批 DB（M1）：「不露脸」按实测从这一层**撤下**，
+           改成第 ⑨ 条那个六档可选变量（**用户改口径**：他说"这条太绝对"，
+           而 402 张的实测里身体局部在场 34.8%、正面脸只有 0.2%）；
      ③ **色板与概念同源**：每个「主题意象」选项的 value 里都必须带**实测色簇的 hex** ——
         因为 `buildSkillBrief` 只做纯替换、没有查表能力，value 带色板才能保证两者永不对不上；
      ④ **十种画面手法**都来自一手实测（docs/design/82），且**互不重复**；
@@ -16,7 +19,9 @@
         textarea/text，不会点 segmented/select —— 没默认值就必红）；
      ⑥ 比例默认 3:4（本账号签名是竖版，而 ratioField() 的兜底默认是 1:1）；
      ⑦ 出处已登记（skillSources 写 ours）且对照表已登记（counterpart: null + reason）；
-     ⑧ **自证**：把 brief 里的无品牌纪律删掉必须被判红（否则第 ② 条测的是别的东西）。 */
+     ⑧ **自证**：把 brief 里的无品牌纪律删掉必须被判红（否则第 ② 条测的是别的东西）；
+     ⑨ **人物形态六档**（批 DB / M1，替换那条绝对禁令）：六档、必填、默认 = 实测最高频的「空镜」、
+        每一档的 value 都是可执行的整句、**没有正脸档**（1/402 是意外不是手法）。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -50,14 +55,26 @@ test('① 声明形状合法（对外是个正常子页面）', () => {
 
 test('② 账号级签名写死在 brief 里（用户不必每次手粘）', () => {
   const brief = skill.brief;
-  assert.match(brief, /不出现面部|不出现任何品牌标识/, '缺少签名纪律');
+  assert.match(brief, /不出现正脸、不直视镜头/, '缺少签名纪律');
   assert.match(brief, /不出现任何品牌标识、包装文字或水印/, '缺少无品牌纪律（80 号已定为默认无品牌线）');
   assert.match(brief, /柔光/, '缺少光位纪律');
   assert.match(brief, /留白充足/, '缺少留白纪律（借 paper-signal 的数字约束思路）');
   assert.match(brief, /颗粒与饱和度/, '缺少统一调色的纪律');
+  /* ═══ 2026-09-27 批 DB（M1）：**"不出现面部"这条绝对禁令已按实测撤掉**（用户改口径）══════════
+     用户原话：「不要露脸这个对于大多数作品确实是这样，**可是他还是会有几个作品其实是有露脸的**，
+       模特**有些戴墨镜、有些侧着脸**，他确实没有很正面地展示模特的脸」。
+     实测（docs/research/2026-09-27-aura-deep-dive.md §4.3，402 张逐张）：完全没有头 346/402（86.1%），
+       但身体局部在场 34.8%（躯干腿 18.4% + 手 16.4%），**正面脸只有 1 张（0.2%）**。
+     ⇒ 旧禁令比真人账号更严（用户说的"太绝对"成立），换成**六档人物形态**（见第 ⑨ 条），
+       brief 里只留唯一站得住的那条硬约束（不出现正脸、不直视镜头）。
+     ⚠️ 这一条测的是"**改了口径**"，不是"删了纪律就不管了" —— 第 ⑨ 条把新的六档也钉住。 */
+  assert.doesNotMatch(brief, /不出现面部/, '「不出现面部」这条绝对禁令已按实测撤掉（用户改口径），不该再出现');
+  assert.match(brief, /人物形态：\{\{person\}\}/, '人物形态必须由 {{person}} 变量注入（不能写死一档）');
   /* 拼出来的提示词里也必须真的带上（brief 写了但拼装漏了，等于没写） */
   const filled = buildSkillBrief(skill, initialSkillValues(skill));
   assert.match(filled, /不出现任何品牌标识、包装文字或水印/);
+  assert.match(filled, /不出现正脸、不直视镜头/);
+  assert.match(filled, /画面里不出现任何人物（空镜或纯静物）/, '默认档要真的拼进提示词（界面显示什么就跑什么）');
 });
 
 test('③ 色板与概念同源：每个主题意象的 value 都带实测色簇 hex', () => {
@@ -128,4 +145,35 @@ test('⑧ 自证：去掉无品牌纪律必须被判红（否则第 ② 条测�
   let caught = false;
   try { assert.match(broken, /不出现任何品牌标识、包装文字或水印/); } catch { caught = true; }
   assert.equal(caught, true, '删掉纪律后没被判红 ⇒ 第 ② 条是空转');
+});
+
+test('⑨ 人物形态六档：默认 = 实测最高频那一档，且**不做正脸档**（2026-09-27 批 DB / M1）', () => {
+  /* ═══ 这一条守的东西（每条判据都对着一个实测数字）══════════════════════════════════════
+     deep-dive §4.3（402 张逐张判定）：
+       完全没有人物 206（51.2%）· 躯干/腿 74（18.4%）· 手/手臂 66（16.4%）· 下半脸 17（4.2%）
+       · 戴墨镜 13（3.2%）· 背影/后脑 8（2.0%）· 侧脸 2（0.5%）· **正面脸 1（0.2%）**
+     ⇒ 六档 = 把这些形态**合并成可执行的六条**；默认取**唯一过半**的那一档（空镜 51.2%）；
+       正脸不做（1/402 不是"手法"，是意外）。 */
+  const field = skill.fields.find(f => f.key === 'person');
+  assert.ok(field, '缺「人物形态」这一格');
+  assert.equal(field.kind, 'segmented', '六档是并列可选，用既有的药丸控件（不新造控件风格）');
+  assert.equal(field.required, true, '它是每篇的必选项（不选就不知道该不该出人）');
+  assert.equal(field.options.length, 6, '就是实测归纳出来的六档，实际 ' + field.options.length);
+  const labels = field.options.map(option => option.label);
+  assert.deepEqual(labels, ['空镜', '手或手臂', '躯干与腿', '下半脸', '戴墨镜', '背影或侧脸'],
+    '六档与实测归纳的顺序/命名要一致（顺序=频次从高到低）');
+  assert.equal(new Set(field.options.map(option => option.value)).size, 6, '六档的值不许重复');
+  for (const option of field.options) {
+    assert.ok(String(option.label).length <= 6, '档位名要短（门禁 ① 要求 ≤6 字）：' + option.label);
+    assert.ok(option.value.length >= 12, '每一档的 value 都要是能执行的整句（模型靠它知道人怎么出现）：' + option.value);
+    assert.doesNotMatch(option.label + option.value, /正脸/, '正脸档不许有 —— 实测只有 1/402（0.2%），那是意外不是手法');
+  }
+  const seed = initialSkillValues(skill);
+  assert.equal(seed.person, field.options[0].value, '默认档必须是实测最高频那一档（列表第一档 = 空镜 206/402）');
+  const filled = buildSkillBrief(skill, seed);
+  assert.match(filled, /人物形态：画面里不出现任何人物/, '默认档必须真的进提示词');
+  /* 自证：把默认档换成一个不存在的值时，上面那条"默认进提示词"的判据必须抓到 */
+  let caught = false;
+  try { assert.match(buildSkillBrief(skill, { person: '' }), /人物形态：画面里不出现任何人物/); } catch { caught = true; }
+  assert.equal(caught, true, '人物形态为空时没被判红 ⇒ 上面那条测的不是它');
 });
