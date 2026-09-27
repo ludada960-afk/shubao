@@ -108,12 +108,16 @@ import VideoWorkbench from '../../components/media/VideoWorkbench.jsx';
 /* 批 K-D：视频侧「代为撰写」与图片侧「生成预览」共用同一个三步方案预览对话框 */
 import PlanPreviewDialog from '../../components/plan-preview/PlanPreviewDialog.jsx';
 import { usePlanLeaveGuard } from '../../components/plan-preview/usePlanLeaveGuard.js';
+/* 批 CE：「把素材带回去」的两个纯函数收在这个模块里（`.jsx` node 直接 import 会报扩展名错，
+   而这两件事必须有门禁真跑 —— 见 test/save-to-assets-and-video-materials-0927）。 */
+import { normalizePresetMaterials, restoredAssetCount } from './videoMaterialsModel.js';
 import './VideoStudio.css';
 
 /* ═══ 视频素材 → @ 引用项（共用 ImageMentionPicker 的口子）═══
    视频侧的命名是「图片1 / 视频1 / 音频1」（见 mentionedAssets），与电商的「产品图N / 参考图N」不同 ——
    这里只补齐组件需要的最小字段，**绝不重命名**：引用标签必须与输入框里渲染出的 token
    逐字一致，重命名等于「插进去的字在框里匹配不上」，那就又变成一次点了没反应。 */
+
 function videoMentionItems(list) {
   return (Array.isArray(list) ? list : []).map((item, index) => {
     const id = item?.id || item?.sourceNodeId || 'video-asset-' + (index + 1);
@@ -361,18 +365,11 @@ export default function VideoStudioPage({
      为什么不塞进 files.images：知渔的每一块素材都有自己的**标题、说明、上限、接受类型**，
      合并成一堆就再也说不出"这一张是门店照还是模特照"。上传与生成仍走**同一条链路**（下面合并）。 */
   const [slotFiles, setSlotFiles] = useState({});
+  /* 批 CE：历史「用这组参数」带回来的素材（**已上传资产**，不是本地文件）。
+     它们在提交时并进 refs，界面上单独一条显示、可逐张移除。 */
+  const [restoredAssets, setRestoredAssets] = useState(() => normalizePresetMaterials(null));
   /* 批 T：工作台里**除主文本格以外**的文本（门店信息这类），按 block.key 存 —— 见 VideoWorkbench 的说明 */
   const [blockTexts, setBlockTexts] = useState({});
-  /* ═══ 2026-09-27 批 CD：「生成记录」搬进右栏历史区（用户原话，逐字）══════════════════════════════
-     原话：「你看你下面还是有这个生成结果的一个展示区，为什么还会有呢？…你这个生成结果必须在右边的
-     历史区里面呀。这个地方一定是要删掉的呀。」
-     ⇒ 找右栏那个**常驻挂载点**（WorkbenchShell 的 `[data-history-host]`），找到就 portal 过去，
-       找不到（首页 / 独立创作台 / 独立路由：没有那个壳）就照旧内联渲染 —— 一条代码路径，不靠模式开关。
-     ⚠️ 挂载后才有 DOM，所以只能在 effect 里取（首帧不能读 document）。 */
-  const [historyHost, setHistoryHost] = useState(null);
-  useEffect(() => {
-    setHistoryHost(document.querySelector('[data-history-host]'));
-  }, []);
   const [prompt, setPrompt] = useState('');
   const [userSkills, setUserSkills] = useState([]);
   const [skillOpen, setSkillOpen] = useState(false);
@@ -950,6 +947,12 @@ export default function VideoStudioPage({
      ⚠️ 它们**不是 File**，所以不进 `files`（那条链路要从本地读文件、还要走上传）；
         合并发生在 `handleGenerate` 里 —— 一处，不散落。 */
   const emptyRestored = { first: [], last: [], images: [], videos: [], audios: [] };
+  /* 批 CE：带回来的素材也要能逐张拿掉（用户可能只想要其中一张） */
+  const dropRestoredAsset = (key, id) => setRestoredAssets(current => ({
+    ...current,
+    [key]: (current[key] || []).filter(item => item.id !== id),
+  }));
+  const restoredCount = restoredAssetCount(restoredAssets, mode);
   useEffect(() => {
     if (!preset) return;
     if (preset.mode && VIDEO_CREATION_MODES.some(item => item.id === preset.mode)) setMode(preset.mode);
@@ -1485,7 +1488,7 @@ export default function VideoStudioPage({
         ? { first: files.first, last: files.last, images: [], videos: [], audios: [] }
         : { first: [], last: [], images: [...files.images, ...slotImageFiles], videos: files.videos, audios: files.audios };
       const reusable = plannedUploads?.signature === planSignature ? plannedUploads.assets : null;
-      const [first, last, images, videos, audios] = reusable
+      const [uploadedFirst, uploadedLast, uploadedImages, uploadedVideos, uploadedAudios] = reusable
         ? [reusable.first, reusable.last, reusable.images, reusable.videos, reusable.audios]
         : await Promise.all([
           uploadFiles(selected.first, 'image'),
@@ -1494,6 +1497,14 @@ export default function VideoStudioPage({
           uploadFiles(selected.videos, 'video'),
           uploadFiles(selected.audios, 'audio'),
         ]);
+      /* 批 CE：把"带回来的素材"并进这次生成的输入 —— **只在这一处合并**（上面上传出的那几组同形）。 */
+      const [first, last, images, videos, audios] = [
+        [...restoredAssets.first, ...uploadedFirst].slice(0, mode === 'frame' ? 1 : undefined),
+        [...restoredAssets.last, ...uploadedLast].slice(0, mode === 'frame' ? 1 : undefined),
+        [...restoredAssets.images, ...uploadedImages].slice(0, 9),
+        [...restoredAssets.videos, ...uploadedVideos].slice(0, 9),
+        [...restoredAssets.audios, ...uploadedAudios].slice(0, 9),
+      ];
       const urls = Object.fromEntries([...first, ...last, ...images, ...videos, ...audios].map(asset => [asset.id, asset.url]));
       /* 2026-09-17 第六批（收费链路真实端到端验收）：
          幂等键原来每次点击新随机 UUID → 服务端 videoGeneration.createJob 按
@@ -1777,7 +1788,8 @@ export default function VideoStudioPage({
      而知渔那 30 页里：**清晰度 0 页有、模型 5 页有、时长 6 页有**。
      ⇒ 子页面按 `videoSpecExposure`（由知渔实采派生、有门禁钉住）决定这三格露不露；
        首页/独立路由（非子页面）保持原样（它是"通用创作台"，本来就该给全部规格）。 */
-  const assetCount = mode === 'frame' ? files.first.length + files.last.length : materialEntries.length;
+  /* 批 CE：带回来的素材也算这次的输入（否则"CTA 说没素材、但提交里其实有图"账实不符）。 */
+  const assetCount = (mode === 'frame' ? files.first.length + files.last.length : materialEntries.length) + restoredCount;
   /* 首尾帧那两格是"起点/终点"两个固定位，没有"素材集合"可清、也不该整屏铺开 ——
      所以清空与全屏只长在真正有素材集合的档位上（给一个点了没意义的按钮比不给更糟）。 */
   const deckMode = mode !== 'frame';
@@ -1792,9 +1804,42 @@ export default function VideoStudioPage({
     skills: userSkills.length ? userSkills.map(skill => skill.name).join(' · ') : '未选技能',
   };
 
+  /* ═══ 批 CE：「已带入的素材」（历史「用这组参数」带回来的那次输入）═════════════════════════════
+     用户口径：「重新生成是不是也要像做同款那样，把**素材**和提示词和配置都填回去工作台呢？」
+     ⇒ 带回来的素材单独一条显示：看得见、可逐张移除、并且**真的会进这次生成**（见 handleGenerate 的合并）。
+     ⚠️ 它**不是**本地文件，所以不进上面的 FilePicker（那条链路要从磁盘读文件、还要上传）；
+        这里只做展示 + 移除，提交时按 `{id,url}` 并进 refs。 */
+  const renderRestoredAssets = () => {
+    const rows = [];
+    const push = (key, kind) => (restoredAssets[key] || []).forEach(item => rows.push({ key, kind, item }));
+    push('first', 'image');
+    push('last', 'image');
+    push('images', 'image');
+    push('videos', 'video');
+    push('audios', 'audio');
+    if (!rows.length) return null;
+    const label = { first: '首帧', last: '尾帧', images: '图片', videos: '视频', audios: '音频' };
+    return (
+      <div className="video-restored-materials" role="note">
+        <strong>已带入的素材（{rows.length}）</strong>
+        <small>这条记录生成时用到的素材，已经放进这次生成；不想要的可以逐张移除。</small>
+        <ul>
+          {rows.map(({ key, kind, item }) => (
+            <li key={key + ':' + item.id}>
+              {kind === 'image' ? <img src={item.url} alt="" loading="lazy" />
+                : kind === 'video' ? <video src={item.url} muted playsInline preload="metadata" />
+                  : <span className="video-restored-audio" aria-hidden="true">♪</span>}
+              <span>{label[key]}{item.name ? ' · ' + item.name : ''}</span>
+              <button type="button" aria-label={'移除' + label[key] + '素材'} onClick={() => dropRestoredAsset(key, item.id)}>×</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
   const renderAssetPickers = () => {
-    if (mode === 'frame') {
-      /* ═══ 2026-09-19 批 I-⑥（用户批注 #1-5 / #2-1）══════════════════════════════════════
+    if (mode === 'frame') {      /* ═══ 2026-09-19 批 I-⑥（用户批注 #1-5 / #2-1）══════════════════════════════════════
          原话：「这两张卡片依然没有学习图片生成那边的样式啊……首尾帧的是两张卡片，
          完全可以像图片生成那边做成**两张卡片对称歪着，中间一个乘号**这样做呀，
          你复制过来然后改一下文案就好呀。」
@@ -2017,27 +2062,10 @@ export default function VideoStudioPage({
      **页面上没有补充说明框** —— 他们的"怎么拍"是模板自带的，我们的对应物就是声明源里的 brief。
      照抄之后这一档不再有输入框，但"配方真的被带进这次生成"这件事仍然必须可断言，
      所以把它如实挂在页面上（值与预填进 prompt 的是同一份，不是另写一份）。 */
-  /* ═══ 2026-09-27 批 CD：「生成记录」这一段 JSX（搬进右栏，见上面的说明）════════════════════════
-     类名（`.video-history` / `.video-history-title` / `.video-history-empty`）**一个都不改**：
-     e2e 与门禁按它们找；改的只是它渲染在哪儿。`homeComposer` 那一支保持原样（首页只留入口按钮）。 */
-  const videoHistoryBlock = (
-    <div className="video-history">
-      {homeComposer ? (
-        <button
-          type="button"
-          className="video-history-more"
-          onClick={() => { if (!state.logged) { dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } }); dispatch({ type: 'SHOW_LOGIN', show: true }); return; } dispatch({ type: 'OPEN_CANVAS', tab: 'works' }); }}
-        >我生成的作品 →</button>
-      ) : (
-        <>
-          <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
-          {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
-            <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
-          </button>) : <p className="video-history-empty">暂无视频任务</p>}
-        </>
-      )}
-    </div>
-  );
+  /* 批 CD 已回退（见 RTK）：`.video-history` 暂时回到原位内联渲染。
+     回退原因不是这段代码本身，而是**提交时那个文件正被并行的另一条线改到一半**
+     （`setRestoredAssets` 的调用点进去了、声明还没进去）⇒ 运行时 ReferenceError ⇒ e2e 红。
+     等他们把 `src/pages/VideoStudio/index.jsx` 提交完，按 RTK 里那份配方重新落一遍即可。 */
 
   return <main className={`video-studio-page${embedded ? ' is-embedded' : ''}`} data-video-mode={mode} data-video-recipe={preset?.prompt || ''}>
     <MediaLightbox entry={lightboxEntry} onClose={() => setLightboxEntry(null)} />
@@ -2134,6 +2162,12 @@ export default function VideoStudioPage({
           retryUpload={retryUpload}
           onRunAction={key => { if (key === 'script') runDawei(); else if (key === 'analyze') openVideoPlan(); }}
         />}
+        {/* ═══ 批 CE：「已带入的素材」要**两种形态都渲染** ═══════════════════════════════════════
+            ⚠️ 上一版把它放进了 `{!workbenchMode && …}` 那一块 —— 而技能子页面走的正是
+               **workbenchMode**（工作台整块渲染），于是"带回来的素材"在子页面上根本看不见；
+               e2e ⑫b 当场判红（`「用这组参数」把那次任务的素材也带回创作台`）。
+            ⇒ 移到这层：它同时覆盖工作台形态与通用创作台形态，两处一视同仁。 */}
+        {renderRestoredAssets()}
         {!workbenchMode && <section className="video-materials" aria-label="上传素材">
           {/* ═══ 2026-09-24 批 AV：这一行**整块搬到下面 @ 那一层**（用户图二批注 6）═════════════════
               用户原话：「你这个部分留白也确实太多了。我搞不明白你这**三张卡片上面**为什么要有
@@ -2420,15 +2454,33 @@ export default function VideoStudioPage({
              依据：子页面右栏本来就有「示例 / 历史」两个页签（历史按技能筛过一份视图），
              左栏/下方再来一份任务列表就是同一件事在同一屏出现两次 —— 图片生成那边的子页面没有这份。
              ⚠️ 成片台（结果预览）保留：用户要走的是**重复的那份列表**，不是结果本身。 */}
-        {/* ═══ 2026-09-26 批 BY / 2026-09-27 批 CD：**左栏不再有「生成记录」**══════════════════════
-             BY 只做到"子页面整段不渲染"，但用户又看了一次并指出：那块**还在**（截图里它就在 CTA 下面），
-             而且明说「你这个生成结果必须在右边的历史区里面呀。这个地方一定是要删掉的呀」。
-             ⇒ CD 把它**整体搬走**（不是删）：下面这段 JSX 现在放进 `videoHistoryBlock`，
-               有右栏挂载点时走 portal（渲染进「历史」页签），没有时（首页 / 独立创作台）照旧内联。
-             ⚠️ 不能删的原因（e2e 硬要求）：`.video-history` 必须在 DOM 里、里面必须有按钮、
-               点一条要能把成片放上结果台 —— 它是**全部**视频任务的唯一入口（没有 skill 标记的任务
-               只在这里看得到）。 */}
-      </div></section>}{(!embedded || inlineResult) && !homeComposer && (historyHost ? createPortal(videoHistoryBlock, historyHost) : videoHistoryBlock)}
+        {/* ═══ 2026-09-26 批 BY：**子页面不再重复一份「生成记录」**（用户原话，逐字）══════════════════
+             「然后你的**生成记录为什么会在这里呢**？**右边不是有示例和历史区吗**？我觉得你现在视频生成
+              这边做的是乱七八糟的，你整体的规格和设计方案是完全没有按照我们整体图片生成的那些子页面
+              以及知渔他们那边的做法去做设计的。」
+             ⚠️ 批 CD 曾把它 portal 进右栏历史区（走通了，探针与门禁都绿），但**提交时这个文件正被并行的
+                另一条线改到一半**（`setRestoredAssets` 的调用点已进、声明未进）⇒ 产物在视频子页面
+                抛 ReferenceError、e2e 判红 ⇒ 已回退，等那个文件稳定后按 RTK 的配方重落。 */}
+        <div className="video-history">
+          {/* 首页只留一个入口（用户批注 2：「你像生成记录这个就没有必要放在这里呀，
+              这个最多就是放一个按钮而已，让用户跳到我的作品里面去」）。
+              子页面：**整段不渲染**（见上）；独立路由照旧铺完整生成记录。 */}
+          {homeComposer ? (
+            <button
+              type="button"
+              className="video-history-more"
+              onClick={() => { if (!state.logged) { dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: 'ec-canvas', source: state.page } }); dispatch({ type: 'SHOW_LOGIN', show: true }); return; } dispatch({ type: 'OPEN_CANVAS', tab: 'works' }); }}
+            >我生成的作品 →</button>
+          ) : (
+          <>
+          <div className="video-history-title"><strong>生成记录</strong><span>任务、素材与结果自动保存</span></div>
+          {history.length ? history.slice(0, 8).map(item => <button key={item.id} type="button" className={job?.id === item.id ? 'active' : ''} onClick={() => { setJob(item); if (!FINAL.has(item.status)) void poll(item.id); }}>
+            <span>{item.prompt || '视频任务'}</span><small>{jobRecordStatus(item)}</small>
+          </button>) : <p className="video-history-empty">暂无视频任务</p>}
+          </>
+          )}
+        </div>
+      </div></section>}
     {!embedded && capabilities.directorUi === true && state.logged && <DirectorWorkbench capabilities={capabilities} />}
     {!embedded && capabilities.directorUi !== true && capabilities.workbenchEnabled && state.logged && (
       // 瀑布三段式默认下线：仅当服务端显式打开 waterfallWorkbench 时回退旧布局。
