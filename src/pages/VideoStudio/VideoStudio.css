@@ -87,9 +87,25 @@
 
 /* ═══ 批 N：skill 子页面按**声明源**渲染工作台时的容器 ═════════════════════════════════
    用户第 18 轮原话：「他们这些 skill 页面……**每个工作台都是不一样的呀**……对应的一比一去抄啊」。
-   左右外边距沿用素材区那一档（22px），块的间距由 VideoWorkbench.css 的
-   .video-wb-block + .video-wb-block（40px + 一条分隔线）给 —— 与图片侧 .media-workbench-group 同一口径。 */
-.video-content-composer.is-workbench { padding: 0 22px 14px; }
+   左右外边距**原来**沿用素材区那一档（22px），块的间距由 VideoWorkbench.css 的
+   .video-wb-block + .video-wb-block（41 行 + 一条分隔线）给 —— 与图片侧 .media-workbench-group 同一口径。
+
+   ═══ 2026-09-27 批 CT：那 22px 左右内边距**撤掉**（两侧"内容列"不同宽的根因就是它）═══════════
+   用户原话（这是他从第 18 轮起反复点名的那一条）：「**同等级的东西，你应该同等级的去进行设计**呀……
+   图片生成那边做的东西你都可以先把他们的元素拿过来用。尤其是像**尺寸、规格、UI 设计、设计思路**这些东西
+   你都要对齐。不仅是跟**知渔**那边对齐，也要跟我们自己**图片生成那边的子页面工作台**对齐。」
+   实测（`.qa/ct-shell.mjs`，1932 视口，逐层向上读 rect + 底色/描边）——两侧共用的壳是同一套：
+     · 两侧都有 `div.media-workbench-left` x=120 w=605 pad=20 白底（`.media-workbench-panel` 140/554）
+       —— 也就是说**两侧的内容列本来就该是同一个 140 / 554**；
+     · 图片侧：字段直接落在 `.media-workbench-panel` 里 ⇒ 字段块 **140 / 554**；
+     · 视频侧：panel → `main.video-studio-page`(140/554) → `section.video-composer`(140/554)
+       → `section.video-content-composer.is-workbench`(**pad 22**) ⇒ 字段块 **162 / 510**。
+   关键事实：那一层 `video-content-composer` 是 **bg=rgba(0,0,0,0) / border=0px none / r=0px** ——
+   **完全透明、没有描边、没有圆角**，也就是说这 22px 没有任何视觉对象可以作为参照，
+   它只是把视频侧的字段整体缩窄了 44px（胶囊 165 vs 图片侧 179、CTA 550 vs 554）。
+   ⇒ 撤掉它：视频侧字段回到 **140 / 554 = 图片侧**（实测见 `.qa/ct-verify.mjs`）。
+   ⚠️ 底部的 14px 保留（那是与底栏的真实间距，不是内缩）。 */
+.video-content-composer.is-workbench { padding: 0 0 14px; }
 .video-content-composer.is-workbench .video-workbench-blocks { min-width: 0; }
 /* ═══ 2026-09-26 批 BQ：**面板本身也要能收缩**（hallmark 体检 gate 34）══════════════════════════
    实测：`/video-creation?id=video.smart` 在 320/375px 下把页面撑到 416/471px（溢出 96px），
@@ -390,7 +406,12 @@
      你最起码应该跟上面智能成片那个按钮与上面框的边缘的间距大小保持一致才对呀。」）
      实测：白卡上沿 416 → 页签上沿 447 = 31px（= 外层 padding 30）；按钮下沿 927 → 卡下沿 970 = 43px，
      多出来的 12px 正是这条 padding-bottom ⇒ 归零后上下同为 30/31。 */
-  padding: 12px 2px 0;
+  /* ═══ 2026-09-27 批 CT：左右 2px → **0**（批 BI 原话是"左右各 2px＝与图片侧同一条线"，
+     但实测那 2px 恰恰让它比图片侧多缩了 2px）═══════════════════════════════════════════════════
+     实测（`.qa/ct-shell.mjs` / `.qa/ct-verify.mjs`，1932 视口）：底栏 x=140 w=554，
+     里面这颗 CTA 却落在 **142 / 550**；图片侧的 CTA（`.media-workbench-submit`）是 **140 / 554**。
+     ⇒ 归零后两侧同为 140 / 554（"同一条线"这件事这次真的成立）。 */
+  padding: 12px 0 0;
 }
 .video-toolbar-buttons { min-width: 0; display: flex; align-items: center; gap: 10px; }
 /* ═══ 2026-09-25 批 BF：**与图片侧逐值同一套**（用户原话，逐字）═══════════════════════════════════
@@ -420,7 +441,18 @@
   backdrop-filter: blur(12px) saturate(120%);
   font: inherit;
   cursor: pointer;
-  transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  /* ═══ 2026-09-27 批 CS：**时长/缓动与图片侧同一档**（用户原话：「同等级的东西，你应该同等级的去
+     进行设计呀。」「你现在是两套东西在做呀。」）═══════════════════════════════════════════════
+     实测（`.qa/cs-motion-and-counter.mjs`，1600 视口，读 computed style 的 transitionDuration/Property）：
+       · 本颗（视频侧 `.video-config-trigger`）= **0.2s / transform·border-color·background·box-shadow**
+       · 同档的图片侧 `.visual-config-trigger`（首页那两颗「生图模型 / 画面规格」）= **0.16s / 三项**
+     批 BF 定的规则是"视频侧照图片侧逐值抄"，但 BF 的门禁只比了 12 个属性（宽高/内边距/圆角/描边/底色/
+     阴影/毛玻璃…），**transition 不在比较名单里** ⇒ 这一条一直漂着：同一档控件两侧差 40ms，
+     连属性表都不同（视频侧底色是渐隐、图片侧是瞬变）。
+     ⇒ 现在两侧写成**逐字相同**的一条（含 background-color，图片侧那一处也补上了同一档）——
+        "同档"从此不只是时长相等，属性表也一致。
+     ⇒ 判据钉进 test/config-kit-parity-0925.test.mjs：触发按钮的 transition 现在进逐属性比较。 */
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background-color .16s ease;
 }
 html:not([data-scrolling]) .video-config-trigger:hover { transform: translateY(-1px); border-color: var(--sb-border-strong); background: var(--sb-surface-tint); box-shadow: 0 7px 18px rgba(62,43,26,.09); }
 .video-config-trigger.is-open { border-color: var(--sb-border-strong); background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); box-shadow: 0 6px 18px var(--sb-brand-a18); }
@@ -429,7 +461,11 @@ html:not([data-scrolling]) .video-config-trigger:hover { transform: translateY(-
 .video-config-trigger small { color: var(--sb-text-muted); font-size: 10px; font-weight: 600; }
 .video-config-trigger strong { overflow: hidden; color: var(--sb-ink-1); font-size: 12px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .video-config-trigger.is-open strong { color: var(--sb-brand-600); }
-.video-config-trigger > svg:last-child { flex: 0 0 auto; opacity: .45; transition: transform .2s ease; }
+/* 批 CS：箭头（展开时旋转 180°）与图片侧 `.visual-config-trigger-chevron` 同款 ——
+   原来写的是 `transform .2s ease`、图片侧写的是 `transform var(--sb-dur-normal) var(--sb-ease-out)`：
+   时长一样（200ms）但**曲线不同**（`ease` vs `cubic-bezier(.22,1,.36,1)`），实测两边的箭头"回弹感"不一样。
+   统一到图片侧那一份（它是走 token 的写法，也是站内的 ease-out 标准）。 */
+.video-config-trigger > svg:last-child { flex: 0 0 auto; opacity: .45; transition: transform var(--sb-dur-normal) var(--sb-ease-out); }
 .video-config-trigger.is-open > svg:last-child { transform: rotate(180deg); }
 
 /* 9-12 用户批注：左侧那块独立的积分栏去掉（积分改到按钮上动态显示），

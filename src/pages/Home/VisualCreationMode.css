@@ -225,7 +225,16 @@
   backdrop-filter: blur(12px) saturate(120%);
   cursor: pointer;
   text-align: left;
-  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+  /* ═══ 2026-09-27 批 CS：与视频侧 `.video-config-trigger` **逐字同一条** ═════════════════════════
+     实测（`.qa/cs-motion-and-counter.mjs`）：视频侧原来是 0.2s、这里是 0.16s —— 同一档按钮两侧差 40ms，
+     而且属性表不同（视频侧底色渐隐、这里底色瞬变）。批 BF 的规则是"视频侧照图片侧逐值抄"，
+     但 BF 的门禁只比了 12 个属性（transition 不在名单里），所以这条一直漂着。
+     本批：两侧**都写成这一条**（时长/缓动 0.16s ease 与本站小控件同一档 —— WorkbenchShell /
+     generate-cta / login-dialog 用的都是 .16s），transition 也补进门禁的逐属性比较。
+     ⚠️ 只统一**动效**，不碰 hover 的取色：视频侧那颗在批 T-2「去紫色泛滥」里已改成中性 tint，
+     这一颗仍是品牌紫（#6d5dfc/#f7f5ff）—— 那属于"要不要把 T-2 的站内规则也收到首页这一档"，
+     未拍板，登记在 docs/design/87 的未量/不一致表里，不在本批擅自改。 */
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background-color .16s ease;
 }
 
 .visual-config-trigger:hover,

@@ -85,8 +85,23 @@ test('① 触发按钮：图片侧与视频侧逐属性同一套', () => {
   sameDecls(a, b, [
     'min-width', 'width', 'flex', 'height', 'padding', 'gap', 'border-radius',
     'border', 'background', 'color', 'box-shadow', 'backdrop-filter',
+    /* ═══ 2026-09-27 批 CS：把 `transition` 补进比较名单 ═══════════════════════════════════════
+       为什么必须补（事实变了）：批 BF 把"视频侧照图片侧逐值抄"这件事写成了门禁，但名单里**没有
+       transition**，于是这一条一直漂着 —— 实机实测（`.qa/cs-motion-and-counter.mjs`，读 computed style）：
+         视频侧 .video-config-trigger      = 0.2s  / transform·border-color·background·box-shadow
+         图片侧 .visual-config-trigger     = 0.16s / border-color·box-shadow·transform
+       同一档按钮、同一批"逐值抄"的规则，两侧差 40ms（用户原话：「同等级的东西，你应该同等级的去
+       进行设计呀。」「你现在是两套东西在做呀。」）。
+       ⇒ 本批把两侧写成**逐字相同**的一条 + 把 transition 放进逐属性比较：以后谁只改一边，这里当场红。 */
+    'transition',
   ], '触发按钮');
   assert.equal(a.decls.width, '180px', '触发按钮宽度 = 180（四颗同宽；改前 210/161/180/180）');
+  /* 钉住"两侧同档"这件事本身：这条 transition 里**每一个时长都必须是 .16s** ——
+     光比较两侧相等还不够（两边一起被改成别的值也算"相等"，而用户要的是与站内小控件同一档）。
+     0.16s 是本站小控件的既有档：WorkbenchShell(.16s×4 处) / generate-cta / login-dialog 都是它。 */
+  const durs = (a.decls['transition'].match(/[\d.]+s/g) || []);
+  assert.ok(durs.length >= 3, '触发按钮的 transition 至少要声明 3 个时长（实测图片侧 3 项 / 视频侧 4 项）');
+  for (const d of durs) assert.equal(d, '.16s', '触发按钮动效必须与站内小控件同一档 .16s，实测 ' + a.decls['transition']);
 });
 
 /* ── ② 触发按钮里的文字：小标题 / 值 / 箭头同档 ───────────────────────────────────────── */
@@ -104,6 +119,19 @@ test('② 触发按钮文字与箭头两侧同档', () => {
   assert.equal(
     blockOf(imageRules, '.visual-config-trigger', '图片侧').decls['border-radius'],
     blockOf(videoRules, '.video-config-trigger', '视频侧').decls['border-radius']);
+});
+
+/* ── ②b 触发按钮里那支箭头的动效：两侧同一条（批 CS 补）────────────────────────────────────
+   事实（实测，读 computed style）：原来 视频侧 = `transform .2s ease`、图片侧 =
+   `transform var(--sb-dur-normal) var(--sb-ease-out)` —— 时长一样（200ms）但**曲线不同**
+   （`ease` 是 (0.25,0.1,0.25,1)，`--sb-ease-out` 是 (0.22,1,0.36,1)），展开时箭头的"回弹感"不一样。
+   判据：两侧必须写出同一条（统一到图片侧那份 token 写法）。 */
+test('②b 箭头（chevron）动效两侧同一条', () => {
+  const a = blockOf(imageRules, '.visual-config-trigger-chevron', '图片侧');
+  const b = blockOf(videoRules, '.video-config-trigger > svg:last-child', '视频侧');
+  sameDecls(a, b, ['transition'], '触发按钮箭头');
+  assert.match(a.decls['transition'], /var\(--sb-dur-normal\)/, '箭头动效走时长 token（--sb-dur-normal = 200ms）');
+  assert.match(a.decls['transition'], /var\(--sb-ease-out\)/, '箭头动效走缓动 token（--sb-ease-out = cubic-bezier(.22,1,.36,1)）');
 });
 
 /* ── ③ 面板容器：圆角 / 底 / 描边 / 阴影 ─────────────────────────────────────────────── */

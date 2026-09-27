@@ -21,6 +21,8 @@
 | CM | `.qa/cm-script-button.mjs` | 付费动作按钮的位置与出现条件 |
 | CN/CQ | `.qa/cn-blanks.mjs` · `.qa/cq-below-bar.mjs` | 尾部死空白 / 底栏以下区域 |
 | CO | `.qa/co-resize.mjs` | 拉高手柄的位置、拖动增量、上下限 |
+| CR | `.qa/cr-narrow-and-motion.mjs` | 窄屏（1024/900）浮层是否被裁 / 部分动效 |
+| CS | `.qa/cs-motion-and-counter.mjs` | **动效补完**（含"有 chips 的技能页"那一档、配置触发按钮这一档）+ **字数上限三处口径** |
 
 ## 1. 已对齐（有实测两侧数值）
 
@@ -37,18 +39,22 @@
 | 进子页面的输入框 | 空 | **空**（配方不再预填；配方仍挂在 `data-video-recipe`，历史「用这组参数」照旧还原） | **一致**（CL） |
 | 浮层（菜单/面板）与左侧导航 | 未量（图片侧的配置面板形态不同） | 让开导航：`.app-sidebar` 右沿 96 ⇒ 菜单 left **108**、面板 left **177**（原 clamp 只到 12） | **视频侧已修**（CJ） |
 | 空的内部滚动槽 | 未量 | 左栏 `scrollbar-gutter: stable`（撤掉 `both-edges` —— 左侧那条空槽曾被用户点名"滑了没意义"） | **视频侧已修**（CH） |
+| 动效 · 胶囊/分段这一档 | `.media-field-segmented button` = **0.18s ease**（bg / border / color；image.concept_set 17 颗、image.product_suite 3 颗实测同值） | **同值**：`.video-wb-chips button`（= `.media-field-segmented button`）**0.18s ease**（video.content_swap「换模特/换产品」2 颗、video.light_shift「比例」5 颗实测同值） | **同源**（CS；一份 CSS，两侧不可能漂） |
+| 动效 · `@ / 放大` 与提交 | `.media-field-meta-at` / `-expand` **0.18s**；`.media-workbench-submit` 0.18s；`.media-workbench-tabs button` 0.18s | 同源同值（`.media-field-meta-*` 0.18s）；视频侧付费动作 `.video-generate-trigger` **0.18s**、`.video-script-trigger` 0.18s | **同档**（CS） |
+| 动效 · **配置触发按钮**（首页那两颗：视频模型/视频设置 ↔ 生图模型/画面规格） | `.visual-config-trigger` = **0.16s ease**（border-color / box-shadow / transform） | 改前 **0.2s ease**（transform / border-color / background / box-shadow）；**改后与图片侧逐字相同** = **0.16s ease ×4**（+ background-color） | **本批统一**（CS）—— 批 BF 的"逐值照抄"漏了 transition（门禁名单里没有这一项） |
+| 动效 · 配置按钮里那支箭头 | `.visual-config-trigger-chevron` = `transform var(--sb-dur-normal) var(--sb-ease-out)`（200ms / `cubic-bezier(.22,1,.36,1)`） | 改前 `transform .2s ease`（时长一样、**曲线不同**）；改后同图片侧 | **本批统一**（CS） |
 
 ## 2. 已知**不一致**或**未量**（下一批的活）
 
 | 维度 | 现状 | 要做的事 |
 |---|---|---|
-| 字数上限的口径 | 字段真实上限 `promptMaxLength = 8000`，而区块声明 `max: 10000`（页面上显示的是区块那个数） | **要么统一数、要么两处各有理由**；`未定`，等人拍 |
-| 图片侧的字数显示 | 现在随共用组件有了（`N / maxLength`） | 与视频侧的口径（区块 `max`）对齐一次 |
+| 字数上限的口径 | **CS 实测三处（`.qa/cs-motion-and-counter.mjs`，1440 视口）**：视频侧 video.smart 框下方计数显示 **`0 / 10000`**（区块声明 `max: 10000`），放大弹窗分母显示 **`0/8000`**（字段真实上限 `VIDEO_PROMPT_MAX_LENGTH = 8000`），塞 9500 字符进去**实际只留 8000**；video.product_motion 更反：计数 `0 / 2000`（区块声明 2000）但**实际能输到 8000**（塞 3000 → 留下 3000，计数 `3000 / 2000`），于是「已到字数上限」会在还能继续打字时就出现。图片侧**三处一致**（计数 2000 / 弹窗 2000 / `textarea[maxlength]=2000`） | **要么统一数、要么两处各有理由**；`未定`，等人拍 —— 具体是三条路（见下） |
+| 字数上限 · 拍板选项（CS 列清，不擅自改数） | ①**显示跟真实走**：把视频侧的计数/弹窗都改成 `min(区块 max, 8000)` = 8000（符合用户 9-12 那条「不能出现显示能输、实际被截断」，但与知渔页面上写的 10000 不同）；②**真实跟显示走**：把 `VIDEO_PROMPT_MAX_LENGTH` 提到 10000（与显示、与知渔都一致，但**这是"能输多少"的定数变更**，且影响上游 token/成本 ⇒ 必须用户批准）；③**维持现状 + 写明理由**（显示=知渔那一档，截断=本机上限） | 三条都要用户点头才动。**钱的铁律**：②涉及上游成本，未批准前不许改 |
+| 配置触发按钮的 hover **取色**（新发现，未拍板） | 视频侧那颗在批 T-2「去紫色泛滥」里已改成**中性 tint**（`--sb-surface-tint` / `--sb-border-strong`，抬 1px）；图片侧首页那两颗仍是**品牌紫**（`#6d5dfc` / `#f7f5ff`，抬 2px），而 BF 的批注里写的却是"hover 变品牌描边 + 浅紫底 + 抬 2px" | 本批**只统一了动效**（时长/缓动/属性表），**没碰取色** —— 要不要把 T-2 的站内规则也收到首页这一档（或反过来），属于改向，等人拍 |
 | 底栏以下的空白 | 视频侧：底栏 944 就是面板底，**下面什么都没有**；列底 padding 36px（944..980） | 已属正常间距；若用户指的是别的区域，需要他再指一次 |
 | 示例/历史右栏的高度 | 图片侧 pane 176..593（416）｜视频侧 176..376（200） | 内容是数据驱动，**不是硬编码**；差在示例条数 —— 未量"是否应有最小高度" |
 | 生成配置面板在窄屏 | **已量（.qa/cr-narrow-and-motion.mjs）**：1024 → 菜单/面板都 108..588；900 → 菜单 88..568、面板 408..888 —— 两者都**完整在视口内**，且已让开左侧导航（96） | `已闭环` |
-| 动效（时长/缓动曲线） | **部分已量**（同上脚本）：共用件完全一致 —— `.media-field-meta-at` 两侧都是 `0.18s ease`（background/color/border）；图片侧 `.media-field-segmented button` 0.18s ease、`.media-workbench-submit` 0.18s、`.media-workbench-tabs button` 0.18s；视频侧 `.video-config-trigger` 0.2s ease、`.video-script-trigger` 0.18s | **未量完**：视频侧"胶囊/分段"那一档在 `video.smart` 上没有实例（该技能不声明 chips）⇒ 要挑一条**有 chips 的技能页**（如爆款复刻的「替换对象」）再对一次 |
-| 知渔 `/apps` 各子页面逐项 | **只对过"页面形态/字段清单"（`src/skills/quantvVideoParity.js` 那张表）** | 需要一次**逐页**的尺寸/间距/控件对表；这是用户点名最重的一条，仍未做 |
+| 知渔 `/apps` 各子页面逐项 | **只对过"页面形态/字段清单"（`src/skills/quantvVideoParity.js` 那张表）**。逐页对表见 `docs/design/88-quantv-per-page-parity.md`（用 2026-09-20 的 CDP 实采 `docs/design/data/quantv-video-pages.json` —— 它**每个控件都有 rect** —— 与我们今天现量的同一批维度逐页比）。⚠️ **知渔工作台不能匿名采**：`.qa/ct-quantv-capture.mjs` 用无登录态浏览器跑 31 个 URL，**31/31 都落到他们的营销首页**（「知渔 AI / 开始使用 / 一站式AI多媒体创意平台」，面板 rect = 整屏 1932×1080）——要重采必须带登录态 CDP（那份实采就是这么来的）。 | 逐页**尺寸/间距/控件**表已产出（88）；**结论里"对不上"的那些**按批 CT 处理 |
 
 ## 3. 纪律（这批踩出来的，写给下一个人）
 
@@ -57,3 +63,10 @@
    「PromptMetaRow is not defined」，而端到端是 20 秒超时后还得再查。跑 `.qa/<某>-diag.mjs` 更快。
 3. **不许并行跑 precommit/e2e**（端口默认 4197，可用 `SHUBO_E2E_PORT` 覆盖）。
 4. **"复现不出来"之前先看层叠**：CJ 那条我量了三次"元素在不在屏内"，真相是被**另一个浮层压住**。
+5. **门禁的"比较名单"本身就是判据**（CS 的教训）：BF 把"两侧逐值同一套"写成了门禁，但名单里漏了
+   `transition` ⇒ 同一档按钮的动效漂了 40ms 且没人发现。**加了一条属性到设计规范里，就要同步加进名单**；
+   名单外的东西一律按"没守"看待。另外，写完判据必须做一次**变异测试**（把旧值放回去，确认会红）——
+   CS 这次实测：放回 `transform .2s ease…` ⇒ 立刻报「触发按钮：transition 两侧不一致」。
+6. **量之前先问"这一档的对标物是谁"**（CS 的教训）：RTK 上一批把 `video-config-trigger` 的 0.2s 拿去和
+   "其它件 0.18s"比，但那颗按钮真正的同档控件是**首页图片侧那两颗**（0.16s）。
+   选错对标物会把"真差异"读成"20ms 的小事"。

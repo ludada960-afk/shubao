@@ -1270,6 +1270,49 @@ try {
       board + ' Hub 只显示那一档的技能', JSON.stringify(one));
   }
 
+  /* ═══ 2026-09-27 批 CT：**两侧工作台的内容列必须同左缘、同宽**（实机契约，不是静态断言）══════
+     用户原话（从第 18 轮起反复点名的那一条）：「**同等级的东西，你应该同等级的去进行设计**呀……
+     图片生成那边做的东西你都可以先把他们的元素拿过来用。尤其是像**尺寸、规格、UI 设计、设计思路**
+     这些东西你都要对齐。不仅是跟**知渔**那边对齐，也要跟我们自己**图片生成那边的子页面工作台**对齐。」
+     ⚠️ 为什么这条必须实机量（静态断言守不住）：CTA/字段的最终 x 与宽是**多层壳叠加**的结果 ——
+     视频侧原来多一层 `section.video-content-composer.is-workbench`（bg 透明 / border 0 / 圆角 0）
+     自带 22px 内边距，静态读任何一条声明都看不出"字段会缩 44px"。
+     实测差（批 CT 前）：视频侧字段 162/510、CTA 142/550；图片侧 140/554、140/554。
+     ⇒ 变异测试：把 `.video-content-composer.is-workbench` 的 `padding: 0 0 14px` 改回 `0 22px 14px`，
+       本条立刻红（左右 x/宽都对不上）。 */
+  scenario('⑬b2 两侧工作台：内容列 / 胶囊 / CTA 同左缘同宽（批 CT）');
+  const sideGeometry = async (path, readySel, fieldSel, chipSel, ctaSel) => {
+    await page.goto('http://127.0.0.1:' + PORT + path, { waitUntil: 'load', timeout: 40000 });
+    await page.waitForSelector(readySel, { timeout: 20000 });
+    await page.waitForTimeout(500);
+    return page.evaluate(([fieldSel, chipSel, ctaSel]) => {
+      const R = sel => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.x), w: Math.round(r.width), h: Math.round(r.height) };
+      };
+      return {
+        left: R('.media-workbench-left'), field: R(fieldSel), chip: R(chipSel), cta: R(ctaSel),
+        err: /is not defined|出错了/.test(document.body.innerText || ''),
+      };
+    }, [fieldSel, chipSel, ctaSel]);
+  };
+  const imgSide = await sideGeometry('/image-creation?id=image.product_suite', '.media-workbench-submit',
+    '.media-field', '.media-field-segmented button', '.media-workbench-submit');
+  const vidSide = await sideGeometry('/video-creation?id=video.image_to_video', '.video-generate-trigger',
+    '.video-wb-block', '.media-field-segmented button', '.video-generate-trigger');
+  check(!imgSide.err && !vidSide.err, '两侧工作台都没有进错误边界（批 CP 的漏 import 就是这么抓到的）',
+    JSON.stringify({ img: imgSide.err, vid: vidSide.err }));
+  for (const key of ['left', 'field', 'chip', 'cta']) {
+    const a = imgSide[key];
+    const b = vidSide[key];
+    check(Boolean(a) && Boolean(b), '两侧都量得到 ' + key, JSON.stringify({ img: a, vid: b }));
+    check(a.x === b.x && a.w === b.w,
+      '两侧 ' + key + ' 同左缘同宽（图片 ' + a.x + '/' + a.w + ' vs 视频 ' + b.x + '/' + b.w + '）',
+      JSON.stringify({ img: a, vid: b }));
+  }
+
   /* ═══ 2026-09-23 批 AD：**辅助能力卡片点开去哪**（真浏览器验证）═════════════════════════════
      运镜控制 / 延长续写 / 画面修改 这三条按设计**没有自己的工作台**
      （门禁 video-skill-workbench-declaration-0919 ① 反而要求它们不许有）：
