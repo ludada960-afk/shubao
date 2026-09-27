@@ -10129,3 +10129,45 @@ e2e 266 → **268**（存到资产按钮存在 + 素材带回创作台；后者*
 **留下的能力**：`scripts/sweep-orphan-assets.mjs` 可以重复跑（默认 dry-run），
 以后每季度或磁盘吃紧时按同一条命令再清一次；`scripts/build-asset-refs.mjs` 负责重新生成仓库侧名单
 （新增案例时会用到）。
+
+## 2026-09-27 批 CG —— 「生成记录」重落右栏历史区（提交 0afd67e1 / 已上线）
+
+**用户原话（逐字）**
+「你看你下面还是有这个生成结果的一个展示区，为什么还会有呢？我都跟你说了很多遍了，你这个生成结果
+**必须在右边的历史区里面**呀。这个地方一定是要删掉的呀。」
+
+**为什么是"重落"**：批 CD（提交 c23dcd81）第一版就做通了（探针 + 门禁都绿），但**提交那一刻**
+`src/pages/VideoStudio/index.jsx` 正被并行的另一条线改到一半（`setRestoredAssets` 的调用点已进、
+声明未进）⇒ 产物在视频子页面抛 ReferenceError（错误边界「页面出了点问题」）⇒ e2e 判红 ⇒ 回退。
+他们的批 CD/CE 落库、文件稳定后，本批按同一套配方重落。
+
+**做法（与第一版一致，类名一个都没改）**
+1. `WorkbenchShell.jsx` 右栏 `.media-workbench-pane` 里加**常驻**挂载点
+   `<div className="media-workbench-history-host" data-history-host hidden={activeTab !== 'history'} />`
+   —— 常驻是刻意的：e2e L753 在**默认「示例」页签**下就断言 `document.querySelector('.video-history')`
+   必须存在；`hidden` 只控显隐（L832 读 textContent、L858 点按钮都照旧）。
+2. `VideoStudio/index.jsx`：那段 JSX 提成 `videoHistoryBlock`（类名不变），effect 里取
+   `[data-history-host]`，取到就 `createPortal` 进「历史」页签；取不到（首页/独立创作台/独立路由）内联。
+   ⚠️ **内联那一份必须删掉**——第一版我漏删，探针立刻抓到"host 里有、左栏也有一份"
+   （`histInHost:false / histInLeft:true`），删掉后才变成 `histInHost:true / histInLeft:false`。
+3. `VideoStudio.css`：`.media-workbench-history-host[hidden]{display:none}` +
+   `.media-workbench-pane .video-history{width:100%;margin:0;padding:0;border-top:0}`（左栏那套外缩/
+   分割线在右栏里是多余的）。
+
+**实测（.qa/cd-history-portal.mjs，1440 视口 /video-creation?id=video.smart）**
+| | 默认（示例页签） | 切到历史页签 |
+|---|---|---|
+| 挂载点存在 | ✅ | ✅ |
+| `.video-history` 在挂载点里 | ✅ | ✅ |
+| 还在左栏 | ❌ | ❌ |
+| 可见 | 否（hidden） | ✅ 608,176 **777×43** |
+
+**证据链**
+- 门禁 `test/video-subpage-parity-0926.test.mjs` 10/10（CG-① 守"挂载点常驻 + portal + 类名不变 + pane 几何归零"）；
+- `npm run test`：**4186 / pass 4175 / fail 0** / skipped 11；
+- `npm run precommit`：构建 exit 0 + `[media-e2e] 通过：268 条断言全绿` + 38 个 BLOCKING 门禁全绿；
+- 部署与线上复验见下。
+
+**这一轮学到的两条（已在上一条记录里写过，这里只留指针）**
+- precommit / e2e **不许并行**（端口现在是 `SHUBO_E2E_PORT` 可覆盖，并发前先设不同端口）；
+- e2e "卡在可见性"时，用「隔离 worktree + 失败 dump 页面」那套手法直接看错误明文，别猜。
