@@ -69,9 +69,10 @@ import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
 import SizingPanel from '../../Home/ec/SizingPanel.jsx';
 import SkuPanel from '../../Home/ec/SkuPanel.jsx';
-import ParamsPanel from '../../Home/ec/ParamsPanel.jsx';
-import CopyPanel from '../../Home/ec/CopyPanel.jsx';
-import GenerationConstraintsPanel from '../../Home/ec/GenerationConstraintsPanel.jsx';
+/* 2026-09-27 批 CU：ParamsPanel / CopyPanel / GenerationConstraintsPanel 三个 import 随
+   「商品信息」「内容规范(AI规划)」两颗按钮一起**删掉**（用户原话：「这些东西可以不要了，你就直接拿掉吧」）——
+   它们原本只挂在 `.slice(0,2)` 那一支里、而那支的 item.key 永远命中不了 params/copy，
+   等于三个面板从没在画布上打开过。首页 EcMode.jsx 仍在用它们，画布侧不再需要。 */
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
 import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
 import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, canvasGenerationBoxHasResult, filterCanvasSkills, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
@@ -811,21 +812,29 @@ const SUITE_PANEL_BUTTONS = Object.freeze([
   { key: 'copy', label: '内容规范', icon: FileText },
 ]);
 
-/* 参数行（.ec-canvas-suite-controls，画布上的**独立一行**）只收短文案四字按钮。
-   顺序严格照抄首页 src/pages/Home/EcMode.jsx 的 DEFAULT_BUTTONS：
+/* 参数行（.ec-canvas-suite-controls，画布上的**独立一行**）。
+   顺序照抄首页 src/pages/Home/EcMode.jsx 的 DEFAULT_BUTTONS：
      生成设置 → 套图方案 → SKU变体 → 技能库 → 商品信息 → 内容规范
    其中「技能库」由 CanvasSkillControl 在组件里插在对应位置，不在此数组内。
-   实测（1440 视口）：行内容盒 = 434 - 2×18 = 398px，
-   六个格子（@ 24 + 生成设置 116 + 套图方案 73 + SKU变体 74 + 技能 54 + 商品信息 73 + 内容规范 64）
-   与 6 个 6px 间距合计 448px > 398px —— 「内容规范」会被整行裁掉（用户口径不接受）。
-   所以「生成设置」（唯一的长文案格：GPT Image 2·2K，116px）移到底栏，
-   参数行只留 5 个短格：24 + 73 + 74 + 54 + 73 + 64 = 362，+5 个 6px 间距 = 392 ≤ 398 ✓
-   并且**没有任何一格需要被裁**（短文案全部完整显示）。 */
+
+   ═══ 2026-09-27 批 CU：**「商品信息」与「内容规范(AI规划)」两颗整块拿掉** + 生成设置**拿上来** ═══
+   用户原话（逐字）：「像这个**商品信息**AI规划这些按钮现在其实都是**失效的状态**。我点击了是没有反应的，
+   那我觉得这些东西**可以不要了，你就直接拿掉吧**。然后**模型的选择和生成配置的那些按钮，
+   你看是不是应该拿上来呢**？」
+   实测（`.qa/cu-suite-diag5.mjs` —— DOM 级 click 逐颗点，绕开层叠/命中测试，每颗点两次看开关）：
+     智能套图 ✅ `ec-canvas-parameter-popover:480×463` ／ SKU变体 ✅480×214 ／ 技能 ✅248×290
+     生成设置（GPT Image 2·2K）✅480×248
+     **商品信息 ❌** is-active 翻转了、**但没有任何 popover**；**内容规范「AI规划」❌** 同样
+   根因：这两颗在 `.slice(2)` 那一支里**只渲染了按钮，没有渲染 `CanvasPopoverPortal`** ——
+   面板 JSX（ParamsPanel / CopyPanel / GenerationConstraintsPanel）只写在 `.slice(0,2)` 那一支里，
+   而那一支的 `open={activePanel === item.key}` 只可能命中 sizing / sku ⇒ 这两颗永远打不开。
+   ⇒ 按用户口径**拿掉**（它们引用的首页电商入口本身也已经不存在了）。
+   ⇒ 「生成设置」从底栏**拿上来**放回这一行（首页顺序里它本来就是第一位）；
+     宽度复核：@ 24 + 生成设置 116 + 套图方案 73 + 商品规格 74 + 技能 54 = 341，+4 个 8px 间距 = 373 ≤ 398 ✓
+     （行本身 `flex-wrap: wrap`，再窄也不会被裁，只会换行）。 */
 const SUITE_PARAM_BUTTONS = Object.freeze([
   { key: 'sizing', label: '套图方案', icon: Grid2X2 },
   { key: 'sku', label: '商品规格', icon: Layers3 },
-  { key: 'params', label: '商品信息', icon: Info },
-  { key: 'copy', label: '内容规范', icon: FileText },
 ]);
 
 function suiteConfiguration(node = {}) {
@@ -932,32 +941,30 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
           resolution={configuration.genSettings.resolution}
         />}
         {item.key === 'sku' && <SkuPanel skus={configuration.skus} onChange={value => update('skus', value)} sizing={configuration.sizing} onSizingChange={value => update('sizing', value)} />}
-        {item.key === 'params' && <ParamsPanel params={configuration.productParams} onChange={value => update('productParams', value)} />}
-        {item.key === 'copy' && <CopyPanel copywriting={configuration.copywriting} onChange={value => update('copywriting', value)} />}
-        {/* 2026-09-16：画布侧此前**根本没有**「避免出现的元素」这一段（首页有、画布没有），
-            同一个「内容规范」面板在两边内容不一致 —— 用户说的「不要东做一点西做一点」正是这种。
-            现在两边用同一个组件、同一份配置键（configuration.genSettings.negativePrompt）。 */}
-        {item.key === 'copy' && <GenerationConstraintsPanel flushTop negativePrompt={configuration.genSettings?.negativePrompt || ''} onChange={value => update('genSettings', { ...configuration.genSettings, negativePrompt: value })} />}
-        {item.key === 'settings' && <GenSettingsPanel value={configuration.genSettings} onChange={value => update('genSettings', value, { resolution: value.resolution || node.resolution })} />}
+        {/* ═══ 2026-09-27 批 CU：这里原来还挂着三支**永远打不开**的面板（params / copy / settings）═══
+            它们的选择器命中的是 `item.key`，而本支 `.map()` 只会遍历 SUITE_PARAM_BUTTONS 的前两项
+            （sizing / sku）⇒ 三支都不可达；用户看到的却是「商品信息」「AI规划」两颗按钮**点了没反应**
+            （按钮在另一支 `.slice(2)` 里渲染、面板却写在这里）。
+            用户原话（逐字）：「像这个商品信息AI规划这些按钮现在其实都是**失效的状态**。我点击了是没有反应的，
+            那我觉得这些东西**可以不要了，你就直接拿掉吧**。」
+            ⇒ 按钮与这三支死面板**一起拿掉**（面板本身在首页 EcMode.jsx 里仍是活的，不受影响）；
+              「生成设置」改由 CanvasSuiteSettingsControl 渲染在参数行（见 CanvasSuiteControls 末尾）。 */}
       </CanvasPopoverPortal>
     </div>)}
     {/* 技能：位置与首页一致（Home/EcMode.jsx DEFAULT_BUTTONS 第 4 位 = skills）—— 不再丢到最下面 */}
     <div className="ec-canvas-suite-control ec-canvas-suite-skill-control" key="skill">
       <CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" />
     </div>
-    {/* 商品信息 → 内容规范（首页 DEFAULT_BUTTONS 的第 5、6 位）：两格都要渲染，
-        之前写死 slice(3, 4) 只出「商品信息」，「内容规范」整个丢了。 */}
-    {SUITE_PARAM_BUTTONS.slice(2).map(item => <div className="ec-canvas-suite-control" key={item.key}>
-      <button
-        ref={activePanel === item.key ? suiteAnchorRef : undefined}
-        type="button"
-        data-canvas-control="true"
-        className={`${activePanel === item.key ? 'is-active' : ''}${adjustedPanels[item.key] ? ' is-adjusted' : ''}`}
-        aria-expanded={activePanel === item.key}
-        aria-haspopup="dialog"
-        onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `suite:${item.key}`))}
-      ><item.icon size={14} /><span>{summary(item.key)}</span>{adjustedPanels[item.key] && <small>已调整</small>}<ChevronDown size={12} /></button>
-    </div>)}
+    {/* ═══ 2026-09-27 批 CU：「生成设置」（= 模型 · 清晰度）**从底栏拿上来**，放回这一行的末尾 ═══════
+        用户原话（逐字）：「然后**模型的选择和生成配置的那些按钮，你看是不是应该拿上来呢**？」
+        原来它在 `.ec-canvas-composer-footer`（底栏，与 @ / 技能 / 生成按钮同一行）——
+        那是"参数行塞了 6 格会裁掉内容规范"时的取舍；现在那两颗（商品信息 / 内容规范）已按用户口径拿掉，
+        这一行空出来了，模型与生成配置就该回到"参数"该在的地方（与首页 DEFAULT_BUTTONS 的"生成设置"同位）。
+        ⚠️ 位置在**技能之后**：这样"技能库"仍夹在 生成设置/套图方案/商品规格 与 生成按钮 之间，
+        与用户 9-16 定下的那一版顺序不冲突。 */}
+    <div className="ec-canvas-suite-control ec-canvas-suite-settings-in-row" key="settings-row">
+      <CanvasSuiteSettingsControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
+    </div>
   </div>;
 }
 
@@ -1535,9 +1542,9 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
             ? `方案已确认 · 共 ${suiteEstimate.count} 张`
             : `方案待确认 · 共 ${suiteEstimate.count} 张`)
           : '先分析商品与参考图，再进入整体设计方案'}</span>
-        {/* 生成设置（= 模型 · 清晰度）排在底栏：它是长文案格、允许被右缘纯裁切，
-            与图片框的模型按钮同级；@ 引用 / 技能 / 生成按钮之间的那一格（order: 1）。 */}
-        <CanvasSuiteSettingsControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} />
+        {/* ⚠️ 2026-09-27 批 CU：「生成设置」（模型 · 清晰度）**已从底栏挪到参数行**（见 CanvasSuiteControls 末尾）——
+            用户原话：「模型的选择和生成配置的那些按钮，你看是不是应该拿上来呢？」。
+            这一行现在只剩：状态说明 + 可选门槛提示 + 主 CTA（与图片/视频框的底栏同一套）。 */}
         {/* 提示语纪律：短、说结果不说机制。方案待确认时按钮禁用并直接说「请先确认方案」。 */}
         {planning && !planConfirmed && <span className="ec-canvas-suite-plan-gate" role="status">请先确认方案</span>}
         <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || (!planning && !sources.length) || (!planning && !String(node.prompt || '').trim()) || (planning && !planReady) || (planning && !planConfirmed)} title={planning && !planConfirmed ? '请先确认方案' : undefined} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '处理中' : <><Sparkles size={15} />{planning ? '开始生成' : '生成设计方案'}<span className="shubao-gen-cta-points">{formatCanvasPoints(suitePoints)} 积分</span></>}</button>

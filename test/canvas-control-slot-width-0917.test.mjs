@@ -177,17 +177,27 @@ test('视频模型 select 锁 width:100%（原生控件不许被文字撑宽）'
   assert.match(m[1], /text-overflow:\s*clip/, '不许省略号');
 });
 
-test('参数行不参与收缩（flex-shrink:0）—— 槽位总宽是定值，放不下由底栏裁切', () => {
+test('参数行不参与收缩（flex-shrink:0）；放不下**换行**，不再靠底栏裁切', () => {
   /* 行宽 = 槽位之和 + 间距（由槽位表算出的定值）。
      若让行收缩，底栏里其它元素（提示语/生成按钮宽度变化）会改变行宽，
      行内槽位就会跟着等比变化 → 又回到"互相挤压"。
-     所以行 flex-shrink:0，放不下时由 .ec-canvas-composer-footer 的 overflow:hidden 裁切：
-     「宁可右边看不全，也绝不改变任何一格的宽度」。 */
+     所以行仍然 flex-shrink:0。
+     ═══ 2026-09-27 批 CU：**兜底从"裁切"改成"换行"（用户改向）** ═══════════════════════════════
+     旧口径：「宁可右边看不全，也绝不改变任何一格的宽度」—— 靠底栏 `overflow:hidden` 裁掉放不下的部分。
+     用户原话（逐字）：「而且你这里现在这些**按钮区的适配现在也没有做好，很多部分，它现在都是
+     **超出框的边界**的……像生成文案啊，生成图片啊，生成视频啊，他们那边应该也有这些类似的问题存在，
+     那你都得去把他们给解决掉。」
+     实测（`.qa/cu-adapt.mjs`，把创作台面板强制成 5 档宽度逐行量）：改前 480/435/380/320 四档下
+     参数行最右一颗按钮分别**超出 22 / 53 / 90 / 131px**；改后五档全部 **0 溢出**（放不下的整颗换行）。
+     ⇒ 判据变成：**底栏/参数行必须 wrap**（不裁、不溢出、槽位仍固定宽）。 */
   const rule = allRuleText(main, /\.ec-canvas-parameter-controls \{([\s\S]*?)\}/g);
   assert.ok(rule.trim(), '必须有参数行规则');
   assert.match(rule, /flex-shrink|flex:\s*0\s+0\s+auto/, '行必须不参与收缩（flex-shrink:0）');
   const footer = allRuleText(main, /\.ec-canvas-composer-footer \{([\s\S]*?)\}/g);
-  assert.match(footer, /overflow:\s*hidden/, '底栏必须能裁切（槽位固定宽的兜底）');
+  assert.match(footer, /flex-wrap:\s*wrap/, '底栏放不下必须换行（用户：不要裁掉/溢出）');
+  assert.ok(!/overflow:\s*hidden/.test(footer), '底栏不得再用 overflow:hidden 裁切（用户口径已改）');
+  const suiteRow = allRuleText(main, /\.ec-canvas-suite-controls \{([\s\S]*?)\}/g);
+  assert.match(suiteRow, /flex-wrap:\s*wrap/, '套图参数行同样必须换行（实测它是最容易溢出的那一条）');
 });
 
 /* ── 防回退：不得再出现 flex: 0 0 auto 作用于"内容自适应"的参数槽 ── */

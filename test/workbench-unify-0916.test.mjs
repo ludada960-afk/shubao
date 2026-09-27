@@ -181,9 +181,20 @@ test('⑨ 避免出现的元素必须与上面四个字段同级，且没有分�
   assert.ok(!/CopyPanelDivider/.test(ecMode), '分割线组件必须删除');
   assert.match(ecMode, /<GenerationConstraintsPanel flushTop/, '必须紧贴上一段（去掉重复的顶部内边距）');
   assert.ok(!/这些约束会随本次套图一起下发/.test(panel), '那句链路说明必须删除（用户点名）');
-  /* 画布侧此前根本没有这一段 —— 同一个「内容规范」两边内容不一致 */
-  assert.match(read('src/pages/EcCanvas/components/CanvasStudio.jsx'), /<GenerationConstraintsPanel flushTop/,
-    '画布侧必须补齐「避免出现的元素」（此前只有首页有）');
+  /* ═══ 2026-09-27 批 CU：**这条判据反转了（用户改向）** ═══════════════════════════════════════
+     原文：「画布侧此前根本没有这一段 —— 同一个「内容规范」两边内容不一致」⇒ 要求画布侧也渲染它。
+     用户现在（逐字）：「像这个**商品信息**AI规划这些按钮现在其实都是**失效的状态**。我点击了是没有反应的，
+     那我觉得这些东西**可以不要了，你就直接拿掉吧**。」
+     事实（`.qa/cu-suite-diag5.mjs`，DOM 级 click 逐颗点）：画布上「内容规范(AI规划)」这颗按钮
+     is-active 会翻转、**但没有任何 popover** —— 按钮渲染在 `SUITE_PARAM_BUTTONS.slice(2)` 那一支，
+     面板 JSX 却只写在 `.slice(0,2)` 那一支，`item.key` 永远命中不了 copy ⇒ **从没打开过**。
+     ⇒ 按用户口径把这两颗按钮与那三支不可达的面板一起拿掉；首页（EcMode）那一份仍然在渲染，不受影响。 */
+  const canvasStudio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
+  assert.ok(!/<GenerationConstraintsPanel/.test(canvasStudio),
+    '画布侧不再渲染「避免出现的元素」（用户：这些东西可以不要了，你就直接拿掉吧）');
+  assert.ok(!/item\.key === 'copy'/.test(canvasStudio), '画布侧的「内容规范」死分支必须删除');
+  assert.ok(!/item\.key === 'params'/.test(canvasStudio), '画布侧的「商品信息」死分支必须删除');
+  assert.match(ecMode, /<GenerationConstraintsPanel flushTop/, '首页侧照旧必须有（这份没动）');
 });
 
 /* ═══ ⑩ 标题配色：图标一色、文字另一色（图10-② / 图11-①）═══ */

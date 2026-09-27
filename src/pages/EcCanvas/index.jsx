@@ -2146,6 +2146,47 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     };
   }, [viewport.x, viewport.y, viewport.scale]);
 
+  /* ═══ 2026-09-27 批 CU：**世界坐标 → 视口像素**（`toWorldPoint` 的反函数）═════════════════════
+     为什么必须有这一个（用户本批批注的原话，逐字）：
+       「你现在画布进来的话，随便上传一个素材，**右边的这个加号里面的选项都不见了**呀。
+        怎么丢失了呀？之前不是跟你说了吗？我们进来之后随便上传一个素材，
+        **它应该自动张开右边的这个加号的选项区**呀。然后我刚刚试了一下**右边的加号一拉动。
+        鼠标停下来，它依然没有出现选项区**呀。」
+     根因（读代码 + 探针实测，见 `.qa/cu-derive-menu.mjs`）：派生菜单是
+     `CanvasStudio.jsx` 的 `CanvasPopoverPortal` 渲染的，而它第一行就是
+       `if (!open || !anchor) return null;`
+     —— **没有锚点就整块不渲染**。三条入口里只有"点一下加号"（`handlePortClick`）会带
+     `anchorRect`（取自触发按钮的视口矩形），另外两条**都没带**：
+       · 上传素材后的自动张开（`openConnectionPickerForNode(node)` 不传 triggerEl）⇒ anchor=null；
+       · 拖动加号、在空白处松手（`handlePointerUp` 的 connect 分支只给了 world 坐标）⇒ anchor=null。
+     于是这两条路径**静默什么都不显示**（既不报错也不渲染），用户看到的就是"选项区不见了"。
+     ⇒ 修法：凡是给菜单设锚点的入口都必须给得出**视口矩形** —— 节点锚点用这条函数换算
+       （世界坐标 × scale + 容器原点 + viewport 偏移），拖动落点直接用落点像素。 */
+  const toViewportPoint = useCallback((point) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    return {
+      x: (rect?.left || 0) + viewport.x + (Number(point?.x) || 0) * viewport.scale,
+      y: (rect?.top || 0) + viewport.y + (Number(point?.y) || 0) * viewport.scale,
+    };
+  }, [viewport.x, viewport.y, viewport.scale]);
+
+  /** 节点在世界坐标里的矩形 → 视口像素矩形（派生菜单按"锚点右缘 + 12px 向右展开"用它）。 */
+  const viewportRectForNode = useCallback((node) => {
+    if (!node) return null;
+    const scale = viewport.scale || 1;
+    const topLeft = toViewportPoint({ x: node.x, y: node.y });
+    const width = Math.max(0, (Number(node.w) || 0) * scale);
+    const height = Math.max(0, (Number(node.h) || 0) * scale);
+    return { x: topLeft.x, y: topLeft.y, width, height, right: topLeft.x + width, bottom: topLeft.y + height };
+  }, [toViewportPoint, viewport.scale]);
+
+  /** 指针落点（clientX/clientY，已是视口像素）→ 零尺寸锚点矩形（菜单从落点右侧展开）。 */
+  const viewportRectForEvent = useCallback((event) => {
+    const x = Number(event?.clientX) || 0;
+    const y = Number(event?.clientY) || 0;
+    return { x, y, width: 0, height: 0, right: x, bottom: y };
+  }, []);
+
   const flushDragFrame = useCallback(() => {
     dragFrameRef.current = null;
     const pending = pendingDragRef.current;
@@ -2277,20 +2318,30 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     if (!canDeriveFromCanvasSource(node)) return;
     /* 2026-09-20：改用**触发元素的视口矩形**作为弹层锚点（原来是节点的世界坐标）。
        世界坐标要经过缩放层换算，实测在面板打开时会算飞（left=-717 → 屏幕 x=10）。
-       视口像素只有一套坐标系，交给 CanvasPopoverPortal(place='right') 统一处理。 */
+       视口像素只有一套坐标系，交给 CanvasPopoverPortal(place='right') 统一处理。
+       ⚠️ 2026-09-27 批 CU：**没有触发元素时不能给 null** —— portal 的 `if (!open || !anchor) return null`
+       会让整块菜单不渲染（上传素材后的自动张开就是这么消失的）。退化为"节点自身的视口矩形"：
+       菜单仍从素材右缘 +12px 展开，与"绝不盖住源素材"的口径一致。 */
     const rect = triggerEl?.getBoundingClientRect?.();
+    const anchorRect = rect
+      ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom }
+      : viewportRectForNode(node);
     setConnectionPicker({
       sourceNodeId: node.id,
-      anchorRect: rect
-        ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom }
-        : null,
+      anchorRect,
       world: {
         x: Number(node.x) + Number(node.w) + 42,
         y: Number(node.y) + Number(node.h) / 2,
       },
     });
     setConnectionDraft(null);
-  }, []);
+    /* ⚠️ deps 里**只能放 viewportRectForNode**（它定义在本函数之前）。
+       把它上面的 `canDeriveFromCanvasSource` 放进 deps 会立刻 TDZ 白屏 ——
+       实测（.qa/cu-derive-menu.mjs）：
+         PAGEERR Cannot access 'canDeriveFromCanvasSource' before initialization
+       原因：deps 数组在**渲染期**求值，而那个 useCallback 声明在本函数之后（本仓 09-04 踩过同一个坑）。
+       它本身 deps 为空、身份稳定，不进 deps 数组也安全。 */
+  }, [viewportRectForNode]);
 
 const handlePointerUp = useCallback((e) => {
     if (dragFrameRef.current) {
@@ -2307,8 +2358,15 @@ const handlePointerUp = useCallback((e) => {
       const point = toWorldPoint(e);
       setConnectionPicker({
         sourceNodeId: connectionDraft.sourceNodeId || connectionDraft.from,
+        /* ⚠️ 2026-09-27 批 CU：**必须带 anchorRect** —— 原来只给 world 坐标，
+           而 CanvasPopoverPortal 是 `if (!open || !anchor) return null`（视口像素定位），
+           于是"拖加号 → 松手"这条路径**整块菜单不渲染**（用户原话：「我刚刚试了一下右边的加号
+           一拉动。鼠标停下来，它依然没有出现选项区呀」）。落点已经是视口像素，直接用。 */
+        anchorRect: viewportRectForEvent(e),
         world: point,
       });
+      /* 这一条已经被 stage 处理过 ⇒ window 兜底那次要跳过（见 handlePortPointerDown） */
+      connectReleaseSettledRef.current = true;
       setConnectionDraft(null);
       setPointerMode(null);
       return;
@@ -2325,7 +2383,7 @@ const handlePointerUp = useCallback((e) => {
     }
     setPointerMode(null);
     setMarquee(null);
-  }, [connectionDraft, flushDragFrame, marquee, multiSelected, nodes, openConnectionPickerForNode, pointerMode, toWorldPoint]);
+  }, [connectionDraft, flushDragFrame, marquee, multiSelected, nodes, openConnectionPickerForNode, pointerMode, toWorldPoint, viewportRectForEvent]);
 
   // B3: 使用 requestAnimationFrame 节流 wheel 事件
   const wheelRafRef = useRef(null);
@@ -2532,6 +2590,19 @@ const handlePointerUp = useCallback((e) => {
     return Boolean(node.url) || ['processing', 'success', 'completed', 'generating'].includes(String(node.status || ''));
   }, []);
 
+  /* ═══ 2026-09-27 批 CU：拖派生线时**在哪里松手都能收尾** ═════════════════════════════════════
+     为什么要补这一条：`handlePointerUp` 是挂在**画布 stage** 上的，所以「拖着加号把鼠标移到
+     右侧面板 / 顶栏上松手」这一类操作 stage 收不到 pointerup ⇒ ① 派生菜单不出现；
+     ② `connectionDraft` / `pointerMode='connect'` 留在原地（历史上这个残留状态的表现是
+     「加号没反应 + 之后所有素材拖不动」，用户 9-04 报过）。
+     ⇒ 在端口 pointerdown 时挂一个**一次性 window 兜底**；stage 已经处理过的话（同一事件冒泡到 window）
+     用 settled 标记跳过，绝不重复处理。
+     ⚠️ 这里只放 ref（不把 handlePointerUp 写进任何 deps）—— 本文件 09-04 就是因为 deps 数组在渲染期
+     求值引用了后面才声明的 useCallback，整页 TDZ 白屏。 */
+  const pointerUpHandlerRef = useRef(null);
+  const connectReleaseSettledRef = useRef(false);
+  useEffect(() => { pointerUpHandlerRef.current = handlePointerUp; }, [handlePointerUp]);
+
   const handlePortPointerDown = useCallback((e, nodeId, side) => {
     if (side !== 'out') return;
     const source = nodes.find(node => node.id === nodeId);
@@ -2544,6 +2615,15 @@ const handlePointerUp = useCallback((e) => {
     setConnectionPicker(null);
     setConnectionDraft({ from: nodeId, sourceNodeId: nodeId, type: 'reference', pointer: toWorldPoint(e) });
     setPointerMode({ kind: 'connect', from: nodeId });
+    connectReleaseSettledRef.current = false;
+    const onWindowUp = event => {
+      /* stage 已经处理过（事件继续冒泡到 window）⇒ 跳过，不要重复开菜单 */
+      if (connectReleaseSettledRef.current) return;
+      connectReleaseSettledRef.current = true;
+      pointerUpHandlerRef.current?.(event);
+    };
+    window.addEventListener('pointerup', onWindowUp, { once: true });
+    window.addEventListener('pointercancel', onWindowUp, { once: true });
   }, [nodes, showToast, toWorldPoint]);
 
   const handlePortClick = useCallback((event, nodeId) => {
