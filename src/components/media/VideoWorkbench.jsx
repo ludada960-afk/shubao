@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ImagePlus, Library, Maximize2, RotateCcw, Sparkles, Video as VideoIcon, X } from 'lucide-react';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
 import MediaAssetCard from '../../components/media/MediaAssetCard.jsx';
+import PromptMetaRow from './PromptMetaRow.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
 import VideoRegionPicker from './VideoRegionPicker.jsx';
 import './VideoWorkbench.css';
@@ -153,17 +154,11 @@ function ScriptField({
      下面**去呀。」「我右边这个放大按钮，我觉得其实不能放在提示词框里面……你也可以把它考虑放到提示词
      框的下面。就是你把 @ 和放大按钮，还有字数的限制是多少？这三个东西都**放到同一行**去。」
      ⇒ 落地：框下方一行 = [@] [放大] [字数 N / max]；@ 点开列出**已上传的素材**，选一个就把
-       `@[名字](id)` 插进提示词（渲染成蓝色胶囊，与首页那套 @ 同一份解析）。 */
-  const [atOpen, setAtOpen] = useState(false);
+       `@[名字](id)` 插进提示词（渲染成蓝色胶囊，与首页那套 @ 同一份解析）。
+     ⚠️ 2026-09-27 批 CP：这一行**已合并进共用组件 `PromptMetaRow`**（图片侧也要有同一行）——
+        下面的 atOpen / insertMention 都搬进那个组件了，这里只留 mentions 数据源。 */
   const text = String(value || '');
   const atItems = Array.isArray(mentions) ? mentions.filter(Boolean) : [];
-  const insertMention = item => {
-    const id2 = item.id || item.assetId || item.url || '';
-    const name = item.name || item.label || item.title || '素材';
-    const sep = !text || /\s$/.test(text) ? '' : ' ';
-    onChange(`${text}${sep}@[${name}](${id2}) `);
-    setAtOpen(false);
-  };
   /* ═══ 2026-09-27 批 CO：**右下角的拉高手柄**（用户原话，逐字）═════════════════════════════════
      「你的提示词框的右下角在图片生成那边，它不是有一个可以**拉动高度**的一个按钮吗？为什么你图片
      生成这边又没有呢？你应该同步把这些东西给一起做进来呀，就那边有的东西你这边也得有呀，同等级的
@@ -215,41 +210,16 @@ function ScriptField({
         title="拖动调整高度"
         onPointerDown={disabled ? undefined : startResize}
       />
-      {/* 框下方那一行：@ / 放大 / 字数（三样同一行 —— 用户点名的排版） */}
-      <span className="video-wb-meta">
-        <button
-          type="button"
-          className="video-wb-at"
-          disabled={disabled}
-          aria-expanded={atOpen}
-          aria-label="引用素材"
-          title="引用已上传的素材"
-          onClick={() => setAtOpen(open => !open)}
-        >@</button>
-        <button
-          type="button"
-          className="media-field-expand"
-          disabled={disabled}
-          aria-label={(label || '脚本') + '放大编辑'}
-          title="放大编辑"
-          onClick={() => setExpanded(true)}
-        ><Maximize2 size={13} />放大</button>
-        {/* 显示的字数上限用**区块声明的那个数**（原来是 maxLength=8000，与声明源的 10000 不一致；
-            用户没提这一处，所以先把显示值恢复成原样，差异记在 RTK 里等人定） */}
-        <span className="video-wb-counter">{text.length} / {counterMax || maxLength}</span>
-      </span>
-      {atOpen && (
-        <span className="video-wb-at-menu" role="menu" aria-label="选择要引用的素材">
-          {atItems.length ? atItems.map((item, i) => (
-            <button
-              key={item.id || item.url || i}
-              type="button"
-              role="menuitem"
-              onClick={() => insertMention(item)}
-            >{item.name || item.label || item.title || `素材 ${i + 1}`}</button>
-          )) : <small>还没有上传素材 —— 先在上面上传，再回来 @</small>}
-        </span>
-      )}
+      {/* 框下方那一行：@ / 放大 / 字数 —— **与图片侧共用同一份组件**（批 CP 合并，样式只有一份） */}
+      <PromptMetaRow
+        label={label || '脚本'}
+        value={text}
+        maxLength={counterMax || maxLength}
+        assets={atItems}
+        disabled={disabled}
+        onInsert={next => onChange(next)}
+        onExpand={() => setExpanded(true)}
+      />
       {expanded && createPortal(
         <div
           className="media-field-expand-modal"

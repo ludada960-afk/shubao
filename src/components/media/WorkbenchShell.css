@@ -1138,3 +1138,47 @@ html:not([data-scrolling]) .media-field-upload-library:hover:not(:disabled) { ba
 /* 批 Y：图标形态（用户：「怎么用这条技能……这些东西没有必要存在呀」）—— 保留入口、去掉那行字 */
 .media-workbench-tutorial.is-icon { justify-self: end; display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border-radius: 8px; }
 @media (max-width: 720px) { .media-workbench-head-row { grid-template-columns: minmax(0, 1fr); } .media-workbench-tutorial.is-head { justify-self: start; } }
+
+/* ═══ 2026-09-27 批 CP：**框下面那一行**（@ / 放大 / 字数）—— 两个板块共用一份 ═══════════════════
+   用户原话（逐字）：「你把 @ 和放大按钮，还有字数的限制是多少？这三个东西都**放到同一行**去，这样
+   不是更好吗？」「这个按钮图片生成那边应该是没有的，如果你这边要做的话，那边是不是也可以考虑做呢？」
+   「同等级的东西，你应该**同等级的去进行设计**呀。」
+   ⇒ 组件是 PromptMetaRow（图片侧多行字段 + 视频侧脚本格都用它），样式**只有这一份**；
+     放大按钮在这行里是普通按钮（不再绝对定位在框内右上角 —— 那个位置会压住首行文字，用户实测指出）。 */
+.media-field-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.media-field-meta-expand {
+  position: static; width: auto; height: auto;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.media-field-meta-expand:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
+.media-field-meta-expand:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-field-meta-expand:disabled { opacity: .5; cursor: not-allowed; }
+.media-field-meta-at {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card); color: var(--sb-ink-2);
+  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.media-field-meta-at:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
+.media-field-meta-at:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-field-meta-at:disabled { opacity: .5; cursor: not-allowed; }
+.media-field-meta-count { margin-left: auto; font-size: 12px; color: var(--sb-ink-3); }
+.media-field-meta-at-menu {
+  display: grid; gap: 4px; margin-top: 6px; padding: 8px;
+  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-lg);
+  background: var(--sb-surface-card); box-shadow: var(--sb-shadow-2);
+  max-height: 220px; overflow-y: auto;
+}
+.media-field-meta-at-menu button {
+  padding: 7px 10px; border: 0; border-radius: var(--sb-radius-md);
+  background: transparent; color: var(--sb-ink-1); text-align: left;
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.media-field-meta-at-menu button:hover { background: var(--sb-surface-tint-strong); }
+.media-field-meta-at-menu small { padding: 4px 6px; color: var(--sb-ink-3); font-size: 12px; }

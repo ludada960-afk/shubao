@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ImagePlus, Library, Maximize2, RotateCcw, X } from 'lucide-react';
 
 import MediaAssetCard from './MediaAssetCard.jsx';
+import PromptMetaRow from './PromptMetaRow.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
 import { uploadEcommerceAsset } from '../../services/api';
 
@@ -387,7 +388,7 @@ function CardsControl({ field, value, onChange, disabled }) {
 
 /* 多行文本 + 「放大」：放大框要有自己的开合状态，所以单独成一个组件
    （control() 是普通函数，不能在它里面用 useState —— 那是 hooks 规则，会整页崩）。 */
-function TextareaControl({ field, value, onChange, disabled }) {
+function TextareaControl({ field, value, onChange, disabled, assets }) {
   const [expanded, setExpanded] = useState(false);
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
@@ -402,19 +403,22 @@ function TextareaControl({ field, value, onChange, disabled }) {
         value={value ?? ''}
         onChange={event => onChange(event.target.value)}
       />
-      {/* 「放大」：竞品在卖点框右上角那一颗 —— 点开一个居中的大编辑框。
-          为什么值得做：他们的 placeholder 是一份**多行字段模板**（产品名/核心卖点/…），
-          在 150px 高的框里写五段字确实憋屈；他们做了放大，我们也得有。 */}
-      {field.expandable !== false && (
-        <button
-          type="button"
-          className="media-field-expand"
-          disabled={disabled}
-          aria-label={(field.label || '文本') + '放大编辑'}
-          title="放大编辑"
-          onClick={() => setExpanded(true)}
-        ><Maximize2 size={13} />放大</button>
-      )}
+      {/* ═══ 2026-09-27 批 CP：**「放大」从框里搬到框下面那一行**（用户原话，逐字）══════════════════
+          「我右边这个放大按钮，我觉得其实不能放在提示词框里面。图片生成那边好像也是放的位置在这个
+          位置，但我觉得这个位置是不对的。你其实也可以把它考虑放到提示词框的下面。就是你把 @ 和放大
+          按钮，还有字数的限制是多少？这三个东西都**放到同一行**去。」「这个按钮图片生成那边应该是
+          没有的，如果你这边要做的话，那边是不是也可以考虑做呢？」
+          ⇒ 与视频侧**共用同一个组件**（PromptMetaRow）：@ / 放大 / 字数一行，图片侧从"没有 @"到有。
+          原位置（框内右上角绝对定位）会压住首行文字（用户实测指出），这条同时把它解掉。 */}
+      <PromptMetaRow
+        label={field.label}
+        value={value ?? ''}
+        maxLength={field.maxLength || 2000}
+        assets={assets}
+        disabled={disabled}
+        onInsert={next => onChange(next)}
+        onExpand={field.expandable === false ? undefined : () => setExpanded(true)}
+      />
       {expanded && createPortal(
         <div
           className="media-field-expand-modal"
@@ -524,7 +528,7 @@ function resolveFieldOptions(field, values) {
   return options.filter(option => allowed.some(value => String(value) === String(option.value)));
 }
 
-function control(kind, field, value, onChange, disabled) {
+function control(kind, field, value, onChange, disabled, assets) {
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
   if (kind === 'select') {
@@ -554,7 +558,7 @@ function control(kind, field, value, onChange, disabled) {
       </span>
     );
   }
-  if (kind === 'textarea') return <TextareaControl field={field} value={value} onChange={onChange} disabled={disabled} />;
+  if (kind === 'textarea') return <TextareaControl field={field} value={value} onChange={onChange} disabled={disabled} assets={assets} />;
   if (kind === 'counts') {
     return <CountsControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
@@ -616,6 +620,12 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
        + `aria-labelledby` 指向标题 —— 语义不变（读屏照读"比例"这一组的名字），
        悬停也不会再串到第一颗按钮上。单控件字段（文本/下拉/数字/上传）继续用 `<label>`（那才是它该有的关联）。 */
   const isOptionGroup = kind === 'segmented' || kind === 'choice' || kind === 'cards' || kind === 'multi';
+  /* 批 CP：这条技能里**已经上传的素材**（上传类字段的值都是 {id,url,name} 的数组）——
+     提示词框下面那一行的 @ 用它列素材（用户：「点击这个按钮就可以随时去 @ 我们现在上传的任意素材」）。 */
+  const uploadedAssets = Object.values(values || {})
+    .flatMap(v => (Array.isArray(v) ? v : []))
+    .filter(a => a && typeof a === 'object' && (a.id || a.url))
+    .filter((a, i, arr) => arr.findIndex(x => (x.id || x.url) === (a.id || a.url)) === i);
   const labelId = isOptionGroup ? `${field.key || kind}-group-label` : undefined;
   const Wrapper = isOptionGroup ? 'div' : 'label';
   const wrapperProps = isOptionGroup
@@ -636,7 +646,8 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
           )}
         </span>
       ))}
-      {control(kind, renderField, value, onChange, disabled)}
+      {/* 批 CP：把"这条技能里已经上传的素材"传给控件 —— 提示词框下面那一行的 @ 用它列素材 */}
+      {control(kind, renderField, value, onChange, disabled, uploadedAssets)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
     </Wrapper>
   );

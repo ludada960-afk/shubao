@@ -79,7 +79,11 @@ test('CB-⑤ 占位文案用站内叫法（不许再出现「代为撰写」）�
 
 test('CB-⑥ 视频侧也要有「放大」（与图片侧同一形态、同一套类名）', () => {
   const jsx = read('src/components/media/VideoWorkbench.jsx');
-  assert.match(jsx, /className="media-field-expand"/, '放大按钮必须复用图片侧那颗的类名（同一套样式）');
+  /* 批 CP 起：那颗按钮由共用组件 PromptMetaRow 渲染（类名 .media-field-meta-expand）——
+     判据守的那件事没变：放大要在、要复用**同一套**类名/样式。 */
+  assert.match(jsx, /<PromptMetaRow/, '放大按钮由共用那行渲染（批 CP 合并）');
+  const shared = read('src/components/media/PromptMetaRow.jsx');
+  assert.match(shared, /className="media-field-meta-expand"/, '放大按钮复用同一套类名（两边一份样式）');
   assert.match(jsx, /createPortal/, '放大框走 portal（与图片侧 TextareaControl 同法）');
   assert.match(jsx, /media-field-expand-modal/, '放大框的外层类名与图片侧一致');
   assert.match(jsx, /media-field-expand-body/, '放大框的内容类名与图片侧一致');
@@ -123,6 +127,29 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
   const css = read('src/pages/VideoStudio/VideoStudio.css');
   assert.ok(ruleBody(css, '.media-workbench-pane .video-history'),
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
+});
+
+test('CP-① 那一行两个板块共用一份（图片侧从此也有 @ / 放大 / 字数）', () => {
+  /* 用户原话（逐字）：「这个按钮图片生成那边应该是没有的，如果你这边要做的话，那边是不是也可以考虑
+     做呢？」「同等级的东西，你应该**同等级的去进行设计**呀。」实测（.qa/cp-meta-row.mjs）：
+     视频侧 `.media-field-meta` 三件套 = at / expand / count，且在提示词框**下方**；
+     旧的框内绝对定位放大按钮（`.media-field-expand`）两侧都不再渲染。 */
+  const shared = read('src/components/media/PromptMetaRow.jsx');
+  assert.match(shared, /className="media-field-meta"/, '共用组件要有那一行');
+  assert.match(shared, /media-field-meta-at/, '@ 按钮');
+  assert.match(shared, /media-field-meta-expand/, '放大按钮');
+  assert.match(shared, /media-field-meta-count/, '字数');
+  const field = read('src/components/media/FieldRenderer.jsx');
+  assert.match(field, /<PromptMetaRow/, '图片侧（多行字段）要用它');
+  assert.match(field, /const uploadedAssets = Object\.values\(values \|\| \{\}\)/, '图片侧的素材来源＝这条技能里已上传的字段值');
+  assert.match(field, /disabled=\{disabled\} assets=\{assets\} \/>/, '素材要一路传到 TextareaControl');
+  assert.doesNotMatch(field, /className="media-field-expand"/, '图片侧框内那颗旧的放大按钮要退役（会压住首行文字）');
+  const video = read('src/components/media/VideoWorkbench.jsx');
+  assert.match(video, /<PromptMetaRow/, '视频侧也用它（不许两套）');
+  assert.doesNotMatch(video, /className="video-wb-at"/, '视频侧自己那套 .video-wb-at 要退役');
+  const shell = read('src/components/media/WorkbenchShell.css');
+  assert.ok(ruleBody(shell, '.media-field-meta {'), '样式只有一份（在 WorkbenchShell.css）');
+  assert.ok(ruleBody(shell, '.media-field-meta-expand {'), '放大按钮在这一行里是普通按钮（不绝对定位）');
 });
 
 test('CO-① 脚本框右下角的拉高手柄（图片侧是原生手柄，视频侧自己做同位置同用途）', () => {
@@ -191,19 +218,12 @@ test('CK-① 框下面那一行：@ / 放大 / 字数（同一行，且在框外
   /* 用户原话（逐字）：「你把 @ 和放大按钮，还有字数的限制是多少？这三个东西都**放到同一行**去，
      这样不是更好吗？」「你与其写这句描述，你不如跟首页那边的做法一样，就直接把它做成一个按钮，
      用户点击这个按钮就可以随时去 @ 我们现在上传的任意素材……变成蓝色的字体呀。」
-     实测（.qa/ck-script-block.mjs）：脚本块 = 标题 → 动作 → 提示词框 → `.video-wb-meta`
-     （顺序 video-wb-at → media-field-expand → video-wb-counter）；旧那句说明 `.video-wb-mention-hint`
-     已不在页面上；@ 点开有 `.video-wb-at-menu`（无素材时给的是「还没有上传素材」而不是空白）。 */
+     ⚠️ 批 CP 起，这一行由**共用组件 PromptMetaRow** 渲染（图片侧也要有同一行）——
+        所以这里断言的是"视频侧用了共用组件 + 旧那句说明不再渲染"，具体三件套由 CP-① 守。 */
   const jsx = read('src/components/media/VideoWorkbench.jsx');
-  assert.match(jsx, /<span className="video-wb-meta">/, '框下面要有一行 meta');
-  const meta = jsx.slice(jsx.indexOf('video-wb-meta'), jsx.indexOf('video-wb-meta') + 900);
-  assert.match(meta, /className="video-wb-at"/, '@ 要是一个按钮（不是一句说明文字）');
-  assert.match(meta, /className="media-field-expand"/, '放大按钮要搬进这一行');
-  assert.match(meta, /className="video-wb-counter"/, '字数计数也在同一行');
+  assert.match(jsx, /<PromptMetaRow/, '框下面那一行要由共用组件渲染（批 CP 合并，不再各写一套）');
   assert.doesNotMatch(jsx, /video-wb-mention-hint\}>/, '旧那句「输入 @ 可引用 N 个素材」不再渲染');
-  const css = read('src/components/media/VideoWorkbench.css');
-  assert.match(css, /\.video-wb-meta \.media-field-expand \{ position: static/, '放大按钮在这一行里不许再绝对定位（否则会飘回框角）');
-  assert.match(css, /\.video-wb-at-menu/, '@ 点开的素材菜单要有样式');
+  assert.doesNotMatch(jsx, /className="video-wb-at"/, '视频侧自己那套 .video-wb-at 已退役');
 });
 
 test('CI-① 按钮组的字段不许用 <label> 包（会把整格悬停转给第一颗按钮）', () => {

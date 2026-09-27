@@ -110,32 +110,6 @@
    ⇒ 放大按钮从"框内右上角绝对定位"改成这一行里的普通按钮（`.media-field-expand` 的绝对定位
      在 `.media-field-textarea` 下，这里用 `.video-wb-meta` 那一条把它摆平）；
      @ 与"已上传素材"菜单也在这一行 —— 与首页那套 @ 同一份解析（插入 `@[名字](id)` ⇒ 蓝色胶囊）。 */
-.video-wb-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.video-wb-meta .media-field-expand { position: static; top: auto; right: auto; }
-.video-wb-at {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; padding: 0;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
-  background: var(--sb-surface-card); color: var(--sb-ink-2);
-  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
-  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
-}
-.video-wb-at:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
-.video-wb-at:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-.video-wb-at:disabled { opacity: .5; cursor: not-allowed; }
-.video-wb-at-menu {
-  display: grid; gap: 4px; margin-top: 6px; padding: 8px;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-lg);
-  background: var(--sb-surface-card); box-shadow: var(--sb-shadow-2);
-  max-height: 220px; overflow-y: auto;
-}
-.video-wb-at-menu button {
-  padding: 7px 10px; border: 0; border-radius: var(--sb-radius-md);
-  background: transparent; color: var(--sb-ink-1); text-align: left;
-  font: inherit; font-size: 13px; cursor: pointer;
-}
-.video-wb-at-menu button:hover { background: var(--sb-surface-tint-strong); }
-.video-wb-at-menu small { padding: 4px 6px; color: var(--sb-ink-3); font-size: 12px; }
 .video-wb-mention-hint { font-size: 12px; color: var(--sb-ink-3); }
 /* ═══ 2026-09-26 批 CB / 2026-09-27 批 CH：**脚本框与区块齐平、尺寸与图片侧同一档**══════════
    用户本轮批注（逐字）：「你这个框为什么会适配的这么差呀？就是你这个框左右两边都有一些留白呀，
