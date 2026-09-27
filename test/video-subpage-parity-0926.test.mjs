@@ -125,6 +125,20 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
     '搬进 pane 之后要把左栏那套外边距/分割线归零（否则右栏里飘着一条线和一层缩进）');
 });
 
+test('CI-① 按钮组的字段不许用 <label> 包（会把整格悬停转给第一颗按钮）', () => {
+  /* 用户现场复现（逐字）：「我鼠标放到现在这个区域的右下角这块空白的地方，它第一个按钮的确会有一个
+     灰色的显示……所有带按钮的区域只要我把鼠标放到这块区域的空地上，它的第一个按钮都会有这个灰色的
+     交互出现。」复现路径 /image-creation?id=image.concept_set。
+     实测（.qa/ci-hover-empty4.mjs）：空地点命中 `span.media-field-segmented`，而第一颗按钮
+     `matches(':hover')===true`、底色由选中紫变悬停灰 ⇒ 根因是 `<button>` 是 labelable 元素，
+     整格被 `<label>` 包住时浏览器把整格悬停转给第一个 labelable 后代。 */
+  const jsx = read('src/components/media/FieldRenderer.jsx');
+  assert.match(jsx, /const isOptionGroup = kind === 'segmented'/, '按钮组字段要单独识别出来');
+  assert.match(jsx, /const Wrapper = isOptionGroup \? 'div' : 'label'/, '按钮组用 div，单控件字段继续用 label');
+  assert.match(jsx, /role: 'group', 'aria-labelledby': labelId/, '换掉 label 之后语义要用 role=group + aria-labelledby 补回来');
+  assert.match(jsx, /<span className="media-field-label" id=\{labelId\}>/, '标题要有 id 供 aria-labelledby 指过去');
+});
+
 test('CH-① 放大按钮与文字不再重叠（两个板块一起改）', () => {
   const css = read('src/components/media/WorkbenchShell.css');
   const body = ruleBody(css, '.media-field-textarea > .media-field-control');

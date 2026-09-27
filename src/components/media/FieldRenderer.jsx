@@ -603,16 +603,34 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
   if (field.visibleWhen && values && String(values[field.visibleWhen.key] ?? '') !== String(field.visibleWhen.equals ?? '')) {
     return null;
   }
+  /* ═══ 2026-09-27 批 CI：**按钮组的字段不能用 `<label>` 包**（用户现场复现的真 bug）═══════════════
+     用户原话：「我鼠标放到现在这个区域的右下角这块空白的地方，它**第一个按钮的确会有一个灰色的
+     显示**……所有带按钮的区域只要我把鼠标放到这块区域的空地上，它的第一个按钮都会有这个灰色的
+     交互出现。」复现路径他给的是 /image-creation?id=image.concept_set。
+     实测（.qa/ci-hover-empty4.mjs，1440 视口）：鼠标停在「比例」网格右下角的空地（那里没有按钮，
+     elementsFromPoint 命中的是 `span.media-field-segmented`），而 **第一颗按钮 `概念静物` 的
+     `matches(':hover') === true`**、底色从选中紫 `rgb(245,243,255)` 变成悬停灰 `rgba(12,10,9,.03)`。
+     根因：`<button>` 是 **labelable 元素** —— 整格被 `<label className="media-field">` 包着时，
+     浏览器会把**整格的悬停**转给它的**第一个 labelable 后代**（也就是第一颗按钮）。
+     ⇒ 凡是"一组按钮"的字段（segmented / choice / 多选卡 / 档位胶囊），外层改用 `<div role="group">`
+       + `aria-labelledby` 指向标题 —— 语义不变（读屏照读"比例"这一组的名字），
+       悬停也不会再串到第一颗按钮上。单控件字段（文本/下拉/数字/上传）继续用 `<label>`（那才是它该有的关联）。 */
+  const isOptionGroup = kind === 'segmented' || kind === 'choice' || kind === 'cards' || kind === 'multi';
+  const labelId = isOptionGroup ? `${field.key || kind}-group-label` : undefined;
+  const Wrapper = isOptionGroup ? 'div' : 'label';
+  const wrapperProps = isOptionGroup
+    ? { role: 'group', 'aria-labelledby': labelId }
+    : {};
   return (
-    <label className="media-field" data-kind={kind} data-span={field.span || undefined}>
+    <Wrapper className="media-field" data-kind={kind} data-span={field.span || undefined} {...wrapperProps}>
       {/* hideLabel：声明里仍要写 label（契约与读屏都用它），但这一格**页面上不画标题** ——
           知渔「套图结构配置」那一组只有组标题 + 两张卡，卡片上面没有第二个标题（批 Q）。 */}
       {labelOverride ? labelOverride : (field.hideLabel ? null : (
-        <span className="media-field-label">
+        <span className="media-field-label" id={labelId}>
           {field.label}
           {field.required ? <b aria-hidden="true">{REQUIRED_MARK}</b> : null}
           {/* ═══ 批 Q：上传位的计数在**标题行右端**（照知渔：「上传图片 0/6」都在同一行）
-              ——我们原来把它塞在框里那颗按钮上（"上传商品图 0/6"），位置就不是他们的了。 */}
+              ——我们原来把它塞进框里那颗按钮上（"上传商品图 0/6"），位置就不是他们的了。 */}
           {kind === 'upload' && Number(field.maxImages) > 1 && (
             <em className="media-field-count">{uploadCount}/{field.maxImages}</em>
           )}
@@ -620,6 +638,6 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
       ))}
       {control(kind, renderField, value, onChange, disabled)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
-    </label>
+    </Wrapper>
   );
 }
