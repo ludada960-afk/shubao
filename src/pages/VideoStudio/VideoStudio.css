@@ -760,14 +760,6 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
 .video-empty span { font-size: 12px; }
 .video-empty progress { width: min(260px,80%); accent-color: var(--sb-brand-600); }
 .video-history { width: min(100%,860px); margin-top: 18px; padding-top: 14px; display: grid; gap: 7px; border-top: 1px solid #e8e3dd; }
-/* ═══ 2026-09-27 批 CD：搬进右栏历史区之后的两条几何 ═══════════════════════════════════════════
-   ① 挂载点：`.media-workbench-pane` 的第一个子节点，切页签靠 `hidden` 显隐
-      （数据没变、DOM 一直在 —— e2e 在默认页签下就断言它必须在）。
-   ② 那一份 `.video-history` 原来是按**左栏**的排版写的（`margin-top: 18px` + `padding-top: 14px`
-      + 上限 860 的宽度 + 一条上分割线）。搬进右栏后这些全成了多余的外缩与一条飘着的线
-      ⇒ 在 pane 里把它归零，宽度交给 pane 自己。类名与结构一个都没改（e2e 按它们找）。 */
-.media-workbench-history-host[hidden] { display: none; }
-.media-workbench-pane .video-history { width: 100%; margin: 0; padding: 0; border-top: 0; }
 .video-history-title { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
 .video-history-title span,.video-history-empty { color: #8a837b; font-size: 11px; }
 .video-history button { min-height: 46px; padding: 8px 10px; display: flex; justify-content: space-between; gap: 12px; border: 1px solid #e7e2dc; background: var(--sb-neutral-0); text-align: left; cursor: pointer; }
@@ -1510,3 +1502,47 @@ html:not([data-scrolling]) .video-inline-menu > button:hover:not(.is-selected) {
 .video-dawei-entry:focus-visible {
   color: var(--sb-ink-1);
 }
+
+/* ═══ 批 CE：「已带入的素材」（历史「用这组参数」带回来的那次输入）════════════════════════════
+   一条浅底提示条 + 一排缩略图；每张末尾一个 ×（可逐张移除）。
+   ⚠️ 它摆在素材位**上面**：先看见"已经带了什么"，再看上传位 —— 否则用户以为素材没回来。 */
+.video-restored-materials {
+  display: grid;
+  gap: 6px;
+  margin: 0 22px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 12px;
+  background: var(--sb-surface-tint);
+}
+.video-restored-materials > strong { font-size: 12px; font-weight: 600; color: var(--sb-ink-2); }
+.video-restored-materials > small { font-size: 11px; line-height: 1.5; color: var(--sb-ink-3); }
+.video-restored-materials ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; padding: 0; list-style: none; }
+.video-restored-materials li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card);
+}
+.video-restored-materials li img,
+.video-restored-materials li video { width: 28px; height: 28px; object-fit: cover; border-radius: var(--sb-radius-sm); background: var(--sb-surface-sunken); }
+.video-restored-audio { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--sb-radius-sm); background: var(--sb-surface-sunken); color: var(--sb-ink-3); }
+.video-restored-materials li > span:not(.video-restored-audio) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--sb-ink-2); }
+.video-restored-materials li button {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-3);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.video-restored-materials li button:hover { background: var(--sb-danger-soft); color: var(--sb-ink-danger-strong); }

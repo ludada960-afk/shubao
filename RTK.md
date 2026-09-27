@@ -9963,3 +9963,52 @@ e2e 265 → **266**（加"历史按天分组"）。
   `cmd /c mklink /J <dir>\\node_modules <主工作树>\\node_modules`（不重装包）→ 在里面跑
   `npm run precommit` → `git worktree remove --force` + `rmdir` 那个联接。
 - 判断"红是不是自己的"最快的一招：**在对方提交上跑同一条 gate**。绿=自己的问题，红=对方的问题。
+
+## 2026-09-27 批 CD **回退** —— 并线冲突导致产物在视频子页面抛 ReferenceError（提交见下）
+
+**结论先写**：CD（把「生成记录」portal 进右栏历史区）的**代码本身是好的**（探针绿、门禁 10/10），
+但它**提交时那个文件正被另一条线改到一半**，于是那次提交里的
+`src/pages/VideoStudio/index.jsx` 只有 `setRestoredAssets(...)` 的**调用点、没有声明**
+⇒ 视频子页面运行时 ReferenceError（错误边界显示「页面出了点问题 / setRestoredAssets is not defined」）
+⇒ e2e 判红（`.media-workbench-panel .video-studio-page` 永远不可见）⇒ **已回退**。
+
+**⚠️ 更正我自己昨天的两条错判（都写下来，免得再犯）**
+1. 我一度对客户/RTK 说「另一条线的提交 c310e108 也红」——**错**。那次运行的真实结尾是
+   `EADDRINUSE 127.0.0.1:4197`：我自己在**两个隔离 worktree 里同时**跑 precommit，e2e 的端口是
+   **硬编码 4197**（scripts/media-workbench-e2e.mjs:36）⇒ 后来者必然撞端口。**串行重跑**之后
+   c310e108 **是绿的**（266 条断言全绿），我的提交才是红的。
+   ⇒ 纪律：**任何两个 precommit / e2e 运行都不能并行**；跑之前先 `netstat -ano | findstr :4197`，
+   有残留（常见：上一次 e2e 卡住不退）就先 kill 掉。
+2. 定位手法留档：在**只含目标提交**的隔离 worktree 里给 e2e 打个"失败时 dump 页面"的补丁
+   （`.tmp/ca/patch-e2e-dump.cjs`），失败时会写出 `.tmp/e2e/fail-meta.json`（url / bodyText / 是否
+   有 .video-studio-page）。**是它直接给出了 `setRestoredAssets is not defined` 这行字**——
+   比猜快得多，下次 e2e 再"卡在可见性"上直接用。
+
+**这次提交里有什么**
+- `WorkbenchShell.jsx`、`VideoStudio.css`、`test/video-subpage-parity-0926.test.mjs`：CD 的回退
+  （挂载点/portal 那条 CSS 一并撤回；门禁 CD-① 改成守"**已回退**"的状态，并把回退原因写进断言里）。
+- **没有提交** `src/pages/VideoStudio/index.jsx`：那个文件里除了我的回退，还叠着另一条线**未提交的
+  在制品**（他们的"用这组参数带回素材"）。按 RTK §3.1 的纪律**不代他们提交半成品**；所以我的回退
+  那一份**留在工作区未提交**（RTK 在这里如实记着）。他们的文件一旦提交完整版，工作区这一份就与之
+  合流；**下一批第一件事**：确认 index.jsx 已稳定（`git status` 干净或他们的提交已进），
+  然后 `git add src/pages/VideoStudio/index.jsx` 把回退补进历史。
+- 于是**当前 HEAD 的 index.jsx 仍是坏的那一版**（CD 的调用点缺声明）⇒ **HEAD 仍是红的**，
+  别在它上面部署；绿的是**工作区**（`npm run build` ok + .qa/cd-regression.mjs 无报错）。
+
+**回退后实测**
+- `npm run build` ok；`.qa/cd-regression.mjs`：`.media-workbench-panel .video-studio-page`
+  = 376×848 **visible**、`countAll=1`、**零运行时报错**（修好了 ReferenceError）。
+- `npm run precommit`：CD 那条可见性失败**已消失**；现在唯一红的是**他们新增的那条断言**
+  「「用这组参数」把那次任务的素材也带回创作台（看得见、可逐张移除）」——他们的功能还在做，
+  与本次回退无关（同样不代修）。
+
+**CD 重落的配方（等 index.jsx 稳定后照做，10 分钟）**
+1. `WorkbenchShell.jsx` 的 pane 里加常驻挂载点：
+   `<div className="media-workbench-history-host" data-history-host hidden={activeTab !== 'history'} />`
+   （常驻是刻意的：e2e 在默认「示例」页签下就断言 `.video-history` 存在）；
+2. `VideoStudio/index.jsx`：把那段 JSX 原样提成 `const videoHistoryBlock`（类名一个都不改），
+   effect 里取 `[data-history-host]`，取到 `createPortal(videoHistoryBlock, historyHost)`、取不到内联；
+3. `VideoStudio.css`：`.media-workbench-history-host[hidden]{display:none}` +
+   `.media-workbench-pane .video-history{width:100%;margin:0;padding:0;border-top:0}`；
+4. 门禁 CD-① 改回"必须 portal"那版（本文件上文有原文），跑 `.qa/cd-history-portal.mjs` 复验
+   （默认页签在 DOM、切「历史」可见、左栏已无）。
