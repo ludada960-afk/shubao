@@ -10324,3 +10324,9 @@ div role="group" + aria-labelledby，标题 span 带 id；单控件字段（文�
 
 ⚠️ 这 6 条都是"两边的规格要对齐"这一类，改的时候**两个板块一起改**（用户反复强调：「同等级的东西，
    你应该同等级的去进行设计呀」）。
+
+### 批 CJ 部署确认（2026-09-27）
+
+- **Deployed 1e6ef84c to https://shuimg.cn/** + Released remote deployment lock；线上 release = /var/www/shubao/releases/20260927-131250-1e6ef84c，/api/health = 200。
+- 这条修的是「弹出层被左侧导航盖住」（模型菜单 left 12→108、设置面板 177）与「CTA 必要性提示挪到按钮下方」（按钮 bottom 936 < 提示 top 946）。
+- 下一批主任务＝用户同批的那 6 条（生成脚本按钮位置 / @ 变按钮 / 去掉预填 brief / 放大按钮下移同一行 / 两处大留白 / 提示词框拉高手柄），逐条写在上面。
