@@ -192,6 +192,15 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
    ⇒ 现在直接从 `IMAGE_RATIOS`（= 能生成的唯一真源）派生：**能选的就是能生成的**（一个不多一个不少）。
       label 只是给人看的名字，按比例方向取中文。 */
 export const VISUAL_RATIO_OPTIONS = Object.freeze([
+  /* ═══ 2026-09-29 批 CY-⑭：**最前面加一档「自适应」**（用户原话，逐字）══════════════════════════════
+     「关于图片的尺寸……是不是应该在尺寸的**最前面**加入一个？**自适应**的一个选项，
+       我看他们的竞品他们都是有这个选项的。」用户自己截的竞品证据：**图片生成有、视频生成没有**
+       —— 所以视频侧不加（上游对不在白名单的比例是硬 400 拒绝，见 canvasAdaptiveRatio.js 顶部）。
+     ⚠️ 它**不是**一个"比例"：它不进 IMAGE_RATIOS（那是能生成的唯一真源，13 档），
+       也不进任何 LEGAL_IMAGE_SIZES —— 选了它之后由 resolveProtocolRatio 现算出一个具体比例再发。
+       所以这一档是"**选项**，不是**尺寸**"，两者不能混进同一张表
+       （test/image-size-catalog-parity.test.mjs 钉的就是"IMAGE_RATIOS 必须恰好 13 档"，那是尺寸表）。 */
+  Object.freeze({ id: '自适应', label: '自适应', adaptive: true }),
   Object.freeze({ id: '1:1', label: '方形 1:1' }),
   Object.freeze({ id: '3:4', label: '竖版 3:4' }),
   Object.freeze({ id: '4:3', label: '横版 4:3' }),

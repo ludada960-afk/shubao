@@ -1,5 +1,5 @@
 import React from 'react';
-import { resolveAnchoredRight } from '../canvasVisualLanguage.js';
+import { resolveAnchoredRight, CANVAS_Z } from '../canvasVisualLanguage.js';
 
 /** 图层面板固定宽度（与 CSS .ec-canvas-layers-panel 的 288px 一致；定位要用同一个数） */
 const LAYERS_PANEL_WIDTH = 288;
@@ -197,7 +197,11 @@ export function CanvasLayersPanel({
     })
     : null;
   const panelStyle = solved
-    ? { position: 'fixed', left: solved.left, top: 'auto', bottom: Math.max(12, window.innerHeight - solved.top), zIndex: 10004 }
+    /* 批 CY-⑭：z-index 原来写死 **10004**（inline style，压过 EcCanvas.css 里全部规则，
+       包括文件末尾专门收口 47 个历史裸值的 `CANVAS_Z` 权威块）。改成走权威阶梯的 popover(40)：
+       仍然高于画布内部所有层（`.ec-canvas-stage` 自成层叠上下文、z=1），
+       但不再越权压到模态(71)与 Toast(90)之上。与 CanvasPopoverPortal 同一个口径。 */
+    ? { position: 'fixed', left: solved.left, top: 'auto', bottom: Math.max(12, window.innerHeight - solved.top), zIndex: CANVAS_Z.popover }
     : undefined;
   return <aside className="ec-canvas-layers-panel" data-canvas-control="true" aria-label="图层"
     style={panelStyle}

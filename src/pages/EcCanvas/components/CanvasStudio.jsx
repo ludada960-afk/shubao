@@ -76,6 +76,7 @@ import SkuPanel from '../../Home/ec/SkuPanel.jsx';
    等于三个面板从没在画布上打开过。首页 EcMode.jsx 仍在用它们，画布侧不再需要。 */
 import GenSettingsPanel from '../../Home/ec/GenSettingsPanel.jsx';
 import { createSmartConfiguration, deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from '../../Home/ec/workbenchState.js';
+import { ADAPTIVE_RATIO, withAdaptiveRatioOption } from '../canvasAdaptiveRatio.js';
 import { CANVAS_COUNT_OPTIONS, CANVAS_RATIO_OPTIONS, CANVAS_RESOLUTION_OPTIONS, CANVAS_SKILLS, applyCanvasSkill, canvasGenerationBoxHasResult, filterCanvasSkills, closeCanvasComposerSurface, getCanvasNodePresentation, getGridGuidePositions, moveGridGuide, toggleCanvasComposerSurface } from '../canvasStudioModel.js';
 import { canvasGroupKindOf, canvasSelectionGroupState, getCanvasToolbarPosition, multiSelectionActionsForNodes, selectedCanvasBounds } from '../canvasInteractionModel.js';
 import { createCanvasAnnotation, normalizeCanvasCropRect, normalizeCanvasPoint, updateCanvasAnnotation } from '../canvasInlineEditorModel.js';
@@ -85,7 +86,7 @@ import EcommerceDesignPlanEditor, { EcommerceDesignPlanPreview } from '../../Hom
 import { normalizeCommerceContext } from '../../Home/ec/internationalCommerceRegistry.js';
 import { VIDEO_CREATION_MODES, hasRequiredVideoInputs, snapVideoDuration, videoDurationChoices } from '../../VideoStudio/videoStudioModel.js';
 /* 画布弹层定位的**单一真源**（2026-09-20 用户口径）：锚触发元素向右展开、放不下向下、绝不向左翻。 */
-import { resolveAnchoredRight } from '../canvasVisualLanguage.js';
+import { resolveAnchoredRight, CANVAS_Z } from '../canvasVisualLanguage.js';
 import { buildVideoPlan } from '../../VideoStudio/videoPlanModel.js';
 import { CANVAS_PLAN_ANALYSIS_POINTS, estimateImageComposerPoints, estimateSuiteComposerPoints, estimateTextComposerPoints, estimateVideoComposerPoints, formatCanvasPoints } from '../canvasPointsEstimate.js';
 
@@ -503,7 +504,27 @@ export function useCanvasPopoverAnchor(openKey = '') {
     };
     place();
     window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
+    /* ═══ 批 CY-⑭：**锚点必须跟着素材走**（用户原话，逐字）══════════════════════════════════════════════
+       「而且现在他们张开面板之后，我拖动我当前这块素材的话，你这个面板是没有跟着一起吸附在选项上面的。
+         我不是说了很多遍了吗你的面板是必须要吸附在当前这个按钮的上面的。
+         **不管用户怎么拖动素材，张开的面板都必须如影随形。**」
+       改前这里只监听 `window.resize` —— 所以拖动画布 / 拖节点时锚点**一动不动**，
+       面板留在原地，节点走远了它还挂在原处。
+       ⇒ 加一个 rAF 轮询：只要这个弹层是开着的就一直对齐。
+          为什么用轮询而不是事件：触发源可能是拖拽（每帧变）、平移、缩放、节点高度自适应，
+          它们的共同点是「DOM 在动但没有任何我们能订阅的尺寸事件」——
+          `ResizeObserver` 只管尺寸不管位置（拖拽时尺寸不变，它根本不触发，实测过）。
+          弹层关闭时 effect 直接 return，轮询随之停止，不留常驻开销。 */
+    let frame = 0;
+    const follow = () => {
+      place();
+      frame = window.requestAnimationFrame(follow);
+    };
+    frame = window.requestAnimationFrame(follow);
+    return () => {
+      window.removeEventListener('resize', place);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, [openKey]);
   return [anchorRef, anchor];
 }
@@ -563,9 +584,23 @@ export function CanvasPopoverPortal({ open = false, anchor = null, className = '
      服务端没有它的位置；这样 SSR 不会因为 portal 抛错（本仓 canvas-debug 有单独 SSR 用例）。 */
   const canPortal = typeof document !== 'undefined' && document.body;
   if (!canPortal) return null;
+  /* ═══ 批 CY-⑭：z-index 回归 `CANVAS_Z` 权威（这里原来写死 **10004**）════════════════════════════════
+     用户原话：「然后你这个生成过程的按钮因为之前有让你调整过它的高度。然后你好像就把他的层级给搞错了。
+       现在我好像点击其他的有弹窗的功能……**只要有任意的弹窗功能，你这个按钮会一起跟着弹出来。
+       就是其他的窗弹出来的话，它会跟着变成弹窗的那一层。会一起高亮起来。这个肯定是不对的。**」
+     根因不在按钮本身：这段是 **inline style**，写在 style 属性里 —— 它**压过 EcCanvas.css 里
+     任何一条 z-index 规则**，包括文件末尾那段专门用来收口 47 个历史裸值的 `CANVAS_Z` 权威块。
+     于是每一个 portal 弹层都在 10004，而画布里最高的一层是 `modal: 71`。
+     ⇒ 改成 `CANVAS_Z.popover`（40）。portal 到 body 之后它仍然高于画布内部所有层
+       （画布内部最高是 composer 60 —— 见下），但**不再越权到模态之上**。
+     ⚠️ 同时把 `composer(60)` 压回 `toolbar(50)` 之下需要另说：生成框里的参数弹层 portal 出去是 40，
+       会在生成框（60）**之下**吗？不会 —— portal 元素挂在 body 下，不再受 `.ec-canvas-node-composer`
+       的层叠上下文约束；40 与 60 只在**同为 body 直属**时才比较，而节点本身在 stage 内部、
+       其 z-index 只在 stage 这个层叠上下文里生效。所以两套数字互不干扰，但**必须同源**，
+       否则下次又会有人拿"实测能看见"当依据把数字再抬一次。 */
   const style = placement
-    ? { position: 'fixed', left: placement.left, right: 'auto', bottom: 'auto', top: placement.top, transform: 'none', zIndex: 10004, maxHeight: `calc(100vh - ${Math.round(placement.top)}px - 12px)`, overflowY: 'auto' }
-    : { position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: 10004 };
+    ? { position: 'fixed', left: placement.left, right: 'auto', bottom: 'auto', top: placement.top, transform: 'none', zIndex: CANVAS_Z.popover, maxHeight: `calc(100vh - ${Math.round(placement.top)}px - 12px)`, overflowY: 'auto' }
+    : { position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: CANVAS_Z.popover };
   return createPortal(
     <div ref={popoverRef} className={`ec-canvas-parameter-popover is-portaled${placement?.mode === 'right' ? ' is-anchored-right' : ''}${placement?.flipped ? ' is-flipped' : ''} ${className}`} style={style} role="menu" aria-label={label}>{children}</div>,
     document.body,
@@ -843,7 +878,18 @@ function CanvasImageConfigPanel({ ratio, resolution, imageModel, count, countOpt
     </CanvasConfigGroup>
     <CanvasConfigGroup title="画面尺寸">
       <div className="ec-canvas-config-ratio-row">
-        {CANVAS_RATIO_OPTIONS.map(value => <button key={value} type="button" className={value === ratio ? 'is-active' : ''} aria-pressed={value === ratio} onClick={() => onRatio(value)}><i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} /><span>{value}</span></button>)}
+        {/* 批 CY-⑭：**「自适应」排在尺寸第一位**（用户：「是不是应该在尺寸的最前面加入一个自适应
+            的一个选项，我看我们的竞品他们都是有这个选项的」）。
+            它的图标不是比例方块，而是「不锁形状」的意思 —— 见下方 is-adaptive 的 CSS。
+            选中它时摘要写「自适应」，实际比例由 canvasAdaptiveRatio 解析（提示词 → 参考图 → 1:1），
+            结果回来后节点会按**真实**比例改写（handleMediaNaturalSize），于是那一档会自己落定。 */}
+        {withAdaptiveRatioOption(CANVAS_RATIO_OPTIONS).map(value => {
+          const adaptive = value === ADAPTIVE_RATIO;
+          return <button key={value} type="button" className={`ec-canvas-ratio-option${adaptive ? ' is-adaptive' : ''}${value === ratio ? ' is-active' : ''}`} aria-pressed={value === ratio} onClick={() => onRatio(value)}>
+            {adaptive ? <i className="ec-canvas-ratio-shape is-adaptive" /> : <i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} />}
+            <span>{value}</span>
+          </button>;
+        })}
       </div>
     </CanvasConfigGroup>
     {countOptions.length > 1 && <CanvasConfigGroup title="生成数量">
@@ -1205,7 +1251,11 @@ function layerCompositeOrder(layer = {}) {
   return 2;
 }
 
-export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, canDerive = false }) {
+/* 批 CY-⑭：`onNaturalSize` 以前**根本没有这个 prop** ——
+   `index.jsx` 从 2026-08-13 起就一直往这里传，组件签名不接、也不往下传，于是图片框
+   永远按「请求里的比例」画，真实比例被丢掉（用户看到的上下/左右白边与「被截断」）。
+   现在补上，并且给视频补一条 `onLoadedMetadata` 通路（以前全仓没有一处读 videoWidth）。 */
+export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, onNaturalSize = null, canDerive = false }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -1290,13 +1340,13 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
         syncTextBoardHeight();
       }}
       onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
-    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame"><video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame"><video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>
           : <ResponsiveImage src={layer.url} alt="" variant="canvas" ratio={layer.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} />}
       </div>)}
-    </div> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} /> : isSuite && directions.length ? <EcommerceDesignPlanPreview direction={suitePlan} prompt={node.prompt} /> : <div className="ec-canvas-generation-placeholder">
+    </div> : isImage && node.url ? <ResponsiveImage src={node.url} alt={node.name || '生成图片'} variant="canvas" ratio={node.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} onLoad={event => { const measuredWidth = Number(event.naturalWidth || event.currentTarget?.naturalWidth) || 0; const measuredHeight = Number(event.naturalHeight || event.currentTarget?.naturalHeight) || 0; if (measuredWidth > 0 && measuredHeight > 0) onNaturalSize?.(node.id, { naturalWidth: measuredWidth, naturalHeight: measuredHeight }); }} /> : isSuite && directions.length ? <EcommerceDesignPlanPreview direction={suitePlan} prompt={node.prompt} /> : <div className="ec-canvas-generation-placeholder">
       {isVideo ? <Clapperboard size={28} /> : isLayerGroup ? <Layers3 size={28} /> : isImage ? <ImagePlus size={28} /> : <Sparkles size={25} />}
       <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}

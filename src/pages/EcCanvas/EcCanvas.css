@@ -2499,6 +2499,35 @@
   gap: 5px;
   font-size: var(--cvl-font-helper, 11px);
 }
+
+/* ── 批 CY-⑭：尺寸列表最前面那一档「自适应」 ──────────────────────────────────
+   用户原话：「是不是应该在尺寸的**最前面**加入一个？**自适应**的一个选项，我看他们的竞品都是
+     有这个选项的。」图标不能是比例方块（那会谎称"这是一个具体比例"），
+   画成**不锁形状**的样子：四角括号 + 中间一条轴线，与其它档一眼能分出来。 */
+.ec-canvas-config-ratio-row button.is-adaptive { gap: 7px; }
+.ec-canvas-ratio-shape.is-adaptive {
+  position: relative;
+  width: 26px;
+  height: 18px;
+  border: 0;
+  background-color: transparent;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 1.5px;
+  border-radius: 2px;
+}
+.ec-canvas-ratio-shape.is-adaptive::before,
+.ec-canvas-ratio-shape.is-adaptive::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+}
+.ec-canvas-ratio-shape.is-adaptive::before { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.ec-canvas-ratio-shape.is-adaptive::after { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
 /* 生成数量 / 时长：5 列小方块。
    ⚠️ 高度锁 var(--cvl-control-compact, 32px) —— 2026-09-17 门禁
      「点击区下限 32px：画布交互控件不再低于规范」原本盯的是已删掉的

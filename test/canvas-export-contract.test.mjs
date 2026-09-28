@@ -9,6 +9,7 @@ import {
 import { deliveryStrategy, safeDeliveryName } from '../src/pages/EcCanvas/browserFileDelivery.js';
 
 const canvasSource = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+const copyModelSource = readFileSync(new URL('../src/pages/EcCanvas/exportCopyModel.js', import.meta.url), 'utf8');
 const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
 
 test('asset provenance distinguishes source, generated, derived, and composition nodes', () => {
@@ -38,10 +39,22 @@ test('Canvas export no longer packages JSON or loops automatic anchor downloads'
   assert.doesNotMatch(canvasSource, /素材清单\.json/);
   assert.doesNotMatch(canvasSource, /素材包清单/);
   assert.match(canvasSource, /selectDeliverableNodes/);
-  assert.match(canvasSource, /至少需要 2 张已生成的详情图/);
+  /* ═══ 2026-09-29 批 CY-⑭：导出弹窗的文案搬进了 exportCopyModel.js 纯函数 ─══════════════════════════
+     用户原话：「他明明只是对一张图片去进行操作呀，那肯定就是导出一张图片呀。」「为什么叫导出整套图片呀？」
+     ⇒ 文案不再写死在 JSX 里（它以前由**入口标记** exportIntent 决定，单图入口也会说"整套"），
+     现在由 exportDialogCopy 按**实际可交付张数**算。
+     这里断言"那句文案还在"，但要在**新的真源**里找，并且反向断言旧文案已经删干净。 */
+  assert.match(copyModelSource, /至少需要 \$\{LONG_DETAIL_MIN\} 张已生成的详情图/,
+    '长图不够时的提示必须还在（它现在由 LONG_DETAIL_MIN 常量拼出来，不是写死的字面量）');
+  assert.match(copyModelSource, /const LONG_DETAIL_MIN = 2/, '下限仍然是 2 张');
+  assert.match(copyModelSource, /合成并导出详情长图/);
+  /* ⚠️ 先剥注释再比对：CY-⑬ 已经吃过一次"把源码里的**说明**当成**代码**"的亏，
+     那次是断言 <select> 消失时没剥注释。同一类坑不踩第二次。 */
+  const canvasCode = canvasSource.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(canvasCode, /导出整套图片/, '「导出整套图片」必须从代码里消失（用户点名）');
+  assert.doesNotMatch(canvasCode, /电商图片交付/, '「电商图片交付」必须从代码里消失（我们是通用创作平台）');
+  assert.match(canvasSource, /exportDialogCopy\(\{/, '弹窗必须调那个纯函数算文案');
   assert.match(canvasSource, /disabled=\{disabled\}/);
-  assert.match(canvasSource, /导出整套图片/);
-  assert.match(canvasSource, /合成并导出详情长图/);
   assert.match(canvasSource, /开始导出/);
   assert.match(canvasSource, /chooseDeliveryDestination/);
   assert.match(canvasSource, /prepareImageDeliverables/);

@@ -106,6 +106,37 @@ export function ratioValue(ratio, fallback = 1) {
   return width > 0 && height > 0 ? width / height : fallback;
 }
 
+/** ═══ 批 CY-⑭（2026-09-29）新增：**素材真实比例** ═══════════════════════════════════════════════════
+   用户原话（逐字）：「用户上传上来或者生成之后的素材，不管它是图片还是视频，你自己的这个框必须去适配
+     它的内容呀……你看你现在这个情况。它上下是有白色部分的，而且我也不确定你这张图左右两边有没有被
+     截断的内容。这就是因为你自己没有主动的去把这个框去适配它导致的呀。」
+   ⇒ 框的宽高比必须等于**素材真实**的宽高比，不是"从 5 个预设里挑一个最像的"。
+
+   `exactMediaRatio(w, h)`：把已知的像素尺寸约成最简 `W:H` 字符串（如 1200×800 → `'3:2'`）。
+   · 认得出就返回**精确**比例；认不出（缺尺寸 / 非正数）返回 `''`，
+     由调用方回落到 `closestRatio` 那一档 —— 也就是说：**只有真的量不到时才允许近似**。
+   · 约分用 gcd，所以 `'3:2'` 而不是 `'1200:800'`：`ratioValue` 两者都能解析，
+     但 ratio 字符串会显示在节点页脚（`[group, ratio, size].join(' · ')`），
+     `'1200:800'` 在页脚上很难看。 */
+export function exactMediaRatio(width, height) {
+  const w = Math.round(finite(width, 0));
+  const h = Math.round(finite(height, 0));
+  if (!(w > 0 && h > 0)) return '';
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+  const divisor = gcd(w, h) || 1;
+  const rw = w / divisor;
+  const rh = h / divisor;
+  /* 约分后还剩两位数以上（例如 1024:768 → 128:96）就不适合当标签了，退回近似档。 */
+  if (rw > 64 || rh > 64) return '';
+  return `${rw}:${rh}`;
+}
+
+/** 素材框应当采用的宽高比：**优先精确值**，量不到才近似。 */
+export function mediaRatioFor({ ratio, width, height } = {}) {
+  if (ratio && ratioValue(ratio, 0) > 0) return String(ratio);
+  return exactMediaRatio(width, height) || closestRatio(width, height);
+}
+
 export function getCanvasNodePresentation({ selected = false, hovered = false, focusActive = false, related = false } = {}) {
   return {
     state: selected ? 'selected' : hovered ? 'hovered' : 'idle',
@@ -575,7 +606,11 @@ export function createUploadedImageNodes({ assets = [], x = 80, y = 100, now = D
   const width = 240;
   const gap = 38;
   return assets.filter(asset => asset?.url || asset?.stableUrl).map((asset, index) => {
-    const ratio = asset.ratio || closestRatio(asset.width, asset.height);
+    /* 批 CY-⑭：以前这里是 `asset.ratio || closestRatio(asset.width, asset.height)` ——
+       `closestRatio` 只有 5 个预设，于是**一张 3:2 的照片被贴上 `'4:3'` 的标签**，
+       框按 4:3 画、图按 contain 塞进去 ⇒ 上下（或左右）出现白边。
+       现在有真尺寸就用真比例（`mediaRatioFor`），只有真的量不到才落到那 5 档兜底。 */
+    const ratio = mediaRatioFor({ ratio: asset.ratio, width: asset.width, height: asset.height });
     /* P-B 电影分镜命名: 优先用 namer.next('image') (Enclosure-001), 用户上传时资产自带 name 优先 */
     const fallbackName = namer ? namer.next('image') : `Enclosure-${String(index + 1).padStart(3, '0')}`;
     const nodeName = asset.name || fallbackName;
@@ -615,6 +650,11 @@ export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = D
     /* P-B 电影分镜命名: video -> Breakthrough-001 */
     const fallbackName = namer ? namer.next('video') : `Breakthrough-${String(index + 1).padStart(3, '0')}`;
     const nodeName = asset.name || fallbackName;
+    /* 批 CY-⑭：视频同样要按**真实**宽高比画框。视频以前**根本没人量过** `videoWidth/videoHeight`
+       （`aspectRatio` 拿不到就写死 16:9），所以一条 9:16 的片子会躺在 16:9 的框里左右加黑边。
+       上传时就用能拿到的尺寸；拿不到的部分交给 `<video onLoadedMetadata>` 事后校正
+       （见 index.jsx 的 handleMediaNaturalSize）。 */
+    const aspectRatio = mediaRatioFor({ ratio: asset.aspectRatio, width: asset.width, height: asset.height });
     return attachCanvasProjectAssetRef({
       id: `video_upload_${now}_${index}`,
       assetId: asset.id || asset.assetId || `video-asset-${now}-${index}`,
@@ -627,7 +667,7 @@ export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = D
       displayLabel: nodeName,
       group: '视频',
       role: '参考视频',
-      aspectRatio: asset.aspectRatio || '16:9',
+      aspectRatio,
       duration: Number(asset.duration) || 0,
       resolution: asset.resolution || '',
       sourceNodeIds: [],
@@ -636,7 +676,7 @@ export function createUploadedVideoNodes({ assets = [], x = 80, y = 100, now = D
       x: finite(x) + index * (width + gap),
       y: finite(y),
       w: width,
-      h: Math.round(width / ratioValue(asset.aspectRatio || '16:9', 16 / 9)),
+      h: Math.round(width / ratioValue(aspectRatio, 16 / 9)),
       rotation: 0,
       locked: false,
       hidden: false,

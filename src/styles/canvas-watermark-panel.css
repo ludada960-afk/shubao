@@ -19,9 +19,18 @@
 }
 
 /* ── 面板本体：停靠在底栏之上 ───────────────────────────────────────────── */
+/* 批 CY-⑭：z-index 原来写死 **62** —— 一个不在 `CANVAS_Z` 阶梯里的裸值，
+   而且它**越权压过了 composer(60)**（生成框那一层，含生成按钮）。
+   用户原话（逐字）：「你的水印面板也有点奇怪……然后这个水印面板在左边张开，
+     然后我点击左边这个加号。他也在左边张开，**那他们两者就打架了**。」
+   打架的一半原因是层叠：加号菜单是 `popover(40)`，水印面板 62 ⇒ 同一个左边栏位置
+   打开两个面板时，**水印面板压在上面**，用户看到的是"加号被挡住了"，而不是"它们该互斥"。
+   现在两边都走 `var(--cvl-z-popover)`，层叠一致，"开一个关一个"的仲裁才不会被层叠掩盖。
+   ⚠️ 变量由画布根节点 inline 注入（canvasVisualLanguageCssVars），本文件在画布内使用，
+      保留 40 作为 var 缺失时的兜底。 */
 .ec-wm-panel {
   position: absolute;
-  z-index: 62;
+  z-index: var(--cvl-z-popover, 40);
   left: 60px;
   bottom: calc(var(--ec-canvas-bottombar-top) + var(--ec-canvas-panel-gap));
   width: 336px;

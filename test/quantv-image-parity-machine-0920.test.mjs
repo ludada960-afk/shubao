@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
+import { ADAPTIVE_RATIO } from '../src/skills/skillRun.js';
 import {
   QUANTV_IMAGE_COUNTERPARTS,
   imageSkillsWithCounterpart,
@@ -107,14 +108,30 @@ test('③ 有对应页的 28 条：字段数 / 控件 / 档位数 / 档位文案
       max: field.maxImages,
       required: !field.optional,
     }));
-    const ours = (skill.fields || []).map(field => ({
-      label: field.label,
-      kind: field.kind,
-      count: Array.isArray(field.options) ? field.options.length : null,
-      labels: Array.isArray(field.options) ? field.options.map(option => norm(option.label)) : null,
-      max: field.maxImages ?? null,
-      required: !!field.required,
-    }));
+    /* ═══ 2026-09-29 批 CY-⑭：比例那一格**第一位固定是「自适应」**（用户逐字点名）══════════════════
+       「而且你不能只改这个画布里面的尺寸……这个配置它关乎的是我们全局的问题，就是我们首页的
+         图片生成，视频生成，还有我们各种 skill 他们的子页面……你是不是也得给他们加上这个
+         自适应的这个选项进来呢？」
+       ⇒ 与知渔**逐值相等**的机检在这里必须**显式豁免这一档**，否则就是在用一个 2026-07 的
+         实采结论去否掉用户 2026-09 的新决定。
+       豁免的**范围被钉死**：只有比例那一格的**第一位**「自适应」被摘掉再比；
+       其余档位、档位文案、字段数、控件类型、上传上限、必填**一条都不松**。
+       换句话说：我们仍然在逐档核对我们与知渔的差异，只是承认比他们**多**了最前面这一档。 */
+    const ours = (skill.fields || []).map(field => {
+      const options = Array.isArray(field.options) ? field.options : null;
+      const isRatio = field.key === 'ratio';
+      const stripped = isRatio && options && options.length && options[0].value === ADAPTIVE_RATIO
+        ? options.slice(1)
+        : options;
+      return {
+        label: field.label,
+        kind: field.kind,
+        count: stripped ? stripped.length : null,
+        labels: stripped ? stripped.map(option => norm(option.label)) : null,
+        max: field.maxImages ?? null,
+        required: !!field.required,
+      };
+    });
     const allowed = WORDING_EXCEPTIONS[skill.id] || [];
     const problems = [];
     if (ours.length !== theirs.length) problems.push('字段数 ' + ours.length + ' vs ' + theirs.length);

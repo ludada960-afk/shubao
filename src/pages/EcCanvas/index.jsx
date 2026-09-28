@@ -79,7 +79,18 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyCanvasGroupAction, applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, canvasGroupFrames, canvasSelectionGroupState, expandCanvasDragSelection, expandCanvasGroupDragIds, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes,
-  resolveSourceStackPlacement, getCanvasComposerPresentation, layoutCanvasGeneratedResults, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill } from './canvasStudioModel.js';
+  resolveSourceStackPlacement, getCanvasComposerPresentation, layoutCanvasGeneratedResults, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill, exactMediaRatio } from './canvasStudioModel.js';
+import { canvasSurfacesToDismiss } from './canvasSurfaceDismiss.js';
+import { exportDialogCopy } from './exportCopyModel.js';
+import { ADAPTIVE_RATIO, resolveProtocolRatio } from './canvasAdaptiveRatio.js';
+
+/* ═══ 批 CY-⑭：**哪些节点的框必须跟着素材走** ══════════════════════════════════════════════════════
+   只有"框里装的就是那份素材"的节点才按素材真实比例画。
+   刻意**不包含**的：text-composer / suite-composer / design-direction / text ——
+   它们的框是**版式对象**（用户排出来的输入区 / 方案板 / 文字层），高度由内容决定，
+   拿素材比例去改它们会把用户排好的版面推倒。
+   video-composer 同理：它是控制台，结果以独立节点出现。 */
+const MEDIA_FIT_KINDS = new Set(['image', 'output', 'video', 'image-composer', 'layer-group']);
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
@@ -113,6 +124,7 @@ import { selectDeliverableNodes } from './canvasAssetProvenance.js';
 import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
 import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
+import { deliveryNameFor, looksLikeContentHash } from './deliveryNameModel.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import { quoteBillingAction } from '../../services/billing.js';
 import { analyzeVideoPlan, createVideoJob, fetchVideoCapabilities, getVideoJob, uploadVideoAsset } from '../../services/video.js';
@@ -178,6 +190,7 @@ import {
   canvasRightPanelReserved,
   resolveAnchoredRight,
   useCanvasPanelWidth,
+  CANVAS_Z,
 } from './canvasVisualLanguage.js';
 /* 2026-09-17 三层权威性排序（硬约束 > 产出结构 > 内容意图 > 设计方案）—— 唯一规则实现。 */
 import { applyPlanToConfiguration, resolvePromptAuthority } from './canvasPromptAuthority.js';
@@ -864,16 +877,66 @@ const [minimapOpen, setMinimapOpen] = useState(true);
 
   const handleWatermarkCancel = useCallback(() => { setWatermarkPreview(null); }, []);
 
+  /* ═══ 批 CY-⑭：**画布浮层只有一个关闭入口**（用户 ①：「对于面板的一个关闭的判断，现在还没有搞得
+     特别明白……那他们两者就打架了」；用户 ②：「点击其他空地的时候，这块面板却没有自动关掉」）══════════
+     这张表是 `canvasSurfaceDismiss.js` 里的**登记册**；新增浮层必须登记，否则门禁会红。
+     改前：16 个浮层各自一个 useState，点空白那段代码还挂在 `getCanvasPointerIntent` 走不到的
+     `else`(pan) 分支上 —— 派生菜单点空白不关；水印面板连 Escape 都不接。 */
+  const dismissCanvasSurfaces = useCallback((trigger = 'blank', exceptKey = '') => {
+    for (const key of canvasSurfacesToDismiss(trigger)) {
+      if (key === exceptKey) continue;
+      switch (key) {
+        case 'addMenuOpen': setAddMenuOpen(false); break;
+        case 'connectionPicker': setConnectionPicker(null); break;
+        case 'activeComposerSurface': setActiveComposerSurface(''); break;
+        case 'contextMenu': setContextMenu(null); break;
+        case 'canvasContextPanel': setCanvasContextPanel(null); break;
+        case 'addNodePanel': setAddNodePanel(null); break;
+        case 'watermarkPanelOpen': setWatermarkPanelOpen(false); break;
+        case 'layersPanelOpen': setLayersPanelOpen(false); break;
+        case 'focusedEditor': setFocusedEditor(null); break;
+        case 'imageInfoNode': setImageInfoNode(null); break;
+        case 'outpaintDraft': setOutpaintDraft(null); break;
+        case 'textInspectorNodeId': setTextInspectorNodeId(null); break;
+        case 'editingTextNodeId': setEditingTextNodeId(null); break;
+        case 'nodeActionBar': setNodeActionBar(null); break;
+        default: break;
+      }
+    }
+    /* 预览态：面板收起时它必须一起回收，否则会留一个孤儿预览在画布上（批 ⑬ 查水印预览时发现的） */
+    setWatermarkPreview(null);
+  }, []);
+
+  /* 点空白 / 按 Esc：全部收起。 */
+  const dismissAllCanvasSurfaces = useCallback((trigger = 'blank') => {
+    dismissCanvasSurfaces(trigger);
+  }, [dismissCanvasSurfaces]);
+
+  /* 「开一个之前先关掉别的」——自己除外。 */
+  const dismissAllCanvasSurfacesExcept = useCallback(keepKey => {
+    dismissCanvasSurfaces('blank', keepKey);
+  }, [dismissCanvasSurfaces]);
+
+  /* 生成框弹层（模型 / 生成配置 / 技能）也归同一套仲裁：打开其中一个，先把其它跟随型浮层收掉。
+     否则会出现"水印面板开着、又点开生成配置"这种叠在一起的状态 —— 用户 ① 说的"打架"的另一种形态。 */
+  const handleComposerSurfaceChange = useCallback(next => {
+    if (next) dismissAllCanvasSurfacesExcept('activeComposerSurface');
+    setActiveComposerSurface(next);
+  }, [dismissAllCanvasSurfacesExcept]);
+
   /* 用户批注: 点击水印/其它面板时小地图应自动收起, 不能永远张开 */
   const handleToggleWatermarkPanel = useCallback(() => {
-    setWatermarkPanelOpen(open => {
-      if (open) { setWatermarkPreview(null); return false; }
-      setMinimapOpen(false);
-      const selectedKind = nodes.find(node => node.id === selected)?.kind;
-      setWatermarkMaterial(WATERMARK_VIDEO_KINDS.includes(selectedKind) ? 'video' : 'image');
-      return true;
-    });
-  }, [nodes, selected]);
+    /* ⚠️ 同 add menu：**不要在 setState 的 updater 里面调别的 setter**（渲染期重算 ⇒ 副作用执行多次）。
+       先判开合、再做副作用、最后写状态。 */
+    if (watermarkPanelOpen) { setWatermarkPanelOpen(false); setWatermarkPreview(null); return; }
+    /* 批 CY-⑭：**开一个之前先把其它浮层收掉**（用户 ①：「水印面板在左边张开，然后我点击左边这个加号，
+       他也在左边张开，那他们两者就打架了」）—— 两个面板锚在同一条左边栏、互相压着。 */
+    dismissAllCanvasSurfacesExcept('watermarkPanelOpen');
+    setWatermarkPanelOpen(true);
+    setMinimapOpen(false);
+    const selectedKind = nodes.find(node => node.id === selected)?.kind;
+    setWatermarkMaterial(WATERMARK_VIDEO_KINDS.includes(selectedKind) ? 'video' : 'image');
+  }, [nodes, selected, watermarkPanelOpen, dismissAllCanvasSurfacesExcept]);
   /* 用户 9-05 反馈: 小地图必须展示"我们处于大画布的哪个部分" —
      固定一个大世界窗口 (以世界原点为中心 ±4200x±3000), 节点与当前视口框
      都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
@@ -971,17 +1034,41 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     setPendingProjectAssetImportsBusy(false);
   }, [result.id, result._saveKey, result.canvasImportId]);
 
+  /* ═══ 批 CY-⑭：Esc = **收起全部跟随型浮层**（水印面板以前根本不接 Esc）═════════════════════════════
+     改前是两个各管各的 handler：一个只清 `activeComposerSurface`（:1012），一个（:2050 左右）清
+     `connectionDraft/pointerMode/marquee/contextMenu/editingTextNodeId/addNodePanel/selected/…`。
+     谁也不管水印面板、图层面板、派生菜单。用户在多个面板之间反复按 Esc 是常态，
+     所以 Esc 必须是"退出一层"，而"点空白"是"回到干净画布"。 */
+  const hasAnyTransientSurface = canvasSurfacesToDismiss('escape').some(key => {
+    switch (key) {
+      case 'addMenuOpen': return addMenuOpen;
+      case 'connectionPicker': return Boolean(connectionPicker);
+      case 'activeComposerSurface': return Boolean(activeComposerSurface);
+      case 'contextMenu': return Boolean(contextMenu);
+      case 'canvasContextPanel': return Boolean(canvasContextPanel);
+      case 'addNodePanel': return Boolean(addNodePanel);
+      case 'watermarkPanelOpen': return watermarkPanelOpen;
+      case 'layersPanelOpen': return layersPanelOpen;
+      case 'focusedEditor': return Boolean(focusedEditor);
+      case 'imageInfoNode': return Boolean(imageInfoNode);
+      case 'outpaintDraft': return Boolean(outpaintDraft);
+      case 'textInspectorNodeId': return Boolean(textInspectorNodeId);
+      case 'editingTextNodeId': return Boolean(editingTextNodeId);
+      case 'nodeActionBar': return Boolean(nodeActionBar);
+      default: return false;
+    }
+  });
   useEffect(() => {
-    if (!activeComposerSurface) return undefined;
+    if (!hasAnyTransientSurface) return undefined;
     const closeOnEscape = event => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setActiveComposerSurface('');
+        dismissAllCanvasSurfaces('escape');
       }
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [activeComposerSurface]);
+  }, [hasAnyTransientSurface, dismissAllCanvasSurfaces]);
   const imageList = parseImages(canvasOutputImages(result), result.platform || '淘宝');
   const resultVideoUrl = String(result.video_url || result.videoUrl || result.video?.url || result._videoResult?.url || '').trim();
   const resultMediaAssets = collectCanvasMediaAssets(result);
@@ -1052,6 +1139,16 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     ? detailOrderIds.map(id => exportScope.deliverables.find(node => node.id === id)).filter(Boolean)
     : orderDetailNodes(exportScope.deliverables));
   const canExportLongDetail = orderedDetailNodes.length >= 2;
+  /* 批 CY-⑭：导出弹窗的标题/选项由**实际可交付张数**决定，不再由「从哪个入口点开的」决定。
+     用户原话：「他明明只是对一张图片去进行操作呀，那肯定就是导出一张图片呀。」
+     （改前是 `exportIntent === 'single'`，而它只有逐图入口会置位；顶栏「导出」进来哪怕
+       最后只剩 1 张，标题仍然是「电商图片交付」+「导出整套图片」。） */
+  const exportCopy = exportDialogCopy({
+    count: exportMode === 'long-detail' ? 1 : exportScope.deliverables.length,
+    excludedCount: exportScope.excludedSources.length,
+    longDetail: exportMode === 'long-detail',
+    canLongDetail: canExportLongDetail,
+  });
 
   /* 用户批注: 打开任何浮动面板时小地图自动收起, 避免互相遮挡 */
   const floatingCanvasPanelOpen = Boolean(addNodePanel)
@@ -2312,22 +2409,24 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     });
     if (intent === 'ignore') return;
     e.preventDefault();
+    /* ═══ 批 CY-⑭：点空白 = **收起全部浮层**，marquee 与 pan 两条路都要走这条 ══════════════════════════
+       改前这段只写在 `else`(pan) 分支里，而默认 select 工具点空白返回的是 `'marquee'` ——
+       于是 `setConnectionPicker(null)` 永远执行不到（用户 ②：派生菜单点空白不关）。
+       顺带把 `setSelected(null)` 也提到这里：点空白本来就该取消选择，
+       不该再绑在"是不是在平移"上。 */
+    dismissAllCanvasSurfaces('blank');
+    setConnectionDraft(null);
     if (intent === 'marquee') {
       const point = toWorldPoint(e);
       setPointerMode({ kind: 'marquee', start: point, additive: e.shiftKey || e.ctrlKey || e.metaKey });
       setMarquee({ x: point.x, y: point.y, w: 0, h: 0 });
     } else {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
-      setSelected(null);
-      setMultiSelected(new Set());
-      setContextMenu(null);
-      setAddMenuOpen(false);
-      /* 9-11 用户批注③: 点空白 = 收起全部功能栏 — 右栏(派生菜单/图片编辑器)随顶栏一起关闭 */
-      setConnectionPicker(null);
-      setConnectionDraft(null);
     }
+    setSelected(null);
+    setMultiSelected(new Set());
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
-  }, [activeTool, editingTextNodeId, spacePressed, toWorldPoint, viewport.x, viewport.y]);
+  }, [activeTool, editingTextNodeId, spacePressed, toWorldPoint, viewport.x, viewport.y, dismissAllCanvasSurfaces]);
 
   const handlePointerMove = useCallback((e) => {
     if (!pointerMode) return;
@@ -2414,13 +2513,16 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       },
     });
     setConnectionDraft(null);
+    /* 批 CY-⑭：派生菜单也是"跟随型"浮层 —— 开它之前把别的收掉，
+       否则它会和加号菜单 / 水印面板 / 生成框弹层同时挂在屏幕上（用户 ① 说的"打架"）。 */
+    dismissAllCanvasSurfaces('blank');
     /* ⚠️ deps 里**只能放 viewportRectForNode**（它定义在本函数之前）。
        把它上面的 `canDeriveFromCanvasSource` 放进 deps 会立刻 TDZ 白屏 ——
        实测（.qa/cu-derive-menu.mjs）：
          PAGEERR Cannot access 'canDeriveFromCanvasSource' before initialization
        原因：deps 数组在**渲染期**求值，而那个 useCallback 声明在本函数之后（本仓 09-04 踩过同一个坑）。
        它本身 deps 为空、身份稳定，不进 deps 数组也安全。 */
-  }, [viewportRectForNode]);
+  }, [viewportRectForNode, dismissAllCanvasSurfaces]);
 
 const handlePointerUp = useCallback((e) => {
     if (dragFrameRef.current) {
@@ -2633,22 +2735,54 @@ const handlePointerUp = useCallback((e) => {
     probe.src = url;
   }, []);
 
-  const handleImageNaturalSize = useCallback((nodeId, { naturalWidth, naturalHeight }) => {
+  /* ═══ 批 CY-⑭：**素材框必须按素材真实比例画**（这条通路 2026-08-13 写下后就一直没接上）════════════
+     用户原话（逐字）：「用户上传上来或者生成之后的素材，不管它是图片还是视频，你自己的这个框必须去适配
+       它的内容呀……你看你现在这个情况。它上下是有白色部分的，而且我也不确定你这张图左右两边有没有被
+       截断的内容。这就是因为你自己没有主动的去把这个框去适配它导致的呀。」
+
+     事故经过（`git log -S onNaturalSize` 只有一次提交 `50cf8505`，2026-08-13）：
+       ① 这个 handler 写好了，挂在 `index.jsx:7181` 传给 `CanvasGenerationNode`；
+       ② 但 `CanvasGenerationNode` 的**签名里根本没有这个 prop**，也不往下传 —— 断链；
+       ③ 真正渲染图片/生成结果的那一支 `StudioImageNode`（`image` / `output`）**压根没传**；
+       ④ 视频更是从来没量过 `videoWidth/videoHeight`。
+     ⇒ 结果是：图片框按**请求里的**比例画、图按 `contain` 塞进去 → 上下或左右出现白边；
+       用户看到的"被截断"就是它 —— 视觉上跟裁切一模一样，用户当然会以为内容丢了。
+
+     本批做的事：
+       · 真正把 prop 接到**每一个**媒体节点上（图片 / 生成结果 / 视频 / 智能分层）；
+       · 视频用 `<video onLoadedMetadata>` 的 `videoWidth/videoHeight` 走同一条通路；
+       · 只改**媒体节点**：文案板 / 套图框 / 方向框是**版式对象**，不是素材，
+         它们的高度由内容决定（见 handleTextNodeAutoHeight），不许被素材比例改写；
+       · 保留 `node.w`、按真实比例重算 `node.h` —— 用户已经拖到多大的宽度是用户的，
+         我们只保证"框的形状是对的"。于是 `resizeCanvasNodeByHandle` 里那个
+         `ratioValue(node.ratio)` 自动也就锁到了真实比例，拖角不再把偏差固化下来。 */
+  const handleMediaNaturalSize = useCallback((nodeId, { naturalWidth, naturalHeight }) => {
+    const measuredWidth = Number(naturalWidth);
+    const measuredHeight = Number(naturalHeight);
+    if (!(measuredWidth > 0 && measuredHeight > 0)) return;
     setNodes(previous => previous.map(node => {
-      if (node.id !== nodeId || naturalWidth <= 0 || naturalHeight <= 0) return node;
-      if (node.naturalWidth === naturalWidth && node.naturalHeight === naturalHeight) return node;
+      if (node.id !== nodeId) return node;
+      /* 只改**媒体节点**。文案板 / 套图框 / 方向框是版式对象，高度由内容决定
+         （handleTextNodeAutoHeight），拿素材比例去改它们会把用户排好的版面推倒。 */
+      if (!MEDIA_FIT_KINDS.has(node.kind)) return node;
+      if (node.naturalWidth === measuredWidth && node.naturalHeight === measuredHeight) return node;
       const width = Math.max(1, Number(node.w) || 240);
-      const height = Math.max(1, Math.round(width * naturalHeight / naturalWidth));
+      const height = Math.max(1, Math.round(width * measuredHeight / measuredWidth));
+      const exact = exactMediaRatio(measuredWidth, measuredHeight) || `${measuredWidth}:${measuredHeight}`;
+      /* 高度已经在正确形状上就别白渲染一次（onLoad 每次 src 变化都会再触发） */
+      if (Math.abs((Number(node.h) || 0) - height) < 1 && node.ratio === exact) return node;
       return {
         ...node,
         h: height,
-        ratio: `${naturalWidth}:${naturalHeight}`,
-        size: `${naturalWidth}×${naturalHeight}`,
-        naturalWidth,
-        naturalHeight,
+        ratio: exact,
+        aspectRatio: exact,
+        size: `${measuredWidth}×${measuredHeight}`,
+        naturalWidth: measuredWidth,
+        naturalHeight: measuredHeight,
       };
     }));
   }, []);
+  const handleImageNaturalSize = handleMediaNaturalSize;
 
   const handleToggleSelect = useCallback((e, id) => {
     const next = new Set(multiSelected);
@@ -3968,7 +4102,9 @@ const handlePointerUp = useCallback((e) => {
         fileCount: longDetail ? 1 : exportNodes.length,
         format: exportFormat,
         productName: result.product_name || '商品',
-        filename: single ? safeDeliveryName(exportNodes[0].name || exportNodes[0].id, exportFormat) : undefined,
+        /* 批 CY-⑭：保存对话框的**建议文件名**同样走命名规则 —— 这一处以前直接用 `node.name`,
+       于是「另存为」窗口里默认填的就是那串 64 位 sha。 */
+    filename: single ? safeDeliveryName(deliveryNameFor(exportNodes[0], 0, 1), exportFormat) : undefined,
       });
       if (destination.cancelled) {
         dispatchExportDelivery({ type: 'cancelled' });
@@ -4589,6 +4725,28 @@ const handlePointerUp = useCallback((e) => {
     setConnectionDraft(previous => previous?.sourceNodeId === nodeId ? null : previous);
   }, []);
 
+  /* ═══ 批 CY-⑭：把「自适应」翻译成**协议比例**再发出去 ═════════════════════════════════════
+     用户原话：「如果有这个选项的话，背后的逻辑应该怎么做呢？……用户他们自己在提示词里面写了一个
+       什么样的尺寸，所以最终生成出来就是会按用户的提示词里面写到的尺寸去生成出来，
+       那他的这个选项就应该匹配到这个自适应的这个选项上呀。」
+     为什么**必须**在发请求之前解掉：上游 `resolveGenerationSize` 对认不出的比例是**静默回落成 1:1**
+     （server/ecommerceEngine/modelCatalog.mjs）—— 那正是用户抱怨的"明明写了 16:9 却被套到 1:1 上"，
+     只是发生在服务端、界面上完全看不出来（不报错、不提示）。
+     解析链：提示词里明确写的尺寸 → 参考图实测宽高就近取一档 → 1:1（见 canvasAdaptiveRatio.js）。 */
+  const protocolRatioFor = useCallback((node, sourceNodes = [], prompt = '') => {
+    const asked = String(node?.ratio || '').trim();
+    if (asked && asked !== ADAPTIVE_RATIO) return asked;
+    const list = Array.isArray(sourceNodes) ? sourceNodes : [];
+    const reference = list.find(candidate => Number(candidate?.naturalWidth) > 0 && Number(candidate?.naturalHeight) > 0) || list[0] || null;
+    return resolveProtocolRatio({
+      ratio: asked,
+      prompt: prompt || node?.prompt || '',
+      referenceBox: reference
+        ? { width: Number(reference.naturalWidth) || Number(reference.w) || 0, height: Number(reference.naturalHeight) || Number(reference.h) || 0 }
+        : null,
+    });
+  }, []);
+
   const handleImageComposerGenerate = useCallback(async composer => {
     if (!composer?.prompt?.trim() || composer.status === 'processing') return;
     /* P2 连线@引用合一: 执行输入只读图边（入边顺序 = @图片N）; 无入边回退旧并集（P0 无图契约逐字节一致）*/
@@ -4620,7 +4778,7 @@ const handlePointerUp = useCallback((e) => {
             imageUrl: sourceNodes[0].url,
             referenceImages: sourceNodes.slice(1).map(node => node.url),
             references: sourceReferences.references,
-            ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
+            ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
             imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
             selection,
@@ -4632,7 +4790,7 @@ const handlePointerUp = useCallback((e) => {
             action: composer.actionId,
             prompt,
             imageUrl: sourceNodes[0].url,
-            ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
+            ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
             imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
           });
@@ -4646,20 +4804,21 @@ const handlePointerUp = useCallback((e) => {
             imageUrl: sourceNodes[0].url,
             referenceImages: sourceNodes.slice(1).map(node => node.url),
             references: sourceReferences.references,
-            ratio: composer.ratio || '1:1',
+            ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
             imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
           })
           : regenerateCanvasImage({
             prompt: composer.prompt.trim(),
             imageUrl: '',
-            ratio: composer.ratio || '1:1',
+            ratio: protocolRatioFor(composer, [], composer.prompt),
             resolution: composer.resolution || '2K',
             imageModel: composer.imageModel || 'image2',
           });
       }));
       const createdAt = Date.now();
-      const ratio = composer.ratio || '1:1';
+      /* 排版也用解析后的比例：否则「自适应」会被 ratioValue 当成 1，给出一排方框。 */
+      const ratio = protocolRatioFor(composer, sourceNodes, prompt);
       const ratioNumber = ratioValue(ratio);
       /* 9-15 用户决定：多张结果自动排版 —— 生成框本身是第一张，其余结果横向一排
          （同一 y，间距 = 节点宽 + 24px，超过 4 张换行），复用套图「右侧锚定 + 派生连线」约定。 */
@@ -4918,9 +5077,20 @@ const handlePointerUp = useCallback((e) => {
           const url = image?.stableUrl || image?.url;
           if (!url || receivedUrls.has(url)) return;
           receivedUrls.add(url);
-          const role = image.role || image.id || image.key || 'main_text';
+          /* 批 CY-⑭：`image.id` 在本站就是**内容的 sha256**，而 `services/api.js` 的
+             `stableTaskImageRecords` 在没有 label 时会拿 id 顶替 label。
+             于是这一行 `image.role || image.id || ...` 会把 64 位哈希**当成图位角色**传下去，
+             紧接着 `name: image.displayName || image.label || meta.name` 又让同一串哈希
+             **赢过** `meta.name`（白底图 / 主图 / 详情图 / SKU…）——
+             这就是用户看到的「图片的名字是一堆乱码」的完整链路。
+             ⇒ 角色与名字都必须**跳过哈希**再回落。判定规则见 deliveryNameModel.js。 */
+          const role = [image.role, image.key].find(value => value && !looksLikeContentHash(value))
+            || [image.role, image.key].find(Boolean)
+            || 'main_text';
           const meta = getAssetMeta(role);
           const group = image.group || meta.group || '素材';
+          const named = [image.displayName, image.label, meta.name, '生成图片']
+            .find(value => value && !looksLikeContentHash(value)) || '生成图片';
           const column = rowCounters.get(group) || 0;
           rowCounters.set(group, column + 1);
           const ratio = image.ratio || meta.ratio || composer.ratio || '1:1';
@@ -4931,8 +5101,8 @@ const handlePointerUp = useCallback((e) => {
             kind: 'output',
             status: 'ready',
             url,
-            name: image.displayName || image.label || meta.name || '电商图',
-            displayLabel: image.displayName || image.label || meta.name || '电商图',
+            name: named,
+            displayLabel: named,
             group,
             role,
             ratio,
@@ -6900,7 +7070,14 @@ const handlePointerUp = useCallback((e) => {
           <input ref={audioUploadRef} type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm" multiple onChange={handleCanvasAudioUpload} style={{ display: 'none' }} />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
-            onAddMenuToggle={() => { syncAddMenuAnchor(); setAddMenuOpen(open => !open); }}
+            onAddMenuToggle={() => {
+              syncAddMenuAnchor();
+              /* ⚠️ 不要在 setState 的 updater **里面**调别的 setter ——
+                 updater 会被 React 在渲染期重算（StrictMode 下两次），在里头做副作用等于把
+                 "关掉其它浮层"执行了两次、顺序也不可控。改成先算再调。 */
+              if (!addMenuOpen) dismissAllCanvasSurfacesExcept('addMenuOpen');
+              setAddMenuOpen(!addMenuOpen);
+            }}
           />
           <CanvasAddMenu
             open={addMenuOpen}
@@ -7221,6 +7398,9 @@ const handlePointerUp = useCallback((e) => {
                   onDoubleClick={node => openImagePreview({ url: node.localPreviewUrl || node.url, label: node.name || node.displayLabel || '图片预览' })}
                   onReplace={replaceAction.canRun(node) ? () => handleToolAction(replaceAction, node) : null}
                   onImageReady={handleImagePreviewReady}
+                  /* 批 CY-⑭：这一支（image / output = **上传 + 生成的图片结果**）以前**根本没接**
+                     onNaturalSize，所以框永远按请求里的比例画。接上。 */
+                  onNaturalSize={handleMediaNaturalSize}
                 />;
               }
               if (node.kind === 'audio') {
@@ -7263,6 +7443,9 @@ const handlePointerUp = useCallback((e) => {
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+                  /* 批 CY-⑭：视频框按**真实** videoWidth/videoHeight 画（以前从来没人量过，
+                     一条 9:16 的片子躺在 16:9 的框里左右加黑边）；图片/分层同理。 */
+                  onNaturalSize={handleMediaNaturalSize}
                   onHoverChange={setHoveredNodeId}
                   onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
                   onTextChange={handleTextNodeChange}
@@ -7384,7 +7567,7 @@ const handlePointerUp = useCallback((e) => {
                availableSources={availableComposerSources}
                loading={selectedNode.status === 'processing'}
                activeSurface={activeComposerSurface}
-               onSurfaceChange={setActiveComposerSurface}
+               onSurfaceChange={handleComposerSurfaceChange}
                onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
@@ -7405,7 +7588,7 @@ const handlePointerUp = useCallback((e) => {
                availableSources={availableComposerSources}
                loading={selectedNode.status === 'processing'}
                activeSurface={activeComposerSurface}
-               onSurfaceChange={setActiveComposerSurface}
+               onSurfaceChange={handleComposerSurfaceChange}
                onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={files => handleComposerSourceUpload(selectedNode.id, files, 'reference')}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
@@ -7426,7 +7609,7 @@ const handlePointerUp = useCallback((e) => {
                availableSources={availableComposerSources}
                loading={selectedNode.status === 'processing'}
                activeSurface={activeComposerSurface}
-               onSurfaceChange={setActiveComposerSurface}
+               onSurfaceChange={handleComposerSurfaceChange}
                onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={(files, role) => handleComposerSourceUpload(selectedNode.id, files, role)}
                onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
@@ -7450,7 +7633,7 @@ const handlePointerUp = useCallback((e) => {
               availableSources={availableComposerSources}
               loading={selectedNode.status === 'processing'}
               activeSurface={activeComposerSurface}
-              onSurfaceChange={setActiveComposerSurface}
+              onSurfaceChange={handleComposerSurfaceChange}
               onChange={change => updateComposerNode(selectedNode.id, change)}
               onAddSources={(files, role) => handleComposerSourceUpload(selectedNode.id, files, role)}
               onRemoveSource={sourceId => removeComposerSource(selectedNode.id, sourceId)}
@@ -7991,7 +8174,7 @@ const handlePointerUp = useCallback((e) => {
           产品经理视角: 4 步 = 文案 -> 首帧 -> 视频 -> 音轨+字幕 (跟 chainService 4 步 100% 一致)
           总统筹视角: TapNow 旗舰模式 Agent progress UI, 不写 (流影AI 风格) */}
       {chainRun && (
-        <div role="dialog" aria-modal="true" aria-label={`${chainRun.title} 进度`} style={{ position: 'fixed', inset: 0, zIndex: 10006, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
+        <div role="dialog" aria-modal="true" aria-label={`${chainRun.title} 进度`} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
           <section style={{ width: 'min(440px, 100%)', background: 'var(--sb-surface-card, #fff)', border: '1px solid var(--sb-border-default, rgba(15,23,42,.08))', borderRadius: 16, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 22 }}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
               <div>
@@ -8025,7 +8208,7 @@ const handlePointerUp = useCallback((e) => {
       )}
 
       {imageInfoNode && (
-        <div role="dialog" aria-modal="true" aria-labelledby="canvas-image-info-title" style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.38)', display: 'grid', placeItems: 'center', padding: 20 }}>
+        <div role="dialog" aria-modal="true" aria-labelledby="canvas-image-info-title" style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, background: 'rgba(15,23,42,.38)', display: 'grid', placeItems: 'center', padding: 20 }}>
           <div style={{ width: 'min(430px, 100%)', boxSizing: 'border-box', background: '#fff', borderRadius: 8, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <div style={{ flex: 1 }}>
@@ -8057,7 +8240,7 @@ const handlePointerUp = useCallback((e) => {
       )}
 
       {inspectorOpen && multiSelected.size > 0 && (
-        <div style={{ position: 'fixed', top: 70, right: 18, zIndex: 10003, width: 220, background: '#fff', border: '1px solid rgba(12,10,9,.08)', borderRadius: 12, boxShadow: '0 12px 36px rgba(12,10,9,.16)', padding: 14 }}>
+        <div style={{ position: 'fixed', top: 70, right: 18, zIndex: CANVAS_Z.hud, width: 220, background: '#fff', border: '1px solid rgba(12,10,9,.08)', borderRadius: 12, boxShadow: '0 12px 36px rgba(12,10,9,.16)', padding: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: '#1f2937', marginBottom: 8 }}>批量修改分类</div>
           <div style={{ fontSize: 11, color: '#777', marginBottom: 10 }}>已选 {multiSelected.size} 张资产</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
@@ -8067,7 +8250,7 @@ const handlePointerUp = useCallback((e) => {
       )}
 
       {directionDraft && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, background: 'rgba(15,23,42,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ width: 'min(540px, 100%)', background: '#fff', borderRadius: 16, boxShadow: '0 24px 70px rgba(15,23,42,.24)', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
@@ -8096,13 +8279,16 @@ const handlePointerUp = useCallback((e) => {
       )}
 
       {exportOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10005, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        /* 批 CY-⑭：遮罩 z-index 原来写死 10005（同 10004 那一族，越权压在 Toast 之上）→ 走权威阶梯。 */
+        <div style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modalScrim, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportIntent === 'single' ? '图片另存为' : '电商图片交付'}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>将交付 {exportMode === 'long-detail' ? 1 : exportScope.deliverables.length} 张生成结果{exportScope.excludedSources.length ? `，已排除 ${exportScope.excludedSources.length} 张原始素材` : ''}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
             <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-              {[['images', exportIntent === 'single' ? '另存为' : '导出整套图片', exportIntent === 'single' ? '选择文件名后，再确认开始导出' : '选择文件夹后，只导出生成图片'], ['long-detail', '合成并导出详情长图', canExportLongDetail ? '按下方顺序无缝拼接为一张长图' : '至少需要 2 张已生成的详情图']].map(([mode, label, desc]) => {
-                const disabled = (mode === 'long-detail' && !canExportLongDetail) || isExportDeliveryBusy(exportDelivery) || exportIntent === 'single' && mode === 'long-detail';
-                return <button key={mode} type="button" disabled={disabled} onClick={() => { configureExport(mode); setExportIntent(mode === 'long-detail' ? 'long-detail' : exportIntent); }} style={{ textAlign: 'left', border: exportMode === mode ? '1.5px solid var(--sb-info-solid-600)' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{label}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{desc}</div></button>;
+              {/* 批 CY-⑭：文案由 `exportDialogCopy` 统一算（按**实际可交付张数**，
+                  不再按 `exportIntent` 这个入口标记），单图场景**不再渲染**长图那一项。 */}
+              {exportCopy.options.map(option => {
+                const disabled = (option.mode === 'long-detail' && !canExportLongDetail) || isExportDeliveryBusy(exportDelivery);
+                return <button key={option.mode} type="button" disabled={disabled} onClick={() => { configureExport(option.mode); setExportIntent(option.mode === 'long-detail' ? 'long-detail' : exportIntent); }} style={{ textAlign: 'left', border: exportMode === option.mode ? '1.5px solid var(--sb-info-solid-600)' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === option.mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{option.label}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{option.description}</div></button>;
               })}
             </div>
             {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
@@ -8140,7 +8326,7 @@ const handlePointerUp = useCallback((e) => {
       )}
 
       {projectAssetLineage && (
-        <div role="presentation" onMouseDown={() => setProjectAssetLineage(null)} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
+        <div role="presentation" onMouseDown={() => setProjectAssetLineage(null)} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(15,23,42,.42)', backdropFilter: 'blur(6px)' }}>
           <section role="dialog" aria-modal="true" aria-labelledby="project-asset-lineage-title" onMouseDown={event => event.stopPropagation()} style={{ width: 'min(520px, 100%)', maxHeight: 'min(680px, 92vh)', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 20, background: '#fff', boxShadow: '0 24px 80px rgba(15,23,42,.24)' }}>
             <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '18px 20px 14px', borderBottom: '1px solid #eef0f2' }}>
               <div style={{ minWidth: 0 }}>
@@ -8170,7 +8356,7 @@ const handlePointerUp = useCallback((e) => {
 
       {/* 图片放大预览 */}
       {zoomImg && (
-        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: 10001, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>

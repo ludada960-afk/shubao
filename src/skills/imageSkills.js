@@ -148,7 +148,35 @@ const CLARITY_2 = [
    默认值必须与 skillRun.js 的回落值一致：界面显示什么，就跑什么。 */
 /* label 可改：知渔「爆款商品文字海报」「中文海报一键生成」这两页里，比例那一格的标题就叫
    「生成尺寸」（不是「比例」）—— 文案照他们。 */
-const ratioField = (options = RATIO, label = '比例', group = '生成设置') => ({ key: 'ratio', label, kind: 'segmented', group, options, required: true, default: options[0].value });
+/* ═══ 2026-09-29 批 CY-⑭：**所有图片技能子页的比例都补上「自适应」**（用户原话，逐字）══════════════
+   「而且你不能只改这个画布里面的尺寸，就是我刚刚跟你说的这四块……的的确确他们也应该去做这个配置，
+     可是这个配置它关乎的是我们**全局的问题**，就是我们首页的图片生成，视频生成，还有我们**各种 skill
+     他们的子页面**……你是不是也得给他们加上这个自适应的这个选项进来呢？」
+   改前只有 2 个技能（图片复刻 RATIO_CLONE / AI换装 RATIO_TRYON，批 R 照知渔逐档抄）有这一档，
+   其余图片技能子页**一律没有** —— 同一件事、同一个竞品证据，在一个产品里出现两种做法。
+   ⇒ 统一在 ratioField 这一层加，不再逐个列表去补（那是几十个复制粘贴的机会，漏一个就是又一次不一致）。
+
+   ⚠️⚠️ **只加选项，不改默认档**（第一版写错了，这里定死）：
+     `default` 仍然是**该技能自己声明的第一档**，不因为前面插了自适应就变成自适应 ——
+     否则等于把几十个技能的行为**一次性全改了**，用户没要求、也没有证据支持。
+     只有真正声明了 RATIO_ADAPTIVE 的那两页（它们的 options[0] 本来就是自适应）默认才是自适应。
+   ⚠️ 视频技能子页**不加**（ratioField 只在 imageSkills 里；用户截的竞品图也显示视频侧没有）。 */
+const ratioField = (options = RATIO, label = '比例', group = '生成设置') => {
+  const list = Array.isArray(options) ? options : [];
+  const withAdaptive = list.some(item => item && item.value === ADAPTIVE_RATIO)
+    ? list
+    : [RATIO_ADAPTIVE, ...list];
+  return {
+    key: 'ratio',
+    label,
+    kind: 'segmented',
+    group,
+    options: withAdaptive,
+    required: true,
+    /* ★ 默认档取**原声明的第一档**，不是 withAdaptive[0] */
+    default: list[0]?.value,
+  };
+};
 /* ═══ 2026-09-19 批 R：图片复刻 / AI换装这两页的比例**照知渔逐档抄**（含「自适应」）═════════
    知渔 ?tool=image-clone 实测（docs/design/data/quantv-image-builtin-pages.json）：
      自适应 / 1:1 / 3:2 / 2:3 / 16:9 / 9:16 / 5:4 / 4:5 / 4:3 / 3:4 / 21:9 / 9:21 / 2:1 / 1:2（14 档）
@@ -157,6 +185,7 @@ const ratioField = (options = RATIO, label = '比例', group = '生成设置') =
    如实缺的 3 档：9:21 / 2:1 / 1:2（引擎尺寸表里还没有这三个尺寸，要加得先定尺寸并实测上游收不收）。
    「自适应」不是"推荐一个固定比例"——知渔自己的 help 原文是
    「「自适应」将根据模特图自动匹配最接近的比例」，实现见 skillRun.nearestLegalRatio。 */
+/* 批 CY-⑭：提到 ratioField 之前 —— 它的函数体在调用时要引用这个常量。 */
 const RATIO_ADAPTIVE = { value: ADAPTIVE_RATIO, label: ADAPTIVE_RATIO };
 /* 图片复刻：知渔那一页的 14 档，顺序照他们 —— 批 X 起**一档不缺**（引擎已补那三档） */
 const RATIO_CLONE = [

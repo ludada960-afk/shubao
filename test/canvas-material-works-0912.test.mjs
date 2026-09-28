@@ -1,6 +1,7 @@
 // test/canvas-material-works-0912.test.mjs
 // 9-11 二轮用户批注契约: 素材/作品逻辑、画布交互、标注工具、技能分域与技能库、首页套图面板。
 import test from 'node:test';
+import { CANVAS_TRANSIENT_SURFACES } from '../src/pages/EcCanvas/canvasSurfaceDismiss.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -73,11 +74,26 @@ test('① 资产库动作: 工具条「加入资产库」注册在 selection 表
 });
 
 test('② 点画布空白: 顶栏与右栏 (派生菜单/图片编辑器) 同时收起', () => {
+  /* ═══ 2026-09-29 批 CY-⑭：判据的**位置**变了，**要求一个字没松** ══════════════════════════════════════
+     改前这里逐字断言 `setConnectionPicker(null); … setConnectionDraft(null);` 必须出现在
+     handlePointerDown 里。事故恰恰出在这个写法上：它只在 `else`(pan) 分支里，而默认 select 工具
+     点空白返回的是 'marquee'（见 canvasState.getCanvasPointerIntent）——**那两行永远执行不到**，
+     于是「点画布空白收起派生菜单」这条需求实际上从来没生效过（用户 2026-09-29 再次报了一遍）。
+     ⇒ 现在两条 setter 都收进 canvasSurfaceDismiss 的**统一仲裁**，点空白一次全关。
+       判据改成：① handler 在 if/else **之前**就调用了仲裁；② 仲裁的登记册里确实有这两个 key。 */
   const canvas = read('src/pages/EcCanvas/index.jsx');
   const down = canvas.match(/const handlePointerDown = useCallback\(\(e\) => \{[\s\S]*?\}, \[activeTool/)?.[0] || '';
   assert.ok(down.length > 0);
   assert.match(down, /setSelected\(null\);/);
-  assert.match(down, /setConnectionPicker\(null\);[\s\S]*?setConnectionDraft\(null\);/);
+  assert.match(down, /dismissAllCanvasSurfaces\('blank'\);[\s\S]*?setConnectionDraft\(null\);/,
+    '点空白必须先走统一仲裁（挂在 pan 分支上 = 默认框选工具永远走不到，那正是这次的事故）');
+  assert.match(down, /dismissAllCanvasSurfaces\('blank'\);/);
+
+  for (const key of ['connectionPicker', 'connectionDraft']) {
+    assert.ok(CANVAS_TRANSIENT_SURFACES[key], key + ' 必须登记在册');
+  }
+  assert.equal(CANVAS_TRANSIENT_SURFACES.connectionPicker.blank, true, '派生菜单必须跟随点空白收起');
+  assert.equal(CANVAS_TRANSIENT_SURFACES.connectionPicker.escape, true, '派生菜单必须跟随 Esc 收起');
 });
 
 test('③ 加号与连线端点完全重叠: 统一节点垂直中心, 不再有 media 节点 -17px 偏移', () => {

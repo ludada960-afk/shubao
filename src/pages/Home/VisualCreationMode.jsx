@@ -38,6 +38,9 @@ import GenSettingsPanel from './ec/GenSettingsPanel.jsx';
    现统一走 resolvePanelWidth（480 标准档 + 窄屏兜底），并接受 PANEL_WIDTH_TABLE 的审计。 */
 import { resolvePanelWidth } from './ec/panelVisualLanguage.js';
 import { IMAGE_RATIOS, imagePixelLabel } from '../../services/imageSizeCatalog.js';
+/* 批 CY-⑭：首页图片侧的「自适应」解析器与画布**共用同一份实现**（用户要求的是全局口径，
+   不是"每个页面各写一遍"）。 */
+import { resolveProtocolRatio } from '../EcCanvas/canvasAdaptiveRatio.js';
 import {
   VISUAL_CREATION_SKILLS,
   VISUAL_RATIO_OPTIONS,
@@ -692,7 +695,14 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           imageUrl: primary,
           referenceImages: supplementary,
           references: referenceMetadata,
-          ratio: config.ratio,
+          /* 批 CY-⑭：首页图片侧的「自适应」也必须在**发出去之前**解成具体比例。
+             上游对认不出的比例是静默回落 1:1（server/ecommerceEngine/modelCatalog.mjs）——
+             那就是用户抱怨的"写了 16:9 却被套成 1:1"，只是发生在服务端、界面上完全看不出来。 */
+          ratio: resolveProtocolRatio({
+            ratio: config.ratio,
+            prompt: config.originalPrompt || config.prompt || '',
+            referenceBox: config.referenceAssets?.[0]?.box || null,
+          }),
           resolution: config.resolution,
           imageModel: config.imageModel,
           requestKey: slot.requestKey,

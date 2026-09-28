@@ -1,10 +1,15 @@
 import JSZip from 'jszip';
+import { deliveryNameFor } from './deliveryNameModel.js';
 
 export function safeDeliveryName(value, format = 'PNG') {
-  const base = String(value || '电商图片')
+  /* 批 CY-⑭：保底名去掉「电商」二字（用户：「我们现在是面向的是通用的用户」）。
+     末尾多补一条 —— 非法字符被换成 '-' 之后，**原来那个结尾的字符也没了**，
+     名字就以一个孤零零的 '-' 收尾（实测「主图/详情:图*」→「主图-详情-图-.png」），
+     用户在文件管理器里看到这种尾巴会以为是乱码。 */
+  const base = String(value || '图片')
     .trim()
     .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-')
-    .replace(/[. ]+$/g, '') || '电商图片';
+    .replace(/[-\s.]+$/g, '') || '图片';
   return `${base}.${String(format || 'PNG').toLowerCase()}`;
 }
 export function deliveryStrategy({ mode = 'images', fileCount = 1, capabilities = {} } = {}) {
@@ -32,8 +37,13 @@ function formatMime(format) {
 
 function uniqueFilenames(items, defaultFormat) {
   const counts = new Map();
+  const total = items.length;
   return items.map((item, index) => {
-    const original = safeDeliveryName(item.name || item.id || `图片-${index + 1}`, item.format || defaultFormat);
+    /* 批 CY-⑭：名字由 `deliveryNameFor` 决定（用户起的名字 → 业务角色 → 提示词首句 → 图片-NN），
+       并且**长得像内容哈希的名字一律判为无效**。
+       改前这里是 `item.name || item.id`，而那串 64 位 sha 是从上游 `label` 一路传下来的
+       （事故链见 deliveryNameModel.js 顶部）—— 于是用户下载到的就是 `a9f2e9cd….png`。 */
+    const original = safeDeliveryName(deliveryNameFor(item, index, total), item.format || defaultFormat);
     const count = counts.get(original) || 0;
     counts.set(original, count + 1);
     if (!count) return original;
