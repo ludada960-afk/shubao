@@ -1341,25 +1341,40 @@ try {
      ⇒ 变异测试：把 `.video-content-composer.is-workbench` 的 `padding: 0 0 14px` 改回 `0 22px 14px`，
        本条立刻红（左右 x/宽都对不上）。 */
   scenario('⑬b2 两侧工作台：内容列 / 胶囊 / CTA 同左缘同宽（批 CT）');
-  const sideGeometry = async (path, readySel, fieldSel, chipSel, ctaSel) => {
+  const sideGeometry = async (path, readySel, fieldSel, chipSel, ctaSel, bandSel = null) => {
     await page.goto('http://127.0.0.1:' + PORT + path, { waitUntil: 'load', timeout: 40000 });
     await page.waitForSelector(readySel, { timeout: 20000 });
     await page.waitForTimeout(500);
-    return page.evaluate(([fieldSel, chipSel, ctaSel]) => {
+    return page.evaluate(([fieldSel, chipSel, ctaSel, bandSel]) => {
       const R = sel => {
         const el = document.querySelector(sel);
         if (!el) return null;
         const r = el.getBoundingClientRect();
         return { x: Math.round(r.x), w: Math.round(r.width), h: Math.round(r.height) };
       };
+      /* 底栏的"白底带"与它所在滚动容器的关系（批 CY-⑤ 的实机契约用）：
+         contentRight = 滚动容器的**内容盒右缘**（= 栏右缘 − 右内边距 − 滚动条占宽）——
+         白底必须越过去，才算把那条缝盖住。 */
+      const band = (() => {
+        const el = bandSel ? document.querySelector(bandSel) : null;
+        const col = document.querySelector('.media-workbench-left');
+        if (!el || !col) return null;
+        const r = el.getBoundingClientRect(), c = col.getBoundingClientRect();
+        const cs = getComputedStyle(col);
+        return {
+          x: Math.round(r.x), right: Math.round(r.right), w: Math.round(r.width),
+          contentRight: Math.round(c.right - parseFloat(cs.paddingRight) - (col.offsetWidth - col.clientWidth)),
+          scrollW: col.scrollWidth, clientW: col.clientWidth,
+        };
+      })();
       return {
-        left: R('.media-workbench-left'), field: R(fieldSel), chip: R(chipSel), cta: R(ctaSel),
+        left: R('.media-workbench-left'), field: R(fieldSel), chip: R(chipSel), cta: R(ctaSel), band,
         err: /is not defined|出错了/.test(document.body.innerText || ''),
       };
-    }, [fieldSel, chipSel, ctaSel]);
+    }, [fieldSel, chipSel, ctaSel, bandSel]);
   };
   const imgSide = await sideGeometry('/image-creation?id=image.product_suite', '.media-workbench-submit',
-    '.media-field', '.media-field-segmented button', '.media-workbench-submit');
+    '.media-field', '.media-field-segmented button', '.media-workbench-submit', '.media-workbench-cta');
   const vidSide = await sideGeometry('/video-creation?id=video.image_to_video', '.video-generate-trigger',
     '.video-wb-block', '.media-field-segmented button', '.video-generate-trigger');
   check(!imgSide.err && !vidSide.err, '两侧工作台都没有进错误边界（批 CP 的漏 import 就是这么抓到的）',
@@ -1372,6 +1387,24 @@ try {
       '两侧 ' + key + ' 同左缘同宽（图片 ' + a.x + '/' + a.w + ' vs 视频 ' + b.x + '/' + b.w + '）',
       JSON.stringify({ img: a, vid: b }));
   }
+
+  /* ═══ 2026-09-28 批 CY-⑤：图片侧底栏的**白底要横向铺满整栏**（用户批注图7，实机契约）════════════
+     用户原话（逐字）：「你好好看一下现在你这个**生成预览或者生成图片、生成视频的这个按钮**，它
+     **左右两边实际上好像还是没有覆盖满**。就是我去**滑动它还是能够看到它背后的那个工作台的内容**。
+     还是会被露出来。**这个问题已经有让你去解决啦**，你还是没解决掉呀。」
+     根因（批 CY-⑤ 逐像素实测）：「生成预览」那颗是左栏**内容盒**里的 sticky 长条，白底只铺到内容盒 ——
+     左 20px、右 31px（20 内边距 + 11 滚动条槽）留在外面；图7 里被压在下面的「设计风格」行那颗紫边
+     「AI推荐」按钮的左边缘就从那条缝里透了出来（约 4px 宽、50px 高的淡紫竖条）。
+     ⇒ 现在 CTA 用负外边距 + 等量内边距把那圈内边距"吃"进自己（按钮本体位置不变）。
+     ⚠️ 视频侧不参与这条：它的底栏（`.video-toolbar`）是**滚动区的兄弟**、本来就铺满面板（实测左右缝 0），
+        没有"内容从背后透出来"的物理条件 —— 所以只对图片侧断言，不硬把两侧写成同一个数。 */
+  check(imgSide.band && imgSide.left && imgSide.band.x === imgSide.left.x,
+    '图片侧底栏白底**贴到左栏左缘**（0 缝 —— 就是图7 那条紫边出现的地方）',
+    JSON.stringify({ 栏: imgSide.left, 底栏: imgSide.band }));
+  check(imgSide.band && imgSide.band.right > imgSide.band.contentRight,
+    '白底**越过了内容盒右缘**（把右内边距那条缝一起盖住）', JSON.stringify(imgSide.band));
+  check(imgSide.band && imgSide.band.scrollW === imgSide.band.clientW,
+    '盖这两条缝**没有引入横向滚动**（否则就是"补了缝、多了根滚动条"）', JSON.stringify(imgSide.band));
 
   /* ═══ 2026-09-23 批 AD：**辅助能力卡片点开去哪**（真浏览器验证）═════════════════════════════
      运镜控制 / 延长续写 / 画面修改 这三条按设计**没有自己的工作台**
