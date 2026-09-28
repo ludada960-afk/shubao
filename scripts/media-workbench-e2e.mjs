@@ -1493,8 +1493,15 @@ try {
   check(bigAction && bigAction.centerOff >= -1 && bigAction.centerOff <= 1,
     '那颗按钮**相对字段列居中**（知渔实测父层就是 justify-content: center）', String(bigAction?.centerOff));
   check(bigAction && bigAction.h === 45, '高度 45（与知渔 h-9 同档）', String(bigAction?.h));
-  check(bigAction && bigAction.fieldBottom != null && bigAction.btnTop > bigAction.fieldBottom,
-    '它落在「设计风格要求」框**下面** —— 结果框在上、按钮在下（与知渔同构）',
+  /* ═══ 2026-09-28 批 CY-⑪：**用户改向** —— 这一条的口径变了（原话逐字）═════════════════════════════
+     「设计风格要求它**不应该是一个提示词输入框**。他应该是一个一键解析风格的按钮**在中心**……
+       只有当用户点击这个一键解析风格的按钮之后，他才会去解析，解析之后的生成结果才会出现在那个输入框里。
+       你看一下知鱼他们就是这样做的呀。」
+     ⇒ 改前这里断言的是"按钮落在**永远存在的**「设计风格要求」框下面"；现在那一格**点之前不渲染输入框**
+       （`hideWhenEmpty`），所以正确的判据是：**空态下没有输入框、只有居中的那颗按钮**（与知渔同构）。
+       `box` 仍保留读数：一旦将来真渲染了框（例如分析已完成），这条会显示框的位置便于排查。 */
+  check(bigAction && bigAction.fieldBottom == null,
+    '那一格**点之前没有输入框**（AI 结论框空态不渲染 —— 用户原话：它不应该是一个提示词输入框）',
     JSON.stringify({ 框底: bigAction?.fieldBottom, 按钮顶: bigAction?.btnTop }));
   /* 没上传就点：就地提醒，不发任何请求（更不扣费） */
   const recognizeBefore = calls.recognize.length;
@@ -1910,10 +1917,28 @@ try {
           return true;
         }, option.label);
         await page.waitForTimeout(260);
-        const revealed = await page.evaluate(label => [...document.querySelectorAll('.media-field')]
-          .some(node => node.getBoundingClientRect().height > 0 && ((node.querySelector('.media-field-label') || {}).innerText || '').startsWith(label.slice(0, 6))), gate.label);
+        const revealed = await page.evaluate(label => {
+          const box = [...document.querySelectorAll('.media-field')]
+            .some(node => node.getBoundingClientRect().height > 0 && ((node.querySelector('.media-field-label') || {}).innerText || '').startsWith(label.slice(0, 6)));
+          const action = Boolean(document.querySelector('.media-workbench-field-action button, .media-workbench-field-action .media-workbench-paid'));
+          return { box, action };
+        }, gate.label);
         if (!clicked) { result.problem = '切不到「' + option.label + '」（控制器里找不到这颗药丸）'; return result; }
-        if (!revealed) { result.problem = '切到「' + option.label + '」之后「' + gate.label + '」没有出现（死配置）'; return result; }
+        /* ═══ 2026-09-28 批 CY-⑪：**用户改向** —— 这条判据的口径变了（原话逐字）═══════════════════════
+           「设计风格要求它**不应该是一个提示词输入框**。他应该是一个一键解析风格的按钮**在中心**……
+             只有当用户点击这个一键解析风格的按钮之后，他才会去解析，解析之后的**生成结果才会出现在
+             这个输入框里面**。你看一下知鱼他们就是这样做的呀。……那个**自定义要求**他才是你现在的
+             这个情况呀，就是用户可以自动输入他想要的各种各样的提示词。」
+           ⇒ 声明里带 `hideWhenEmpty` 的字段（内容**由付费动作产出**、用户不写）在"还没产出"时**本就不该出现**：
+             那一档"换出了东西"体现为**居中的那颗动作按钮**。所以这一档的判据是——
+             字段出现 **或** 那一格的动作按钮出现（两者其一即算"不是死配置"）；
+             没有 `hideWhenEmpty` 的档位（用户自己写的，如「自定义要求」的设计要求）判据不变：**必须出现**。 */
+        if (!revealed.box && !(gate.hideWhenEmpty && revealed.action)) {
+          result.problem = gate.hideWhenEmpty
+            ? '切到「' + option.label + '」之后既没有「' + gate.label + '」（空态不渲染，这是对的）也没有那一格的**动作按钮**（那才是死配置）'
+            : '切到「' + option.label + '」之后「' + gate.label + '」没有出现（死配置）';
+          return result;
+        }
       }
       /* 通用配齐：上传位放图、输入位写字、下拉选第一项、分段控件没选中就点第一个。
          ⚠️ 每个上传位的 input 是**独立的**（accept 不同、位次不同），

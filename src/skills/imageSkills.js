@@ -276,6 +276,15 @@ function styleFields(group) {
     { key: 'styleBrief', label: '设计风格要求',
       kind: 'textarea', rows: 3, group,
       visibleWhen: { key: 'style', equals: 'AI推荐' },
+      /* ═══ 2026-09-28 批 CY-⑪：**空态不渲染**（用户当面纠正，逐字）════════════════════════════════
+         用户原话：「设计风格要求它**不应该是一个提示词输入框**。他应该是一个一键解析风格的按钮**在中心**……
+           只有当用户点击这个一键解析风格的按钮之后，他才会去解析，解析之后的**生成结果才会出现在这个
+           输入框里面**。你看一下知鱼他们就是这样做的呀。……那个**自定义要求**他才是你现在的这个情况呀，
+           就是用户可以自动输入他想要的各种各样的提示词。」
+         ⇒ 这一格的内容**由「一键解析风格」产出**（用户不写），所以点之前整格不渲染 ——
+           那一格只剩居中的那颗按钮；点完结论落进来，它才出现并可编辑（与知渔同构）。
+         ⚠️ 「自定义要求」档的 `styleNote` **不加**这个标记（那是用户自己写的，见上面那段原话）。 */
+      hideWhenEmpty: true,
       placeholder: '点「AI 推荐」后，结论会写在这里，可以直接改' },
   ];
 }
@@ -638,6 +647,8 @@ export const IMAGE_SKILLS = [
         longLabelReason: '照知渔原文逐字：选「爆款风格」时下面那一栏就叫「AI推荐风格选择」',
         kind: 'textarea', rows: 3, group: '产品卖点与设计风格',
         visibleWhen: { key: 'style', equals: '爆款风格' },
+        /* 批 CY-⑪：同样是"由 AI 产出"的结论框 ⇒ 空态不渲染（见 styleFields 里那段用户原话） */
+        hideWhenEmpty: true,
         placeholder: '点上面的「AI 推荐」后，分析结论会写在这里，可以直接改' },
       /* ═══ 2026-09-19 批 I-10：这里**删掉了整块「生成设置」（比例 + 数量）**══════════════════
          用户批注 #3-2 原话：「而且这个**生成设置又是什么鬼**啊，**人家没有这个呀**，
@@ -737,6 +748,8 @@ export const IMAGE_SKILLS = [
         longLabelReason: '照知渔原文逐字：选「爆款风格」时下面那一栏就叫「AI推荐风格选择」',
         kind: 'textarea', rows: 3, group: '产品卖点与设计风格',
         visibleWhen: { key: 'style', equals: '爆款风格' },
+        /* 批 CY-⑪：同样是"由 AI 产出"的结论框 ⇒ 空态不渲染（见 styleFields 里那段用户原话） */
+        hideWhenEmpty: true,
         placeholder: '点上面的「AI 推荐」后，分析结论会写在这里，可以直接改' },
       ratioField(),
       countField(6),

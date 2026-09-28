@@ -772,7 +772,12 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   const [countAnchorRef, countAnchor] = useCanvasPopoverAnchor(open === 'count' ? 'count' : '');
   return <div className="ec-canvas-parameter-controls" ref={rootRef} onPointerDown={event => event.stopPropagation()}>
     <div className="ec-canvas-parameter-item">
-      <button ref={modelAnchorRef} type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}>{imageModelLabel(imageModel)}<ChevronDown size={12} /></button>
+      {/* ⚠️ 批 CY-⑫：模型名要包进 `<span>`（原来是一段**裸文本节点**）。裸文本不可收缩 ⇒ 名字一长，
+          整颗按钮就溢出，`overflow:hidden` 把**右边的箭头一起裁掉** —— 用户原话：「你现在其他的按钮，
+          它后面不是有一个箭头的符号吗？那你这里为什么没有符号呢？」。包成 span 之后按站内规矩
+          （`.ec-canvas-parameter-item > button > span` 有 min-width:0 + overflow:hidden）：
+          **先裁文字、箭头永远在**（仍然不写省略号，那是 9-17 的老规矩）。 */}
+      <button ref={modelAnchorRef} type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}><span>{imageModelLabel(imageModel)}</span><ChevronDown size={12} /></button>
       <CanvasPopoverPortal open={open === 'model'} anchor={modelAnchor} className="ec-canvas-model-popover" label="生图模型选项">
         {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
         {SELECTABLE_IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => {
