@@ -27,7 +27,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { getImageSkill, IMAGE_SKILL_CATEGORIES, FIELD_KINDS, SKILL_COMPLEXITIES, IMAGE_PIPELINES } from '../src/skills/imageSkills.js';
-import { buildSkillBrief, initialSkillValues, skillGenerationSettings } from '../src/skills/skillRun.js';
+import { buildSkillBrief, buildSkillRequest, initialSkillValues, skillGenerationSettings, skillPointsEstimate } from '../src/skills/skillRun.js';
 import { SKILL_SOURCES, SOURCE_KINDS } from '../src/skills/skillSources.js';
 import { QUANTV_IMAGE_COUNTERPARTS } from '../src/skills/quantvImageParity.js';
 import { COVER_TEMPLATES, COVER_ACCENTS } from '../src/skills/coverTemplates.js';
@@ -196,4 +196,35 @@ test('⑨ 人物形态七档：默认 = 实测最高频那一档，且**不做�
   let caught = false;
   try { assert.match(buildSkillBrief(skill, { person: '' }), /人物形态：画面里不出现任何人物/); } catch { caught = true; }
   assert.equal(caught, true, '人物形态为空时没被判红 ⇒ 上面那条测的不是它');
+});
+
+test('⑩ 模型选择：8 档来自目录、默认 GPT Image 2，价格随模型走、分辨率随模型夹取（0928 开放）', () => {
+  /* 用户原话（逐字）：「**那现在最火的不是 image2.5 吗，我不能用上吗，我们现在有支持吗**」。
+     GPT Image 2.5（Sunburst/Flare）9-13 就接通了（上游 gpt-image-2.5-sunburst/flare-*、
+     计费 SKU/账目标签齐全），此前只在别的页面可选 —— 对这一页是"做出来了却不给用"。
+     现在**开放**：默认仍是 GPT Image 2（通用主力 + 全场最便宜），选 2.5 时 CTA 积分自动变。 */
+  const field = skill.fields.find(item => item.key === 'imageModel');
+  assert.ok(field, '缺「模型选择」这一格');
+  assert.equal(field.kind, 'select', '模型是长清单，用下拉（不新造控件）');
+  assert.equal(field.required, true, '它是必填（有默认值，不会卡 CTA）');
+  assert.equal(field.default, 'image2', '默认仍是 GPT Image 2（通用主力 + 全场最便宜的那一档）');
+  assert.ok(field.options.some(option => option.value === 'image2-5-sunburst'), '2.5 旗舰（Sunburst）必须在场');
+  assert.ok(field.options.some(option => option.value === 'image2-5-flare'), '2.5 极速（Flare）必须在场');
+  assert.equal(field.options.length, 8, '选项 = 目录里的全部可选拍档（不许手写第二份名单）');
+  /* 价格随模型走：skillPointsEstimate 读的就是 settings.imageModel（与 CTA 同一份） */
+  const base = { ...initialSkillValues(skill), count: 1 };
+  const gpt2 = skillPointsEstimate(skill, base);
+  const sunburst = skillPointsEstimate(skill, { ...base, imageModel: 'image2-5-sunburst' });
+  assert.equal(gpt2, 1, 'GPT Image 2 @2K = 1 积分/张');
+  assert.equal(sunburst, 1.5, '2.5 Sunburst @2K = 1.5 积分/张（目录价，按钮上的数自动跟着变）');
+  /* 分辨率随模型夹取：Midjourney 只有 1K/2K —— optionsFrom 指向目录那张映射表 */
+  const clarity = skill.fields.find(item => item.key === 'clarity');
+  assert.deepEqual(clarity.optionsFrom, { key: 'imageModel', map: { midjourney: ['1K', '2K'] } },
+    '分辨率档必须跟着模型夹取（否则会给出"显示 4K、按 2K 跑"的账实不符）');
+  /* 模型不进提示词（它是工程参数；混模型才是要防的事 —— 由"一篇同模型"保证） */
+  const brief = buildSkillRequest(skill, { ...base, imageModel: 'image2-5-sunburst' }, { runId: 'r' }).prompt;
+  assert.doesNotMatch(brief, /Sunburst|Flare|模型/, '模型名不许漏进提示词');
+  /* 请求里带的是选中的模型（服务端按它路由到 gpt-image-2.5-*）—— buildSkillRequest 把它放在顶层 */
+  assert.equal(buildSkillRequest(skill, { ...base, imageModel: 'image2-5-sunburst' }, { runId: 'r' })
+    .imageModel, 'image2-5-sunburst', '选中的模型要真的下发');
 });
