@@ -510,6 +510,91 @@ export function buildSkillRequest(skill, values = {}, { runId = '', slotIndex = 
   };
 }
 
+/* ═══ 2026-09-28 批 DC 续-7 · 一：**文案与出图同源、但不是同一次请求** ═══════════════════════
+   用户 2026-09-28 当面问的（逐字）：「如果你要产出的是一整套的小红书图文的话，那肯定是文案一起出的话
+   会更加统一吧，因为如果把文案我们后面再单独去生成出来的话，他是不是跟你的图片其实又不在一个体系内呢？
+   很有可能是你先去生成图片，然后再拿图片去生成文案，这样的话会很混乱。」
+   ⇒ 结论：**一次下单 = N 张图 + 1 组文案**（一篇图文才是交付单元，小红书的发布单位本来就是一篇笔记），
+     但两者**并行**发起、**各自计费**。
+   ── 为什么请求体里**不能有图片 URL**（这一条是本批的判据，门禁逐字守着）──────────────────
+     · 出图那跳的产物是像素。prompt 里没有一个像素能变成标题，硬塞进去只会挤占图像描述的 token，
+       标题与正文反而变差。
+     · 文案必须是「**同源的两个渲染**」——同一份 brief、两种输出。
+     · 一旦改成"看图说话"，模型会退化成**图片说明**（「这是一张木桌上的白瓷器」），
+       那是最烂的小红书文案：它只会描述已经看得见的东西。
+     · 所以宁可让文案与图各自独立，也不要让文案去"读图"。 */
+
+/** 这条技能要不要在出图的那一次提交里**顺带**出文案（默认跟、不重复问一次）。 */
+export function skillCopyShouldRun(skill, values = {}) {
+  const source = values && values.postCopyEnabled;
+  /* 显式关掉就是关掉（用户在 CTA 旁边那一行关的）；没有这一项的技能一律不出文案。 */
+  return skill && skill.id === 'image.concept_set' && source !== false;
+}
+
+/** 文案那一跳的入参。**只有这一篇的策划要素，没有任何一个图片地址。**
+ *  ⚠️ shots 传的是**手法名 + 执行定义**（与出图时逐张用的是同一份字符串），
+ *     不是"图 1 是静物、图 2 是场景"这种看图得来的描述。 */
+export function buildSkillCopyRequest(skill, values = {}, { attempt = 0 } = {}) {
+  const effective = { ...initialSkillValues(skill), ...(values || {}) };
+  const shots = (Array.isArray(effective.shots) ? effective.shots : []).map(text).filter(Boolean);
+  return {
+    theme: text(effective.theme),
+    shots,
+    person: text(effective.person),
+    notes: text(effective.notes),
+    product: text(effective.product),
+    /* 随篇首发 = batch:0；「再来一版」= 1,2…（幂等键不能撞，见 conceptCopyActionId）。 */
+    attempt: Math.max(0, Number(attempt) || 0),
+    /* ⚠️ 门禁 test/concept-set-post-0929 逐字断言：这两个键必须恒为空。
+       一旦有人"顺手把图带上去"，这一版就变成看图说话 —— 那是最差的一版文案。 */
+    imageUrl: '',
+    referenceImages: [],
+  };
+}
+
+/** 技能声明了规模预设时的那一格（`shotPreset`）。**只有这一格**能改清单的勾选规模 ——
+ *  写在字面量上，页面里就不必再写一份"哪个字段管勾选"。 */
+export const SKILL_MODULES_PRESET_KEY = 'shotPreset';
+
+/** 进页面时的默认勾选（关掉的那几个 = moduleOff 的成员）。
+ *
+ *  ⚠️ 两种技能必须区别对待，这是两次不同的用户拍板，不能互相覆盖：
+ *   · **声明了 `modulesPresets`**（现在只有「概念视觉方案」）：进页面就按默认档**勾好** ——
+ *     用户 2026-09-28 当面问「**你这个工作台里面并没有给我张数呀。我根本就不知道你产出的到底是多少张**」，
+ *     而默认全不勾 + 「已选 0/10」那行让人既看不出张数、又点不动按钮（批 DC 续-7 的根因）。
+ *   · **没声明**（A+ 内容的 16 个内容模块等）：进页面**一个都不勾** ——
+ *     批 AW 用户原话「而且好像他们也不是默认打勾的吧……跟他们一样做就好」，这一条不许被上面那条改掉。
+ */
+export function skillInitialModuleOff(skill, modules = []) {
+  const list = Array.isArray(modules) ? modules : [];
+  const presets = Array.isArray(skill && skill.modulesPresets) ? skill.modulesPresets : [];
+  if (!presets.length) return new Set(list.map(module => text(module && module.name)));
+  const field = ((skill && skill.fields) || []).find(item => item && item.key === SKILL_MODULES_PRESET_KEY);
+  const wanted = text(field && field.default) || text(presets[0].value);
+  const preset = presets.find(item => text(item && item.value) === wanted) || presets[0];
+  const count = Math.max(0, Math.min(list.length, Number(preset.count) || 0));
+  return new Set(list.slice(count).map(module => text(module && module.name)));
+}
+
+/* ═══ 2026-09-28 批 DC 续-7 · 二：按钮上**写清单价与总额**（docs/design/90 §6.5 的口径）════════
+   原来按钮上只有一个孤零零的「12 积分」，用户看不出是"6 张 × 2"还是"一张 12"——
+   而这一页恰恰是**按张计价**的（勾几张出几张），所以单价与张数必须一起出现。
+   `copyPoints` 由调用方传进来（文案价是计费目录的事，skillRun 不去 import 服务层）。
+   ⇒ 返回一个纯对象 + 一句人话，页面只负责把它放进按钮（不自己拼价）。 */
+export function skillBatchQuote(skill, values = {}, { copyPoints = 0 } = {}) {
+  const count = skillGenerationSettings(skill, values).count;
+  const imagePoints = skillPointsEstimate(skill, values);
+  const perImage = count > 0 ? Number((imagePoints / count).toFixed(2)) : 0;
+  const copy = Math.max(0, Number(copyPoints) || 0);
+  const total = Number((imagePoints + copy).toFixed(2));
+  const parts = [`${count} 张 × ${perImage}`];
+  if (copy) parts.push(`文案 ${copy}`);
+  return {
+    count, imagePoints, perImage, copyPoints: copy, total,
+    detail: parts.join(' + ') + ` = ${total} 积分`,
+  };
+}
+
 /* ── ⑦ 运行方式（决定 CTA 点了以后发生什么）────────────────────────────────
    用户 9-17 口径：「生成结果直接在工作台里面展示，不必像之前一样生成完就一定要跳进去画布
    里面……如果是在子页面的工作台生成的，就会在各自的子页面历史记录里面。」

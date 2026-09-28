@@ -139,18 +139,20 @@
      文字另起一行落在格子外面 —— 视觉上就是"一个浮片 + 一行字"，两块各自为政。
      改后：**格子自己有底**（图标与文字坐在同一块面上），磁贴去掉阴影不再"浮"，
      两者共享同一个 hover 面、同一条底边进度条 —— 这才叫同一个维度。 */
-  /* 批 BI：默认底的横向渐变必须写在这里（用户原话：「他们的背景色的渐变以及他们图标上面的渐变，
-     你都没有抄过来啊……你现在根本就没有去改变呀。」）。
-     上一批（BG）把渐变写在前面那条 .app-sidebar-cell 里，**根本没生效** ——
-     因为这条后写的 background 简写会把 background-image 一起重置成 none
-     （实测计算值 backgroundImage = none，用户看到的"没改变"是准确的）。
-     ⇒ 拆成 background-color + background-image 两条：默认就是"左白 → 右品牌色"的横向渐变。 */
-  /* 批 BJ：照 liuyingai.cn **实测**（真实鼠标 hover 后读计算样式）—— 他们那一列的卡默认是
-     `rgb(255,255,255)` **纯白、backgroundImage: none**；渐变只出现在图标磁贴上。
-     我们保留一层"左白 → 右极淡品牌色"（用户描述过他看到的白→蓝方向），但把强度收到 5%：
-     视觉上就是近纯白，静态截图里仍能看到方向性。 */
+  /* 批 BI / BJ 的旧结论已作废（见上面那两段注释）——2026-09-28 批 DC 续-7 按用户当面反馈重做。
+     ═══ 用户批注图1-④ 原话：「**这个里面两层紫色啊，你在处理的时候没有做干净**」══════════════
+     那一层"后面"的紫就是**这一条**：`linear-gradient(90deg, neutral-0, brand-a05)`。
+     它铺在**静止态**的整格上（38×38 的磁贴只有格宽的 1/2），于是：
+       ① 用户在**没有 hover** 的截图上就看到一整条淡紫底 —— 他以为还有一层没画完；
+       ② 它和磁贴自己那条 135deg 品牌渐变 + 32% 紫发光叠在一起 = 两层紫。
+     改动（三处一起，只去掉"多余那一层"，不拿掉该有的那层）：
+       · **删掉这条静止态的紫渐变**，格子回到中性纯色（留影AI 实测他们的卡默认是纯白 backgroundImage:none，
+         见上面批 BJ 引的实测 —— 上一批写"保留 5% 品牌色"是我自己的发挥，实测不支持）；
+       · 磁贴的紫只在 **hover / 选中**时出现（那才是该有颜色的时候）；
+       · 发光阴影从 8px/32% 收到 5px/22% —— 原来那圈光晕溢出到格外，和格底那层紫糊在一起。
+     ⚠️ 颜色仍然只落在**小面积**上（批 H-2 的纪律不变）：紫只在小磁贴那一块。 */
   background-color: var(--sb-surface-tint);
-  background-image: linear-gradient(90deg, var(--sb-neutral-0) 0%, var(--sb-brand-a05) 100%);
+  background-image: none;
   color: var(--sb-ink-3);
   font: inherit;
   cursor: pointer;
@@ -239,7 +241,11 @@
    对角渐变落在**图标磁贴**上、不在卡底）。批 BI 那版把对角渐变铺在整格上，与实测不符，撤掉。
    （那版是照用户"左上蓝右下紫"的描述做的；现在他要求按实测 1:1，以实测为准。） */
 .app-sidebar-cell:hover {
-  background-image: linear-gradient(0deg, var(--sb-surface-tint-strong), var(--sb-surface-tint-strong));
+  /* 2026-09-28 批 DC 续-7：用 `background-color` 而不是"渐变画一块纯色"。
+     原来那条 `linear-gradient(0deg, tint-strong, tint-strong)` 与纯色**计算值完全等价**，
+     却让"这格有没有渐变"这件事在 CSS 里永远查不清 —— 本批的"两层紫"就是这么查出来的：
+     静止态铺了一条 5% 品牌色、hover 换成另一条，两条都挂在 background-image 上。 */
+  background-color: var(--sb-surface-tint-strong);
   color: var(--sb-ink-1);
 }
 .app-sidebar-cell:hover .app-sidebar-tile {
@@ -250,7 +256,9 @@
   background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-brand-ink);
   transform: scale(1.05);
-  box-shadow: 0 8px 18px var(--sb-brand-a32);
+  /* 2026-09-28 批 DC 续-7：8px/32% → 5px/22%。原来那圈光晕溢出磁贴、糊到格底上，
+     与格底那层品牌色一起读成"两层紫"（用户批注图1-④）。收小之后颜色仍然只落在小面积上。 */
+  box-shadow: 0 5px 12px var(--sb-brand-a18);
 }
 .app-sidebar-cell:hover .app-sidebar-label { color: var(--sb-ink-brand); }
 .app-sidebar-cell:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
@@ -273,7 +281,9 @@
 .app-sidebar-cell.is-active .app-sidebar-tile {
   background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-brand-ink);
-  box-shadow: 0 8px 18px var(--sb-brand-a32);
+  /* 2026-09-28 批 DC 续-7：与 hover 同一档（原来这里是 8px/32%，只有 hover 收小、选中没收 ——
+     同一个磁贴在两种状态下两套光晕，截图里就变成"选中那格外面还有一层紫"）。 */
+  box-shadow: 0 5px 12px var(--sb-brand-a18);
 }
 .app-sidebar-cell.is-active .app-sidebar-label { font-weight: 900; }
 
@@ -343,9 +353,12 @@
 .app-sidebar-task.has-progress::after { display: none; }
 /* 有任务在跑：磁贴常亮品牌渐变（与选中态同一套），不看 hover 也知道"在生成"。 */
 .app-sidebar-task.is-live .app-sidebar-tile {
-  background-image: linear-gradient(135deg, var(--sb-brand-500), var(--sb-brand-700));
+  /* 2026-09-28 批 DC 续-7：与 hover / is-active **同两档**。原来这里是 500→700 + 8px/32%，
+     是这一列里第三套紫 —— 同一颗磁贴在三种状态下三套渐变与三套光晕，用户批注图1-④
+     说的"没有做干净"就是这种地方。渐变端点与光晕都照上面两处收成同一档。 */
+  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-brand-ink);
-  box-shadow: 0 8px 18px var(--sb-brand-a32);
+  box-shadow: 0 5px 12px var(--sb-brand-a18);
 }
 
 /* ═══ 2026-09-19 批 I-③：底部那颗「开始创作」实色按钮**已删除**（用户批注 #1：

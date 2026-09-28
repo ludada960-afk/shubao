@@ -42,6 +42,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = relative => readFileSync(join(ROOT, relative), 'utf8');
 const PAGE = read('src/pages/MediaCreation/index.jsx');
 const API = read('src/services/conceptCopy.js');
+const WRITER = read('server/conceptCopywriting.mjs');
 const SKU = 'ec_concept_copy';
 
 /* ═══ ① 句式库：六种、带实测原句、轮换 ══════════════════════════════════════════════════════ */
@@ -186,15 +187,37 @@ test('⑤ 输出解析 / 计费（0.5 积分过毛利地板）/ 客户端先报�
   assert.match(API, /quoteConceptCopy/, '要先报价');
   assert.match(API, /export async function generateConceptCopy/, '要有生成函数');
   assert.match(API, /conceptCopyActionId\(input\)/, '请求要带 actionId（服务端据此幂等/结算）');
-  assert.match(API, /String\(Number\(input\.attempt\) \|\| 1\)/, 'attempt 要进 actionId');
+  assert.match(API, /Number\.isFinite\(Number\(input\.attempt\)\)/, 'attempt 要进 actionId');
+  /* ⚠️ 2026-09-28 批 DC 续-7：attempt **0 是合法值**（文案并进出图那一次提交 = 随篇首发第 0 版）。
+     原来这里写的是 `Number(input.attempt) || 1`，0 会被吞成 1 ⇒ 随篇首发与"第一版重做"
+     撞同一个幂等键（服务端当重复请求挡回去，表现为"点了没反应"），也撞同一组标题句式。 */
+  assert.doesNotMatch(API, /Number\(input\.attempt\) \|\| 1/, 'attempt=0 会被吞成 1，幂等键与句式都会撞版');
+  assert.match(WRITER, /const start = \(Number\(attempt\) \|\| 0\) % total/,
+    '句式起点直接取 attempt（0/1 必须给出不同组合，否则「再来一版」拿回同一组句式）');
   const idOne = /concept-copy/.test(API);
   assert.ok(idOne, 'actionId 的命名空间要能看出来是这一条动作');
-  /* 页面接线：确认在前、请求在后；按钮上写价；只对概念方案渲染 */
+  /* 页面接线：确认在前、请求在后；按钮上写价；只对概念方案渲染
+     ⚠️ 2026-09-28 批 DC 续-7 重构：请求那一段被抽成 `runPostCopy(attempt)` ——
+        ① 出图那一次提交里并行跑的那一跳（attempt=0，确认已在 generate() 的那个确认框里做过）；
+        ② 结果区「代写文案 / 再来一版」那颗按钮（attempt=1,2…，确认在这一段里做）。
+        判据从"同一段里 confirm 在请求之前"改成"**请求只在被确认过的那一跳里**"：
+        单独点那颗按钮 → 确认 → runPostCopy；并进出图 → 那一个确认框（写明总价）→ runPostCopy。 */
   const handler = PAGE.slice(PAGE.indexOf('async function writePostCopy()'), PAGE.indexOf('function copyPostCopyAll()'));
-  assert.ok(handler.indexOf('dialog.confirm(') > 0 && handler.indexOf('generateConceptCopy(') > handler.indexOf('dialog.confirm('),
-    '确认必须发生在发起之前（铁律②：没有用户确认绝不扣费）');
+  const fetcher = PAGE.slice(PAGE.indexOf('async function runPostCopy('), PAGE.indexOf('async function writePostCopy()'));
+  assert.ok(handler.indexOf('dialog.confirm(') > 0 && handler.indexOf('runPostCopy(') > handler.indexOf('dialog.confirm('),
+    '单独点那颗按钮时：确认必须发生在发起之前（铁律②：没有用户确认绝不扣费）');
   assert.match(handler, /本次扣 \$\{CONCEPT_COPY_POINTS\} 积分/, '确认框要写明这一次扣多少积分');
-  assert.match(handler, /不扣积分/, '失败时要如实说没有扣积分');
+  assert.doesNotMatch(fetcher, /dialog\.confirm\(/,
+    '真正发请求的那一跳**自己不再弹确认**（并进出图时确认已经在 generate() 那个总价框里做过了；' +
+    '两跳都弹 = 下单要确认两遍，正是用户说的"很混乱"）');
+  assert.match(fetcher, /generateConceptCopy\(/, '请求确实在这一跳里发');
+  assert.match(fetcher, /buildSkillCopyRequest\(/,
+    '入参必须过 buildSkillCopyRequest（它逐字保证不带任何图片地址 —— 门禁 concept-set-post-0929 守这件事）');
+  assert.match(PAGE, /copyInBatch \? runPostCopy\(0\) : Promise\.resolve\(\)/,
+    '并进出图那一跳的 attempt 必须是 0（随篇首发），与「再来一版」的 1,2… 不撞幂等键');
+  assert.match(PAGE, /Promise\.all\(\[[\s\S]*?executeRun\([\s\S]*?runPostCopy\(0\)/,
+    '图与文案**并行**发起（串起来是加法：出图 20~40 秒、文案 3~5 秒）');
+  assert.match(PAGE, /不扣积分/, '失败时要如实说没有扣积分');
   assert.match(PAGE, /skill\?\.id === LIVE_PHOTO_SKILL_ID\s*\n?\s*\? \{\s*\n\s*points: CONCEPT_COPY_POINTS/,
     '这一块只长在概念视觉方案上（不是全站每页一颗要钱的按钮）');
   assert.match(PAGE, /代写这一篇的文案 · ' \+ postCopy\.points \+ ' 积分/, '按钮上要写价（本仓铁律）');
@@ -204,7 +227,10 @@ test('⑤ 输出解析 / 计费（0.5 积分过毛利地板）/ 客户端先报�
   const requestLines = PAGE.split(/\r?\n/).filter(line => /buildSkillRequest\(|buildSkillBrief\(|skillValuesForShot\(/.test(line));
   assert.ok(requestLines.length >= 2, '自证前提：出图请求的构造行要能被找到，实得 ' + requestLines.length);
   assert.ok(requestLines.every(line => !/postCopy/.test(line)), '文案不许出现在出图请求的构造里');
-  assert.doesNotMatch(PAGE, /effectiveValues[^\n]*postCopy/, '文案不许混进 effectiveValues（那是下发给模型的取值）');
+  /* ⚠️ 判据只咬"`postCopy` 这个键被塞进 effectiveValues"，不咬以 postCopy 开头的**别的**键：
+     2026-09-28 批 DC 续-7 加了 `postCopyEnabled`（那颗开关），它同样跟在 effectiveValues 后面传，
+     但它只是"这一次要不要出文案"的一个**页面内**判断，既不进请求也不进提示词（真进去才是缺陷）。 */
+  assert.doesNotMatch(PAGE, /effectiveValues[^\n]*postCopy\s*[,}]/, '文案不许混进 effectiveValues（那是下发给模型的取值）');
 });
 
 /* ═══ ⑥ 意象清单：从用户补充栏里抽，抽不出来就不硬性要求 ═══════════════════════════════════ */

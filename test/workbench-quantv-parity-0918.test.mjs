@@ -133,9 +133,22 @@ test('④ 模块可勾选（用户 2026-09-19 批 I 亲自批准），勾选数�
   assert.doesNotMatch(media, /next\.size >= skillModules\.length\) return previous/,
     '「最后一个不许取消」已随默认值一起删掉（默认 0/16，0 个是合法起点）');
   assert.match(media, /if \(next\.has\(name\)\) next\.delete\(name\); else next\.add\(name\);/, '勾选开关只做切换');
-  /* 默认值：进页面时**一个都不勾**（知渔实采「已选 0/16」，用户批注「跟他们一样做就好」） */
-  assert.match(media, /setModuleOff\(new Set\(skillModules\.map\(module => module\.name\)\)\)/,
-    '默认一个都不勾（照知渔 0/16）');
+  /* ═══ 2026-09-28 批 DC 续-7：默认值**按技能分两种**，两种都是用户拍的板，不许互相覆盖 ═══════
+     · 声明了 `modulesPresets` 的（「概念视觉方案」）：进页面按默认档**勾好** ——
+       用户原话「你这个工作台里面并没有给我张数呀。我根本就不知道你产出的到底是多少张」，
+       加上默认全不勾时按钮是灰的、整页没有一个数字说会出几张。
+     · 没声明的（A+ 内容那 16 个内容模块等）：仍然**一个都不勾** ——
+       批 AW 原话「而且好像他们也不是默认打勾的吧……跟他们一样做就好」（知渔实采「已选 0/16」）。
+     ⇒ 判据从"页面里写死一句 setModuleOff(new Set(...))"改成**调那个纯函数**，
+        并且在纯函数那一侧把两种分支都钉住（少一条分支，另一条就会悄悄被改掉）。 */
+  assert.match(media, /setModuleOff\(skillInitialModuleOff\(skill, skillModules\)\)/,
+    '进页面的默认勾选必须走 skillInitialModuleOff（两种默认值不许各写一份）');
+  const runSrc = read('src/skills/skillRun.js');
+  const offFn = runSrc.slice(runSrc.indexOf('export function skillInitialModuleOff'));
+  assert.match(offFn, /if \(!presets\.length\) return new Set\(list\.map\(/,
+    '没有规模预设的技能：默认**一个都不勾**（批 AW，照知渔 0/16 —— 这条不许被概念方案那条改掉）');
+  assert.match(offFn, /list\.slice\(count\)\.map\(/,
+    '有规模预设的技能：按默认档勾好前 N 个，其余关掉');
   /* 清单必须是真能点的控件（用户批注 #10：死按钮） */
   const shell = read('src/components/media/WorkbenchShell.jsx');
   const start = shell.indexOf('media-workbench-checklist-items');

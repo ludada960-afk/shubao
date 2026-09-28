@@ -66,12 +66,17 @@ import {
   savePendingRun,
 } from '../../skills/pendingRunStore.js';
 import {
+  SKILL_MODULES_PRESET_KEY,
   buildSkillBrief,
+  buildSkillCopyRequest,
   buildSkillRequest,
   buildSuiteRun,
   initialSkillValues,
   reconcileFieldValues,
+  skillBatchQuote,
+  skillCopyShouldRun,
   skillEmbedOf,
+  skillInitialModuleOff,
   skillPieceMark,
   skillRunKind,
   skillShotValues,
@@ -375,6 +380,16 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
              ② 信息图多一个三种排法的选择、③ 文案由用户自己写（我们不许替他编品牌文案）。 */}
       {finished && sheet?.available && (
         <div className="media-run-sheet">
+          {/* ═══ 2026-09-28 批 DC 续-7：内部分析**搬到结果区**（用户批注图2-②，原话）══════════════
+              「这些你在你的输出结果这里告诉我就可以了，**不要在线上把这些文字打出来啊**」
+              改前那两句（「实测他 85% 的图都是单图」「（他的第二大族）」）长在**选版式族的卡片上** ——
+              那是**我们的话**（拿竞品做的分析），用户在"我要不要拼版"的当场看到只会莫名其妙。
+              ⇒ 卡片 hint 只讲这一族长什么样（见 CONCEPT_LAYOUT_FAMILIES）；
+                这条实测结论落在下面这一行：**看完这一篇的图、决定拼不拼的那一刻**，才是它该出现的地方。 */}
+          <p className="media-run-sheet-analysis">
+            顺带一句内部参照：把对标账号 402 张图逐张看过，只有 60 张（14.9%）是拼版，
+            85% 是单图 —— 所以默认给你「不拼版」，想拼随时在这一行换一族，免费的。
+          </p>
           <div className="media-run-sheet-pick">
             <span className="media-run-sheet-lead">
               {sheet.url
@@ -662,7 +677,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         （见 effectiveValues 与 moduleGate）。 */
   const [moduleOff, setModuleOff] = useState(() => new Set());
   const skillModules = useMemo(() => (skill && Array.isArray(skill.modules) ? skill.modules : []), [skill]);
-  useEffect(() => { setModuleOff(new Set(skillModules.map(module => module.name))); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setModuleOff(skillInitialModuleOff(skill, skillModules)); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedModules = useMemo(
     () => skillModules.filter(module => !moduleOff.has(module.name)),
     [skillModules, moduleOff],
@@ -725,6 +740,30 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   const points = useMemo(
     () => (suite ? (suiteRun?.points || 0) : (skill ? skillPointsEstimate(skill, effectiveValues) : 0)),
     [suite, suiteRun, skill, effectiveValues],
+  );
+  /* ═══ 2026-09-28 批 DC 续-7：文案**默认并进这一次出图**（用户 2026-09-28 当面定的口径）══════════
+     用户原话：「如果你要产出的是一整套的小红书图文的话，那肯定是文案一起出的话会更加统一吧……
+       很有可能你先去生成图片，然后再拿图片去生成文案，这样的话会很混乱。」
+     ⇒ 默认开（一次下单 = N 张图 + 1 组文案，一个确认框、一个总价，两者并行发起）。
+     这颗开关留给"我只想看图"的场合：关掉之后这一页一个字都不变（连确认框都不弹）。
+     ⚠️ state 声明**放在这里**而不是文案结果区那一段：它要被下面的 batchQuote 与 CTA 读到，
+        而那两处在它前面（同作用域里 const 用在声明之前 = TDZ，整个组件直接崩）。 */
+  const [postCopyEnabled, setPostCopyEnabled] = useState(true);
+  /* 「这一页支不支持顺带出文案」与「这一次要不要出」是**两件事**：
+     开关关掉之后那颗开关本身**必须还在**（不然用户就再也开不回来了），
+     所以这里先判支持、再判这一次。 */
+  const copySupported = skill ? skillCopyShouldRun(skill, { ...effectiveValues, postCopyEnabled: true }) : false;
+  const copyInBatch = copySupported && postCopyEnabled;
+  /* ═══ 2026-09-28 批 DC 续-7：**这一篇的清单价与总额**（张数 × 单价 + 文案，价只有这一份算）══════
+     用户原话：「因为**你这个工作台里面并没有给我张数呀**，我就根本就不知道你产出的到底是多少张？」
+     ⇒ 按钮上不再是孤零零一个「12 积分」，而是「6 张 × 2 + 文案 0.5 = 12.5 积分」——
+        张数、单价、总额一次说清（按张计价的页面必须这么写）。
+        把文案那 0.5 关掉时，同一句话变成「6 张 × 2 = 12 积分」—— 还是说得清有几张、单价多少。 */
+  const batchQuote = useMemo(
+    () => (skill && copySupported
+      ? skillBatchQuote(skill, effectiveValues, { copyPoints: copyInBatch ? CONCEPT_COPY_POINTS : 0 })
+      : null),
+    [skill, effectiveValues, copySupported, copyInBatch],
   );
   const busy = visualRunIsBusy(run);
 
@@ -1347,12 +1386,33 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     if (!check.ok) { setError('还差：' + check.missing.join('、')); return; }
     setError('');
     const settings = skillGenerationSettings(skill, effectiveValues);
+    /* ═══ 2026-09-28 批 DC 续-7 · 一：**一次下单 = N 张图 + 1 组文案**（用户当面定的口径）══════════
+       用户原话：「如果你要产出的是一整套的小红书图文的话，那肯定是文案一起出的话会更加统一吧……
+         很有可能你先去生成图片，然后再拿图片去生成文案，这样的话会很混乱。」
+       ⇒ **一个确认框、一个总价、两者并行发起**（串起来是加法：出图 20~40 秒、文案 3~5 秒）。
+       拆开的是**计费与重做**，不是交付单元：改标题只需再付 0.5，不必把图的钱再付一遍。
+       ⚠️ 确认框只在这一条链上弹（图与文案**相加**是两项报价，不弹两次 ——
+          弹两次就是"下单要确认两遍"，那正是用户说的"很混乱"）。其它技能一个字不变。 */
+    if (copyInBatch) {
+      const quote = batchQuote || skillBatchQuote(skill, effectiveValues, { copyPoints: CONCEPT_COPY_POINTS });
+      const confirmed = await dialog.confirm({
+        title: `出这一篇的 ${quote.count} 张图和一组文案？`,
+        message: `${quote.detail}。图与文案同时开始；某一张没跑成只退那一张，文案没写出来不扣那 0.5。`,
+        confirmLabel: '出这一篇',
+      });
+      if (!confirmed) return;
+    }
     const fresh = createVisualRun({ count: settings.count });
     runRef.current = fresh;
     setRun(fresh);
     /* 新的一轮 = 新的一篇：上一张拼版属于上一批图，不能再挂在这一轮下面（挂错了就是图文不符） */
     setSheet(null);
-    await executeRun(fresh, Array.from({ length: settings.count }, (_, index) => index));
+    /* ⚠️ 两跳**并行**，谁也不等谁：文案等图出来就退化成"看图说话"（那是最差的文案），
+       图等文案就白等 3~5 秒。各自独立报价与 hold，所以失败也互不牵连。 */
+    await Promise.all([
+      executeRun(fresh, Array.from({ length: settings.count }, (_, index) => index)),
+      copyInBatch ? runPostCopy(0) : Promise.resolve(),
+    ]);
   }
 
   /* ── 套图：就地跑既有套图引擎（一次任务出一套 N 张，按套计价）──────────────
@@ -1820,32 +1880,19 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      文案全部活在发布层 ⇒ 生成时带上这一篇的全部要素（母体/手法/人物/补充），读起来才像同一次策划。
      防千篇一律的四条机制全在服务端（句式轮换/意象密度/判重/纪律复核，见 conceptCopywriting.mjs）——
      前端不写第二份。**扣费铁律**：按钮 onClick → 确认框（写明这一次扣多少）→ 确认后才发请求；
-     失败/模型不可用由服务端释放 hold（如实告知"没有扣积分"）。 */
-  async function writePostCopy() {
-    if (!state.logged) {
-      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
-      dispatch({ type: 'SHOW_LOGIN', show: true });
-      return;
-    }
-    const attempt = (Number(postCopy?.attempt) || 0) + 1;
-    const isRedo = attempt > 1;
-    const confirmed = await dialog.confirm({
-      title: isRedo ? '再来一版文案？' : '代写这一篇的文案？',
-      message: '会按这一篇的母体、手法与补充写一组发布文案（标题 3 选 1 + 正文 + 话题标签），'
-        + `正文与标签可以自己改。本次扣 ${CONCEPT_COPY_POINTS} 积分，写不出来不扣积分。`,
-      confirmLabel: isRedo ? '再来一版' : '代写文案',
-    });
-    if (!confirmed) return;
+     失败/模型不可用由服务端释放 hold（如实告知"没有扣积分"）。
+     ⚠️ 2026-09-28 批 DC 续-7：这一段从"只能单独点"改成**两条路共用一个函数**：
+        ① 出图那一次提交里**并行**跑的那一跳（attempt=0，见 generate → runBatchCopy）；
+        ② 结果区那颗「代写文案 / 再来一版」按钮（attempt=1,2…）。
+        两条路写出来的结果落在**同一块**（图在上、文案在下），所以"两套文案"这件事根本不会出现。 */
+  /** 请求 → 落到 postCopy state。两处调用方共用（成功路径只有这一份实现）。 */
+  async function runPostCopy(attempt) {
     setPostCopyBusy(true);
     setError('');
     try {
-      const payload = await generateConceptCopy({
-        theme: effectiveValues.theme,
-        shots: Array.isArray(effectiveValues?.shots) ? effectiveValues.shots : [],
-        person: effectiveValues.person,
-        notes: effectiveValues.notes,
-        attempt,
-      });
+      /* ⚠️ 入参是 **buildSkillCopyRequest**（纯函数，门禁逐字断言它不带任何图片地址）。
+         随手把图塞进来 = 让文案"看图说话"，那是最差的一版文案（见 skillRun 里的注释）。 */
+      const payload = await generateConceptCopy(buildSkillCopyRequest(skill, effectiveValues, { attempt }));
       const copy = payload?.copy || {};
       const titles = (Array.isArray(copy.titles) ? copy.titles : []).filter(Boolean);
       if (!titles.length && !String(copy.body || '').trim()) throw new Error('这一版没写出东西，请再试一次');
@@ -1863,7 +1910,11 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       });
       setNotice('文案写好了：挑一个标题，正文与标签可以直接改，改完复制走');
       await refreshBillingBalance?.().catch(() => undefined);
+      return true;
     } catch (failure) {
+      /* ⚠️ 这里**只动文案自己的 state**：出图那 N 张的 hold 与状态一律不碰
+         （用户 2026-09-28 的顾虑「文案跟图片不在一个体系内」在失败隔离上同样成立 ——
+          文案失败只退那 0.5，图照常出、照常交付）。 */
       const access = handleGenerationAccessError(failure, dispatch, { source: 'concept_copy' });
       const message = String(failure?.message || '').trim() || '文案没写出来，请稍后再试';
       setPostCopy(current => ({
@@ -1872,9 +1923,28 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         attempt,
         note: access ? '还没有开始写，本次不扣积分。' : message + '（这次不扣积分）',
       }));
+      return false;
     } finally {
       setPostCopyBusy(false);
     }
+  }
+
+  async function writePostCopy() {
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    const attempt = (Number(postCopy?.attempt) || 0) + 1;
+    const isRedo = attempt > 1;
+    const confirmed = await dialog.confirm({
+      title: isRedo ? '再来一版文案？' : '代写这一篇的文案？',
+      message: '会按这一篇的母体、手法与补充写一组发布文案（标题 3 选 1 + 正文 + 话题标签），'
+        + `正文与标签可以自己改。本次扣 ${CONCEPT_COPY_POINTS} 积分，写不出来不扣积分。`,
+      confirmLabel: isRedo ? '再来一版' : '代写文案',
+    });
+    if (!confirmed) return;
+    await runPostCopy(attempt);
   }
 
   /* 一键复制的文本：标题取选中的那一个 + 正文 + 标签（**发布时粘一次就够**） */
@@ -2061,6 +2131,19 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      ⇒ 记住「这条技能这次已经出过方案」，第二次点 CTA 就直接生成。换技能时重置。 */
   const [planApplied, setPlanApplied] = useState(false);
   useEffect(() => { setPlanApplied(false); }, [skill?.id]);
+  /* ═══ 2026-09-28 批 DC 续-7：预览那一步的按钮旁**说清"确认后会出几张"** ═══════════════════════
+     用户原话：「**因为你这个工作台里面并没有给我张数呀。我根本就不知道你产出的到底是多少张？**」
+     —— 而这一页默认先走方案预览，按钮上那 0.5 是"预览这一步"的钱，
+     于是整页从头到尾**没有一个数字说这一篇会出几张**。
+     ⇒ 预览步（`skill.previewStep && !planApplied`）时在按钮下面写这一句。
+        它说的是**将要发生的事**，不是解释这个按钮是干什么的（那种话批 BF 已经删过一次）。
+     ⚠️ 位置在 `planApplied` 声明之后：它是 state，同作用域里 const 声明之前用就是 TDZ。 */
+  const previewHint = useMemo(() => {
+    if (!skill?.previewStep || planApplied || handoff) return '';
+    const n = skillGenerationSettings(skill, effectiveValues).count;
+    if (!n) return '';
+    return '这一步只出方案；确认后将出 ' + n + ' 张图' + (copyInBatch ? ' 和一组发布文案' : '');
+  }, [skill, planApplied, handoff, effectiveValues, copyInBatch]);
   /* ═══ 2026-09-19 批 J-⑭ 后半句：教学示例（用户批注 image#1）═══════════════════════════════
      用户原话：「他视频制作这边的子页面**绝大部分是有教学示例的**，你要**结合教学示例做深度匹配**，
      按他的讲解 + 工作台里**真实有的按钮和功能**去做规划和设计。」
@@ -2373,7 +2456,17 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
            真事：模型选 Midjourney（上游只有 1K/2K）时清晰度若停在 4K，
            界面显示 4K、请求按 2K 跑、也按 2K 计费 —— "看着是 A、跑的是 B"。
            夹取规则只有一份实现（skillRun.reconcileFieldValues），这里不另写一遍。 */
-        onFieldChange={(key, value) => setValues(prev => reconcileFieldValues(skill.fields, { ...prev, [key]: value }))}
+        onFieldChange={(key, value) => {
+          /* 2026-09-28 批 DC 续-7：改「本篇张数」那一格 = **把勾选清单重置成这一档**。
+             这一格是清单规模的唯一入口（用户在清单里手动增删之后又回来调张数，
+             期望就是"回到这一档的标准搭配"，所以这里覆盖而不是合并）。 */
+          if (key === SKILL_MODULES_PRESET_KEY && Array.isArray(skill.modulesPresets) && skill.modulesPresets.length) {
+            const preset = skill.modulesPresets.find(item => item && item.value === value);
+            const count = Math.max(0, Math.min(skillModules.length, Number(preset && preset.count) || 0));
+            setModuleOff(new Set(skillModules.slice(count).map(module => module.name)));
+          }
+          setValues(prev => reconcileFieldValues(skill.fields, { ...prev, [key]: value }));
+        }}
         /* ⚠️ 2026-09-19 批 H-8：**不再**往工作台里传 onBack。
            用户批注 #12 把子页面顶栏写定为「左 返回 / 中 名称 / 右 积分账户」——
            返回控件在**顶栏**。原来工作台左栏里还有一个「← 返回创作」，
@@ -2392,10 +2485,14 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
    所以这里的取值顺序是：技能自带 ctaLabel（如「去除背景」）→ 默认「生成图片」。 */
       /* ⚠️ 2026-09-19 批 J-⑭：三条预览型技能现在**真的有预览步**（见上面 previewStep 那段），
          所以按钮可以、也必须写真话「生成预览」—— 竞品那三条页面的 CTA 原文也是「生成预览」。
-         之前这里只能写「生成图片」，是因为当时点下去就是按张真出图、按钮写「预览」会是假话。 */
+         之前这里只能写「生成图片」，是因为当时点下去就是按张真出图、按钮写「预览」会是假话。
+         ⚠️ 批 DC 续-7 往后多了一档「出这一篇」，但**预览那档必须排在它前面**：
+            方案还没确认时点下去只出方案，那一步只花 0.5 —— 标「出这一篇」就是把方案说成一篇图文。 */
       ctaLabel={handoff
         ? (board === 'video' ? VIDEO_HANDOFF_LABEL : (HANDOFF_LABEL[skill.pipeline] || '去工作台继续'))
-        : (skill.previewStep ? '生成预览' : (skill.ctaLabel || '生成图片'))}
+        : ((skill.previewStep && !planApplied)
+            ? '生成预览'
+            : (copySupported ? '出这一篇' : (skill.ctaLabel || '生成图片')))}
         /* ═══ 2026-09-19 批 Q：**预览型技能，按钮上写的是"预览这一步"的价格** ═══════════════
            用户批注 #3-6：「我不明白为什么生成一下预览就要 7 点积分，我们的竞品他们就只有 0 点几的积分，
              你为什么不把那个生成预览的积分放上去呢？」
@@ -2403,8 +2500,26 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
            ec_plan_preview = 0.5 积分/次（用户已批准，先报价→确认→才扣）。
            方案确认之后按钮回到「生成图片」并显示真实出图报价（那时才是 7）。 */
         ctaPoints={handoff ? null : ((skill.previewStep && !planApplied) ? PLAN_PREVIEW_POINTS : points)}
+        /* 2026-09-28 批 DC 续-7：副行改说**清单价与总额**（张数 × 单价 + 文案）。
+           ⚠️ 预览步（方案还没确认）不给它 —— 那 0.5 是"预览这一步"的钱，
+              整单报价在方案确认前说出来只会误导（用户批注 #3-6 的原意就是这个）。
+              改由 ctaHint 那一句把"确认之后会出几张"说清楚（见下面 gateHint 的合并）。 */
+        ctaPriceNote={handoff || !batchQuote || (skill.previewStep && !planApplied) ? '' : batchQuote.detail}
+        /* 「同时出这一篇的发布文案」开关（默认开）。关掉 = 只出图，连确认框都不弹；
+           ⚠️ 判据是 copySupported 而不是 copyInBatch —— 关掉之后这颗开关必须还在，
+              否则用户开过一次就再也开不回来了。 */
+        ctaExtra={copySupported ? (
+          <label className="media-workbench-copy-toggle">
+            <input
+              type="checkbox"
+              checked={postCopyEnabled}
+              onChange={event => setPostCopyEnabled(event.target.checked)}
+            />
+            <span>同时出这一篇的发布文案（标题 + 正文 + 话题标签）· {CONCEPT_COPY_POINTS} 积分</span>
+          </label>
+        ) : null}
         ctaDisabled={busy || (!handoff && (!validation.ok || Boolean(moduleGate)))}
-        ctaHint={gateHint}
+        ctaHint={previewHint || gateHint}
         status={embed ? null : status}
         onGenerate={onGenerate}
         onHistoryDelete={deleteHistory}

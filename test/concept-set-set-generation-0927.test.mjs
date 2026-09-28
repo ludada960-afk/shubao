@@ -105,7 +105,9 @@ test('① 勾 3 种手法 → 发 3 张请求，且每一张只带自己那一�
     '生成时必须**逐张**收窄手法（否则勾 3 种会画出 3 张一样的）');
   assert.match(PAGE, /const fresh = createVisualRun\(\{ count: settings\.count \}\)/,
     '张数必须来自 skillGenerationSettings（唯一真源）');
-  assert.match(PAGE, /await executeRun\(fresh, Array\.from\(\{ length: settings\.count \}, \(_, index\) => index\)\)/,
+  /* ⚠️ 批 DC 续-7：这一行现在挂在 `await Promise.all([...])` 里面（图文并行），
+     所以 `await` 不再紧贴着 executeRun —— 断言只咬 executeRun 本身，别把并行结构判死。 */
+  assert.match(PAGE, /executeRun\(fresh, Array\.from\(\{ length: settings\.count \}, \(_, index\) => index\)\)/,
     '一次点击要跑满 N 个 slot（用户勾几张就是几张）');
 });
 

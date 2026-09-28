@@ -27,6 +27,10 @@ export default function SkillWorkbench({
   onFieldChange = () => {},
   onBack = null,
   ctaPoints = null,
+  /* 2026-09-28 批 DC 续-7：清单价与总额（`6 张 × 2 + 文案 0.5 = 12.5 积分`，见 skillBatchQuote） */
+  ctaPriceNote = '',
+  /* 主按钮上方的自定义控件区（2026-09-28 批 DC 续-7：放「同时出文案」那颗开关） */
+  ctaExtra = null,
   ctaLabel = '立即生成',
   ctaDisabled = false,
   ctaHint = '',
@@ -112,6 +116,8 @@ export default function SkillWorkbench({
         onFieldChange={onFieldChange}
         ctaLabel={ctaLabel}
         ctaPoints={ctaPoints}
+        ctaPriceNote={ctaPriceNote}
+        ctaExtra={ctaExtra}
         ctaDisabled={ctaDisabled}
         ctaHint={ctaHint}
         status={status}

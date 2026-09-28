@@ -43,11 +43,14 @@ export const GILDED_WORDS = Object.freeze(['氛围感', '松弛', '高级感', '
 export const FORBIDDEN_IN_COPY = Object.freeze(['AI', 'AIGC', '人工智能', '生成于', 'AI生成']);
 
 /* ── 句式轮换：连续两次生成不许同一组合 ─────────────────────────────────────────────────
-   attempt 从 1 计（用户第一次点 = 1）；组合 = 从不同起点取三条**不同**句式。
-   自证见门禁：相邻两次 attempt 的组合必须不同。 */
+   ⚠️ 2026-09-28 批 DC 续-7：attempt **从 0 计**（原来从 1 计）。因为文案并进了出图那一次提交，
+   随篇首发那一版就是第 0 版，「再来一版」是 1、2…  —— 起点直接取 attempt 本身。
+   （原来那条 `((attempt || 1) - 1)` 会把 0 吞成 1，于是"随篇首发"与"第一版重做"拿到**同一组句式**，
+     用户点「再来一版」拿回来的标题句式一模一样 —— 恰好是这一版要消灭的现象。）
+   组合 = 从起点取三条**不同**句式；自证见门禁：相邻两次 attempt 的组合必须不同。 */
 export function rotatePatterns(attempt) {
   const total = TITLE_PATTERNS.length;
-  const start = ((Number(attempt) || 1) - 1) % total;
+  const start = (Number(attempt) || 0) % total;
   return [0, 2, 4].map(step => TITLE_PATTERNS[(start + step) % total]);
 }
 

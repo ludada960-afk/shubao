@@ -24,8 +24,11 @@ export async function quoteConceptCopy({ signal } = {}) {
   return quote;
 }
 
-/* actionId 里带 attempt（第几次点）：同一次点击的重复触发由服务端幂等挡掉；
-   「重新生成」是有意的新动作（attempt+1），照 0.5 积分/次 计 —— 用户在确认框里看得见价格。 */
+/* actionId 里带 attempt（第几次出这一版）：同一次点击的重复触发由服务端幂等挡掉；
+   「再来一版」是有意的新动作（attempt+1），照 0.5 积分/次 计 —— 用户在确认框里看得见价格。
+   ⚠️ 2026-09-28 批 DC 续-7：**随篇首发 = attempt 0**（文案并进出图那一次提交）。
+     原来这里写的是 `|| 1`，于是 0 会被吞成 1 —— 那一版就与"再来一版"撞同一个幂等键，
+     服务端会把并进提交的首发当成重复请求挡回去（表现为"点了没反应"）。 */
 export function conceptCopyActionId(input = {}) {
   return stableCanvasActionId([
     'concept-copy',
@@ -34,12 +37,13 @@ export function conceptCopyActionId(input = {}) {
     String(input.person || ''),
     String(input.notes || ''),
     String(input.product || ''),
-    String(Number(input.attempt) || 1),
+    String(Number.isFinite(Number(input.attempt)) ? Number(input.attempt) : 0),
   ]);
 }
 
 export async function generateConceptCopy(input = {}, { signal } = {}) {
   const quote = await quoteConceptCopy({ signal });
+  const attempt = Number.isFinite(Number(input.attempt)) ? Number(input.attempt) : 0;
   const response = await fetch('/api/concept/copywriting', {
     method: 'POST',
     headers: headers({ 'Content-Type': 'application/json' }),
@@ -49,7 +53,7 @@ export async function generateConceptCopy(input = {}, { signal } = {}) {
       person: String(input.person || ''),
       notes: String(input.notes || ''),
       product: String(input.product || ''),
-      attempt: Number(input.attempt) || 1,
+      attempt,
       billingQuoteId: quote?.quoteId,
       actionId: conceptCopyActionId(input),
     }),

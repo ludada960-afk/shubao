@@ -149,6 +149,9 @@
    这一步不扣积分，所以没有任何价格展示（与付费动作明确区分开）。 */
 .media-run-sheet { display: grid; gap: 8px; padding: 10px 12px; border-radius: 14px; background: var(--sb-surface-card); box-shadow: 0 0 0 1px rgba(17, 20, 45, .06); }
 .media-run-sheet-lead { margin: 0; font-size: 12px; color: var(--sb-ink-1); }
+/* 2026-09-28 批 DC 续-7：内部分析那一行（用户批注图2-②「这些你在你的输出结果这里告诉我就可以了」）——
+   比正文淡一档、小一号，明确是"补充说明"而不是操作指引。 */
+.media-run-sheet-analysis { margin: 0; font-size: 11.5px; line-height: 1.55; color: var(--sb-ink-3); }
 .media-run-sheet-result { display: grid; gap: 10px; }
 .media-run-sheet-result img { display: block; width: 100%; max-height: 420px; object-fit: contain; border-radius: 10px; background: var(--sb-surface-tint); }
 .media-run-sheet-compose,
@@ -395,6 +398,54 @@
   transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
 .media-run-next-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 20, 45, .14); background: var(--sb-surface-tint-strong); }
+
+/* ═══ 2026-09-28 批 DC 续-7：结果区那些药丸**统一到 32px / 12.576px / 700**（用户批注图1-③）═════
+   用户原话：「**这两个按钮太小了你都不觉得吗**」「你要**特别的明显**」。
+   改前这 9 颗各写一遍 `padding:7px 13px; font-size:12px` ⇒ 实测**只有 28px 高**：
+     · 比**同一个页面**上最小的那个控件（`.media-workbench-inline-action` 32px）还矮 4px；
+     · 比付费主按钮（45px）矮 17px，比触达标准（44px）矮 16px。
+   ⇒ 不逐颗改（那是把同一个尺寸抄 9 遍），**在这里一次给全**：值照 `.media-workbench-inline-action`
+     那一档（32 / 12.576 / 700），即**站内已经存在的最小可点规格**，不新造尺寸。
+   ⚠️ 只改尺寸：底色/描边/圆角仍由各自的规则决定 —— 花钱那颗（做成动图、代写文案）仍是品牌实心/描边，
+     免费那颗仍是中性，**"点错的代价是不是一笔真钱"这条视觉分工一点没动**。 */
+.media-run-retry,
+.media-run-again,
+.media-run-download,
+.media-run-sheet-compose,
+.media-run-sheet-download,
+.media-run-sheet-save,
+.media-run-sheet-again,
+.media-run-copy-write,
+.media-run-copy-all,
+.media-run-live-make,
+.media-run-live-download,
+.media-run-send-canvas,
+.media-run-live-recheck,
+.media-run-next-btn {
+  min-height: 32px;
+  padding: 0 15px;
+  font-size: 12.576px;
+  font-weight: 700;
+}
+/* 付费那颗（代写文案 / 做成动图）在 32px 上再加一点存在感：白字实心保持不变，只把字的对比拉开。 */
+.media-run-copy-write,
+.media-run-live-make { letter-spacing: .01em; }
+/* 「同时出文案」那颗开关（ctaExtra）—— 走既有勾选语言，尺寸对齐上面这一档。 */
+.media-workbench-copy-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-2);
+  font-size: 12.576px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.media-workbench-copy-toggle input { width: 16px; height: 16px; margin: 0; flex: 0 0 auto; accent-color: var(--sb-brand-600); cursor: pointer; }
+.media-workbench-copy-toggle:hover { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); }
 
 @media (max-width: 720px) {
   .media-creation { padding: 12px 12px 56px; }

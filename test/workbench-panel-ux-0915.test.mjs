@@ -408,7 +408,14 @@ test('㉒ 生成设置的模型下拉：不得重复当前模型、图标加大�
      图标做大、消除按钮内两侧大片空白」。 */
   assert.match(gen, /const listModels = otherModels\.length > 0 \? otherModels : SELECTABLE_IMAGE_MODELS;/,
     '展开列表必须过滤掉当前已选模型，并留空列表兜底');
-  assert.match(gen, /\{listModels\.map\(model => \{/, '列表只渲染「其它可选项」');
+  /* ⚠️ 2026-09-28 批 DC 续-7：渲染搬进了共用组件 `ModelOptionRows`（工作台那一侧也是它），
+     所以"只渲染其它可选项"这件事现在由**接线**保证：面板传进去的必须是过滤后的 listModels，
+     而组件自己**不许**去 import 整个目录再自己 map 一遍（那会把当前模型也画出来）。 */
+  assert.match(gen, /<ModelOptionRows[\s\S]{0,200}models=\{listModels\}/,
+    '列表只渲染「其它可选项」（过滤在面板这一侧做，组件不自作主张）');
+  const rows = read('src/components/media/ModelOptionRows.jsx');
+  assert.ok(!/SELECTABLE_IMAGE_MODELS\.(map|filter)\(/.test(rows),
+    '共用组件不许自己遍历整个目录 —— 当前模型会在触发按钮上重复出现一次');
   assert.ok(!/SELECTABLE_IMAGE_MODELS\.map\(/.test(gen),
     '不得再渲染整个列表 —— 当前模型会在触发按钮上重复出现一次');
   assert.match(gen, /ICON_SIZE\.modelTrigger/, '触发按钮里的品牌图标必须走统一尺寸档（已加大）');

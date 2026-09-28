@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { ImagePlus, Library, Maximize2, RotateCcw, X } from 'lucide-react';
 
 import MediaAssetCard from './MediaAssetCard.jsx';
+/* 2026-09-28 批 DC 续-7：`variant:'model'` 的字段渲染成**站内那一套模型行**，
+   与首页/六个面板共用同一个组件（改前这里是全站唯一一处原生 <select>）。 */
+import ModelOptionRows from './ModelOptionRows.jsx';
 import PromptMetaRow from './PromptMetaRow.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
 import { uploadEcommerceAsset } from '../../services/api';
@@ -537,6 +540,26 @@ function control(kind, field, value, onChange, disabled, assets) {
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
   if (kind === 'select') {
+    /* ═══ 2026-09-28 批 DC 续-7：声明了 `variant: 'model'` 的那一格走**站内事实标准** ==========
+       用户批注图1-① 原话：「模型选择这个你为什么**不用其他地方那个选模型的样式**呀，你又自己发明了一个。」
+       改前这一支渲染的是**原生 <select>** —— 无 logo、无描述、无选中勾，全站只有这一处是这样。
+       ⇒ 走共用组件 ModelOptionRows（首页/六个面板那一套 `.sb-opt` 行的**同一份实现**），
+          选项直接读模型目录（`SELECTABLE_IMAGE_MODELS`），不摊第二份名单。
+       ⚠️ 其余 `select` 字段（主题意象那 20 条母体、平台/语言）**一个字不变**：
+          它们是"从一长串里选一个值"，本来就该是一颗原生下拉。 */
+    if (field.variant === 'model') {
+      /* ⚠️ 外面这一层 role=group + aria-label 不是装饰：换掉原生 `<select>` 之后，
+         这一格就没有任何带字段名的可编程钩子了 —— 读屏会念成一堆没有名字的按钮，
+         端到端也没法再问"页面上现在选的是哪一档"。
+         同族做法见画布那次（`data-canvas-config-trigger`）：**给语义标记，不给位置**。 */
+      return (
+        <div id={id} role="group" aria-label={field.label} className="media-field-model-list">
+          <ModelOptionRows value={value} onPick={model => onChange(model.id)} desc="full" disabled={disabled} />
+          {/* ⚠️ `disabled` 是真的传下去：生成中这一格必须点不动，否则用户能在跑着的时候换模型，
+              而这一单已经按旧模型报价冻结了。 */}
+        </div>
+      );
+    }
     return (
       <select {...common} className="media-field-control" value={value ?? ''} onChange={event => onChange(event.target.value)}>
         {(field.options || []).map(option => (

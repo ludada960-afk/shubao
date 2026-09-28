@@ -24,12 +24,27 @@ import { readFileSync } from 'node:fs';
 const shell = readFileSync(new URL('../src/components/media/WorkbenchShell.css', import.meta.url), 'utf8');
 const appShell = readFileSync(new URL('../src/styles/app-shell.css', import.meta.url), 'utf8');
 
+/* ⚠️ 2026-09-28 批 DC 续-7：这份 CSS 里现在有**两条**都叫 `.media-field-segmented` 的规则 ——
+   基础那条（整幅字段）与半宽那条（`[data-span="half"] .media-field-segmented`，比例/分辨率同行用）。
+   早先的正则 `\.media-field-segmented\s*\{` 咬的是**第一条出现的**（现在正好是半宽那条），
+   于是本该验基础规则的断言跑去验半宽覆盖 —— 测的东西悄悄换了一个。
+   ⇒ 改成"选择器**逐字**等于 `.media-field-segmented` 的那条"，不再靠出现顺序。 */
+function ruleBlock(selector) {
+  /* ⚠️ 必须先去掉注释再按 `{...}` 切规则 —— 这份 CSS 的注释里出现过 `{}`，
+     不去的话选择器那一段会被注释的尾巴接走，逐字比对必然对不上（第一次写就踩了）。 */
+  const css = shell.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (match[1].trim() === selector) return match[0];
+  }
+  return null;
+}
+
 test('① 选项药丸组用 grid + auto-fill（等宽、末行不被撑宽）', () => {
-  const block = shell.match(/\.media-field-segmented\s*\{[^}]*\}/);
-  assert.ok(block, '找不到 .media-field-segmented 容器规则');
-  assert.match(block[0], /display:\s*grid/, '选项组必须用 grid（flex 会让每行各自吃光剩余空间）');
-  assert.match(block[0], /repeat\(auto-fill,/, '必须用 auto-fill：auto-fit 会把空轨道塌缩、把末行的项再拉宽');
-  assert.doesNotMatch(block[0], /auto-fit/, '不许用 auto-fit（等于没改）');
+  const block = ruleBlock('.media-field-segmented');
+  assert.ok(block, '找不到选择器逐字为 .media-field-segmented 的基础规则');
+  assert.match(block, /display:\s*grid/, '选项组必须用 grid（flex 会让每行各自吃光剩余空间）');
+  assert.match(block, /repeat\(auto-fill,/, '必须用 auto-fill：auto-fit 会把空轨道塌缩、把末行的项再拉宽');
+  assert.doesNotMatch(block, /auto-fit/, '不许用 auto-fit（等于没改）');
 });
 
 test('② 子项不许再有 flex 伸缩（那正是"行与行宽度不同"的根因）', () => {
@@ -59,7 +74,7 @@ test('④ 品牌标脱离文档流钉在左导航那一列（两个诉求才能�
 test('⑤ 自证：auto-fill 改回 auto-fit 必须被判红', () => {
   /* 直接在**被测的那段规则**上做替换，而不是拿整份文件 replace（第一处匹配可能在别的规则里，
      那样替换不生效、自证就变成空转 —— 本批实测踩过一次）。 */
-  const block = shell.match(/\.media-field-segmented\s*\{[^}]*\}/)[0];
+  const block = ruleBlock('.media-field-segmented');
   const broken = block.replace('auto-fill', 'auto-fit');
   assert.notEqual(broken, block, '替换没生效，这条自证无效');
   let caught = false;

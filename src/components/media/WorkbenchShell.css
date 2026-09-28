@@ -371,6 +371,17 @@
    不写这条就会被两列网格压成半宽（实测上传框被挤到 200px 宽、说明文字折行）。 */
 .media-workbench-fields > .video-wb-block { grid-column: 1 / -1; }
 .media-workbench-fields > .media-field[data-span="half"] { grid-column: span 1; }
+/* ═══ 2026-09-28 批 DC 续-7：半宽字段里的**药丸可以更密**（比例 7 档 + 清晰度 3 档同行）════════
+   用户批注图3-① 原话：「**这个分辨率它自己占了一整行**呀，我们这个生图的这个设置应该**两个控件在同一个行上面**。」
+   ⚠️ 但半宽轨道只有 ~212px（知渔实测的半列宽），而 `.media-field-segmented` 的列最小宽是
+      **140px** ⇒ 2×140+8 = 288 > 212 ⇒ 半宽里**每行只放得下一颗**，7 档比例会排成 7 行 ——
+      那比"各占一整行"更难看，等于把用户的投诉从"太宽"换成"太长"。
+   ⇒ 半宽字段里把列最小宽收到 **64px**（纯数字标签「1:1 / 2:3」的最短合理值，3 档清晰度同理），
+      于是 7 档排成 2 行（4+3）、3 档排成 1 行 —— 两格真正"同一行"且各自不浪费高度。
+   ⚠️ 只在 [data-span="half"] 里收；整幅字段（平台/语言那些）一个字不变。 */
+.media-workbench-fields > .media-field[data-span="half"] .media-field-segmented {
+  grid-template-columns: repeat(auto-fill, minmax(min(64px, 100%), 1fr));
+}
 /* 一键解析：付费前置动作（0.2 积分）。价格写在按钮上，别让人猜；
    它是"帮我把字段填好"的动作，不是生成动作 —— 所以用次级按钮的视觉重量。 */
 /* ⚠️ 2026-09-19 用户批注（框 12.4%,25.4% → 38.2%,32.2%）：
@@ -887,15 +898,23 @@ html:not([data-scrolling]) .media-workbench-submit:hover:not(:disabled) {
   display: inline-flex; gap: 10px; scroll-margin-top: 108px;
 }
 .media-workbench-tabs button {
-  padding: 9px 18px;
+  /* 2026-09-28 批 DC 续-7（用户批注图1-③）：9px 18px → **12px 20px**。
+     改前 `padding:9px 18px` + 13.624px/500 的行高，实测**只有 30px 高** ——
+     「示例 / 历史」是这一页右半边**唯一的导航**，它比左栏最小那颗 inline-action（32px）还矮 2px，
+     看着就不像能点的（用户原话：「这个**也太小了吧**，你都不知道用户要怎么看」）。
+     ⇒ 抬到与 `.media-workbench-inline-action` 同一档（12.576px/700），
+        高度自然落到 34px 左右：比 30px 明显，比付费主按钮（45px）矮一档是对的（层级不能反）。 */
+  padding: 11px 20px;
   border: 1px solid transparent;
   border-radius: 9px;
   background: transparent;
   color: var(--sb-ink-3);
   font: inherit;
-  /* 批 Q：页签与字段标题同档（知渔那一排页签是 13.624px/500）—— 原来 16px 比字段名还大 */
+  /* 批 Q：页签与字段标题同档（知渔那一排页签是 13.624px/500）—— 原来 16px 比字段名还大。
+     ⚠️ 字重由 500 提到 **700**：页签是导航，与正文说明（500）不是同一层；
+        700 也正是下面 is-active 那颗的视觉重量，切换时只有底色在变。 */
   font-size: 13.624px;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
   transition: background-color .18s ease, color .18s ease;
 }

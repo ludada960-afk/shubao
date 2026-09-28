@@ -45,8 +45,17 @@ const MODEL_RESOLUTION_LIMITS = Object.fromEntries(
 
 /** 模型选择：**选项来自目录，价格来自目录**（换模型 → CTA 上的积分跟着变，
  *  因为 skillPointsEstimate 走的就是同一个 settings.imageModel）。 */
+/* ═══ 2026-09-28 批 DC 续-7：加 `variant: 'model'`（用户批注图1-①）════════════════════════
+   用户原话：「模型选择这个**你为什么不用其他地方那个选模型的样式呀**，你又自己发明了一个。」
+   根因：FieldRenderer 的 `select` 分支渲染的是**原生 <select>**（无 logo、无描述、无选中勾），
+   而首页与六个面板的模型挑选器是 `.sb-opt` 行（带 ModelLogo、badge、描述、勾）。
+   ⇒ 声明侧只加一个 `variant` 标记，FieldRenderer 见到它就渲染成同一套 `.sb-opt` 行
+     （ModelOptionRows 是**共用组件**，首页那边也换成它了）—— 全站只有一份实现。
+   ⚠️ `kind` 仍然是 'select'：门禁 test/concept-set-workbench-0925 的 ⑧ 硬断言了这一条，
+      改 kind 等于改测试口径，用户没让改口径。 */
 const modelField = () => ({
   key: 'imageModel', label: '模型选择', kind: 'select', group: '生成设置',
+  variant: 'model',
   options: MODEL_OPTIONS, default: DEFAULT_MODEL_ID, required: true,
   hint: '不同模型的画质取向与积分单价不同，选完后按钮上的积分会跟着变',
 });
@@ -387,10 +396,16 @@ export const CONCEPT_DIRECTION_OPTIONS = () => ([
 export const CONCEPT_LAYOUT_FAMILIES = () => ([
   /* 中性档放第一位：`initialSkillValues` 取 options[0]（也显式写了 default），
      所以"什么都没选"时落在这一档上 —— 与实测的 85% 单图一致。 */
-  { value: LAYOUT_FAMILY_NONE, label: '不拼版', hint: '这一篇每张独立成图（实测他 85% 的图都是单图）。想拼一张，在结果区随时可以拼，免费。' },
+  /* ⚠️ 2026-09-28 批 DC 续-7：**hint 只讲这一族长什么样**（用户批注图2-②，原话：
+     「这些你在你的输出结果这里告诉我就可以了，**不要在线上把这些文字打出来啊**」）。
+     改前这里写着「实测他 85% 的图都是单图」「（他的第二大族）」—— 那是**我们的话**、
+     是拿竞品做的内部分析，用户看不懂也不该在选版式的当场看。
+     ⇒ 分析结论不删，**搬家**到结果区选版式族时的那一行（MediaCreation 的 resultArea），
+        那才是"看完结果再决定拼不拼"的时刻。 */
+  { value: LAYOUT_FAMILY_NONE, label: '不拼版', hint: '这一篇每张独立成图。想拼成一张，在结果区随时可以拼，免费。' },
   { value: '宫格', label: '宫格', hint: '几张排成整齐的格子（2×2 / 3×3），像杂志内页' },
   { value: '底片条', label: '底片条', hint: '像一条胶片：等宽的格并排，带齿孔与边框码' },
-  { value: '宝丽来画中画', label: '宝丽来', hint: '白框/宝丽来相纸一张张叠在纸面上，带轻微旋转与投影（他的第二大族）' },
+  { value: '宝丽来画中画', label: '宝丽来', hint: '白框/宝丽来相纸一张张叠在纸面上，带轻微旋转与投影' },
   { value: '品牌信息图', label: '信息图', hint: '每张做成一张版式卡：图 + 标题/正文排版（左图右文、词典卡、大字色块三种）' },
 ]);
 
@@ -414,6 +429,34 @@ export const CONCEPT_SHOT_MODULES = () => CONCEPT_SHOT_OPTIONS().map(option => {
   const [name, definition] = String(option.value).split(' —— ');
   return { name: option.label, hint: definition || option.value, value: option.value };
 });
+
+/* ═══ 2026-09-28 批 DC 续-7：三档规模预设 + **默认 6 张**（用户当场追问的那句）══════════════
+   用户原话：「它到底生成的是一整套的小红书图片还是一张一张的生成呢？……**因为你这个工作台里面
+     并没有给我张数呀。我根本就不知道你产出的到底是多少张？**」
+   根因是**真缺陷**，不是表述问题：进页面时 `moduleOff` 把十种手法**全部关掉**（count=0、
+     CTA 是灰的），而清单上唯一的数量提示是「已选 0/10」——「10」是**上限**不是**这一篇要出几张**，
+     于是用户既看不出会出几张，也看不出是一次买一整篇还是一次买一张。
+   ⇒ 修法是三件事：① 预设三档规模；② 默认按「标准」**勾好**（进页面即可提交）；
+     ③ 张数写进清单标题与主按钮（见 WorkbenchShell / CTA）。
+   依据（docs/research/2026-09-27-aura-deep-dive.md）：单篇 4~18 张、均值 10.3 张。
+     「标准 6」= 均值偏保守一档：一次出 6 张已足够拼出 2×3 或两轮 3 张，
+     而**按张计价**（6 张只付 6 张的钱）意味着这一档不贵、翻车成本低。
+   ⚠️ 预设**不手写手法名单** = 稳定取 CONCEPT_SHOT_OPTIONS() 的**前 N 个**：
+     手法表只有一份真相，将来增删档位，三档预设自动跟着对（手写名单必漂）。
+   ⚠️ 「完整 10」= 全部十种，仍是**默认档位之外**的那一档（用户不想一次花十几积分时不必选它）。 */
+export const CONCEPT_SHOT_PRESETS = () => ([
+  { value: 'light', label: '轻量', count: 4, hint: '先出 4 张试一下手法与色调，满意再加' },
+  { value: 'standard', label: '标准', count: 6, hint: '6 张够拼一整篇小红书图文' },
+  { value: 'full', label: '完整', count: 10, hint: '十种手法全出，一篇出到 10 张' },
+]);
+/* 默认档 = 标准（用户已拍板）。取「声明顺序里 count === 6」的那一档，而不是写死下标 ——
+   表改了顺序也不会静默指向别的档。 */
+export const CONCEPT_DEFAULT_PRESET = 'standard';
+export function conceptShotPresetValues(preset = CONCEPT_DEFAULT_PRESET) {
+  const all = CONCEPT_SHOT_MODULES();
+  const picked = CONCEPT_SHOT_PRESETS().find(item => item.value === preset);
+  return all.slice(0, picked ? picked.count : 0).map(item => item.name);
+}
 
 /* ═══ 2026-09-27 批 DB（M1）：人物形态**六档**（替换那条"不出现面部"的绝对禁令）══════════════
    用户原话（90 号 §一-3 逐字）：「不要露脸这条太绝对」「他还是会有几个作品其实是有露脸的，
@@ -1963,7 +2006,12 @@ export const IMAGE_SKILLS = [
        ⚠️ 它不再是一个"单选手法字段"：那样界面上会出现两个手法控件（一个单选、一个勾选清单），
           用户不知道该看哪个 —— 手法只有一处可选，就是这份清单。 */
     modules: CONCEPT_SHOT_MODULES(),
+    /* 2026-09-28 批 DC 续-7：三档规模预设（进页面按 standard 勾好 6 张，见 skillInitialModuleOff）。
+       ⚠️ 只有这一条技能声明它 —— A+ 内容的 16 个内容模块**保持"默认一个都不勾"**（批 AW 用户拍板）。 */
+    modulesPresets: CONCEPT_SHOT_PRESETS(),
     modulesTitle: '本篇手法',
+    /* ⚠️ 2026-09-28 批 DC 续-7：这句话**第一句就说清"这一篇一共几张"**（用户追问的那句）。
+       「10」是清单的上限、不是这一篇的张数 —— 原来只有它，用户看了一路也数不出要买几张。 */
     modulesNote: '勾几种就出几张，按张计价；某一张没跑成不扣那一张。',
     modulesGate: '请先勾选这一篇要出的手法',
     /* ⚠️ `{{shots}}` 与 `{{series}}` **都不是字段**：它们是上面那份清单 / 「连拍组」那一栏
@@ -1972,6 +2020,24 @@ export const IMAGE_SKILLS = [
        继续抓真写错的 key（既不放过 typo、也不误伤运行期注入）。 */
     injectedBriefKeys: ['shots', 'series'],
     fields: [
+      /* ═══ 2026-09-28 批 DC 续-7：参考图**排第一**（用户批注图1-②，原话：
+        「这个参考图放的太下面了，你看看其他所有的子页面，他们的参考图都是在最上面的」）════════
+         站内约定是一个数字：44 个带 upload 的图片 skill 里 **41 个把上传区排第一**（视频侧 3/3 也是），
+         这一条原来排在**第 7 位**，是全仓偏离最大的一个。
+         ⇒ 移到这里。`groupFields` 按**组名首次出现**排序，所以组序也自动跟着改：
+           第一组从「本篇方案」变成「素材」—— 上传在顶、正文在下，与其余子页面一致。 */
+      { key: 'assets', label: '参考图', kind: 'upload', maxImages: 3, role: 'reference', group: '素材',
+        slotLabel: '上传主体或风格锚', hint: '可选。上传 1~3 张作为这一套的主体与风格锚，最多 3 张' },
+      /* ═══ 本篇张数（三档规模预设，2026-09-28 批 DC 续-7）════════════════════════════════════
+         排在「本篇方案」组**第一位**、且就在下面那份勾选清单的上方 ——
+         用户的原话是「**你这个工作台里面并没有给我张数呀**」，所以这一格必须在**看得见的地方**。
+         它是既有 `segmented` 档（不许新造第五种控件），改它 = 把清单重置成对应的前 N 种手法
+         （`applyConceptShotPreset`），用户仍可在下面清单里逐项增删。
+         ⚠️ label 必须 ≤6 字（test/concept-set-workbench-0925 ① 守着）→「本篇张数」正好 4 个。 */
+      { key: 'shotPreset', label: '本篇张数', kind: 'segmented', group: '本篇方案',
+        default: CONCEPT_DEFAULT_PRESET,
+        options: CONCEPT_SHOT_PRESETS().map(item => ({ value: item.value, label: `${item.label} ${item.count} 张`, hint: item.hint })),
+        hint: '按张计价。选完自动勾好对应的手法，下面清单里可以再增删' },
       { key: 'theme', label: '主题意象', kind: 'select', required: true, group: '本篇方案',
         /* 20 条母体由 `conceptThemeOptions()` 拼出（色簇只在 CONCEPT_PALETTES 里定义一次）。 */
         options: conceptThemeOptions() },
@@ -2017,8 +2083,6 @@ export const IMAGE_SKILLS = [
          这样它为空时不会留下「补充：」这种半截话（既有清理逻辑只压缩标点，删不掉词）。 */
       { key: 'notes', label: '补充', kind: 'textarea', rows: 2, group: '本篇方案',
         placeholder: '可选：这一篇还想强调什么（例如"要有水珠反光""道具用陶土与干枝"）' },
-      { key: 'assets', label: '参考图', kind: 'upload', maxImages: 3, role: 'reference', group: '素材',
-        slotLabel: '上传主体或风格锚', hint: '可选。上传 1~3 张作为这一套的主体与风格锚，最多 3 张' },
       /* ═══ 模型选择（2026-09-28 批 DC 续-5：用户点名"最火的不是 image2.5 吗，我不能用上吗"）═══
          之前这一页**锁死 image2**，理由是"唯一有真实出图记录的模型"；但 GPT Image 2.5（Sunburst/Flare）
          早在 9-13 就接通了（上游 gpt-image-2.5-sunburst/flare-*，计费 SKU/标签齐全），
@@ -2029,9 +2093,16 @@ export const IMAGE_SKILLS = [
             "像同一次拍摄"就破了（这是锁模型的本意，锁的从来不是"用户不能选"）。 */
       modelField(),
       /* ⚠️ 比例默认档要**覆盖成 3:4** —— 这是本账号签名的一部分（实测 Aura 41 篇全是竖版），
-         而 ratioField() 的兜底默认是 1:1。不覆盖的话，"默认值跑出来的是方图"就与签名不符。 */
-      { ...ratioField(), default: '3:4' },
-      clarityField(),
+         而 ratioField() 的兜底默认是 1:1。不覆盖的话，"默认值跑出来的是方图"就与签名不符。
+         ⚠️ 2026-09-28 批 DC 续-7（用户批注图3-①，原话：「**这个分辨率它自己占了一整行**
+           呀，我们这个生图的这个设置应该**两个控件在同一个行上面**」）：
+           两格各 `span:'half'` 走**已存在**的两列机制（FieldRenderer 的 data-span →
+           WorkbenchShell.css 的 grid-column: span 1），不新造第三种排法。
+           比例标签同时换成 **RATIO_BARE**（纯「1:1 / 2:3 / …」）：半宽放不下 7 个长标签
+           （「3:4 竖版海报」7 个字 × 7 档），而知渔的「平面转建筑效果图 / 建筑九宫格分镜」
+           实测就是这种纯数字写法（imageSkills.js RATIO_BARE 上方的注释记着这次实采）。 */
+      { ...ratioField(RATIO_BARE), default: '3:4', span: 'half' },
+      { ...clarityField(), span: 'half' },
     ],
     cases: [], history: true,
   },

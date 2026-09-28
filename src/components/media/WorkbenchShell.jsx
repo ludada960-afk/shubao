@@ -84,6 +84,13 @@ export default function WorkbenchShell({
   disabled = false,
   ctaLabel = '立即生成',
   ctaPoints = null,
+  /* 2026-09-28 批 DC 续-7：**清单价与总额**（`6 张 × 2 + 文案 0.5 = 12.5 积分`，见 skillBatchQuote）。
+     给了它就替代 `ctaPoints` 那一行；不给的技能照旧（一句 `{ctaPoints} 积分`）。 */
+  ctaPriceNote = '',
+  /* 主按钮**上方**的自定义控件区（2026-09-28 批 DC 续-7 新增，用来放「同时出文案」那颗开关）。
+     ⚠️ 只开一个口子、由调用方填内容，**不是新控件样式**：里面的东西仍然走既有类，
+        页面里不许再手写一套。默认 null ⇒ 一行都不渲染（其余 40+ 个技能页面一个字不变）。 */
+  ctaExtra = null,
   ctaDisabled = false,
   /* 按钮为什么不能点，要写在按钮旁边（就近），而不是让用户自己猜 */
   ctaHint = '',
@@ -352,7 +359,13 @@ export default function WorkbenchShell({
               <section className={'media-workbench-group media-workbench-checklist' + (selectable ? ' is-selectable' : '')} key={section.key || section.title}>
                 <h3 className="media-workbench-group-title">
                   {section.title}
-                  <span className="media-workbench-checklist-count">已选 {checkedCount}/{section.items.length}</span>
+                  {/* 2026-09-28 批 DC 续-7：**先把"这一篇几张"写出来**，再说"勾了几个"。
+                      用户 2026-09-28 当面问的原话：「**你这个工作台里面并没有给我张数呀**。
+                      我根本就不知道你产出的到底是多少张？」—— 原来这里只有「已选 6/10」，
+                      而那个 10 是清单**上限**，不是这一篇的张数（页面上再没有第二个数字）。 */}
+                  <span className="media-workbench-checklist-count">
+                    {selectable ? `这一篇 ${checkedCount} 张 · 已选 ${checkedCount}/${section.items.length}` : `已选 ${checkedCount}/${section.items.length}`}
+                  </span>
                 </h3>
                 {section.note && <p className="media-workbench-group-note">{section.note}</p>}
                 <ul className="media-workbench-checklist-items">
@@ -396,9 +409,14 @@ export default function WorkbenchShell({
               我们原来把积分**并排在按钮外面**，按钮只剩 458（实测），比规格窄 52px。
               视频侧的按钮早就是这个形态（「分析并生成方案 / 1 积分」两行）—— 图片侧这次跟上。 */}
           <div className="media-workbench-cta">
+            {ctaExtra}
+            {/* 2026-09-28 批 DC 续-7：副行优先显示 `ctaPriceNote`（**清单价与总额**，见 skillBatchQuote）。
+                没给这一项的技能一个字不变（仍是 `{ctaPoints} 积分`）。 */}
             <button type="button" className="media-workbench-submit" disabled={disabled || ctaDisabled} onClick={() => onCta?.()}>
               <span className="media-workbench-submit-label">{ctaLabel}</span>
-              {ctaPoints != null && <small className="media-workbench-points">{ctaPoints} 积分</small>}
+              {ctaPriceNote
+                ? <small className="media-workbench-points">{ctaPriceNote}</small>
+                : (ctaPoints != null && <small className="media-workbench-points">{ctaPoints} 积分</small>)}
             </button>
             {/* ═══ 批 BF：两句话在这一格上打过架，结论写在这里，免得下一轮再翻烧饼 ═══════════════════
                 用户原话（对着这一格）：「为什么每做一个东西你都要加一句解释呢？你这样会导致画面里

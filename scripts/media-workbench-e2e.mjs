@@ -32,6 +32,9 @@ import { nearestLegalRatio, skillVideoMode } from '../src/skills/skillRun.js';
 /* 模型白名单**从目录里来**（批 R）：页面上能选的每一档，都是请求里允许出现的那几档。
    手抄一份 ['image2'] 会在目录加档时变成"页面能选、请求判非法"的假红。 */
 import { SELECTABLE_IMAGE_MODELS, generationUnits } from '../src/services/imageModelCatalog.js';
+/* 批 DC 续-7：按钮上的清单多了一项「文案 0.5」，端到端要拿它跟**目录里的价**逐字比 ——
+   同样不许手抄一个 0.5（目录改价就会变成"页面写一个数、真扣另一个数"）。 */
+import { CONCEPT_COPY_POINTS } from '../src/services/conceptCopy.js';
 
 /* ═══ 端口：默认 4197，可用 `SHUBO_E2E_PORT` 覆盖（2026-09-27 批 CD 加的）══════════════════════
    为什么要有这个开关：**同一个工作树里可能有两个会话同时在跑**（本仓真的有），
@@ -424,20 +427,25 @@ const upload = async () => {
    **逐字节相同**的（x266/y32，无任何 running animation）—— 也就是说这是**判定误报**，不是元素真的在动。
    用 JS 直接 click 绕过这一层，走的是**同一个 onClick**，被检验的行为一点没少。 */
 const clickBack = async () => { await page.click('.topbar-back', { force: true }); };
+/* 全站那个计费/确认对话框（DialogProvider）：确认键是 footer 里的 `.ui-btn-primary`。
+   ⚠️ 2026-09-28 批 DC 续-7：这里原来靠**按钮文字**匹配 `/确认生成/` ——
+   批 DC 续-7 给「出这一篇」换了文案（`confirmLabel: '出这一篇'`），于是这个匹配整体失配，
+   对话框没人点 ⇒ 概念视觉方案那条链在 e2e 里当场死锁（表现为"请求发了但结果没落到工作台"）。
+   ⇒ 改成按**角色**找（primary 就是确认键），不再钉死某一个调用点的文案。 */
+const confirmOpenDialog = async (timeout = 1200) => {
+  await page.waitForSelector('[role="dialog"][aria-labelledby="app-dialog-title"] .ui-btn-primary', { timeout }).catch(() => null);
+  const confirmed = await page.evaluate(() => {
+    const button = document.querySelector('[role="dialog"][aria-labelledby="app-dialog-title"] .ui-modal-footer-actions .ui-btn-primary');
+    if (!button) return false;
+    button.click();
+    return true;
+  });
+  if (confirmed) await page.waitForTimeout(300);
+  return confirmed;
+};
 const clickGenerate = async () => {
   await page.click('.media-workbench-submit');
-  const preview = await page.waitForSelector('[role="dialog"] button', { timeout: 1200 }).catch(() => null);
-  if (preview) {
-    const confirmed = await page.evaluate(() => {
-      const dialog = document.querySelector('[role="dialog"][aria-labelledby="app-dialog-title"]');
-      if (!dialog) return false;
-      const button = [...dialog.querySelectorAll('button')].find(node => /确认生成/.test(node.textContent || ''));
-      if (!button) return false;
-      button.click();
-      return true;
-    });
-    if (confirmed) await page.waitForTimeout(300);
-  }
+  await confirmOpenDialog();
   /* ═══ 批 K-C：预览型技能（A+内容 / 详情图）现在先出**三步方案预览** ═══════════════════
      用户第 16 轮把图片侧的「预览」升级成了与知渔「代为撰写」同源的三步流水线：
      继续生成（0.5 积分/次，先弹计费确认）→ ① 素材理解 → ② 方向与偏好 → ③ 方案预览 → 确认并应用。
@@ -459,8 +467,13 @@ const clickGenerate = async () => {
     }
     await page.waitForTimeout(200);
     /* 对话框已经关掉（方案已应用 / 已跳过）才点第二次；还开着就让它照原样失败，
-       别用 catch 把「对话框堵死主流程」这种真问题吞掉。 */
-    if (!(await page.$('.plan-preview-card'))) await page.click('.media-workbench-submit');
+       别用 catch 把「对话框堵死主流程」这种真问题吞掉。
+       ⚠️ 第二次点击**同样可能再弹一次计费确认**（批 DC 续-7：「出这一篇」那一次下单就是
+          一个带清单价的确认框）—— 不再点掉它，这一次点击就等于什么都没发生。 */
+    if (!(await page.$('.plan-preview-card'))) {
+      await page.click('.media-workbench-submit');
+      await confirmOpenDialog();
+    }
   }
 };
 const ctaDisabled = () => page.evaluate(() => document.querySelector('.media-workbench-submit')?.disabled ?? null);
@@ -1956,6 +1969,14 @@ try {
         const options = await select.$$eval('option', nodes => nodes.map(node => node.value).filter(Boolean));
         if (options.length) await select.selectOption(options[Math.min(1, options.length - 1)]).catch(() => {});
       }
+      /* ⚠️ 2026-09-28 批 DC 续-7：「模型选择」不再是 `<select>`，上面那圈 selectOption **够不到它** ——
+         不补这一步的话，每条技能的模型都停在默认档，下面那条
+         「扫描里真的覆盖到了"换成别的模型"的技能」会**空转通过**（generated 里一个非默认都没有）。
+         这里补回原来 selectOption 顺带做到的事：挑**第二档**模型（与旧循环同口径）。 */
+      await page.evaluate(() => {
+        const rows = [...document.querySelectorAll('.media-field-model-list .sb-opt')];
+        if (rows.length > 1) rows[1].click();
+      });
       await page.evaluate(() => {
         document.querySelectorAll('.media-workbench-fields .media-field-segmented').forEach(group => {
           if (!group.querySelector('button.is-active')) group.querySelector('button')?.click();
@@ -1975,8 +1996,10 @@ try {
       const gate = await page.evaluate(() => ({
         disabled: document.querySelector('.media-workbench-submit')?.disabled ?? null,
         hint: document.querySelector('.media-workbench-cta-hint')?.textContent || '',
-        /* 页面上**当前选中**的模型（有这一格的技能才非空）——下面要断言请求里的模型与它一致 */
-        modelShown: document.querySelector('.media-workbench-fields select[id="field-imageModel"]')?.value || '',
+        /* 页面上**当前选中**的模型（有这一格的技能才非空）——下面要断言请求里的模型与它一致。
+           ⚠️ 2026-09-28 批 DC 续-7：这一格不再是原生 `<select>`（换成站内的 `.sb-opt` 卡片行了），
+           所以读法改成"模型那一组里 aria-pressed 的那行"—— 键是 `data-model-id`，不是按钮文字。 */
+        modelShown: document.querySelector('.media-field-model-list .sb-opt[aria-pressed="true"]')?.dataset.modelId || '',
       }));
       result.modelShown = gate.modelShown;
       if (gate.disabled) { result.problem = '配齐之后 CTA 仍然是禁用：' + (gate.hint || '(无提示)'); return result; }
@@ -2014,13 +2037,24 @@ try {
            按钮上的积分  ==  请求数 × 该模型该清晰度的单价（单价来自模型目录，与后端 SKU 同源）。
          判据要守的东西一个字没变：勾几个出几张、收几张的钱。 */
       const points = Number.parseFloat(String(pointsNow).match(/(\d+(?:\.\d+)?)\s*积分/)?.[1] || '');
+      /* ⚠️ 2026-09-28 批 DC 续-7：按钮上现在是**一张清单**（`6 张 × 1.5 + 文案 0.5 = 9.5 积分`），
+         总额里**含文案那 0.5**，而文案走的是另一个 SKU（ec_concept_copy）、不经过 regenerate。
+         所以"请求数 × 单价 == 按钮上的数"这条旧写法会把 0.5 判成对不上。
+         ⚠️ 判据不许因此放松：改成 **图的那一份 + 文案的那一项 == 总额**，
+            并且文案那一项必须**逐字等于目录里的价** —— 否则就是"拿它凑总数"，钱路反而没人守了。 */
+      const copyTerm = Number.parseFloat(String(pointsNow).match(/文案\s*(\d+(?:\.\d+)?)/)?.[1] || '0');
       const fired = calls.regenerate.length - before;
       const body = calls.regenerate[calls.regenerate.length - 1] || {};
       const unit = generationUnits(body.image_model, body.resolution) / 1000;
       if (!(points > 0)) { result.problem = '按钮上没有积分报价：' + pointsNow; return result; }
       if (!(unit > 0)) { result.problem = '算不出单价（模型 ' + body.image_model + ' / 清晰度 ' + body.resolution + '）'; return result; }
-      if (Math.abs(fired * unit - points) > 0.001) {
-        result.problem = '请求数 ' + fired + ' × 单价 ' + unit + ' = ' + (fired * unit) + '，与按钮上的 ' + points + ' 积分对不上（勾几个出几张、收几张的钱）';
+      if (copyTerm > 0 && Math.abs(copyTerm - CONCEPT_COPY_POINTS) > 0.001) {
+        result.problem = '按钮上文案那一项是 ' + copyTerm + '，与目录里的 ' + CONCEPT_COPY_POINTS + ' 对不上';
+        return result;
+      }
+      if (Math.abs(fired * unit + copyTerm - points) > 0.001) {
+        result.problem = '请求数 ' + fired + ' × 单价 ' + unit + ' = ' + (fired * unit)
+          + (copyTerm ? ' + 文案 ' + copyTerm : '') + '，与按钮上的 ' + points + ' 积分对不上（勾几个出几张、收几张的钱）';
         return result;
       }
       result.sent = body;
@@ -2127,7 +2161,9 @@ try {
   await page.waitForTimeout(160);
   check((await activeClarity()).startsWith('4K'), '三档全支持的模型可以选 4K', await activeClarity());
   const priceBefore = await priceOf();
-  await page.selectOption('select[id="field-imageModel"]', 'midjourney');
+  /* ⚠️ 批 DC 续-7：换模型改成**点那一行**（这一格已从 `<select>` 换成站内的 `.sb-opt` 卡片行），
+     键走 `data-model-id`，不靠按钮文字 —— 模型名会改，文字不是稳定键。 */
+  await page.click('.media-field-model-list .sb-opt[data-model-id="midjourney"]');
   await page.waitForTimeout(220);
   const priceAfter = await priceOf();
   check(priceBefore !== priceAfter && /积分/.test(priceAfter), '换模型后按钮上的积分跟着变（模型真的参与计费）', priceBefore + ' → ' + priceAfter);
@@ -2403,13 +2439,25 @@ try {
   await page.waitForSelector('.media-run-live-recheck', { timeout: 20000 }).catch(() => null);
   await page.waitForTimeout(400);
 
-  const lost = await page.evaluate(() => ({
-    note: document.querySelector('.media-run-live-note')?.textContent || '',
-    hasRecheck: Boolean(document.querySelector('.media-run-live-recheck')),
-    hasClip: Boolean(document.querySelector('.media-run-live-clip')),
-    hasMakeAgain: Boolean(document.querySelector('.media-run-live-make')),
-  }));
-  check(lost.hasRecheck, '查不到进度时，原地给一颗「再看一眼」（取回入口留在这一张下面）', JSON.stringify(lost).slice(0, 140));
+  /* ⚠️ 2026-09-28 批 DC 续-7：**逐槽**读，别再整页读。
+     概念视觉方案现在默认出 6 张，于是"这一格"之外还有 5 格**本来就该有**「做成动图」——
+     它们还没买过。改前只出 1 张，整页查询碰巧等于"这一格"，现在不成立：
+     整页查 hasMakeAgain 会把另外 5 格的合法按钮算成"又出现了一次"。
+     正确的判据是：**已经建过单的那一格**（认得出来：它下面有「再看一眼」）不再有「做成动图」。 */
+  const slots = await page.evaluate(() => [...document.querySelectorAll('.media-run-slot')].map(node => ({
+    hasRecheck: Boolean(node.querySelector('.media-run-live-recheck')),
+    hasClip: Boolean(node.querySelector('.media-run-live-clip')),
+    hasMakeAgain: Boolean(node.querySelector('.media-run-live-make')),
+    note: node.querySelector('.media-run-live-note')?.textContent || '',
+  })));
+  const bought = slots.filter(row => row.hasRecheck);
+  const lost = {
+    hasRecheck: bought.length > 0,
+    note: bought[0]?.note || '',
+    hasClip: slots.some(row => row.hasClip),
+    hasMakeAgain: bought.some(row => row.hasMakeAgain),
+  };
+  check(lost.hasRecheck, '查不到进度时，原地给一颗「再看一眼」（取回入口留在这一张下面）', JSON.stringify(slots).slice(0, 200));
   check(!lost.hasClip, '还没拿到成片就不许给下载入口（不给空壳）');
   check(!/不扣积分/.test(lost.note),
     '**不许说"本次不扣积分"**（钱已经花掉了，这么说就是把花了钱说成没花钱）', lost.note);
