@@ -11628,3 +11628,71 @@ section.mt-8「产品卖点与设计风格」
 线上入口 `assets/index-Bl9qpQa_.js` 与隔离树构建**逐字相同**，`width:1080,height:1440`
 在线上 chunk `index-iLRWu0oh.js` 命中（拼版格的新值已在线）；/health 200、站点 200、pm2 online。
 收尾：先 `rmdir node_modules`（GONE）→ `git worktree remove -f` → 共享 node_modules 完好（309 包）。
+
+## 2026-09-28 批 CY-⑨ / CY-⑩ —— CV-2：**画布 ↔ 子页面双向通道**（用户拍板入口在节点上）
+
+用户拍板（逐字）：「画布↔子页面的入口位置，可以，你你做吧」
+⇒ 按 `docs/design/89` §7 第 3 条的建议：入口放**节点上/就地**，顶栏只留"模板广场"。
+   §5 第 2 步的两半都做了：**画布 → 子页面**（CY-⑨，`d8e38798`）与**子页面 → 画布**（CY-⑩，`3b58db3d`）。
+
+### ① CY-⑨ 画布 → 子页面：节点上「在完整工作台里编辑」
+- 新增纯函数桥 `src/pages/EcCanvas/canvasWorkbenchBridge.js`：
+  `canvasWorkbenchTargetOf(node)`（先认建节点时存的 `subpageSkillId`，再按技能名**精确相等**回查；
+  两条都不中 ⇒ **null** ⇒ 入口不渲染 —— "接不通的不给入口"）+ `canvasNodeSeedValues(node, skill)`
+  （只带**这条技能真声明了的字段**：ratio / resolution|clarity / count；提示词走子页面既有的
+  `planPreviewTargetKey` 口径）。
+- 入口放在**技能弹层**里（与「更多技能…/清除技能」同一格）—— 不在参数行或顶栏另造新入口
+  （用户反复点名过"一个页面只能有一个主入口"）。
+- 落地**复用同一段**既有代码：`openNodeInWorkbench` 只发一个 `creationLaunch`
+  （`kind:'canvas-node-edit'`，载荷与 `work-remix` 同形）+ NAVIGATE；`MediaCreation` 那段把条件放宽成
+  "两种 kind 都认"，只换一句提示语。**全程零扣费调用。**
+- 实测（`.qa/cy9-canvas-workbench-channel.mjs`）：建节点 6→7 → 技能层里**有**那颗按钮 → 点击落到
+  `/image-creation?id=image.product_suite` 且技能正文**已预填** → **0 次 POST** → **清掉技能后按钮消失** ✓。
+- ⚠️ 探针环境教训：第一版"点了不跳"其实是 **dev server 的模块图坏了**
+  （`Failed to fetch dynamically imported module`），第二次全 200 —— **别把环境问题当接线问题**，
+  给探针加一条"模块请求状态码"读数就能当场分辨。
+
+### ② CY-⑩ 子页面 → 画布：结果区逐张「送到画布」
+- 新增 `src/pages/EcCanvas/canvasWorkbenchInbound.js`：`isWorkbenchInbound` 只认 `kind:'to-canvas'`
+  （与首页"发射器" `ec-plan-launch` **语义不同**：发射器 = 发来一整套方案、整张图换成新方案；
+  这里是"把这一张成品拿到画布上继续做"）；`workbenchInboundNodesOf` 把结果图变成节点
+  （落在现有内容**最右缘 + 间隙**、同批按 y 排开、`provenance:'generated'`、带上技能坐标 ⇒ 能原路回工作台）。
+- 画布侧**追加**（`[...previous, ...新节点]`）**不覆盖**用户画布；清 launch + 跳过"清空后那一跳" +
+  标记草稿就绪（三条与发射器同一套写法，少一条就会"toast 还在、画布被重建清空"）。
+- 子页面：结果区**逐张**一颗「送到画布」（与「做成动图」同一格），只给**已就绪、有 url 的成品**；
+  主 CTA 一个字没动。
+- 实测（`.qa/cy10-send-to-canvas.mjs`）：结果 1 张 + 按钮 1 个 → 点击后画布挂载、节点出现 →
+  **画布上找得到那张结果图** → 送这一段 **0 次 POST** → 3 秒后仍在画布上 ✓。
+
+### ③ ⚠️ 本批最值得记的两条（都是"实测纠正了想当然"）
+1. **导航要用 App 的规范动作**：第一版用 `dispatch({type:'NAVIGATE', page:'ec-canvas'})` —— 画布挂载了、
+   图也加上了（toast 都出来了），但**两三秒后被弹回子页面**。查 `CreativeDomainNav` 的
+   `OPEN_CANVAS` 分支（**只 dispatch、不推 URL**）才明白：App 打开画布的规范动作是 `OPEN_CANVAS`
+   （它顺带复位 `canvasEntryTab` / `galleryItem`），`NAVIGATE` 会漏掉这两样 ⇒ 画布进的是上一次的入口态。
+   **教训：导航类改动不只验"到得了"，还要验"停得住"**（探针第 ⑥ 步"3 秒后仍在画布上"就是守它的）。
+2. **提前返回之后不许再调 hook**（我自己踩了）：`sendResultToCanvas` 我写成了 `useCallback`，而它在
+   `if (!skill) return <MediaHub/>`（第 1941 行）**之后** ⇒ 渲染 Hub 时"这一轮少调了一个 hook"，整页塌。
+   **e2e 场景 ⑱b（子页面点「返回」→ 等 `.media-hub`）15 秒超时当场抓住**；按纪律先判别是不是我背锅：
+   把源码退回**纯 HEAD** 并重新 build ⇒ 同一条 e2e **323 条全绿** ⇒ 锅在我这边 ⇒ 改成普通函数后全绿。
+   本文件对同一个坑有前车之鉴（`usePlanLeaveGuard` 上面那段注释写着同一句话）—— 所以门禁里加了一条
+   "这一行不许用 useCallback"守着它。
+
+### ④ ⚠️ 一条**已知竞态（未修，如实记）**
+结果出来 **1 秒内**立刻点「送到画布」，画布会挂载、节点与图都落上（toast 也出来），但 **~2 秒后页面被
+某个"生成完成后的副作用"拉回子页面**；按正常节奏（看图 → 决定 → 点，约 3 秒）**稳**。
+已做的判别：用**侧边栏**（App 自己的导航）在同样时机**不弹**；history 轨迹为空（没有 pushState/back/popstate）；
+离开守卫与子页面那两条 NAVIGATE 都不是自动触发的。⇒ 不是本批的 launch 消费者所致，**落点仍未定位**，
+下一步该在 **store 的 dispatch 上打点**（记录每次 dispatch 的 type + 时间，看是谁把 page 拨回去）。
+探针按真实用户节奏（等 3 秒）验收，并把这条写在提交信息里，免得被当成"没做"。
+
+### ⑤ 验证与上线
+- 隔离 worktree `.worktrees/cy10-verify`（钉在当时的 HEAD + 本批 diff；A 那批是 `.worktrees/cy9-verify`）：
+  `npm run test` → tests **4248** / pass **4238** / **fail 0** / skipped 10；
+  `npm run precommit` → 构建 exit 0 + render-smoke 通过 + `[media-e2e] 通过：323 条断言全绿`
+  + `[4/5] BLOCKING 门禁（38 个）`全绿 + `✅ precommit 通过`。
+- 提交：`d8e38798`（CY-⑨，8 个文件）、`3b58db3d`（CY-⑩，7 个文件）。
+- **部署**：CY-⑨ `Deployed d8e38798 to https://shuimg.cn/` + 锁已释放；服务端复验 `current` →
+  `releases/20260928-161631-d8e38798`、`/health` 200、线上入口 `index-Cy3qpBRp.js` + `style-1fIVS3ye.css`
+  与部署仓 `dist` **逐字相同**。CY-⑩ 的部署见本批末尾那一行。
+- ⚠️ 部署期间线上还被另一条线推进过两次（`3f5e3c2d` / `c62c896c` / `869dac5e` / `897bbdec`）——
+  共享分支上的常规并发；我每次部署都先查远端锁（`fuser /tmp/.shubao-deploy-v2.lock`）再发。
