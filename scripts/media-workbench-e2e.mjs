@@ -70,11 +70,13 @@ const fx = {
   suiteDelivered: 3,         /* 套图任务最终交付几张（< 方案张数 = 部分交付） */
   works: [],
   videoJobs: [],             /* 服务端 /api/video/jobs 返回的任务（嵌入的视频工作台用它渲染生成记录） */
-  /* 「做成动图」：POST /api/concept/live-photo 返回的任务号（随后由**既有**的
-     GET /api/video/jobs/:id 桩去查它 —— 与线上同一条路：入口一条，状态查既有路由） */
+  /* 「做成动图」：POST /api/concept/live-photo 返回的任务号（随后由**这一档自己的**
+     GET /api/concept/live-photo?jobId= 桩去查它 —— 入口与状态是同一条口） */
   livePhotoJobId: 'live-photo-e2e-1',
+  /* 场景㉓：头几次"查进度"直接 404（模拟超时那一段），用来验"再看一眼"这条取回路径 */
+  livePhotoStatus404: 0,
 };
-const calls = { planPreview: [], assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0, recognize: [], livePhoto: [], livePhotoGet: 0 };
+const calls = { planPreview: [], assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0, videoJobDetail: 0, recognize: [], livePhoto: [], livePhotoGet: 0, livePhotoStatus: [] };
 
 const failures = [];
 const passed = [];
@@ -230,17 +232,35 @@ const server = createServer(async (req, res) => {
       return json(res, 500, { error: 'E2E：本轮不允许真实提交视频任务' });
     }
     /* ── 「做成动图」：概念视觉方案结果区那一颗（2026-09-27 批 DC-4）──────────────────────────
-       ⚠️ 这里**只桩这一条入口**，成片状态走上面那条**既有**的 GET /api/video/jobs/:id ——
-          也就是"浏览器这一侧一次真实视频任务都没有提交"：
+       ⚠️ 这里**只桩这一条入口**（价目与状态都是同一条 `/api/concept/live-photo` 的 GET，
+          状态那条带 `?jobId=`）—— 也就是"浏览器这一侧一次真实视频任务都没有提交"：
           上面那条 POST /api/video/jobs 仍然一律 500（本轮不许真实出片），而本场景要断言
           **它一次都没被调到**（calls.videoJob === 0）。真要有人把浏览器这条链改成直接
           提交视频任务，这个场景会立刻红。
+       ⚠️ 状态**故意不桩** `/api/video/jobs/:id` 给这条链用（2026-09-28 批 CY-2 改的）：
+          那条口挂的是 `video_generation` 权限，而这一页归 `ecommerce_image` —— 两把锁不同，
+          只开电商生图的账号会"钱花了却查不到自己的动图"。所以本场景连"查状态"这一步也一起
+          钉在**这一档自己的口**上（下面那条 404 分支就是它的反例自证）。
        ⚠️ 返回的价目是**桩数据**（与真实目录同值：面价 ¥3.90 = 14900 units ≈ 15 积分），
           成片地址也是桩的（本站没有可播放的样例片）—— 所以本场景验的是
           "按钮带价 / 点前确认 / 拿到可下载的入口 / 没偷偷提交真实任务"，
           **片子本身好不好看、能不能播**只有用户真机那一次才能验（docs/design/91 已如实写明）。 */
     if (path === '/api/concept/live-photo' && req.method === 'GET') {
       calls.livePhotoGet += 1;
+      const jobId = url.searchParams.get('jobId');
+      if (jobId) {
+        calls.livePhotoStatus.push(jobId);
+        /* 场景㉓ 用：头几次查进度**查不到**（模拟超时/网络抖动那一段），之后恢复正常 ——
+           这是"钱已经花了、片还会出，但这一会儿读不到状态"的唯一可复现造法。 */
+        if (fx.livePhotoStatus404 > 0) {
+          fx.livePhotoStatus404 -= 1;
+          return json(res, 404, { code: 'STILL_MOTION_JOB_NOT_FOUND', error: '这条动图任务查不到了' });
+        }
+        const job = fx.videoJobs.find(item => item.id === jobId);
+        return job
+          ? json(res, 200, { job })
+          : json(res, 404, { code: 'STILL_MOTION_JOB_NOT_FOUND', error: '这条动图任务查不到了' });
+      }
       return json(res, 200, {
         ready: true, sku: 'video_live_photo_short', productId: 'live_photo',
         units: 14900, totalUnits: 14900, points: 15, providerCostCny: 0.91,
@@ -258,6 +278,7 @@ const server = createServer(async (req, res) => {
     /* 单条任务：点「生成记录」里的某一条时会拉它（缺这条路由会让任务状态被清成 undefined——
        已经踩过一次，见 VideoStudioPage.poll 里的防呆注释） */
     if (/^\/api\/video\/jobs\/[^/]+$/.test(path)) {
+      calls.videoJobDetail += 1;
       const id = decodeURIComponent(path.split('/').pop());
       const job = fx.videoJobs.find(item => item.id === id);
       return job ? json(res, 200, { job }) : json(res, 404, { error: '任务不存在' });
@@ -2177,7 +2198,9 @@ try {
     billingState: 'settled',
   }];
   calls.videoJob = 0;
+  calls.videoJobDetail = 0;
   calls.livePhoto.length = 0;
+  calls.livePhotoStatus.length = 0;
 
   await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent(LIVE_PHOTO_SKILL_ID), { waitUntil: 'load', timeout: 40000 });
   await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
@@ -2237,6 +2260,12 @@ try {
   check(['units', 'totalUnits', 'points', 'price', 'amount'].every(key => !(key in liveBody)),
     '请求里不许出现任何金额字段（定价只有一个来源 = 服务端目录）', Object.keys(liveBody).join(','));
   check(calls.livePhotoGet >= 1, '页面进来时问过一次服务端价目（按钮上的数字从这里来）', 'calls=' + calls.livePhotoGet);
+  /* ⚠️ 2026-09-28 批 CY-2：查状态走**这一档自己的口**（同一条 GET + ?jobId=），
+     不查 `/api/video/jobs/:id` —— 那条挂的是 `video_generation` 权限，只开电商生图的账号
+     会"钱花了却查不到自己的动图"。这一条同时是"状态链没有打到视频口"的证据。 */
+  check(calls.livePhotoStatus.length >= 1 && calls.livePhotoStatus.every(id => id === fx.livePhotoJobId),
+    '查状态走的是这一档自己的口（?jobId= 带着刚才那条任务号）', calls.livePhotoStatus.join(','));
+  check(calls.videoJobDetail === 0, '没有绕道去查视频任务口 `/api/video/jobs/:id`（两处权限不是同一把锁）', 'calls=' + calls.videoJobDetail);
   /* ⚠️ 这一条是"本场景没有真实出片"的证据：浏览器这一侧一次都没提交真实视频任务 */
   check(calls.videoJob === 0, '**没有偷偷提交真实视频任务**（POST /api/video/jobs 那条桩原样还在：点了必 500）', 'calls=' + calls.videoJob);
 
@@ -2246,6 +2275,71 @@ try {
   const download = await downloadPromise;
   check(Boolean(download), '点「下载这张动图」真的把文件交给浏览器了');
   check(/概念视觉方案\.mp4$/.test(download?.suggestedFilename() || ''), '下载的文件名认得出是哪一张（技能名 + .mp4）', String(download?.suggestedFilename()));
+
+  /* ═══ ㉓ 做成动图 · 「再看一眼」取回路径（2026-09-28 批 CY-2）════════════════════════════════════
+     这一条守的是**最难受的那种失败**：钱已经按最短路花掉了、上游也真在出片，但这一会儿
+     客户端读不到进度。实测过的坏做法有三种，这一条把三种都钉死：
+       ① 说成"本次不扣积分" —— 把花了钱说成没花钱（**假话**）；
+       ② 把用户推去「任务记录」—— 那个入口挂的是另一个权限（`video_generation`），
+          只开电商生图的账号进不去，等于"钱花了却没有任何地方能取回"；
+       ③ 让用户在原地再买一次 —— 同一张图会变成两条任务（钱就是这么花两遍的）。
+     做法：第一次查进度直接 404，看它给出的说明与那颗「再看一眼」；再点一次（这次服务端正常），
+     成片当场取回；全程 POST 只发过一次（**没有再建单、没有再冻钱**）。 */
+  scenario('㉓ 做成动图：查不到进度时不撒谎、原地能取回（不再建单、不再扣费）');
+  fx.regenerateMode = 'ok'; fx.quoteStatus = 200; fx.statusRemaining = 0;
+  fx.livePhotoStatus404 = 1;
+  calls.videoJob = 0; calls.videoJobDetail = 0;
+  calls.livePhoto.length = 0; calls.livePhotoStatus.length = 0;
+
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent(LIVE_PHOTO_SKILL_ID), { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    const box = document.querySelector('.media-workbench-checklist.is-selectable .media-workbench-checklist-toggle');
+    if (box && box.getAttribute('aria-checked') !== 'true') box.click();
+  });
+  await page.waitForTimeout(250);
+  await clickGenerate();
+  await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 25000 });
+  await page.waitForTimeout(400);
+
+  await page.click('.media-run-live-make');
+  await page.waitForSelector('[role="dialog"][aria-labelledby="app-dialog-title"]', { timeout: 8000 }).catch(() => null);
+  await page.evaluate(() => {
+    const dialogNode = document.querySelector('[role="dialog"][aria-labelledby="app-dialog-title"]');
+    const button = [...(dialogNode?.querySelectorAll('button') || [])].find(node => /做成动图/.test(node.textContent || ''));
+    if (button) button.click();
+  });
+  await page.waitForSelector('.media-run-live-recheck', { timeout: 20000 }).catch(() => null);
+  await page.waitForTimeout(400);
+
+  const lost = await page.evaluate(() => ({
+    note: document.querySelector('.media-run-live-note')?.textContent || '',
+    hasRecheck: Boolean(document.querySelector('.media-run-live-recheck')),
+    hasClip: Boolean(document.querySelector('.media-run-live-clip')),
+    hasMakeAgain: Boolean(document.querySelector('.media-run-live-make')),
+  }));
+  check(lost.hasRecheck, '查不到进度时，原地给一颗「再看一眼」（取回入口留在这一张下面）', JSON.stringify(lost).slice(0, 140));
+  check(!lost.hasClip, '还没拿到成片就不许给下载入口（不给空壳）');
+  check(!/不扣积分/.test(lost.note),
+    '**不许说"本次不扣积分"**（钱已经花掉了，这么说就是把花了钱说成没花钱）', lost.note);
+  check(!lost.hasMakeAgain, '同一张图不许再出现「做成动图」（再点一次会在原地买第二遍）', lost.note);
+  check(/已经建好|进度暂时查不到/.test(lost.note), '要说清"这一单已经建好了、只是这会儿读不到"', lost.note);
+
+  /* 点「再看一眼」：服务端这次正常 → 成片当场取回；**没有第二次建单/扣费** */
+  await page.click('.media-run-live-recheck');
+  await page.waitForSelector('.media-run-live-clip', { timeout: 25000 }).catch(() => null);
+  await page.waitForTimeout(400);
+  const recovered = await page.evaluate(() => ({
+    hasClip: Boolean(document.querySelector('.media-run-live-clip')),
+    src: document.querySelector('.media-run-live-clip video')?.getAttribute('src') || '',
+  }));
+  check(recovered.hasClip, '点「再看一眼」把成片取回来了（不用离开这一页、不用去别处找）', JSON.stringify(recovered).slice(0, 120));
+  check(/live-photo-e2e/.test(recovered.src), '取回的就是那条任务的成片', recovered.src.slice(0, 80));
+  check(calls.livePhoto.length === 1, '全程只建过一次单（「再看一眼」只读状态，**不再扣费**）', 'calls=' + calls.livePhoto.length);
+  check(calls.videoJob === 0 && calls.videoJobDetail === 0,
+    '取回路径同样没有碰视频任务口（两处权限不是同一把锁）', 'post=' + calls.videoJob + ' detail=' + calls.videoJobDetail);
+  fx.livePhotoStatus404 = 0;
 
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));

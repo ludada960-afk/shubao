@@ -203,6 +203,25 @@
 .media-run-live-clip { position: absolute; inset: 0; display: grid; align-content: end; gap: 6px; padding: 8px; background: rgba(17, 20, 45, .55); }
 .media-run-live-clip video { width: 100%; max-height: calc(100% - 36px); border-radius: 8px; background: var(--sb-neutral-900); }
 .media-run-live-clip .media-run-live-download { justify-self: start; }
+/* ═══ 「再看一眼」2026-09-28 批 CY-2 ═══════════════════════════════════════════════════
+   上游比预期慢（超时）或中途查不到进度时，取回成片的入口**留在这一张下面** —— 不把用户推去
+   「任务记录」：那个入口挂的是另一个权限（video_generation），只开电商生图的账号进不去。
+   它**不再花钱**（钱在第一次点击时就定下了），所以**不显价**，也不跟上面那颗带价的按钮长一样：
+   带价与不带价在同一排里必须一眼分得开（点错的代价是一笔真实的钱）。 */
+.media-run-live-recheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.media-run-live-recheck:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 20, 45, .14); }
 
 /* ═══ 结果区的「拿这张图接着做」2026-09-18 ═════════════════════════════════════════
    辅助能力（提升质感 / 再来一张相似的）长在**主技能的结果区**，不再单独占一张卡。

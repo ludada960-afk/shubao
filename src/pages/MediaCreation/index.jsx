@@ -83,6 +83,7 @@ import {
   buildCanvasGenerationBody,
   createLivePhotoClip,
   fetchLivePhotoOffer,
+  fetchLivePhotoStatus,
   generateEcommerce,
   recoverCanvasGeneration,
   regenerateCanvasImage,
@@ -94,11 +95,12 @@ import {
    注释文字会被当成一个"被导入的符号"，构建直接判红（本批实测踩过一次）。
    `uploadEcommerceAsset` 是批 DC（M3）加的：拼版成品图要留档时，先经既有上传链路落成稳定素材。 */
 import { quoteBillingAction } from '../../services/billing.js';
-/* 「做成动图」要的两样既有能力：
-     · getVideoJob   —— 查任务状态（`/api/video/jobs/:id` 是既有路由，不新造状态口）；
-     · useDialog     —— 点之前的计费确认框（与 NoteModal 的「重新生成这张图片？」同一口径）。
+/* 「做成动图」要的那一样既有能力：点之前的计费确认框（与 NoteModal 的「重新生成这张图片？」同一口径）。
+   ⚠️ 查任务状态的那一个（曾从 services/video.js 引 getVideoJob）**已在 2026-09-28 批 CY-2 撤掉**：
+      视频任务口挂的是 `video_generation` 权限，而这一页归 `ecommerce_image` —— 两把锁不同，
+      只开电商生图的账号会"钱花了却查不到自己的动图"。现在状态查这一档自己的口
+      （services/api.js 的 fetchLivePhotoStatus，同一条 GET + ?jobId=）。
    ⚠️ 注释写在 import **外面**：verify-exports 用正则扫 import 块，块内注释会被当成导入的符号。 */
-import { getVideoJob } from '../../services/video.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { useWorksSync } from '../../store/useWorksSync.js';
@@ -216,8 +218,12 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
                · 正在做的时候说清"做好之前不会扣积分"；做完了就在原地给**下载**；
                · 失败**就近说明**（这一张下面那行 role="alert"，不是转瞬即逝的 toast），并写清没扣积分。 */
           const clip = livePhoto?.states?.[index] || null;
+          /* ⚠️ `!clip?.jobId`：只要这一张**已经建过单**（不管当时是超时还是查不到），就只给
+             「再看一眼」，不再给「做成动图」—— 否则按钮上写着"扣 15 积分"，点下去其实命中的是
+             幂等回放（服务端按"属主+产品+这张图"派生同一个键），文案与实际不符；
+             更要紧的是"同一张图两条任务"这种误会不该由用户去猜。 */
           const canMake = finished && Boolean(slot.url) && Boolean(livePhoto?.offer)
-            && clip?.status !== 'working' && clip?.status !== 'pending' && !clip?.url;
+            && !clip?.jobId && clip?.status !== 'working' && clip?.status !== 'pending' && !clip?.url;
           return (
             <div className="media-run-slot" key={slot.id} data-status={slot.status} data-live-photo={clip?.status || ''}>
               {slot.url
@@ -235,6 +241,16 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
                     <Download size={14} />下载这张动图
                   </button>
                 </div>
+              )}
+              {/* ═══ 「再看一眼」（2026-09-28 批 CY-2）═══════════════════════════════════════════
+                  上游比预期慢（超时）或中途查不到进度时，取回成片的入口**就留在这一张下面** ——
+                  不把用户推去「任务记录」：那个入口挂的是另一个权限（video_generation），
+                  只开了电商生图的账号进不去，等于"钱花了却没有任何地方能取回"。
+                  ⚠️ 这一颗只读状态，**不再建单、不再冻结**（钱在第一次点击时就定下了）。 */}
+              {clip?.jobId && (clip.status === 'pending' || clip.status === 'failed') && (
+                <button type="button" className="media-run-live-recheck" onClick={() => livePhoto.onRecheck?.(index)}>
+                  <RotateCcw size={14} />再看一眼
+                </button>
               )}
               {canMake && (
                 <button type="button" className="media-run-live-make" onClick={() => livePhoto.onMake?.(index)}>
@@ -1484,22 +1500,79 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         交付前本地裁到 2~3 秒 —— 所以按钮上写价、点前确认、失败不扣（三条都是铁律）。
 
      ⚠️ 为什么"轮询"这一半必须自己写：服务端那一步是**视频任务**（实测 2~3 分钟），
-        与拼版那种同步活儿不同。这一轮不新造状态口 —— 直接查**既有**的 /api/video/jobs/:id
-        （任务列表与「任务记录」里本来就有它，用户在别处也能看到同一条）。
+        与拼版那种同步活儿不同。轮询走**这一档自己的口**（`GET /api/concept/live-photo?jobId=`，
+        与价目同一条 GET，路由没变）—— 2026-09-28 批 CY-2 从"查既有的 /api/video/jobs/:id"
+        改过来，原因是**两处权限不是同一把锁**：概念视觉方案归 `ecommerce_image`，视频任务那几个口
+        挂的是 `video_generation`。只开了电商生图的账号点了这颗按钮，会钱已花、片已出却看不到也拿不到
+        （任务记录同样进不去）。任务本身仍是同一条视频任务，在「任务记录」里也照样看得到。
      ⚠️ 扣费点（createLivePhotoClip → 服务端建单 + hold）**只能从用户手势链发起**，
         顺序固定为：按钮 onClick → dialog.confirm → 确认后才调 —— test/charge-requires-confirmation
         追溯的就是这条链；金额与幂等都由服务端定（客户端一个金额字段都不传）。 */
   async function pollLivePhotoJob(jobId) {
     for (let attempt = 0; attempt < LIVE_PHOTO_POLL_MAX; attempt += 1) {
-      const payload = await getVideoJob(jobId).catch(() => null);
+      const payload = await fetchLivePhotoStatus(jobId).catch(() => null);
       const job = payload?.job || null;
-      if (!job) throw new Error('这条动图任务查不到了，请在左下角「任务记录」里看结果');
+      /* ⚠️ "查不到进度"和"没做出来"是两回事，绝不能混成一句话（钱的状态完全不同）：
+         走到这里时**这一单已经建好了**（createLivePhotoClip 已经返回），所以下面这条例外
+         会被 makeLivePhoto 的 catch 单独认出来 —— 那时**不许**说"本次不扣积分"（那是假话：
+         钱按最短路已经花了，任务还在跑）。带一个标记就是为了让那句话说得准。 */
+      if (!job) {
+        throw Object.assign(new Error('这一单已经建好了，但进度暂时查不到（不会重复扣费）。稍后点「再看一眼」取回这条动图。'),
+          { livePhotoLookupFailed: true, jobId });
+      }
       if (job.status === 'completed') return job;
       if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'needs_review') return job;
       await new Promise(resolve => { setTimeout(resolve, LIVE_PHOTO_POLL_MS); });
     }
     /* 超时不假装失败：任务还在跑，链路上它回来还会结算/退回 —— 如实告诉用户去哪儿看 */
     return { status: 'timeout' };
+  }
+
+  /* 把"服务端给的那条任务"落成这一张的状态（成功 / 还在做 / 没做出来 三种）。
+     ⚠️ 单独抽出来是因为它有**两个调用点**：点按钮那一次（makeLivePhoto）与事后「再看一眼」
+     （recheckLivePhoto）—— 两处必须同一套判据，否则"过一会儿回来查"会得到另一种结论。 */
+  async function settleLivePhoto(index, job, created) {
+    if (job.status === 'completed' && job.resultUrl) {
+      setLivePhoto(current => ({
+        ...current,
+        [index]: { status: 'done', url: job.resultUrl, seconds: Number(created?.seconds) || 0 },
+      }));
+      setNotice('动图做好了，可以直接下载发给小红书（发布时选「视频」）');
+      await refreshBillingBalance?.().catch(() => undefined);
+      return;
+    }
+    if (job.status === 'timeout') {
+      /* 超时不假装失败：任务还在跑。⚠️ 这一档**不把"去哪儿看"推给「任务记录」**——
+         那个入口挂的是另一个权限（video_generation），只开电商生图的账号进不去。
+         所以留在原地给一颗「再看一眼」（jobId 一起存下来），用户在这张图下面就能取回成片。 */
+      setLivePhoto(current => ({
+        ...current,
+        [index]: { status: 'pending', jobId: created.jobId, note: '还在做（通常 1~3 分钟）。做好之前不会扣积分；稍后点「再看一眼」取回这条动图。' },
+      }));
+      return;
+    }
+    /* 服务端建单失败会 releaseItem（退冻结），所以这里说"没有扣积分"是**如实**的。
+       ⚠️ 服务端有些文案自己已经带了这句（例如裁切失败那条），不要再叠一遍。 */
+    const reason = String(job.error || '').trim() || '这条没有做出来，换一张图或稍后再试';
+    setLivePhoto(current => ({
+      ...current,
+      [index]: { status: 'failed', note: /不扣积分/.test(reason) ? reason : reason + '；本次不扣积分。' },
+    }));
+  }
+
+  /* 「再看一眼」：拿先前存下的 jobId 再查一次（同一条口，属主核过）。
+     ⚠️ 钱这一层在这里**不重复发生**：建单与冻结在第一次点击时就完成了，这里只是读状态。 */
+  async function recheckLivePhoto(index) {
+    const jobId = String(livePhoto?.[index]?.jobId || '');
+    if (!jobId) return;
+    setLivePhoto(current => ({ ...current, [index]: { status: 'working', jobId } }));
+    try {
+      const job = await pollLivePhotoJob(jobId);
+      await settleLivePhoto(index, job, { jobId });
+    } catch (failure) {
+      const note = String(failure?.message || '').trim() || '这条动图任务暂时查不到，稍后再试。';
+      setLivePhoto(current => ({ ...current, [index]: { status: 'failed', jobId, note } }));
+    }
   }
 
   async function makeLivePhoto(index) {
@@ -1524,37 +1597,25 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     try {
       const created = await createLivePhotoClip({ imageUrl: url, ratio: effectiveValues?.ratio || '' });
       const job = await pollLivePhotoJob(created.jobId);
-      if (job.status === 'completed' && job.resultUrl) {
-        setLivePhoto(current => ({
-          ...current,
-          [index]: { status: 'done', url: job.resultUrl, seconds: Number(created?.seconds) || 0 },
-        }));
-        setNotice('动图做好了，可以直接下载发给小红书（发布时选「视频」）');
-        await refreshBillingBalance?.().catch(() => undefined);
-        return;
-      }
-      if (job.status === 'timeout') {
-        setLivePhoto(current => ({
-          ...current,
-          [index]: { status: 'pending', note: '还在做（通常 1~3 分钟）。做好之前不会扣积分；结果会出现在「任务记录」里。' },
-        }));
-        return;
-      }
-      /* 服务端建单失败会 releaseItem（退冻结），所以这里说"没有扣积分"是**如实**的。
-         ⚠️ 服务端有些文案自己已经带了这句（例如裁切失败那条），不要再叠一遍。 */
-      const reason = String(job.error || '').trim() || '这条没有做出来，换一张图或稍后再试';
-      setLivePhoto(current => ({
-        ...current,
-        [index]: { status: 'failed', note: /不扣积分/.test(reason) ? reason : reason + '；本次不扣积分。' },
-      }));
+      await settleLivePhoto(index, job, created);
     } catch (failure) {
-      /* 就近说明（不是转瞬即逝的 toast）：说的位置就在那一张图下面，见 RunPanel 的 livePhoto 段 */
+      /* 就近说明（不是转瞬即逝的 toast）：说的位置就在那一张图下面，见 RunPanel 的 livePhoto 段。
+         ⚠️ 三种失败必须说三种话（钱的真相不同）：
+            · 没登录/没权限 —— 请求根本没发出去 ⇒ "还没有开始做，本次不扣积分"；
+            · **建单之后查不到进度** —— 钱已经花了、任务还在跑 ⇒ 只能如实说"查不到进度"，
+              **不许**说"不扣积分"（那是把花了钱说成没花钱）；并且留下 jobId，让「再看一眼」能取回。
+            · 建单本身失败 —— 服务端已退回冻结 ⇒ "本次不扣积分"（服务端文案自带这句的不叠）。 */
       const access = handleGenerationAccessError(failure, dispatch, { source: 'concept_live_photo' });
       const message = String(failure?.message || '').trim() || '做成动图失败，请稍后再试';
-      setLivePhoto(current => ({
-        ...current,
-        [index]: { status: 'failed', note: access ? '还没有开始做，本次不扣积分。' : message + '；本次不扣积分。' },
-      }));
+      if (access) {
+        setLivePhoto(current => ({ ...current, [index]: { status: 'failed', note: '还没有开始做，本次不扣积分。' } }));
+        return;
+      }
+      if (failure?.livePhotoLookupFailed) {
+        setLivePhoto(current => ({ ...current, [index]: { status: 'failed', jobId: failure.jobId || '', note: message } }));
+        return;
+      }
+      setLivePhoto(current => ({ ...current, [index]: { status: 'failed', note: message + '；本次不扣积分。' } }));
     }
   }
 
@@ -1805,6 +1866,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         offer: livePhotoOffer,
         states: livePhoto,
         onMake: index => { void makeLivePhoto(index); },
+        onRecheck: index => { void recheckLivePhoto(index); },
         onDownload: downloadLivePhoto,
       }
     : null;

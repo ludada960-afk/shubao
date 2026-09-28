@@ -16,7 +16,9 @@
      ④ 一次点击 = **一次**上游调用；同一张图重复触发 = 同一条任务（不重复扣费）；
      ⑤ 失败不扣费：打桩上游失败 / 裁切失败 → 任务落 failed + 冻结**退回**、**不结算**；
      ⑥ 建单前校验：没有成品图 / 非法秒数一律 400，且**一条 job、一分钱都不产生**；
-     ⑦ 接线：按钮带价、点前弹确认、过程可轮询、做完给下载（文件名认得出是哪一张）、失败就近说明。 */
+     ⑦ 接线：按钮带价、点前弹确认、过程可轮询（走**这一档自己的口**，不查视频任务口）、
+        做完给下载（文件名认得出是哪一张）、失败就近说明；
+     ⑦-b 状态查询的两道核：属主限定 + 产品判据（2026-09-28 批 CY-2 换口时加的）。 */
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import Database from 'better-sqlite3';
@@ -434,6 +436,51 @@ test('⑥ 建单前校验：没有成品图 / 非法秒数一律 400，且**一�
     '落库的提示词是我们自己那句（用户输入里没有提示词可编译）');
 });
 
+/* ═══ ⑦-b 状态查询走**这一档自己的口**：属主 + 产品两道核都要真的生效 ═══════════════════════════
+   2026-09-28 批 CY-2。为什么要有这一条：状态口从"既有的 /api/video/jobs/:id"改成
+   "这一档自己的 GET /api/concept/live-photo?jobId="，换口的**唯一理由**是权限（概念视觉方案归
+   `ecommerce_image`，视频任务口挂 `video_generation`）。但换口带来两个新责任，必须真验：
+     · 属主 —— 拿别人的任务号查不到（否则这条口就成了越权读任务的后门）；
+     · 产品 —— 拿**别的产品**的任务号也查不到（否则这条口能读全部视频任务）。
+   路由那一层（index.mjs 的 if (!job || job.productId !== …) 404）用的就是下面这两件事，
+   所以这里验的是它的地基：getJob 是属主限定的，且它返回的对象上真的带着 productId。 */
+test('⑦-b 状态查询的两道核：别人的任务号查不到；任务对象上带着"这是哪一档"的字段', async t => {
+  const { service } = harness(t);
+  const ownerEmail = 'owner@example.com';
+  const otherEmail = 'other@example.com';
+  const still = await uploadStill(service, ownerEmail);
+  const created = await service.createJob({
+    ownerEmail,
+    idempotencyKey: 'still-motion-status-1',
+    billingQuoteId: 'q-status',
+    publicBaseUrl: 'https://example.com',
+    input: {
+      productId: STILL_MOTION_PRODUCT_ID,
+      duration: 5,
+      resolution: '720p',
+      mode: 'reference',
+      aspectRatio: '3:4',
+      generateAudio: false,
+      references: { images: [still.id] },
+    },
+  });
+
+  const mine = service.getJob(ownerEmail, created.job.id);
+  assert.ok(mine, '本人当然查得到自己的任务');
+  assert.equal(mine.productId, STILL_MOTION_PRODUCT_ID,
+    '任务对象必须带 productId —— 路由那一道"是不是这一档的任务"就是核它（缺了这道核=白核）');
+  assert.notEqual(mine.resultUrl, undefined, '成片地址要在这条查询里拿得到（不然查到了也白查）');
+
+  assert.equal(service.getJob(otherEmail, created.job.id), null,
+    '别人的任务号必须查不到（属主限定）—— 查得到就等于这条口成了越权读任务的后门');
+
+  /* 自证：把产品判据换成一个"永远为真"的写法，这条测试必须能看出来（防止判据退化成空转） */
+  const gate = job => Boolean(job) && job.productId === STILL_MOTION_PRODUCT_ID;
+  assert.equal(gate({ productId: 'seedance_fast' }), false, '别的产品必须过不了这道核（自证：判据不是恒真）');
+  assert.equal(gate(mine), true, '自己那一条要过得了');
+});
+
+
 /* ═══ ⑦ 接线：按钮带价、点前确认、可轮询、做完给下载、失败就近说明 ═════════════════════════════ */
 
 test('⑦ 界面接线：价格来自服务端、点前确认、可轮询、给下载、失败就近说明', () => {
@@ -454,8 +501,21 @@ test('⑦ 界面接线：价格来自服务端、点前确认、可轮询、给�
   const handler = PAGE.slice(PAGE.indexOf('async function makeLivePhoto('), PAGE.indexOf('function downloadLivePhoto('));
   assert.ok(handler.indexOf('dialog.confirm(') > 0 && handler.indexOf('createLivePhotoClip(') > handler.indexOf('dialog.confirm('),
     '确认必须发生在发起之前');
-  /* 过程可轮询：走**既有**的任务接口，不新造状态口 */
-  assert.match(PAGE, /getVideoJob\(jobId\)/, '要能查任务状态（既有 /api/video/jobs/:id）');
+  /* 过程可轮询：走**这一档自己的口**（同一条 GET + ?jobId=），不查视频任务口 ——
+     ⚠️ 2026-09-28 批 CY-2：初版查的是既有的 `/api/video/jobs/:id`（"不新造状态口"那条纪律），
+        但**两处权限不是同一把锁**：这一页归 `ecommerce_image`，那条口挂 `video_generation`。
+        只开了电商生图的账号点了这颗按钮 → 钱已按最短路花掉、上游也真出了片，
+        他却永远看不到也拿不到（任务记录同样是视频口）。交付承诺不能挂在用户可能没有的权限上。 */
+  assert.match(PAGE, /fetchLivePhotoStatus\(jobId\)/, '要能查任务状态（这一档自己的口：/api/concept/live-photo?jobId=）');
+  /* ⚠️ 扫之前先把块注释剥掉：本仓踩过一次"门禁在奖励删注释"（见 parse-spec 那条的注释案例），
+     这里同样 —— 注释里写"曾经用过 getVideoJob、为什么撤掉"是**留案底**，不是用法。 */
+  const pageCode = PAGE.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(pageCode, /getVideoJob/,
+    '不许再去查视频任务口（权限不同：只开电商生图的账号会看不到自己的动图）');
+  assert.match(API, /export async function fetchLivePhotoStatus/, '状态查询要有独立函数（不是把 fetch 散在页面里）');
+  assert.match(API, /\/api\/concept\/live-photo\?jobId=/, '状态查的是同一条口的 ?jobId= 分支');
+  assert.match(read('server/index.mjs'), /job\.productId !== STILL_MOTION_PRODUCT_ID/,
+    '服务端要核"这条任务确实是这一档的"（不许拿这条口读别处的视频任务）');
   assert.match(PAGE, /LIVE_PHOTO_POLL_MS/, '轮询节奏要有常量（不是随手的魔法数）');
   /* 做完给下载，文件名认得出是哪一张 */
   assert.match(handler, /role="alert"|\{ status: 'failed'/, '失败要落成一条就近说明');
@@ -466,4 +526,36 @@ test('⑦ 界面接线：价格来自服务端、点前确认、可轮询、给�
   assert.match(PAGE, /本次不扣积分/, '失败时要说清没有扣积分');
   assert.match(PAGE, /做好之前不会扣积分/, '做的过程中也要说清这一步还没扣钱');
   assert.match(PAGE, /media-run-live-note" role="alert"/, '就近说明要带 role=alert（不是转瞬即逝的 toast）');
+
+  /* ═══ 「查不到进度」这一种失败：三种坏做法一个都不许出现（2026-09-28 批 CY-2）═══════════════
+     这一条守的是最难受的那种失败：**钱已经按最短路花掉了、上游也真在出片**，只是这一会儿读不到状态。
+     实测过的三种坏做法：① 说成"本次不扣积分"（把花了钱说成没花钱）；② 把用户推去「任务记录」
+     （那个入口挂的是另一个权限）；③ 让用户原地再买一次（同一张图两条任务，钱花两遍）。 */
+  assert.match(PAGE, /livePhotoLookupFailed: true, jobId/,
+    '查不到进度要能**被认出来**（带标记 + 带上 jobId），否则 catch 里只能笼统地说"不扣积分"');
+  /* ⚠️ 这条判据**只许指向那一支**：从标记那行到它自己的那一条 setLivePhoto 为止。
+     第一版把范围写成了"标记 → 下一个函数"，结果把**下面那条通用失败分支**（那条说"不扣积分"是对的）
+     也扫了进来 —— 门禁当场把我这条写错的断言判红（记在这里，免得下次又把范围写宽）。 */
+  const lookupStart = PAGE.indexOf('if (failure?.livePhotoLookupFailed)');
+  assert.ok(lookupStart > 0, '找不到"查不到进度"那一支 —— 这条判据不能是空转');
+  const lookupBranch = PAGE.slice(lookupStart, PAGE.indexOf('setLivePhoto', lookupStart + 10));
+  assert.match(lookupBranch, /^\s*if \(failure\?\.livePhotoLookupFailed\) \{\s*$/,
+    '范围必须恰好落在这一支的开头（写宽了会把别的分支扫进来）');
+  assert.match(PAGE.slice(lookupStart, PAGE.indexOf('\n', PAGE.indexOf('jobId: failure.jobId', lookupStart))),
+    /note: message \}/,
+    '**查不到进度**这一支只许原样给 message（钱已经花了 —— 绝不许再拼一句"不扣积分"）');
+  const lookupMessage = PAGE.slice(PAGE.indexOf("throw Object.assign(new Error('这一单已经建好了"), PAGE.indexOf('{ livePhotoLookupFailed'));
+  assert.ok(lookupMessage.length > 20, '那句说明文字要真的存在（判据不能空转）');
+  assert.doesNotMatch(lookupMessage, /不扣积分/,
+    '那句说明本身也不许出现"不扣积分"（钱已经花了 —— 那是假话，连暗示都不行）');
+  assert.match(PAGE, /media-run-live-recheck/, '取回成片的入口要留在这一张下面（不是推去别处）');
+  assert.match(PAGE, /onRecheck: index => \{ void recheckLivePhoto\(index\); \}/, '那颗按钮要接到 recheck');
+  const recheck = PAGE.slice(PAGE.indexOf('async function recheckLivePhoto('), PAGE.indexOf('async function makeLivePhoto('));
+  assert.match(recheck, /pollLivePhotoJob\(jobId\)/, '「再看一眼」= 拿先前那条任务号再查一次');
+  assert.doesNotMatch(recheck, /createLivePhotoClip/,
+    '「再看一眼」**绝不许再建单**（再建单 = 同一张图两条任务 = 钱花两遍）');
+  /* 两条路径必须落在**同一套**判定上（否则"过一会儿回来查"会得出另一种结论） */
+  assert.match(PAGE, /async function settleLivePhoto\(/, '成片/还在做/没做出来 三种落定要抽成一处');
+  assert.equal((PAGE.match(/await settleLivePhoto\(/g) || []).length, 2,
+    'settleLivePhoto 必须被**两个**调用点共用（点按钮那一次 + 再看一眼那一次）');
 });

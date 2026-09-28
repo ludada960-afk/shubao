@@ -1046,14 +1046,27 @@ export async function generateMotionStill({ url, preset = 'zoom_in', seconds = 3
      图生视频（Seedance Fast 最短档 5 秒 ≈ ¥0.91/条），交付前在服务端本地裁到 2~3 秒，
      所以它**收费**（SKU video_live_photo_short，面价 ¥3.90/次）。
 
-   为什么是两个接口：
+   为什么是两个接口（地址都是同一条 `/api/concept/live-photo`）：
      · GET  —— 拿**价目与规格**（按钮上那个数字必须是服务端从 catalog 算出来的；
-               铁律：定价只有一个来源，前端不许有第二份参与计算/展示的价目表）。
+               铁律：定价只有一个来源，前端不许有第二份参与计算/展示的价目表）；
+               带上 `?jobId=` 时同一个 GET 变成**查这一次点击做出来的那条动图**（路由没变）。
      · POST —— 开始做（服务端自己开报价令牌并走既有视频建单链路；
                **客户端一个金额字段都不传**，连幂等键都由服务端从这张图派生）。 */
 export async function fetchLivePhotoOffer({ signal } = {}) {
   const res = await fetch(`${API_BASE}/api/concept/live-photo`, { headers: signedSessionHeaders(), signal });
   if (!res.ok) throw await createApiError(res, '动图价目暂时取不到');
+  return res.json();
+}
+
+/* 查状态走**这一档自己的口**（同一条 GET + `?jobId=`），不查既有的 `/api/video/jobs/:id`：
+   两处权限不是同一把锁 —— 概念视觉方案归 `ecommerce_image`，视频任务那几个口挂的是
+   `video_generation`。一个"只开了电商生图"的账号点完这颗按钮会**钱已花、上游片已出，
+   却永远看不到也拿不到**（任务记录同样进不去）。交付承诺不能挂在用户可能没有的权限上；
+   服务端那边仍然按"属主 + 确实是这一档的任务"两道核过（见 index.mjs 的 GET 分支）。 */
+export async function fetchLivePhotoStatus(jobId, { signal } = {}) {
+  const res = await fetch(`${API_BASE}/api/concept/live-photo?jobId=${encodeURIComponent(String(jobId || ''))}`,
+    { headers: signedSessionHeaders(), signal });
+  if (!res.ok) throw await createApiError(res, '这条动图任务查不到了');
   return res.json();
 }
 

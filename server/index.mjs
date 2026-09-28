@@ -896,7 +896,7 @@ import { renderMotionStill } from './motionStillRender.mjs';
    （Seedance Fast 5 秒 ≈ ¥0.91/条），所以独立 SKU 收费。判据与用户原话都在 stillMotion.mjs 头部。
    ⚠️ `ffmpegAvailable` 也在这条链路上用：裁切是本机活，机器没有 ffmpeg 时**建单前**就要拒
       （见 videoGeneration.createJob 的 stillMotion 预检与这里的 POST 预检）。 */
-import { livePhotoDescriptor } from './stillMotion.mjs';
+import { STILL_MOTION_PRODUCT_ID, livePhotoDescriptor } from './stillMotion.mjs';
 import { ffmpegAvailable } from './videoLocalAdapter.mjs';
 app.get('/feishu/events', (req, res) => {
   const verificationToken = process.env.FEISHU_BOT_VERIFICATION_TOKEN || '';
@@ -5172,6 +5172,24 @@ app.get('/api/video/jobs/:id', authenticateVideoRequest, (req, res) => {
    ⚠️ 报价令牌由**服务端自己开**（金额只由 billing/catalog 算）：客户端一个金额字段都传不上来，
       这是"定价只有一个来源"的直接落地（test/pricing-single-source）。 */
 app.get('/api/concept/live-photo', authenticateEcommerceRequest, async (req, res) => {
+  /* ═══ ?jobId= ：查**这一次点击**做出来的那条动图（2026-09-28 批 CY-2）═════════════════════════
+     ⚠️ 为什么状态不去查那条既有的 `GET /api/video/jobs/:id`（这一版最初就是这么写的）：
+        **两处权限不是同一把锁**。概念视觉方案归 `ecommerce_image`，而视频任务那几个口挂的是
+        `video_generation`（index.mjs 的 authenticateVideoRequest = authenticateFeatureRequest）。
+        实测线上 3 个账号都同时开了四项，所以这条缝没暴露；但只要有一个"只开了电商生图"的账号
+        点一次「做成动图」—— 钱已经按最短路花了、上游也真出了片，他却**永远看不到也拿不到**那条动图
+        （任务记录同样是视频口，一样进不去）。交付承诺（"做出来给你"）不能挂在一个用户可能没有的权限上。
+     ⇒ 所以：状态留在**这一档自己的口**上（路由不变，只是同一条 GET 多一个查询分支），
+        归属校验用既有的 getJob(ownerEmail, id)（属主不匹配返回 null），
+        再核一次"它确实是这一档的任务"（不许拿这条口去读别处的视频任务）。 */
+  const jobId = String(req.query?.jobId || '').trim();
+  if (jobId) {
+    const job = videoGeneration.getJob(req._userEmail, jobId);
+    if (!job || job.productId !== STILL_MOTION_PRODUCT_ID) {
+      return res.status(404).json({ code: 'STILL_MOTION_JOB_NOT_FOUND', error: '这条动图任务查不到了' });
+    }
+    return res.json({ job });
+  }
   const descriptor = livePhotoDescriptor();
   const ffmpeg = await ffmpegAvailable();
   return res.json({

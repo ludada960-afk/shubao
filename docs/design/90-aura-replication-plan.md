@@ -151,7 +151,7 @@
 | 步 | 清单原话（2026-09-27 批 DC 写的） | 本轮实际做法 / 偏差与理由 |
 |---|---|---|
 | ① | 新 SKU `video_live_photo_short`，`providerCostCny: 0.91`，`priceFen ≥ 304`（建议 **¥3.90**） | **照做**：`units: 14900` + `priceFen: 390` + `marginBand: 'premium'` + `maxDurationSeconds: 5` + `routeRestriction: 'fast-only'` + `dailyLimitPerUser: 30`。门禁实算毛利 **73.7%**（积分面值口径）≥ 70% 地板 ✓。⚠️ **只有短档**：产物是本地裁出来的 2~3 秒，没有"长档"这回事 |
-| ② | 图生视频复用既有链路（写的是产品 `seedance_fast` + `/api/video/jobs`） | **改了两处，判据都写进代码注释**：<br>· **新开产品 `live_photo`**（不是复用 `seedance_fast`）：SKU 名由产品 id 派生（`video_${id}_${short|long}`），复用就会按 ¥6.90 那条 SKU 收钱 —— "独立收费"落不了地。产品仍走**同一条已出片验证的通道**（`routeId` 与 `seedance_fast` 逐字相同）、同一个适配器、同一份报文<br>· **浏览器不直接 POST `/api/video/jobs`**，改成薄入口 `GET/POST /api/concept/live-photo`：那一档不吃提示词，暴露给通用视频入口＝用户拿它去干一件它不做的事；入口里走**既有**建单链路（hold / 幂等 / 失败退回，一个字没改），状态查**既有** `GET /api/video/jobs/:id` |
+| ② | 图生视频复用既有链路（写的是产品 `seedance_fast` + `/api/video/jobs`） | **改了两处，判据都写进代码注释**：<br>· **新开产品 `live_photo`**（不是复用 `seedance_fast`）：SKU 名由产品 id 派生（`video_${id}_${short|long}`），复用就会按 ¥6.90 那条 SKU 收钱 —— "独立收费"落不了地。产品仍走**同一条已出片验证的通道**（`routeId` 与 `seedance_fast` 逐字相同）、同一个适配器、同一份报文<br>· **浏览器不直接 POST `/api/video/jobs`**，改成薄入口 `GET/POST /api/concept/live-photo`：那一档不吃提示词，暴露给通用视频入口＝用户拿它去干一件它不做的事；入口里走**既有**建单链路（hold / 幂等 / 失败退回，一个字没改）<br>⚠️ **2026-09-28 补一处**（批 CY-2）：状态**不查**既有的 `GET /api/video/jobs/:id`，改成同一条 `GET /api/concept/live-photo?jobId=`。理由是**两处权限不是同一把锁** —— 这一页归 `ecommerce_image`，视频任务那几个口挂的是 `video_generation`；只开了电商生图的账号点完这颗按钮会"钱已花、片已出，却看不到也拿不到"（任务记录同样是视频口）。服务端仍按**属主 + 是不是这一档的任务**两道核 |
 | ③ | 本地裁到 2~3 秒，建议复用 `videoExportRender` / `videoExportManifest` | **改用新模块 `server/stillMotion.mjs`**：`videoExportRender` 的契约是"已有视频的 concat/delogo/scale"（吃 manifest 与渲染清单），硬塞进去会把已跑通的去字幕/高清那条带歪（与 `motionStillRender` 当初分家的理由同一条）。裁切仍按清单的口径：**取第 0 秒起 2.5 秒**、H.264 / `yuv420p` / `+faststart` / `-an`。⚠️ 落地位置比清单更严：放在**落库之前**（`videoGeneration.persistStillMotionOutput`）—— 裁不出来这一单就 failed ⇒ 既有链路退钱，不会出现"扣了钱拿不到动图" |
 | ④ | 计费与界面：价格写在按钮上、点前确认、失败不扣 | **照做**，落点与清单一致（`src/pages/MediaCreation/index.jsx` 结果区，与 M3 拼版入口同一处）。价格**从服务端读**（`GET /api/concept/live-photo` 的 `points`，来自 catalog；页面里一个写死的价都没有）、点前弹**全站同一个**计费确认框、做完当场 `<video>` 预览 + **下载**（`概念视觉方案.mp4`）、失败/进行中**就近写在这一张下面**并写明没有扣积分 |
 | ⑤ | 门禁：新增 `test/concept-set-live-shot-0927.test.mjs` | **照做，文件名按本批的事实改成 `live-photo`**，并补齐清单里没有的两条：**幂等**（同一次点击重复触发 = 回放同一条任务）与**上游调用次数**（fake registry 数出来 = 1）。另外端到端加了一个场景㉒（`scripts/media-workbench-e2e.mjs`）：按钮带价 / 点前确认 / 拿到可下载的短片 / **浏览器从未 POST `/api/video/jobs`**（那条桩仍是 500"本轮不许真实出片"） |
@@ -163,7 +163,9 @@
   = 回放同一条任务，不再打上游、不再冻钱）、**一次点击只调一次上游**（fake registry 数出来的）、
   裁切纯函数（2~3 秒且不超原片）、本机真裁一条（h264 / 2.5 秒 / 无音轨 / 体积更小）、
   交付件是**裁过的那条**（ffprobe 复核资产时长落在 2~3 秒）、界面链路（按钮带价 / 点前确认 /
-  可轮询 / 下载文件名 / 失败就近说明）。端到端还额外看住一条：**浏览器这一侧一次都没有 POST `/api/video/jobs`**。
+  可轮询 / 下载文件名 / 失败就近说明）、状态查询的两道核（别人的任务号查不到 + 产品判据，批 CY-2）。
+  端到端还额外看住两条：**浏览器这一侧一次都没有 POST `/api/video/jobs`**，且**一次都没有绕去查
+  `/api/video/jobs/:id` 这一条视频任务口**。
   门禁：`test/concept-set-live-photo-0927.test.mjs`；端到端：`scripts/media-workbench-e2e.mjs` 场景㉒。
 - **只有用户真机点一次才能验的**（同一份清单也写进 `docs/design/91` 第 8 节）：① 上游真出片
   （那条通道 5 秒档实测约 **2~3 分钟**，台账里的历史记录是 156 秒）；② 片子**动得自不自然**、

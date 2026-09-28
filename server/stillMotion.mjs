@@ -20,6 +20,11 @@ import { spawn } from 'node:child_process';
 import { FEATURE_SKUS, quoteFeature } from './billing/catalog.mjs';
 import { STILL_MOTION_PRODUCT_ID, videoFeatureSku } from './videoCatalog.mjs';
 
+/* 产品 id 再导出一次：状态查询那条口（server/index.mjs 的 `GET /api/concept/live-photo?jobId=`）
+   要核"这条任务确实是这一档的"，而它只 import 了本模块 —— 产品声明仍然只有 videoCatalog 一处，
+   这里只是把它递出去（不复制第二份 id 字面量）。 */
+export { STILL_MOTION_PRODUCT_ID };
+
 /* 产品 id 与时长口径：
    · 上游**最短档是 5 秒**（seedance_fast 的 durationOptions = [5,10,15]，上游按秒档位校验），
      给 2~3 秒它直接拒收 ⇒ 必须按 5 秒买，再在本地裁。
