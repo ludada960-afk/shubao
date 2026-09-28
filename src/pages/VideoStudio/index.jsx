@@ -1677,6 +1677,14 @@ export default function VideoStudioPage({
     if (!quote?.quoteId) return '正在确认费用…';
     return '';
   })();
+  /* ═══ 2026-09-28 批 CY-②：这行提示**只在子页面工作台**显示（用户批注，逐字）═════════════════════
+     「然后你按钮下面这个输入描述这个东西，你为什么要放在这里呢？他跟首页没有任何关系呀，
+      首页不需要这个呀。首页这个视频生成的这个按钮这里你要**做回原来的样子**呀，不能加入这个东西，明白吗？」
+     说明：这行提示本身是批 BN 照**知渔的子页面**加的（用户当时原话：「他们这个按钮是当用户没有满足条件的时候…
+     它下面是会有一个提示必须要上传的」）—— 对照物是子页面，不是首页。
+     ⇒ 用 `workbenchMode` 限定：子页面照旧，首页回到原来的样子（按钮下面什么都不挂）。
+     ⚠️ 文案与"缺什么说什么"的三条规矩（BN）**一字未改**，只是不再往首页渲染。 */
+  const showSubmitHint = workbenchMode && Boolean(submitHint);
 
   const openVideoPlan = async () => {
     setError('');
@@ -2120,9 +2128,9 @@ export default function VideoStudioPage({
      类名（`.video-history` / `.video-history-title` / `.video-history-empty`）**一个都不改**：
      e2e 与门禁按它们找；改的只是它渲染在哪儿。`homeComposer` 那一支保持原样（首页只留入口按钮）。
      （批 CD 走过一版又被回退，原因与时间线见下面渲染处那段注释。） */
-  /* 批 CM：工作台声明的「生成脚本」动作（键 script）—— 它现在渲染在底部动作区，与图片侧同级 */
-  const scriptAction = ((workbench && workbench.blocks) || []).find(block => block.kind === 'text' && block.action && block.action.key === 'script')?.action || null;
-  const disabledForActions = !capabilities.generationEnabled || !state.logged || planning;
+  /* ⚠️ 批 CY-①（用户改向）：批 CM 在这里抽出的 `scriptAction` 与 `disabledForActions` **两个变量都删了** ——
+     它们只服务底栏那颗 `.video-script-trigger`。「生成脚本」现在由 VideoWorkbench 渲染在**脚本字段标题行
+     右端**（与图片侧「一键润色卖点」同一套类名），那里有自己的 `disabled` 判断，不需要这两个。 */
 
   const videoHistoryBlock = (
     <div className="video-history">
@@ -2476,7 +2484,7 @@ export default function VideoStudioPage({
               ⚠️ 批 AZ：按钮上的价目说明也从**产品目录**派生（原来写死 0.04/0.50 两个数字）——
                  数字人那一档是 0.12 积分/秒、按**配音**秒数算，写死就会显示成别人的价。 */}
           {processPlan ? (
-<div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{/* 批 BN：提示在按钮**下方**居中（与图片侧同一个类，规格只有一份） */}
+<div className="video-submit-row"><div className={'video-submit-actions' + (showSubmitHint ? ' has-hint' : '')}>{/* 批 BN：提示在按钮**下方**居中（与图片侧同一个类，规格只有一份） */}
               <button
                 type="button"
                 className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`}
@@ -2487,10 +2495,14 @@ export default function VideoStudioPage({
                 {quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />
                 {submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}
               </button>
-              {submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}
+              {showSubmitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}
             </div></div>
           ) : (
-          <div className="video-submit-row"><div className={'video-submit-actions' + (submitHint ? ' has-hint' : '')}>{workbenchMode && scriptAction ? <button type="button" className="video-script-trigger" disabled={disabledForActions} onClick={runDawei}><Sparkles size={14} />{scriptAction.label}<span className="video-script-trigger-points">{scriptAction.points} 积分</span></button> : null}{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}{submitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}</div></div>
+          <div className="video-submit-row"><div className={'video-submit-actions' + (showSubmitHint ? ' has-hint' : '')}>{/* ⚠️ 批 CY-①（用户改向）：底栏这颗 `.video-script-trigger` **已撤** ——
+              「生成脚本」搬回**脚本字段标题行右端**，与图片侧「一键润色卖点」同一套类名同一位置
+              （用户原话：「你看你图片生成这边的一键润色的按钮是在这个位置。可是你视频生成那边的
+              生成脚本那个按钮为什么不是在这个位置呢？……他们是同个等级的东西呀」）。
+              撤掉的是**位置**（批 CM 的落点），不是功能：按钮实体现在渲染在 VideoWorkbench 的标题行里。 */}{!planReviewed ? <button type="button" className={`video-generate-trigger shubao-gen-cta${planning ? ' is-busy' : ''}`} disabled={planning || !canAnalyze} onClick={openVideoPlan}>{planning ? <Loader2 size={16} /> : <Aperture size={15} />}{planning ? '正在分析素材' : <>{activeAnalysis ? '查看并确认方案' : '分析并生成方案'}<span className="shubao-gen-cta-points" title={estimatedPoints > 0 ? `方案分析 ${ANALYSIS_POINTS} 积分 + 成片预估 ${estimatedPoints} 积分（随模型 / 时长 / 清晰度实时变化）` : '方案分析费'}>{totalJobPoints || ANALYSIS_POINTS} 积分</span></>}</button> : <><button type="button" className="video-plan-trigger" onClick={openVideoPlan}><Aperture size={15} />查看方案</button><button type="button" className={`video-generate-trigger shubao-gen-cta${quote?.quoteId ? ' is-armed' : ''}${submitting ? ' is-busy' : ''}`} disabled={!canGenerate} onClick={handleGenerate}>{quote?.quoteId && !submitting && <Lock size={13} />}<Play size={17} />{submitting ? '正在提交' : (quoteError || <>{'开始生成'}<span className="shubao-gen-cta-points">{estimatedPoints} 积分</span></>)}</button></>}{showSubmitHint ? <p className="shubao-gen-cta-hint">{submitHint}</p> : null}</div></div>
           )}
         </footer>
       </div>

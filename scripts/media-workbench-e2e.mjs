@@ -1010,15 +1010,16 @@ try {
   /* ═══ 2026-09-27 批 CM：这颗动作**搬到页面底部动作区**了 ══════════════════════════════════════
      用户原话（逐字）：「这个生成脚本的按钮我不是跟你说了吗？它应该是跟图片生成里面那个**一键分析**
      的那个按钮是**同等级**的东西啊……你现在放在左边很明显就是**很挤占现在的空间**呀。」
-     ⇒ 选择器跟着搬：`.media-workbench-paid`（脚本块内）→ `.video-script-trigger`（底部动作区，次按钮）。
+     ⇒ 选择器（**批 CY-① 用户改向后再搬回来**）：`.media-workbench-paid`（脚本块内）→ 批 CM 的 `.video-script-trigger`（底部动作区）
+       → **现在 = `.media-field-inline-actions .media-workbench-inline-action`（脚本字段标题行右端，与图片侧那颗同类名）**。
        判据守的那件事没变：这颗入口必须在、点了要打开同一个三步对话框、请求里要带这条 skill 的解析方案。 */
-  await page.waitForSelector('.video-script-trigger', { timeout: 25000 }).catch(() => {});
+  await page.waitForSelector('.media-field-inline-actions .media-workbench-inline-action', { timeout: 25000 }).catch(() => {});
   await page.waitForTimeout(600);
   await page.locator('.video-wb-prompt').first().fill('给这款陶土杯做一条 15 秒的口播').catch(() => {});
   await page.waitForTimeout(300);
   const typedPrompt = await page.evaluate(() => document.querySelector('.video-wb-prompt')?.textContent || '');
   check(typedPrompt.includes('陶土杯'), '视频脚本输入框能写进需求（contentEditable）', typedPrompt.slice(0, 30));
-  const scriptEntry = page.locator('.video-script-trigger', { hasText: '生成脚本' }).first();
+  const scriptEntry = page.locator('.media-field-inline-actions .media-workbench-inline-action', { hasText: '生成脚本' }).first();
   check(await scriptEntry.count() > 0, '底部动作区里有「生成脚本」这颗（视频侧「代为撰写」的入口）');
   const beforeDawei = calls.planPreview.length;
   const videoJobsBeforeDawei = calls.videoJob;

@@ -801,18 +801,14 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
    你应该跟图片生成那边的一键分析那种按钮做同样的规划才对呀。」
    ⇒ 它原来长在脚本框里（`width:100%` 的通栏之上还压着一行说明），现在移到 `.video-submit-actions`
      里当**次按钮**（与「查看方案」同一个形态），主 CTA 仍是那颗渐变大按钮。 */
-.video-script-trigger {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: 44px; padding: 0 16px;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-lg);
-  background: var(--sb-surface-card); color: var(--sb-ink-1);
-  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
-}
-.video-script-trigger:hover:not(:disabled) { background: var(--sb-surface-tint-strong); border-color: var(--sb-border-strong); }
-.video-script-trigger:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-.video-script-trigger:disabled { opacity: .5; cursor: not-allowed; }
-.video-script-trigger-points { color: var(--sb-brand-700); font-weight: 700; }
+/* ═══ 2026-09-28 批 CY-①：`.video-script-trigger` / `-points` 两条规则**整块删除** ═══════════════
+   它们服务的是批 CM 搬到底栏的那颗次按钮。用户现在重新指定了位置（原话逐字）：
+   「你看你图片生成这边的**一键润色**的按钮是在**这个位置**。可是你视频生成那边的**生成脚本**那个按钮
+    为什么不是在这个位置呢？……他们是**同个等级**的东西呀。」
+   ⇒ 这颗按钮改由「脚本字段标题行右端」渲染，用的是**图片侧那颗的类名**
+     （`.media-field-inline-actions` + `.media-workbench-inline-action`，样式在 WorkbenchShell.css，
+     同一份样式同时管两侧）—— 所以这里那两条已经没有调用方。
+   留注释是为了让下一个人知道"这里原来有过一条、以及为什么没了"（本项目规矩：删掉的东西要留案底）。 */
 
 .video-history { width: min(100%,860px); margin-top: 18px; padding-top: 14px; display: grid; gap: 7px; border-top: 1px solid #e8e3dd; }
 /* ═══ 2026-09-27 批 CG：搬进右栏历史区之后的两条几何 ═══════════════════════════════════════════

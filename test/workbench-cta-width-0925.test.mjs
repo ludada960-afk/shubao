@@ -82,8 +82,17 @@ test('④ 视频侧：缺什么说什么（只在真缺东西时出现），且�
     assert.ok(hint.includes(text), '缺料提示里应有：' + text);
   }
   assert.doesNotMatch(hint, /requires=false|undefined|null/, '文案里不许出现内部原因/空值');
-  /* 提示与 has-hint 绑定：没有提示时保持原来那一行（次按钮 + 主按钮并排） */
-  assert.match(page, /submitHint \? ' has-hint' : ''/);
+  /* 提示与 has-hint 绑定：没有提示时保持原来那一行（次按钮 + 主按钮并排）
+     ═══ 2026-09-28 批 CY-②：**用户改向** —— 这行提示只在**子页面工作台**挂，首页不许挂 ═══════════
+     用户原话（逐字）：「然后你按钮下面这个输入描述这个东西，你为什么要放在这里呢？他跟首页没有任何关系呀，
+       首页不需要这个呀。首页这个视频生成的这个按钮这里你要**做回原来的样子**呀，不能加入这个东西，明白吗？」
+     背景：这行提示本身是批 BN 照**知渔的子页面**加的（当时原话：「他们这个按钮是当用户没有满足条件的时候……
+       它下面是会有一个提示必须要上传的」），对照物是子页面而不是首页。
+     ⇒ 判据从 `submitHint ? …` 改成 `showSubmitHint ? …`（= `workbenchMode && submitHint`）；
+       文案与"缺什么说什么"三条规矩**一字未改**，只是不再往首页渲染。 */
+  assert.match(page, /const showSubmitHint = workbenchMode && Boolean\(submitHint\)/,
+    '提示必须被 workbenchMode 限定（首页不挂）');
+  assert.match(page, /showSubmitHint \? ' has-hint' : ''/);
   assert.equal((page.match(/has-hint/g) || []).length, 2, '两条 CTA 通道（process / 上游）都要挂');
 });
 

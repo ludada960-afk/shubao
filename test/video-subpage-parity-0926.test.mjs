@@ -213,20 +213,26 @@ test('CN-① 脚本框吃掉尾部那段死空白（用户两次问「这块留�
     '伸缩的下限仍是与图片侧同一档 150px');
 });
 
-test('CM-① 「生成脚本」搬到页面底部动作区（与图片侧那颗分析按钮同级）', () => {
-  /* 用户原话（逐字）：「它应该是跟图片生成里面那个一键分析的那个按钮是**同等级**的东西啊……你现在
-     放在左边很明显就是**很挤占现在的空间**呀。」实测（.qa/cm-script-button.mjs）：
-     video.smart → 脚本框里的动作按钮 **0** 个、说明行 0 行；底部动作区顺序 = video-script-trigger → video-generate-trigger。 */
+test('CY-① 「生成脚本」在**脚本字段标题行右端**（与图片侧「一键润色卖点」同位置同类名）', () => {
+  /* ═══ 批 CY-①：**用户改向**（批 CM 的落点被推翻）═══════════════════════════════════════════════
+     批 CM 的判据是"脚本块里不许渲染、搬到页面底部动作区"，依据是当时那句「跟图片生成里面那个一键分析的
+     按钮是同等级的东西」；用户现在对着两页截图重新指定了位置（原话逐字）：
+       「你看你图片生成这边的**一键润色**的按钮是在**这个位置**。可是你视频生成那边的**生成脚本**那个按钮
+        为什么不是在这个位置呢？我已经跟你强调过很多次了，他们是**同个等级**的东西呀。」
+     ⇒ 位置改成「**字段标题行右端**」（图片侧那颗由批 O-⑪ 定在字段标签右端），且**共用同一套类名**：
+       `.media-field-inline-actions` 容器 + `.media-workbench-inline-action` 按钮 + `<em>` 价格。
+     撤掉的只是**位置**，不是功能：点它仍然走同一条 `onRunAction('script')` → `runDawei`。
+     实测（`.qa/cy-script-row.mjs`）：脚本块标题行 = 「脚本」+ 一颗「生成脚本 0.5 积分」；底栏那颗不再有。 */
   const wb = read('src/components/media/VideoWorkbench.jsx');
-  assert.match(wb, /block\.action\.key !== 'script' \? block\.action : null/,
-    '脚本块里不许再渲染「生成脚本」那颗（由页面底部接管）');
-  const page = read('src/pages/VideoStudio/index.jsx');
-  assert.match(page, /className="video-script-trigger"/, '底部动作区要有这颗次按钮');
-  assert.match(page, /const scriptAction = \(\(workbench && workbench\.blocks\) \|\| \[\]\)\.find/,
-    '它只在这条 skill 真的声明了 script 动作时才出现（别的技能页面不该多一颗）');
-  assert.match(page, /onClick=\{runDawei\}/, '点的还是原来那条链路（与「做同款/生成脚本」同一份实现）');
-  const css = read('src/pages/VideoStudio/VideoStudio.css');
-  assert.ok(ruleBody(css, '.video-script-trigger {'), '次按钮要有自己的样式（不是套主 CTA）');
+  assert.match(wb, /const headerAction = block\.action && block\.action\.key === 'script' \? block\.action : null/,
+    'script 动作要被单独认出来（只有声明了它的技能页才渲染，别的技能页不该多一颗）');
+  assert.match(wb, /<span className="media-field-inline-actions">/, '位置 = 字段标题行右端（图片侧同一套类名）');
+  assert.match(wb, /className="media-workbench-inline-action"/, '按钮走图片侧那颗的样式类（不是另写一套）');
+  assert.match(wb, /\{headerAction\.points != null && <em>\{headerAction\.points\} 积分<\/em>\}/, '价格用 <em>（与图片侧同一排版）');
+  assert.match(wb, /onClick=\{\(\) => onRunAction\(headerAction\.key\)\}/, '点的还是原来那条链路');
+  const page = read('src/pages/VideoStudio/index.jsx').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(page, /video-script-trigger/, '底栏那颗（批 CM 的落点）必须撤掉 —— 不许两处都在');
+  assert.doesNotMatch(page, /const scriptAction = /, '为底栏那颗服务的 scriptAction 也要一起删（留着就是死变量）');
 });
 
 test('CL-① 配方提示词不再预填，但"用这组参数"的还原必须保留', () => {

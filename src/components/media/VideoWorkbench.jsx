@@ -399,9 +399,15 @@ export default function VideoWorkbench({
           );
         }
         if (block.kind === 'text') {
-          /* 批 CM：「生成脚本」这颗动作**不在框里渲染**了 —— 它被搬到页面底部动作区，与图片侧
-             那颗分析按钮同级（用户原话：「它应该是跟图片生成里面那个一键分析的那个按钮是同等级的
-             东西啊……你现在放在左边很明显就是很挤占现在的空间呀」）。其它动作（如解析素材）仍留在块内。 */
+          /* ═══ 批 CY-①：「生成脚本」回到**字段标题行右端**（用户改向，原话逐字）════════════════════
+             「你看你图片生成这边的**一键润色**的按钮是在**这个位置**。可是你视频生成那边的**生成脚本**
+              那个按钮为什么不是在这个位置呢？我已经跟你强调过很多次了，他们是**同个等级**的东西呀。」
+             背景：批 CM 曾把它搬到页面底部动作区（依据是当时那句「它应该是跟图片生成里面那个一键分析
+             的按钮是同等级的东西」）—— 用户现在明确改成"照**字段标题行**那一颗的位置"。
+             ⇒ 与图片侧**同一套类名**（`.media-field-inline-actions` + `.media-workbench-inline-action`，
+               价格用 `<em>`），位置、大小、文案结构全部同源：图片侧那颗由批 O-⑪ 定在"字段标签右端"。
+             其它动作（如解析素材）仍留在块内（那条 CM 的判断保留）。 */
+          const headerAction = block.action && block.action.key === 'script' ? block.action : null;
           const action = block.action && block.action.key !== 'script' ? block.action : null;
           /* 主文本格（补充说明 / 脚本）走 prompt；其它文本格（门店信息这类）走 blockValues */
           const isPrimary = block.key === 'prompt';
@@ -409,7 +415,29 @@ export default function VideoWorkbench({
           const change = isPrimary ? onPromptChange : next => onBlockValueChange(block.key, next);
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-field-label"><span>{block.title}</span></h3>
+              <h3 className="media-field-label">
+                <span>{block.title}</span>
+                {headerAction && (
+                  <span className="media-field-inline-actions">
+                    {headerAction.wired ? (
+                      <button
+                        type="button"
+                        className="media-workbench-inline-action"
+                        disabled={disabled}
+                        onClick={() => onRunAction(headerAction.key)}
+                      >
+                        {headerAction.label}
+                        {headerAction.points != null && <em>{headerAction.points} 积分</em>}
+                      </button>
+                    ) : (
+                      <span className="media-workbench-inline-action is-off" title={headerAction.reason || ''}>
+                        {headerAction.label}
+                        {headerAction.points != null && <em>{headerAction.points} 积分</em>}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </h3>
               {action && (
                 <div className="media-workbench-paid-actions">
                   {action.wired ? (
