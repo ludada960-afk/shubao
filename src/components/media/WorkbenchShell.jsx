@@ -33,6 +33,44 @@ function groupFields(fields, mergeTitle = '') {
   return order.map(name => ({ name, fields: map.get(name) }));
 }
 
+/* ═══ 2026-09-28 批 CY-⑥：「分段档位」字段的付费动作，还要在**这一档的内容框下面**再给一颗整颗按钮 ═════
+   用户原话（逐字，7 张批注图第 3 条）：
+     「你看一下**人家 AI 推荐风格**，它这里是有个按钮的。他点击这个按钮才会生成结果在这里啊。
+       他这个按钮其实就跟右上角那个 AI 推荐应该是同一个按钮的。」「你这里为什么跟他不一样呢？
+       **不是说要照抄吗**？照抄你为什么抄着抄着又抄的不对呢？」
+   知渔实测（CDP 只读：`.qa/cy5-quantv-style.mjs` + `cy5-quantv-style-frame.mjs`，
+   `?tool=product-listing-set`，1440 视口）——这一格自上而下是：
+     section.mt-8「产品卖点与设计风格」
+      └ div.mt-6（设计风格那一格）
+          └ div.rounded-xl.bg-gray-50（灰底圆角容器，padding 9.92）
+              ├ 三档芯片「AI推荐 / 参考排版 / 自定义要求」各 **160×45**
+              ├ 结论区（99px，空着等结论；点了分析才填）—— 我们这边就是「设计风格要求」那个 textarea
+              └ button「AI推荐风格分析 · 0.10 积分」**272×45**，父层 `justify-content: center` ⇒ **居中**
+                  h-9 = 45px、min-w-[180px]、px-5(19.84)、rounded-lg(9.92)、margin-top 19.84
+   他们**标签行右端**另有一颗小胶囊「AI推荐 · 0.10 积分」177×35 —— 那正是我们行内那颗的对应物。
+   ⇒ 用户那句"同一个按钮"= 这两颗调的是同一件事；我们缺的是**芯片下面那颗整颗的**，本批补上。
+   ⚠️ 价钱一个字没动（0.2 积分，且必须写在按钮上）；文案沿用我们自己的「一键解析风格」
+      （批 Q 时用户认可过我们的命名法，知渔叫「AI推荐风格分析」）—— 要逐字照抄文案只需改声明源那一处。
+   ⚠️ 只对 **kind === 'segmented'** 的字段生效（风格三档这一族）；其余字段渲染一个字不变。 */
+/** 「档内容块」= 该字段本身 + 紧跟其后、`visibleWhen.key === 该字段.key` 的那一串
+ *  （声明源里这串的语义就是"切这一档换出来的内容"）。
+ *  ⚠️ FieldRenderer 对 visibleWhen 不满足的字段是**渲染 null**（数组槽位仍在），
+ *     所以按声明算出"最后一个成员"即可 —— 当前档看不到的那些天然塌掉，按钮正好落在**可见内容**下面。 */
+function bigActionAfter(groups, actions = []) {
+  const out = new Map();
+  for (const group of groups) {
+    group.fields.forEach((field, index) => {
+      if (field.kind !== 'segmented') return;
+      const action = actions.find(a => a.anchor === field.key && a.runnable);
+      if (!action) return;
+      let last = index;
+      while (last + 1 < group.fields.length && group.fields[last + 1].visibleWhen?.key === field.key) last += 1;
+      out.set(group.fields[last].key, action);
+    });
+  }
+  return out;
+}
+
 export default function WorkbenchShell({
   title = '',
   subtitle = '',
@@ -102,6 +140,9 @@ export default function WorkbenchShell({
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const tabList = tabs || [{ key: 'cases', label: '示例' }, { key: 'history', label: '历史' }];
   const embedded = Boolean(panel);
+  /* 分组与「档内容块末尾那颗整颗按钮」都先算好（原来 groupFields 是在 JSX 里现算的）。 */
+  const groups = groupFields(fields, groupTitle);
+  const bigActions = bigActionAfter(groups, paidActions);
   return (
     <section className={`media-workbench${embedded ? ' is-embedded-flow' : ''}`}>
       {embedded ? (
@@ -183,7 +224,7 @@ export default function WorkbenchShell({
               )))}
             </div>
           )}
-          {groupFields(fields, groupTitle).map((group, index) => (
+            {groups.map((group, index) => (
             <section className="media-workbench-group" key={group.name || 'default'}>
               {/* ⚠️ 批 O-⑫：标题行在**第一组**即使没有组名也要渲染 ——
                   教学示例入口与一键解析都落在这里；若挂在 group.name 条件里，
@@ -259,16 +300,36 @@ export default function WorkbenchShell({
                       )}
                     </span>
                   );
+                  const bigAction = bigActions.get(field.key);
                   return (
-                    <FieldSlot
-                      key={field.key}
-                      field={field}
-                      value={values[field.key]}
-                      values={values}
-                      onChange={onFieldChange}
-                      disabled={disabled}
-                      labelOverride={anchored.length > 0 ? label : null}
-                    />
+                    /* ═══ 批 CY-⑥：字段本身 + （分段档位字段才有的）**档内容块末尾那颗整颗按钮** ═══════
+                       它是一行独立的网格项（跨两列、居中），落在"这一档的内容框"下面 —— 与知渔同构：
+                       芯片 → 该档内容（如「设计风格要求」框）→ 整颗按钮（结论就写进上面那个框）。
+                       ⚠️ 与行内那颗小胶囊是**同一个 action 对象**（同一次调用、同一个价钱），
+                          不是两份实现 —— 点哪颗都只扣一次。 */
+                    <React.Fragment key={field.key}>
+                      <FieldSlot
+                        field={field}
+                        value={values[field.key]}
+                        values={values}
+                        onChange={onFieldChange}
+                        disabled={disabled}
+                        labelOverride={anchored.length > 0 ? label : null}
+                      />
+                      {bigAction && (
+                        <div className="media-workbench-field-action">
+                          <button
+                            type="button"
+                            className={'media-workbench-paid' + (bigAction.busy ? ' is-busy' : '')}
+                            disabled={disabled || bigAction.busy || bigAction.disabled}
+                            onClick={() => bigAction.onRun?.()}
+                          >
+                            <span>{bigAction.busy ? (bigAction.busyLabel || '处理中…') : bigAction.label}</span>
+                            {bigAction.points != null && <em>{bigAction.points} 积分</em>}
+                          </button>
+                        </div>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </div>

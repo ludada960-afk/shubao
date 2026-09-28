@@ -339,6 +339,14 @@
   .media-workbench-fields { grid-template-columns: minmax(0, 1fr); }
 }
 .media-workbench-fields > .media-field { grid-column: 1 / -1; }
+/* ═══ 2026-09-28 批 CY-⑥：分段档位那一族的**整颗动作按钮**（照知渔：芯片下面那一颗）═══════════════
+   用户原话（逐字）：「你看一下**人家 AI 推荐风格**，它这里是有个按钮的。他点击这个按钮才会生成结果
+   在这里啊。他这个按钮其实就跟右上角那个 AI 推荐应该是同一个按钮的。」（完整实测见 JSX 里同一段注释）
+   知渔：272×45 / min-w-180 / 圆角 10 / 父层 justify=center / 距上面内容 19.84px。
+   我们：跨两列 + 居中；**间距不另写** —— 字段网格自己的行距就是 18px（与知渔那 19.84 同档，
+   批 BF 定过"站内一致优先于照抄竞品的具体数字"）；按钮本体直接复用 `.media-workbench-paid`
+   （45px 高 / 圆角 10 / 价钱写在按钮里 —— 与知渔那颗逐值同档，不是新造一套）。 */
+.media-workbench-field-action { grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; }
 /* 视频侧的块（参考图 / 比例 / 时长 …）都是整幅的 —— 它们不是"半宽字段"，
    不写这条就会被两列网格压成半宽（实测上传框被挤到 200px 宽、说明文字折行）。 */
 .media-workbench-fields > .video-wb-block { grid-column: 1 / -1; }
