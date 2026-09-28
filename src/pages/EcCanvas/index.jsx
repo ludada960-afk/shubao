@@ -66,6 +66,7 @@ import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
 import { createPlanLaunchGraph, isPlanLaunch } from './canvasPlanLaunch.js';
 import { canvasNodeSeedValues, canvasWorkbenchTargetOf } from './canvasWorkbenchBridge.js';
+import { isWorkbenchInbound, workbenchInboundNodesOf } from './canvasWorkbenchInbound.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, normalizePendingProjectAssetImports, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
@@ -1557,6 +1558,41 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     /* 9-12 用户批注根治：首页发射图必须在这里装配，且**装配后不再被草稿/会话重建覆盖**。
        之前是独立效应，本效应随后跑一次就把它盖掉了 —— 用户看到「只跳画布、没有方案、没有素材」。 */
     const pendingLaunch = state.creationLaunch;
+    /* ═══ 2026-09-28 批 CY-⑩（CV-2 第 2 步·反向）：**子页面 → 画布**（「送到画布」）══════════════════
+       与首页"发射器"（ec-plan-launch）语义**不同**，别照抄那一段的处理：
+         · 发射器 = 发来**一整套方案** ⇒ 整张图换成新方案（`applyPlanLaunch` 会 setNodes 覆盖）；
+         · 「送到画布」 = 把**这一张成品**拿到画布上继续做 ⇒ **追加**一个节点，
+           绝不覆盖用户已有的画布（他画布上可能正有活儿在干）。
+       其余（清 launch、跳过"清空后那一跳"、标记草稿就绪）与发射器同一套写法 —— 那三条是必备的，
+       少一条就会看到"toast 还在、画布却被重建清空"（上面那段注释记着这个坑）。 */
+    if (isWorkbenchInbound(pendingLaunch)) {
+      try {
+        /* ⚠️ 落点要用**最新的** nodes 算（不能把 nodes 塞进本效应的依赖数组：那会让整段草稿逻辑
+           每次改节点都重跑）。所以：id 先按时间戳定死，落点在 setNodes 的函数式更新里算 —— 两处
+           用的是同一个 stamp，节点 id 因此可预测（选中/连线都指得准）。 */
+        const stamp = Date.now();
+        const items = (Array.isArray(pendingLaunch.images) ? pendingLaunch.images : []).filter(item => String(item?.url || '').trim());
+        if (items.length) {
+          const firstId = 'wb_inbound_' + stamp + '_1';
+          setNodes(previous => [
+            ...previous,
+            ...workbenchInboundNodesOf({ launch: pendingLaunch, existing: previous, now: stamp }).map(normalizeCanvasNode),
+          ]);
+          setSelected(firstId);
+          setMultiSelected(new Set([firstId]));
+          showToast(`已把 ${items.length} 张结果放到画布上（落在现有内容右侧）`, 'success');
+        } else {
+          showToast('这一条没有可用的成图，没往画布上放东西', 'error');
+        }
+      } catch (error) {
+        showToast(error?.message || '放到画布失败', 'error');
+      } finally {
+        dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+        launchJustAppliedRef.current = true;
+      }
+      draftReadyRef.current = true;
+      return () => { cancelled = true; };
+    }
     if (isPlanLaunch(pendingLaunch)) {
       try {
         applyPlanLaunch(pendingLaunch);

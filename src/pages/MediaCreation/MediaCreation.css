@@ -250,6 +250,25 @@
 .media-run-live-clip { position: absolute; inset: 0; display: grid; align-content: end; gap: 6px; padding: 8px; background: rgba(17, 20, 45, .55); }
 .media-run-live-clip video { width: 100%; max-height: calc(100% - 36px); border-radius: 8px; background: var(--sb-neutral-900); }
 .media-run-live-clip .media-run-live-download { justify-self: start; }
+/* ═══ 送到画布 2026-09-28 批 CY-⑩（CV-2 第 2 步·反向）═══════════════════════════════════════════
+   用户拍板：「画布↔子页面的入口位置，可以，你做吧」。与「做成动图」同属"对着这一张的下一步动作"，
+   但**不花钱**（只是把这张图放到画布上继续做）⇒ 与花钱那一颗在视觉上分得开：
+   这一颗是**描边不填色**的中性胶囊（与「再看一眼」同一族），花钱那颗是品牌色描边。 */
+.media-run-send-canvas {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-card);
+  box-shadow: 0 0 0 1px var(--sb-border-strong);
+  color: var(--sb-ink-1);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.media-run-send-canvas:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px var(--sb-ink-3), 0 6px 16px rgba(17, 20, 45, .14); }
 /* ═══ 「再看一眼」2026-09-28 批 CY-2 ═══════════════════════════════════════════════════
    上游比预期慢（超时）或中途查不到进度时，取回成片的入口**留在这一张下面** —— 不把用户推去
    「任务记录」：那个入口挂的是另一个权限（video_generation），只开电商生图的账号进不去。

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Download, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
+import { AlertCircle, Download, Layers, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 
 /* ═══ 媒体板块页（图片 / 视频共用一个页面）═══════════════════════════════════════
    做法参照竞品实测：**一个页面按 ?id= 渲染全部技能**（他们也是 /image-creation?id=<skillId>），
@@ -199,7 +199,7 @@ function friendlyError(error) {
   return message;
 }
 
-function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse, sheet = null, livePhoto = null }) {
+function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse, sheet = null, livePhoto = null, onSendToCanvas = null }) {
   if (!run) return null;
   const done = run.slots.filter(slot => slot.status === 'completed' && slot.url);
   const failed = visualRetryIndexes(run);
@@ -266,6 +266,18 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
               {canMake && (
                 <button type="button" className="media-run-live-make" onClick={() => livePhoto.onMake?.(index)}>
                   <Sparkles size={14} />做成动图 · {livePhoto.offer.points} 积分
+                </button>
+              )}
+              {/* ═══ 2026-09-28 批 CY-⑩（CV-2 第 2 步·反向）：**逐张「送到画布」**══════════════════════
+                  用户拍板：「画布↔子页面的入口位置，可以，你做吧」（docs/design/89 §5 第 2 步）。
+                  为什么长在**这一张下面**（而不是 CTA 旁边另立一个主入口）：
+                    · 它和「做成动图」是同一类东西 —— **对着这一张成品的下一步动作**，
+                      站内已有先例（批 DC-4 把「做成动图」也放在这一张下面），照同一格排下去即可；
+                    · 用户历史上反复点名"一个页面只能有一个主入口"，主 CTA 那一块一个字不动。
+                  为什么只给**成品**：没 url 的占位/失败项送到画布就是空壳节点（铁律：不摆假东西）。 */}
+              {finished && Boolean(slot.url) && onSendToCanvas && (
+                <button type="button" className="media-run-send-canvas" onClick={() => onSendToCanvas(index)}>
+                  <Layers size={14} />送到画布
                 </button>
               )}
             </div>
@@ -1987,9 +1999,43 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onDownload: downloadLivePhoto,
       }
     : null;
+  /* ═══ 2026-09-28 批 CY-⑩（CV-2 第 2 步·反向）：**子页面 → 画布**（逐张「送到画布」）══════════════
+     用户拍板：「画布↔子页面的入口位置，可以，你做吧」。这条与"画布 → 子页面"（批 CY-⑨）**对称**：
+       · 载体仍是**同一个**跨路由 `creationLaunch`（站内只有一个，别再造第二个），kind = `to-canvas`；
+       · 节点上的 `skillId / title / prompt` 一起带过去 ⇒ 到了画布上还能原路回这一页（闭环）；
+       · **不花一分钱**：只发数据 + 导航（画布侧只 append 一个节点，见 canvasWorkbenchInbound.js）。
+     ⚠️ 只送**已就绪、有 url 的成品**；占位/失败项不送（送了就是空壳节点）。 */
+  /* ⚠️ **必须是普通函数，不能写成 useCallback** —— 这一行在 `if (!skill) return <MediaHub/>` **之后**
+     （那个提前返回在第 1941 行附近），在这里调 hook 就会出现"这一轮少调了一个 hook"，
+     整页塌成错误页：本批第一版就是这么栽的 —— e2e 场景 ⑱b（子页面点「返回」→ 等 `.media-hub`）
+     当场 15 秒超时，而**纯 HEAD 复跑同一条 e2e 是全绿的**（那次判别把锅认定在我这边）。
+     本文件对这个坑有前车之鉴：`usePlanLeaveGuard` 上面那段注释写着同一句话。 */
+  const sendResultToCanvas = index => {
+    const slot = run?.slots?.[index];
+    const url = String(slot?.url || '').trim();
+    if (!url) { setNotice('这一张还没有成图，先等它生成完'); return; }
+    const planField = planPreviewTargetKey(skill);
+    dispatch({
+      type: 'SET_CREATION_LAUNCH',
+      launch: {
+        kind: 'to-canvas',
+        skillId: skill.id,
+        title: skill.name || '工作台结果',
+        prompt: String(values?.[planField] || ''),
+        images: [{ url, assetId: slot.assetId || '', name: `${skill.name || '结果'} ${index + 1}` }],
+      },
+    });
+    /* ⚠️ 必须用 **OPEN_CANVAS**，不是 `NAVIGATE page:'ec-canvas'` —— 两者差别是实测出来的：
+       用 NAVIGATE 时画布会挂载、图也加上了，但**两三秒后被弹回子页面**
+       （`canvasEntryTab` / `galleryItem` 没被一起复位，画布进的是上一次的入口态）；
+       换成 App 打开画布的规范动作（侧边栏「无限画布」走的就是它，见 CreativeDomainNav 的
+       `action.type === 'OPEN_CANVAS'` 分支：**只 dispatch、不推 URL**）之后，落上去就稳住了
+       （`.qa/cy10-send-to-canvas.mjs` 第 ⑥ 步"3 秒后仍在画布上"守着这条）。 */
+    dispatch({ type: 'OPEN_CANVAS' });
+  };
   const status = (
     <>
-      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} sheet={sheetAction} livePhoto={livePhotoAction} />
+      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} sheet={sheetAction} livePhoto={livePhotoAction} onSendToCanvas={sendResultToCanvas} />
       {announce}
     </>
   );
