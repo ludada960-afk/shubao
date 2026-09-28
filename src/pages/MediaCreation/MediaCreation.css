@@ -176,6 +176,53 @@
 .media-run-sheet-save:disabled,
 .media-run-sheet-again:disabled { opacity: .6; cursor: default; transform: none; box-shadow: none; }
 
+/* ═══ 版式族的"选一族"入口 + 信息图排法 + 文案（2026-09-28 批 DC 续-3）═════════════════════════
+   用户口径（逐字）：「**版式族为什么一定要选呢，只有两个选项呀，是必须选吗**」
+   ⇒ 这一栏改成可选（中性档 = 不拼版），并且**拼版入口留在结果区**：看完结果再决定要不要拼，
+     不必先回面板改字段。下面是那条入口的样式 —— 全部是**免费动作**，所以一律不带价。 */
+.media-run-sheet-pick { display: grid; gap: 8px; }
+.media-run-sheet-families,
+.media-run-sheet-templates { display: flex; flex-wrap: wrap; gap: 8px; }
+.media-run-sheet-family,
+.media-run-sheet-template {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 999px;
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+.media-run-sheet-family:hover,
+.media-run-sheet-template:hover { transform: translateY(-1px); border-color: var(--sb-brand-500); }
+.media-run-sheet-family.is-active,
+.media-run-sheet-template.is-active {
+  border-color: var(--sb-brand-600);
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-brand-700);
+  font-weight: 600;
+}
+.media-run-sheet-copy { display: grid; gap: 6px; }
+.media-run-sheet-copy-headline,
+.media-run-sheet-copy-body {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 10px;
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+.media-run-sheet-copy-headline:focus-visible,
+.media-run-sheet-copy-body:focus-visible { outline: 0; box-shadow: var(--sb-focus-ring); }
+
 /* ═══ 做成动图 2026-09-27 批 DC-4 ══════════════════════════════════════════════════
    用户口径：「动图选 A 吧」—— 对**已生成的那张**给一颗「做成动图」（2~3 秒循环短片、可下载）。
    与上面那颗拼版按钮**长得明显不一样**：这个**要花钱**（面价 ¥3.90 ⇒ 按钮上带价），

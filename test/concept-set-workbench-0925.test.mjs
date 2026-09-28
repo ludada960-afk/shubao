@@ -20,8 +20,9 @@
      ⑥ 比例默认 3:4（本账号签名是竖版，而 ratioField() 的兜底默认是 1:1）；
      ⑦ 出处已登记（skillSources 写 ours）且对照表已登记（counterpart: null + reason）；
      ⑧ **自证**：把 brief 里的无品牌纪律删掉必须被判红（否则第 ② 条测的是别的东西）；
-     ⑨ **人物形态六档**（批 DB / M1，替换那条绝对禁令）：六档、必填、默认 = 实测最高频的「空镜」、
-        每一档的 value 都是可执行的整句、**没有正脸档**（1/402 是意外不是手法）。 */
+     ⑨ **人物形态**（批 DB / M1，替换那条绝对禁令；批 DC 续-3 加第七档）：必填、
+        默认 = 实测最高频的「空镜」、每一档的 value 都是可执行的整句、**没有正脸档**（1/402 是意外不是手法），
+        第七档「画中画」（脸只以画面里的照片/杂志页/广告牌出现，7/402 = 1.7%）。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -160,26 +161,32 @@ test('⑧ 自证：去掉无品牌纪律必须被判红（否则第 ② 条测�
   assert.equal(caught, true, '删掉纪律后没被判红 ⇒ 第 ② 条是空转');
 });
 
-test('⑨ 人物形态六档：默认 = 实测最高频那一档，且**不做正脸档**（2026-09-27 批 DB / M1）', () => {
+test('⑨ 人物形态七档：默认 = 实测最高频那一档，且**不做正脸档**（批 DB / M1；0928 加画中画）', () => {
   /* ═══ 这一条守的东西（每条判据都对着一个实测数字）══════════════════════════════════════
      deep-dive §4.3（402 张逐张判定）：
        完全没有人物 206（51.2%）· 躯干/腿 74（18.4%）· 手/手臂 66（16.4%）· 下半脸 17（4.2%）
-       · 戴墨镜 13（3.2%）· 背影/后脑 8（2.0%）· 侧脸 2（0.5%）· **正面脸 1（0.2%）**
-     ⇒ 六档 = 把这些形态**合并成可执行的六条**；默认取**唯一过半**的那一档（空镜 51.2%）；
-       正脸不做（1/402 不是"手法"，是意外）。 */
+       · 戴墨镜 13（3.2%）· 背影/后脑 8（2.0%）· **照片里的脸 7（1.7%）**· 侧脸 2（0.5%）
+       · **正面脸 1（0.2%）**
+     ⇒ 各档 = 把这些形态**合并成可执行的几条**；默认取**唯一过半**的那一档（空镜 51.2%）；
+       正脸不做（1/402 不是"手法"，是意外）。
+     ⚠️ 2026-09-28 批 DC 续-3 加第七档「画中画」（脸只以画面里的照片/杂志页/广告牌出现）：
+        它是"有人在场但不露脸"的**第三种解法**（前两种是身体局部与墨镜），
+        与版式层的「宝丽来画中画」同源。 */
   const field = skill.fields.find(f => f.key === 'person');
   assert.ok(field, '缺「人物形态」这一格');
-  assert.equal(field.kind, 'segmented', '六档是并列可选，用既有的药丸控件（不新造控件风格）');
+  assert.equal(field.kind, 'segmented', '各档是并列可选，用既有的药丸控件（不新造控件风格）');
   assert.equal(field.required, true, '它是每篇的必选项（不选就不知道该不该出人）');
-  assert.equal(field.options.length, 6, '就是实测归纳出来的六档，实际 ' + field.options.length);
+  assert.equal(field.options.length, 7, '实测归纳出来的七档，实际 ' + field.options.length);
   const labels = field.options.map(option => option.label);
-  assert.deepEqual(labels, ['空镜', '手或手臂', '躯干与腿', '下半脸', '戴墨镜', '背影或侧脸'],
-    '六档与实测归纳的顺序/命名要一致（顺序=频次从高到低）');
-  assert.equal(new Set(field.options.map(option => option.value)).size, 6, '六档的值不许重复');
+  assert.deepEqual(labels, ['空镜', '手或手臂', '躯干与腿', '下半脸', '戴墨镜', '背影或侧脸', '画中画'],
+    '七档与实测归纳的顺序/命名要一致（顺序=频次从高到低；画中画是最后加的那一档）');
+  assert.equal(new Set(field.options.map(option => option.value)).size, 7, '各档的值不许重复');
   for (const option of field.options) {
     assert.ok(String(option.label).length <= 6, '档位名要短（门禁 ① 要求 ≤6 字）：' + option.label);
     assert.ok(option.value.length >= 12, '每一档的 value 都要是能执行的整句（模型靠它知道人怎么出现）：' + option.value);
-    assert.doesNotMatch(option.label + option.value, /正脸/, '正脸档不许有 —— 实测只有 1/402（0.2%），那是意外不是手法');
+    /* 「不出现正脸」是**整篇纪律**里的硬约束（实测 1/402），所以各档 value 里出现"正脸"只能在
+       这条禁令的语境里（`不出现正脸` / `未正对镜头`），不许出现"可以露正脸"这类档位。 */
+    assert.doesNotMatch(option.value, /(可以|允许|要)(出现)?正脸|正面脸/, '正脸档不许有 —— 实测只有 1/402（0.2%），那是意外不是手法');
   }
   const seed = initialSkillValues(skill);
   assert.equal(seed.person, field.options[0].value, '默认档必须是实测最高频那一档（列表第一档 = 空镜 206/402）');

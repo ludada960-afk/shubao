@@ -34,8 +34,19 @@ import { videoJobsOfSkill } from '../VideoStudio/videoJobTags.js';
 /* 批 CE：视频任务的输入素材 → 创作台形状（纯函数，门禁能直接跑） */
 import { videoJobMaterials } from '../VideoStudio/videoMaterialsModel.js';
 import { EXPIRED_NOTE, downloadFileName, isExpiredWork, videoStatusLabel } from '../Home/mediaHistoryModel.js';
-/* 批 DC（M3）：版式层（客户端确定性拼版 —— 纯几何 + canvas，不调模型、不计费） */
-import { layoutSheetBlob, layoutSheetFileName, layoutSheetPlan } from '../Home/conceptLayoutSheet.js';
+/* 批 DC（M3）：版式层（客户端确定性拼版 —— 纯几何 + canvas，不调模型、不计费）
+   批 DC 续-3：扩到四族（宫格/底片条/宝丽来画中画/品牌信息图），并给"不拼版"这个中性档、
+   信息图的三种排法与用户自己写的文案各留了入口（判据都在 conceptLayoutSheet 里）。 */
+import {
+  LAYOUT_INFO_DEFAULT_TEMPLATE,
+  LAYOUT_INFO_TEMPLATES,
+  isLayoutNONE,
+  layoutFamilies,
+  layoutFamilyOptions,
+  layoutSheetBlob,
+  layoutSheetFileName,
+  layoutSheetPlan,
+} from '../Home/conceptLayoutSheet.js';
 /* 批 CD：存到我的资产（自动建/复用「生成作品」项目 + 注册 + 入库，幂等） */
 import { saveGeneratedUrlsToAssets } from '../Home/saveWorkToAssets.js';
 import { getImageSkill } from '../../skills/imageSkills.js';
@@ -275,21 +286,77 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
           <button type="button" className="media-run-again" onClick={onDownload}><Sparkles size={14} />重新生成一组</button>
         </div>
       )}
-      {/* ═══ 2026-09-27 批 DC（M3）：**版式层**（客户端确定性拼版）══════════════════════════════
+      {/* ═══ 版式层（客户端确定性拼版）══════════════════════════════════════════════════════════
           实测：拼版 60/402（14.9%）分布在 36/41 篇（87.8%），而我们现在只会一张一张出成品图 ——
           这是"像不像他"的最大差距（docs/design/90 §六-2）。
           ⚠️ 先出单图再拼：**绝不让模型一次画一整张九宫格**（分格线会画歪、格内内容互相渗透）。
           ⚠️ 这一步**免费**：纯 canvas 几何，不调模型、不计费（所以按钮上不写积分）。
-          ⚠️ 不足 2 张不出现这颗按钮（"同族至少复用 2 张"是实测的成套感来源；一张的篇拼不出东西）。 */}
+          ⚠️ 2026-09-28 批 DC 续-3：**四族齐备 + 「不拼版」是中性档**（用户原话：「版式族为什么
+             一定要选呢，只有两个选项呀，是必须选吗」）。所以这一段现在：① 入口常在（选族可写回）、
+             ② 信息图多一个三种排法的选择、③ 文案由用户自己写（我们不许替他编品牌文案）。 */}
       {finished && sheet?.available && (
         <div className="media-run-sheet">
-          <p className="media-run-sheet-lead">
-            这一篇的 {sheet.count} 张可以按「{sheet.family}」拼成一张成品图（不额外扣积分）
-          </p>
+          <div className="media-run-sheet-pick">
+            <span className="media-run-sheet-lead">
+              {sheet.url
+                ? '这一篇拼出来是这样（换一种版式就重拼一次，不额外扣积分）'
+                : (sheet.isNone
+                  ? '这一篇现在是「不拼版」（每张独立成图）。想拼成一张，选一个版式族：'
+                  : '这一篇的 ' + sheet.count + ' 张可以按「' + sheet.family + '」拼成一张成品图（不额外扣积分）')}
+            </span>
+            <span className="media-run-sheet-families" role="radiogroup" aria-label="版式族">
+              {(sheet.familyOptions || []).map(option => <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={String(sheet.family) === String(option.value)}
+                className={'media-run-sheet-family' + (String(sheet.family) === String(option.value) ? ' is-active' : '')}
+                title={option.hint || ''}
+                onClick={() => sheet.onPickFamily?.(option.value)}
+              >{option.label}</button>)}
+            </span>
+          </div>
+          {/* 信息图：三种实测排法（左图右文 / 词典卡 / 大字色块） */}
+          {sheet.family === '品牌信息图' && (
+            <span className="media-run-sheet-templates" role="radiogroup" aria-label="信息图排法">
+              {(sheet.templates || []).map(option => <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={String(sheet.template) === String(option.value)}
+                className={'media-run-sheet-template' + (String(sheet.template) === String(option.value) ? ' is-active' : '')}
+                title={option.hint || ''}
+                onClick={() => sheet.onPickTemplate?.(option.value)}
+              >{option.label}</button>)}
+            </span>
+          )}
+          {/* 文案：**用户自己写**（实测那些版式页上的字是品牌方的话，我们不替他编、也不送进模型） */}
+          {sheet.needsCopy && (
+            <div className="media-run-sheet-copy">
+              <input
+                type="text"
+                className="media-run-sheet-copy-headline"
+                maxLength={60}
+                value={sheet.copy?.headline || ''}
+                placeholder={sheet.family === '宝丽来画中画' ? '相纸下方那一行短句（可留空）' : '标题（可留空，例如母体名）'}
+                onChange={event => sheet.onCopyChange?.('headline', event.target.value)}
+                aria-label="版式文案标题"
+              />
+              {sheet.family === '品牌信息图' && <textarea
+                rows={3}
+                className="media-run-sheet-copy-body"
+                maxLength={240}
+                value={sheet.copy?.body || ''}
+                placeholder="正文（可留空）：一两句英文或中文，例如「A quiet morning, kept in amber.」"
+                onChange={event => sheet.onCopyChange?.('body', event.target.value)}
+                aria-label="版式文案正文"
+              />}
+            </div>
+          )}
           {sheet.url
             ? (
               <div className="media-run-sheet-result">
-                <img src={sheet.url} alt={sheet.family + '拼版成品图'} />
+                <img src={sheet.url} alt={(sheet.family + (sheet.template ? ' · ' + sheet.template : '')) + '拼版成品图'} />
                 <div className="media-run-actions">
                   <button type="button" className="media-run-sheet-download" onClick={() => sheet.onDownload?.()}>
                     <Download size={14} />下载这张拼版
@@ -305,8 +372,13 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
             )
             : (
               <div className="media-run-actions">
-                <button type="button" className="media-run-sheet-compose" disabled={sheet.busy} onClick={() => sheet.onCompose?.()}>
-                  {sheet.busy ? '正在拼版…' : '拼成一张成品图'}
+                <button
+                  type="button"
+                  className="media-run-sheet-compose"
+                  disabled={sheet.busy || !sheet.canCompose}
+                  onClick={() => sheet.onCompose?.()}
+                >
+                  {sheet.busy ? '正在拼版…' : (sheet.canCompose ? '拼成一张成品图' : '这一篇至少要有 2 张才能拼')}
                 </button>
               </div>
             )}
@@ -1457,22 +1529,31 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     }
   }
 
-  /* ═══ 2026-09-27 批 DC（M3）：版式层的三个动作（拼 / 下 / 存）════════════════════════════════
+  /* ═══ 版式层（M3 → 2026-09-28 批 DC 续-3 扩到四族）的三个动作（拼 / 下 / 存）════════════════════
      依据 docs/design/90 §6.2：版式层 = **确定性渲染**（我们自己的模板，不调模型），
      所以这一整段**没有报价、没有扣费**，也不新增任何服务端端点。
      ⚠️ 拼版只能由**用户手势**触发（按钮 onClick）—— 与"没有用户确认绝不扣费"同一纪律，
-        虽然它不花钱，但也不许偷偷占用户 CPU/内存。 */
+        虽然它不花钱，但也不许偷偷占用户 CPU/内存。
+     ⚠️ 2026-09-28：`template`（信息图的三种排法）与 `copy`（用户自己写的标题/正文）
+        **只在这一层用**，不进提示词、不进请求 —— 文案是后期排版加上去的。 */
   async function composeSheet() {
     const urls = (runRef.current?.slots || []).filter(slot => slot.status === 'completed' && slot.url).map(slot => slot.url);
-    const plan = layoutSheetPlan({ family: effectiveValues.layout, count: urls.length });
-    if (!plan) { setError('这一篇至少要有 2 张图，才能按版式族拼成一张'); return; }
+    const plan = layoutSheetPlan({
+      family: effectiveValues.layout, count: urls.length, template: sheetTemplate,
+    });
+    if (!plan) {
+      setError(isLayoutNONE(effectiveValues.layout)
+        ? '这一篇现在是「不拼版」——想拼一张的话，先在下面选一个版式族'
+        : '这一篇至少要有 2 张图，才能按版式族拼成一张');
+      return;
+    }
     setSheetBusy(true);
     setError('');
     try {
-      const blob = await layoutSheetBlob(plan, urls);
+      const blob = await layoutSheetBlob(plan, urls, { copy: sheetCopy });
       const url = URL.createObjectURL(blob);
-      setSheet({ url, blob, family: plan.family, count: urls.length, plan });
-      setNotice('拼好了：' + plan.family + ' · ' + plan.count + ' 张（这一步不扣积分）');
+      setSheet({ url, blob, family: plan.family, count: urls.length, plan, template: plan.template || '' });
+      setNotice('拼好了：' + plan.family + (plan.template ? ' · ' + plan.template : '') + ' · ' + plan.count + ' 张（这一步不扣积分）');
     } catch (failure) {
       setError(failure?.message || '拼版失败，请重试');
     } finally {
@@ -1759,6 +1840,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        「正在做 / 做完了给下载 / 没做出来（并说明没扣积分）」都就近长在那一张下面。 */
   const [livePhotoOffer, setLivePhotoOffer] = useState(null);
   const [livePhoto, setLivePhoto] = useState({});
+  /* ═══ 版式层的两个"只在拼版时用"的输入（2026-09-28 批 DC 续-3）════════════════════════════════
+     · sheetTemplate —— 信息图的三种排法（左图右文 / 词典卡 / 大字色块）；
+     · sheetCopy     —— 用户自己写的标题与正文（宝丽来用它当相纸上的短句，信息图用它当版式里的字）。
+     ⚠️ 两者都**不进提示词、不进请求**：它们是拼版层加的东西（实测那些版式页上的文字是后期排的），
+        所以用户改文案不需要重新出图，重新拼一次就好。 */
+  const [sheetTemplate, setSheetTemplate] = useState(LAYOUT_INFO_DEFAULT_TEMPLATE);
+  const [sheetCopy, setSheetCopy] = useState({ headline: '', body: '' });
   useEffect(() => () => { if (sheet?.url) { try { URL.revokeObjectURL(sheet.url); } catch { /* 忽略 */ } } },
     [sheet?.url]);
   /* ═══ 「做成动图」的价目：进这条技能时问一次服务端（**不是扣费调用**，只是一次只读读取）══════
@@ -1842,23 +1930,43 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       {carryHint && <p className="media-run-carry">{carryHint}</p>}
     </>
   );
-  /* 版式层（M3）：只有"能拼"时才把这颗入口交给结果区 ——
-     available 的判据与拼版函数同一份（layoutSheetPlan 返回 null 就是拼不了）。 */
+  /* 版式层（M3；2026-09-28 四族齐备）：只有"能拼"时才把这颗入口交给结果区 ——
+     available 的判据与拼版函数同一份（layoutSheetPlan 返回 null 就是拼不了）。
+     ⚠️ 「不拼版」（中性档）时**入口仍然在**：拼版是免费的后期动作，实测 85% 的图虽然是单图，
+        但"这一篇要不要拼一张"完全可以在**看完结果之后**再决定（不必先回面板改字段）。
+        所以这一段给的是"选一族"的入口，选完写回**同一个字段**（onPickFamily → setValues），
+        值仍然只有一处（声明源那一栏），这里只是第二个入口。 */
   const sheetDone = (run?.slots || []).filter(slot => slot.status === 'completed' && slot.url).length;
-  const sheetPlan = layoutSheetPlan({ family: effectiveValues.layout, count: sheetDone });
-  const sheetAction = sheetPlan
-    ? {
-        available: true,
-        family: sheetPlan.family,
-        count: sheetPlan.count,
-        url: sheet?.url || '',
-        busy: sheetBusy,
-        saving: sheetSaving,
-        onCompose: () => { void composeSheet(); },
-        onDownload: downloadSheet,
-        onSaveAssets: () => { void saveSheetToAssets(); },
-      }
-    : null;
+  const sheetPlan = layoutSheetPlan({
+    family: effectiveValues.layout, count: sheetDone, template: sheetTemplate,
+  });
+  const sheetAction = {
+    available: true,
+    family: String(effectiveValues.layout || ''),
+    familyOptions: layoutFamilyOptions(),
+    isNone: isLayoutNONE(effectiveValues.layout),
+    families: layoutFamilies(),
+    templates: LAYOUT_INFO_TEMPLATES(),
+    template: sheetTemplate,
+    copy: sheetCopy,
+    needsCopy: effectiveValues.layout === '品牌信息图' || effectiveValues.layout === '宝丽来画中画',
+    canCompose: Boolean(sheetPlan),
+    count: sheetDone,
+    planFamily: sheetPlan ? sheetPlan.family : '',
+    url: sheet?.url || '',
+    busy: sheetBusy,
+    saving: sheetSaving,
+    onCompose: () => { void composeSheet(); },
+    onDownload: downloadSheet,
+    onSaveAssets: () => { void saveSheetToAssets(); },
+    onPickFamily: value => {
+      /* 换族就把上一张成品图撤掉：它是**另一族**的产物，留着会让人以为换族没生效 */
+      setSheet(null);
+      setValues(prev => reconcileFieldValues(skill.fields, { ...prev, layout: value }));
+    },
+    onPickTemplate: value => { setSheet(null); setSheetTemplate(value); },
+    onCopyChange: (key, value) => setSheetCopy(prev => ({ ...prev, [key]: value })),
+  };
   /* 「做成动图」：把**服务端给的价目**与逐张状态交给结果区。
      ⚠️ 取不到价目（offer 为 null）就整个不渲染 —— 宁可少一颗按钮，也不许在页面上写死一个价。 */
   const livePhotoAction = livePhotoOffer

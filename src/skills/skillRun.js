@@ -182,12 +182,40 @@ export function skillShotValues(skill, selectedModules = []) {
 }
 
 /* 第 i 张的取值。0/1 种时没有可收窄的（提示词照原样），所以直接把原值还回去 —— 这样
-   "只勾一种"跑出来的请求与改前逐字相同（老参数、老历史还原都不会变味）。 */
+   "只勾一种"跑出来的请求与改前逐字相同（老参数、老历史还原都不会变味）。
+   ⚠️ 2026-09-28 批 DC 续-3：`series`（连拍组）**也要逐张给** —— 见 skillSeriesClause。 */
 export function skillValuesForShot(values = {}, index = 0) {
   const shots = (Array.isArray(values && values.shots) ? values.shots : []).map(text).filter(Boolean);
-  if (shots.length < 2) return values;
-  const at = Math.min(Math.max(Number(index) || 0, 0), shots.length - 1);
-  return { ...values, shots: [shots[at]] };
+  const at = Math.min(Math.max(Number(index) || 0, 0), Math.max(0, shots.length - 1));
+  const scoped = shots.length < 2 ? values : { ...values, shots: [shots[at]] };
+  return { ...scoped, series: skillSeriesClause(values, index) };
+}
+
+/* ═══ 2026-09-28 批 DC 续-3：**连拍组**（同一次拍摄的连拍）══════════════════════════════════
+   用户口径（逐字）：「**你有没有我忽略的排版和布局和构图方式呢**」「不能因为我举了几个例子就
+   只照我的例子去做呀」。复核 402 张的原始判定后确认：真正撑起"成套感"的那条实测规律是
+   **篇内"同机位/同版式连着用几张、每张只换实体"**（74/402 = 18.4%，落在 21 篇；报告原话
+   「他的篇级做法是"一个版式/机位连着用几张，每张换道具/换材质/换文案"，而不是"每张都换构图"」）。
+   ⚠️ 这条规律上一版被我用错了地方 —— 我拿它去给**拼版侧**的必选字段当依据（那是"后期把几张
+   拼在一张里"，与"拍摄时同一个机位"是两件事）。这一版把它挪回**出图侧**：用户声明"这一篇有没有
+   连拍组"，有的话，清单里**最靠前的那 2~3 张**共享一条"机位/景别/光线全不变、只换实体"的纪律。
+   ⇒ 它**进提示词**（`{{series}}`），且**只在组内那几张里出现**：组外的张拿不到这句话（空串，
+     被 buildSkillBrief 的清理逻辑吃掉），所以"没做连拍组"的篇与改前逐字相同。 */
+export function skillSeriesCount(value) {
+  const matched = /(\d+)\s*张/.exec(text(value));
+  const count = matched ? Number(matched[1]) : 0;
+  return Number.isFinite(count) && count >= 2 ? Math.min(count, 3) : 0;
+}
+
+export function skillSeriesClause(values = {}, index = 0) {
+  const count = skillSeriesCount(values && values.series);
+  if (!count) return '';
+  const at = Number(index) || 0;
+  if (at < 0 || at >= count) return '';
+  return '这一张属于本组的「同机位连拍」（本组共 ' + count + ' 张，是本篇最前面的 ' + count + ' 张）：'
+    + '本组内**以本条为准** —— 机位、景别、焦段、光线与背景位置完全不变，'
+    + '只更换画面里的实体（道具 / 材质 / 动作 / 服装细节），'
+    + '让这几张一眼看出是同一次拍摄连着按下来的。';
 }
 
 export function skillPieceMark(skill, { runId = '', selectedModules = [], values = {} } = {}) {
@@ -197,21 +225,36 @@ export function skillPieceMark(skill, { runId = '', selectedModules = [], values
   /* 没有"篇骨架"的技能不写这一笔（其余技能的作品形状一个字不变）。 */
   if (!shots.length) return null;
   /* 版式族一并记进这一篇：M3 的版式层要按它拼，历史里那条记录也要在**刷新之后**
-     还记得自己该拼哪一种（不然"用这组参数"回来就不知道该拼宫格还是底片条）。 */
+     还记得自己该拼哪一种（不然"用这组参数"回来就不知道该拼宫格还是底片条）。
+     ⚠️ 2026-09-28 批 DC 续-3：「不拼版」是**中性档**（默认），它不算"声明过一个族"——
+        写进篇标记只会让历史那边多一个没有意义的字段，所以这一档**不记**（与"没选"同义）。 */
   const layout = text(values.layout);
-  return { id: text(runId), shots, size: shots.length, ...(layout ? { layout } : {}) };
+  const hasFamily = Boolean(layout) && layout !== LAYOUT_FAMILY_NONE;
+  return { id: text(runId), shots, size: shots.length, ...(hasFamily ? { layout } : {}) };
 }
 
-/* ═══ 版式族要成立，必须先**同族复用至少 2 张**（2026-09-27 批 DC，实测口径）═══════════════════
-   依据：`docs/research/2026-09-27-aura-composition-direction.md` §四-3 —— 篇内"同版式族反复用"
-   **74/402 张（18.4%）落在 21 篇**的同机位簇里（n4-1/7/8/10、n29-1/4/5/6/7/8/10、n31-1/2/3/6/7 …），
-   报告原话：「他的篇级做法是"一个版式/机位连着用几张，每张换道具/换材质/换文案"，
-   而不是"每张都换构图"」⇒ **"成套感"来自版式反复**，这是本批唯一据实照做的篇级规律。
-   所以：一张的篇谈不上"同族复用"，拼版层**不出图**（M3 的拼版函数按这条拒绝）。 */
+/* ═══ 「不拼版」这一档的取值（**中性档**，声明源与判据共用同一个字符串）══════════════════════
+   2026-09-28 批 DC 续-3 用户口径（逐字）：「**版式族为什么一定要选呢，只有两个选项呀，是必须选吗**」
+   ⇒ 复核 402 张之后确认他是对的：拼版只有 **60/402（14.9%）**，**85% 的图是纯粹的单图**；
+     我上一版把"每篇必选 + 默认宫格"做成了主菜，既违反实测分布，也违反本仓自己对"默认档"的规矩
+     （默认必须是中性档，不许拿一个具体取值冒充默认）。
+   ⇒ 现在它是一栏**可选**的声明，默认落在这一档上（= 这一篇每张独立成图，不拼）。
+   ⚠️ 这个字面量在 skillRun 里定义、由声明源引用（不是反过来）：imageSkills 已经 import 了
+      skillRun（ADAPTIVE_RATIO），反向 import 会成环。 */
+export const LAYOUT_FAMILY_NONE = '不拼版';
+
+/* ═══ 版式层要成立，至少要有 2 张（**渲染下限**，2026-09-27 批 DC；判据依据在 0928 改过一次）══════
+   ⚠️ 上一版这里写的是"同族至少复用 2 张"（依据：篇内同版式族反复用 74/402 落在 21 篇）——
+      **那个依据用错了地方**：74 张量的是"拍摄时同一个机位连着用几张"，属于**出图侧**的规律，
+     与"后期把几张拼进一张图"是两件事。用户 2026-09-28 当面点出这一条（原话：「你没有我忽略的
+     排版和布局和构图方式呢……你自己调研之后你感觉我说的是不是对的呢」）。
+   ⇒ 现在这条规则只表示**渲染下限**：1 张拼不出东西（拼版的意义就是"把几张放进一个版式"）。
+     那条实测规律已经挪到它该在的地方 —— 出图侧的「连拍组」（见 skillSeriesClause）。 */
 export function pieceLayoutFamilyHolds(family, imageCount = 0) {
   const name = text(family);
+  if (!name || name === LAYOUT_FAMILY_NONE) return false;
   const count = Number(imageCount);
-  return Boolean(name) && Number.isFinite(count) && count >= 2;
+  return Number.isFinite(count) && count >= 2;
 }
 
 /* ── ① 必填校验：给工作台做「就近错误」，不是提交后才报错 ──

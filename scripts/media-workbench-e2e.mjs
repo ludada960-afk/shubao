@@ -1432,6 +1432,37 @@ try {
     return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
   });
   check(parseButton.includes('一键解析风格') && parseButton.includes('0.2 积分'), '解析按钮上写着它要多少钱（扣费动作不许让人猜）', parseButton);
+  /* ═══ 2026-09-28 批 CY-⑥：芯片下面那颗**整颗按钮**（用户批注图3「照抄知渔」）═══════════════════
+     用户原话（逐字）：「你看一下**人家 AI 推荐风格**，它这里是有个按钮的。他点击这个按钮才会生成结果
+     在这里啊。他这个按钮其实就跟右上角那个 AI 推荐应该是同一个按钮的。」
+     知渔实测（.qa/cy5-quantv-style.mjs，登录台只读采）：三档芯片下面一颗 **272×45**、**居中**的整颗按钮
+     （h-9=45 / min-w-[180px] / rounded-lg / 父层 justify-content: center）。
+     我们这边同构：`.media-workbench-field-action` 里一颗 `button.media-workbench-paid`，
+     落在**这一档的内容框**（AI推荐档 = 「设计风格要求」textarea）**下面**。
+     ⚠️ 这里**只量不点** —— 它是付费动作（0.2 积分），点一下真扣钱；点击链路仍由上面那颗行内小胶囊覆盖。 */
+  const bigAction = await page.evaluate(() => {
+    const wrap = document.querySelector('.media-workbench-field-action');
+    const btn = wrap?.querySelector('button.media-workbench-paid');
+    if (!wrap || !btn) return null;
+    const box = document.querySelector('textarea[placeholder*="AI 推荐"]');
+    const wr = wrap.getBoundingClientRect(), br = btn.getBoundingClientRect();
+    return {
+      text: (btn.textContent || '').replace(/\s+/g, ' ').trim(),
+      h: Math.round(br.height),
+      centerOff: Math.round((br.left + br.width / 2) - (wr.left + wr.width / 2)),
+      btnTop: Math.round(br.top),
+      fieldBottom: box ? Math.round(box.getBoundingClientRect().bottom) : null,
+    };
+  });
+  check(Boolean(bigAction), '设计风格那一格有那颗**整颗按钮**（照知渔：芯片下面那颗）', bigAction ? bigAction.text : '没渲染');
+  check(bigAction && /一键解析风格/.test(bigAction.text) && /0\.2 积分/.test(bigAction.text),
+    '这颗的价钱也写在按钮上（两处同一个价，不许出现第二个数）', bigAction?.text || '');
+  check(bigAction && bigAction.centerOff >= -1 && bigAction.centerOff <= 1,
+    '那颗按钮**相对字段列居中**（知渔实测父层就是 justify-content: center）', String(bigAction?.centerOff));
+  check(bigAction && bigAction.h === 45, '高度 45（与知渔 h-9 同档）', String(bigAction?.h));
+  check(bigAction && bigAction.fieldBottom != null && bigAction.btnTop > bigAction.fieldBottom,
+    '它落在「设计风格要求」框**下面** —— 结果框在上、按钮在下（与知渔同构）',
+    JSON.stringify({ 框底: bigAction?.fieldBottom, 按钮顶: bigAction?.btnTop }));
   /* 没上传就点：就地提醒，不发任何请求（更不扣费） */
   const recognizeBefore = calls.recognize.length;
   await page.click(ANALYZE_SELECTOR);
@@ -2341,6 +2372,75 @@ try {
   check(calls.videoJob === 0 && calls.videoJobDetail === 0,
     '取回路径同样没有碰视频任务口（两处权限不是同一把锁）', 'post=' + calls.videoJob + ' detail=' + calls.videoJobDetail);
   fx.livePhotoStatus404 = 0;
+
+  /* ═══ ㉔ 版式族：**默认不拼**，但结果区留着"想拼就选一族"的入口（2026-09-28 批 DC 续-3）════════
+     用户原话（逐字）：「**版式族为什么一定要选呢，只有两个选项呀，是必须选吗**」——
+     实测拼版只 60/402（14.9%）、85% 的图是单图 ⇒ 默认必须是中性档「不拼版」；
+     但拼版是**免费的后期动作**，入口要留在结果区（看完结果再决定，不必回面板改字段）。
+     这一条同时守住"四族齐备"（上一版只有两族，理由却是"这两种我现在做得出来"）。 */
+  scenario('㉔ 版式族：默认「不拼版」，结果区可选四族；不足 2 张不给拼');
+  fx.regenerateMode = 'ok'; fx.quoteStatus = 200; fx.statusRemaining = 0;
+
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent(LIVE_PHOTO_SKILL_ID), { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await page.waitForTimeout(400);
+  const panelDefault = await page.evaluate(() => {
+    const group = [...document.querySelectorAll('.media-workbench-fields .media-field-cards')]
+      .find(node => /版式族/.test(node.getAttribute('aria-label') || ''));
+    const active = group?.querySelector('.media-field-card.is-active');
+    return {
+      labels: [...(group?.querySelectorAll('.media-field-card strong') || [])].map(node => node.textContent),
+      active: active?.querySelector('strong')?.textContent || '',
+    };
+  });
+  check(panelDefault.active === '不拼版', '面板里「版式族」默认落在中性档「不拼版」上', panelDefault.active);
+  check(JSON.stringify(panelDefault.labels) === JSON.stringify(['不拼版', '宫格', '底片条', '宝丽来', '信息图']),
+    '五档齐备（中性档 + 实测四族）', JSON.stringify(panelDefault.labels));
+
+  await page.evaluate(() => {
+    const box = document.querySelector('.media-workbench-checklist.is-selectable .media-workbench-checklist-toggle');
+    if (box && box.getAttribute('aria-checked') !== 'true') box.click();
+  });
+  await page.waitForTimeout(250);
+  await clickGenerate();
+  await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 25000 });
+  await page.waitForTimeout(400);
+
+  const sheetBlock = await page.evaluate(() => {
+    const families = [...document.querySelectorAll('.media-run-sheet-family')];
+    const compose = document.querySelector('.media-run-sheet-compose');
+    return {
+      families: families.map(node => node.textContent),
+      active: families.filter(node => node.getAttribute('aria-checked') === 'true').map(node => node.textContent),
+      composeText: compose?.textContent || '',
+      composeDisabled: compose?.disabled ?? null,
+      hasPanelFields: Boolean(document.querySelector('.media-run-sheet-family')),
+    };
+  });
+  check(sheetBlock.hasPanelFields, '结果区真的渲染出了那一排"选一族"的入口', JSON.stringify(sheetBlock).slice(0, 140));
+  check(JSON.stringify(sheetBlock.families) === JSON.stringify(['不拼版', '宫格', '底片条', '宝丽来', '信息图']),
+    '结果区给的是全部五档（与声明源同一份）', JSON.stringify(sheetBlock.families));
+  check(sheetBlock.active.join() === '不拼版', '默认高亮的是「不拼版」', sheetBlock.active.join());
+  check(sheetBlock.composeDisabled === true && /至少要有 2 张/.test(sheetBlock.composeText),
+    '只出了 1 张时：拼版按钮禁用，并说清为什么（不是点不动还没解释）', sheetBlock.composeText);
+
+  /* 点「宫格」→ 写回面板那一栏（值只有一处），并给出一颗可点的「拼成一张成品图」 */
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.media-run-sheet-family')].find(node => node.textContent === '宫格')?.click();
+  });
+  await page.waitForTimeout(500);
+  const afterPick = await page.evaluate(() => {
+    const families = [...document.querySelectorAll('.media-run-sheet-family')];
+    const panelGroup = [...document.querySelectorAll('.media-workbench-fields .media-field-cards')]
+      .find(node => /版式族/.test(node.getAttribute('aria-label') || ''));
+    return {
+      activeInSheet: families.filter(node => node.getAttribute('aria-checked') === 'true').map(node => node.textContent),
+      activeInPanel: panelGroup?.querySelector('.media-field-card.is-active strong')?.textContent || '',
+    };
+  });
+  check(afterPick.activeInSheet.join() === '宫格', '结果区选中「宫格」', afterPick.activeInSheet.join());
+  check(afterPick.activeInPanel === '宫格',
+    '选族要**写回同一个字段**（面板那一栏跟着变 —— 否则就是两处各自记一份）', afterPick.activeInPanel);
 
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));

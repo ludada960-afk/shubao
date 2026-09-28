@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>版式层真实浏览器验证台</title></head>
+<body>
+<!-- ═══ 版式层（拼版）**真实浏览器**验证台 ═══════════════════════════════════════════════════════
+  为什么要单独一个台子：M3 那一批把 `layoutSheetBlob`（canvas.toBlob）写完之后，
+  记录里明确留了一条"**这条导出链从没在真实浏览器里跑过**"。这一批又加了两个引擎
+  （宝丽来画中画 / 品牌信息图），所以先在**真浏览器**里把四族各拼一张出来看：
+  它直接 import 线上那份 `src/pages/Home/conceptLayoutSheet.js`（不是复制一份），
+  所以它跑通 = 线上那份能跑通。产物（JPEG）落在 .qa/layout-out/ 供人眼复核。 -->
+<div id="status">running…</div>
+<pre id="out"></pre>
+<script type="module">
+import {
+  layoutSheetPlan, layoutSheetBlob,
+} from '/src/pages/Home/conceptLayoutSheet.js';
+
+const CASES = [
+  '/images/visual-recipes/cases/brand-fold-furniture.png',
+  '/images/visual-recipes/cases/brand-lumen-camp.png',
+  '/images/visual-recipes/cases/brand-seed-paper.png',
+  '/images/visual-recipes/cases/brand-slow-hotel.png',
+  '/images/visual-recipes/cases/brand-suyu-tea.png',
+];
+
+const COPY = { headline: '秋日限定 · 灰调大地', body: 'A quiet morning, kept in amber. 只留下光线与材质本身。' };
+
+async function dataUrlOf(path) {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error('夹具图取不到：' + path + ' -> ' + response.status);
+  const blob = await response.blob();
+  return await new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function run() {
+  const results = [];
+  const urls = await Promise.all(CASES.map(dataUrlOf));
+  const jobs = [
+    { family: '宫格', count: 4, template: '' },
+    { family: '底片条', count: 4, template: '' },
+    { family: '宝丽来画中画', count: 4, template: '' },
+    { family: '品牌信息图', count: 4, template: '左图右文' },
+    { family: '品牌信息图', count: 2, template: '词典卡' },
+    { family: '品牌信息图', count: 3, template: '大字色块' },
+  ];
+  for (const job of jobs) {
+    const plan = layoutSheetPlan(job);
+    if (!plan) { results.push({ ...job, ok: false, error: 'plan=null' }); continue; }
+    const blob = await layoutSheetBlob(plan, urls.slice(0, job.count), { copy: COPY });
+    /* 用真实解码再量一次尺寸：证明产出的是一张**能读的**图，而不只是"没抛异常" */
+    const bitmap = await createImageBitmap(blob);
+    const label = job.family + (job.template ? '-' + job.template : '');
+    results.push({
+      ...job, label, ok: true,
+      planWidth: plan.width, planHeight: plan.height,
+      bytes: blob.size,
+      decodedWidth: bitmap.width, decodedHeight: bitmap.height,
+      type: blob.type,
+      dataUrl: await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsDataURL(blob);
+      }),
+    });
+    bitmap.close?.();
+  }
+  document.getElementById('status').textContent = 'done';
+  document.getElementById('out').textContent = JSON.stringify(results.map(r => ({
+    label: r.label, ok: r.ok, error: r.error, planWidth: r.planWidth, planHeight: r.planHeight,
+    decodedWidth: r.decodedWidth, decodedHeight: r.decodedHeight, bytes: r.bytes, type: r.type,
+  })), null, 1);
+  globalThis.__LAYOUT_RESULTS__ = results;
+}
+run().catch(error => {
+  document.getElementById('status').textContent = 'failed: ' + (error && error.message);
+  globalThis.__LAYOUT_RESULTS__ = [{ ok: false, error: String(error && error.stack || error) }];
+});
+</script>
+</body>
+</html>

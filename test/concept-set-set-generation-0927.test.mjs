@@ -19,6 +19,7 @@ import { dirname, join } from 'node:path';
 
 import { getImageSkill, CONCEPT_SHOT_OPTIONS } from '../src/skills/imageSkills.js';
 import {
+  LAYOUT_FAMILY_NONE,
   buildSkillRequest,
   initialSkillValues,
   pieceLayoutFamilyHolds,
@@ -27,6 +28,8 @@ import {
   skillGenerationSettings,
   skillPieceMark,
   skillPointsEstimate,
+  skillSeriesClause,
+  skillSeriesCount,
   skillShotValues,
   skillValuesForShot,
 } from '../src/skills/skillRun.js';
@@ -250,30 +253,34 @@ test('⑤ 构图方向：默认居中/无方向、每张都带同一句，且"�
     '锁住时要就地说明为什么（不许变成点不动的死控件）');
 });
 
-test('⑥ 版式族：每篇一档、只给拼得出来的两族，且**同族至少复用 2 张**才算成立', () => {
+test('⑥ 版式族：每篇一档、**默认不拼**、实测四族齐备，且"至少 2 张"只是渲染下限', () => {
   const field = skill.fields.find(item => item.key === 'layout');
-  assert.ok(field, '缺「版式族」这一格（M3 的版式层按它决定拼哪一种）');
+  assert.ok(field, '缺「版式族」这一格（版式层按它决定拼哪一种）');
   assert.equal(field.kind, 'cards', '每篇一档、卡内带说明 —— 用既有的选项卡控件（不新造第五种）');
-  assert.deepEqual(field.options.map(option => option.label), ['宫格', '底片条'],
-    '本批只做这两种语法（宝丽来画中画 / 品牌信息图排在下一批 —— 给做不出来的档是坑）');
+  assert.deepEqual(field.options.map(option => option.label), ['不拼版', '宫格', '底片条', '宝丽来', '信息图'],
+    '实测四族全给 + 中性档（0928 用户纠错：上一版只给两种，把并列第二的宝丽来/信息图挂起来，'
+    + '理由却是"这两种我现在做得出来" —— 工程便利冒充数据）');
   assert.ok(field.options.every(option => String(option.hint || '').length >= 8), '每一族都要说清它长什么样');
-  assert.equal(initialSkillValues(skill).layout, '宫格', '默认档要取有真实依据的那一族（宫格是实测最常用的一种）');
+  assert.equal(initialSkillValues(skill).layout, LAYOUT_FAMILY_NONE,
+    '默认档 = 中性档「不拼版」（实测 85% 的图是单图；不许拿一个具体族冒充默认）');
   /* ⚠️ 版式族**不进提示词**：实测过"让模型一次画一整张九宫格"会把分格线画歪、格内互相渗透，
      正确做法是先出单图、再在版式层确定性拼（docs/design/90 §6.2）——这条是硬约束，不是偏好。 */
   const brief = buildSkillRequest(skill, valuesWithShots(['概念静物', '平铺集合']), { runId: 'r' }).prompt;
-  assert.doesNotMatch(brief, /宫格|底片条/, '版式族不许进提示词（模型画不出一整张拼版）');
+  assert.doesNotMatch(brief, /宫格|底片条|宝丽来|信息图/, '版式族不许进提示词（模型画不出一整张拼版）');
 
-  /* 同族至少复用 2 张：一张的篇谈不上"复用"，拼版层不出图 */
+  /* 「至少 2 张」= **渲染下限**（1 张拼不出东西）。原来那条"同族复用 74/402"属于出图侧，
+     已经挪去「连拍组」—— 这一条同时守住"别再把它搬回来当拼版侧的依据"。 */
   assert.equal(pieceLayoutFamilyHolds('宫格', 3), true);
-  assert.equal(pieceLayoutFamilyHolds('底片条', 2), true, '刚好 2 张也算复用（这是硬规则的下限）');
-  assert.equal(pieceLayoutFamilyHolds('宫格', 1), false, '一张的篇不该出拼版（没有"同族复用"这回事）');
+  assert.equal(pieceLayoutFamilyHolds('底片条', 2), true, '刚好 2 张也能拼（这是下限）');
+  assert.equal(pieceLayoutFamilyHolds('宫格', 1), false, '一张拼不出东西');
   assert.equal(pieceLayoutFamilyHolds('宫格', 0), false);
   assert.equal(pieceLayoutFamilyHolds('', 3), false, '没选版式族就不拼');
+  assert.equal(pieceLayoutFamilyHolds(LAYOUT_FAMILY_NONE, 3), false, '「不拼版」永远不拼');
   /* ── 自证：把判据放松成 ">= 1"，一张的篇就会通过 —— 证明阈值真的咬住了"至少 2 张" ── */
   const relaxed = (family, count) => Boolean(family) && Number(count) >= 1;
   assert.equal(relaxed('宫格', 1), true, '自证：放松阈值后一张的篇会通过 ⇒ 上面那条不是空转');
   assert.notEqual(relaxed('宫格', 1), pieceLayoutFamilyHolds('宫格', 1));
-  /* 版式族要记进篇标记（刷新之后还知道自己该拼哪一种） */
+  /* 版式族要记进篇标记（刷新之后还知道自己该拼哪一种）；中性档不记（= 没声明过） */
   const mark = skillPieceMark(skill, {
     runId: 'visual-run-9', selectedModules: skill.modules.slice(0, 3),
     values: { layout: '底片条' },
@@ -281,4 +288,76 @@ test('⑥ 版式族：每篇一档、只给拼得出来的两族，且**同族�
   assert.equal(mark.layout, '底片条', '篇标记要带版式族（历史里那条记录据此拼版）');
   assert.equal(skillPieceMark(skill, { runId: 'x', selectedModules: skill.modules.slice(0, 1), values: {} }).layout,
     undefined, '没选版式族时不写这个字段（不许凭空造一个）');
+  assert.equal(skillPieceMark(skill, {
+    runId: 'x', selectedModules: skill.modules.slice(0, 1), values: { layout: LAYOUT_FAMILY_NONE },
+  }).layout, undefined, '「不拼版」是中性档，与"没选"同义 —— 不许写进篇标记');
+});
+
+/* ═══ 2026-09-28 批 DC 续-3：**连拍组**（把"同机位连拍"这条实测规律落到出图侧）═════════════════
+   用户口径（逐字）：「**你有没有我忽略的排版和布局和构图方式呢**」「不能因为我举了几个例子就只照
+   我的例子去做呀」「你自己调研之后你感觉我说的是不是对的呢」。
+   复核 402 张原始判定后确认：真正撑起"成套感"的是**篇内"同机位/同版式连着用几张、每张只换实体"**
+   （74/402 = 18.4%，落在 21 篇；报告原话「他的篇级做法是"一个版式/机位连着用几张，每张换道具/
+   换材质/换文案"，而不是"每张都换构图"」）。⚠️ 这条规律上一版被我错误地用在了**拼版侧**
+   （拿它当"版式族必选"的依据）—— 这一组断言就是把它钉在**出图侧**。 */
+test('⑦ 连拍组：只有组内那几张拿到"同机位"那句，组外与"不做"一个字都不多', () => {
+  const field = skill.fields.find(item => item.key === 'series');
+  assert.ok(field, '缺「连拍组」这一格（实测 74/402 那条规律要落在出图侧）');
+  assert.equal(field.kind, 'segmented', '沿用既有的药丸控件');
+  assert.equal(field.required, undefined, '不是必填（不做连拍组是常态，实测只有 21/41 篇有这种簇）');
+  assert.deepEqual(field.options.map(option => option.label), ['不做', '前 2 张', '前 3 张']);
+  assert.equal(initialSkillValues(skill).series, field.options[0].value, '默认 = 不做（中性档）');
+  assert.equal(skillSeriesCount(field.options[0].value), 0, '"不做"解析出 0 张');
+  assert.equal(skillSeriesCount(field.options[1].value), 2);
+  assert.equal(skillSeriesCount(field.options[2].value), 3);
+  assert.equal(skillSeriesCount('随便写一句'), 0, '认不出的值一律当"不做"（不猜）');
+  assert.equal(skillSeriesCount('前 9 张'), 3, '上界夹到 3（一行摆太多会看不出是连拍）');
+
+  /* ⚠️ 顺序必须取自**清单声明顺序**（不是这里写的数组顺序）：连拍组的定义就是"清单里最靠前的那 N 张"，
+     而"最靠前"= 声明顺序（skillShotValues 保的就是它）。照数组顺序写会测出一个不存在的顺序。 */
+  const wanted = ['概念静物', '平铺集合', '材质静物', '空镜', '局部极特写'];
+  const picked = skill.modules.filter(module => wanted.includes(module.name)).map(module => module.name);
+  assert.equal(picked.length, 5, '夹具要凑够 5 种手法（组内 3 + 组外 2），实际 ' + picked.length);
+  const three = { ...valuesWithShots(picked), series: field.options[2].value };
+  const prompts = picked.map((_, index) => buildSkillRequest(
+    skill, skillValuesForShot(three, index), { runId: 'r', slotIndex: index },
+  ).prompt);
+  /* 组内 3 张：都带同机位那句，且**共用同一句**（这就是"同一次拍摄"） */
+  const clause = skillSeriesClause(three, 0);
+  assert.ok(clause.length > 30, '自证前提：这句真的是一句可执行的纪律');
+  for (const index of [0, 1, 2]) {
+    assert.ok(prompts[index].includes(clause), '第 ' + (index + 1) + ' 张没带上同机位那句');
+  }
+  /* 组外第 4、5 张：一个字都不许带（否则"只做前 3 张"是假的） */
+  for (const index of [3, 4]) {
+    assert.ok(!prompts[index].includes(clause), '第 ' + (index + 1) + ' 张不该拿到同机位那句（它不在组里）');
+    assert.ok(!prompts[index].includes('同机位连拍'), '第 ' + (index + 1) + ' 张里连这个词都不许出现');
+  }
+  /* 组内那几张仍然各带自己那一种手法（连拍不等于三张一样） */
+  for (const [index, name] of picked.slice(0, 3).entries()) {
+    const own = skill.modules.find(module => module.name === name).value;
+    assert.ok(prompts[index].includes(own), '第 ' + (index + 1) + ' 张丢了它自己的手法定义');
+  }
+  assert.equal(new Set(prompts.slice(0, 3)).size, 3, '组内三张的提示词必须仍然各不相同');
+  /* 「不做」时**与改前逐字相同**（老参数、老历史还原都不会变味） */
+  const none = valuesWithShots(picked);
+  const before = buildSkillRequest(skill, skillValuesForShot(none, 0), { runId: 'r', slotIndex: 0 }).prompt;
+  const withNone = buildSkillRequest(skill, skillValuesForShot({ ...none, series: field.options[0].value }, 0),
+    { runId: 'r', slotIndex: 0 }).prompt;
+  assert.equal(withNone, before, '「不做」时提示词必须与不带这一栏时逐字相同');
+  assert.doesNotMatch(before, /连拍|同机位/, '默认档不许在提示词里留下任何痕迹');
+  /* 只勾 1 种手法时也不注入（那时没有"组"可言）—— 判据同 shot 收窄那条链 */
+  const one = valuesWithShots(['概念静物']);
+  assert.equal(buildSkillRequest(skill, skillValuesForShot({ ...one, series: field.options[1].value }, 0),
+    { runId: 'r', slotIndex: 0 }).prompt.includes('同机位连拍'), true,
+    '只勾 1 种时，组内那句仍然要给（"这一张就是那组里的第一张"）');
+  /* 占位符必须登记（否则 media-skill-run 那条"brief 里的占位符对不上"会红） */
+  assert.deepEqual(skill.injectedBriefKeys, ['shots', 'series'], '两个运行期注入的占位符都要登记');
+  /* ── 自证：把注入关掉（返回原值），组内那句就该消失 ── */
+  assert.equal(String(three.series).length > 0, true, '自证：夹具里确实设了连拍组 ⇒ 上面那些不是空转');
+  assert.ok(!buildSkillRequest(skill, { ...three, series: '' }, { runId: 'r', slotIndex: 0 })
+    .prompt.includes('同机位连拍'), '自证：不设连拍组时那句不该出现');
+  /* 页面接线：逐张下发时必须走同一个注入点（不然界面设了、请求里没有） */
+  assert.match(PAGE, /buildSkillRequest\(skill, skillValuesForShot\(effectiveValues, index\)/,
+    '逐张生成要经过 skillValuesForShot（连拍组那句就是在那里注入的）');
 });
