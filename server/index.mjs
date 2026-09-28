@@ -897,6 +897,18 @@ import { renderMotionStill } from './motionStillRender.mjs';
    ⚠️ `ffmpegAvailable` 也在这条链路上用：裁切是本机活，机器没有 ffmpeg 时**建单前**就要拒
       （见 videoGeneration.createJob 的 stillMotion 预检与这里的 POST 预检）。 */
 import { STILL_MOTION_PRODUCT_ID, livePhotoDescriptor } from './stillMotion.mjs';
+/* ═══ 「代写这一篇的文案」（概念视觉方案结果区）：把 41 篇实测的文案语法做成骨架库 ═══════
+   架构与判据都在 server/conceptCopywriting.mjs（句式轮换/意象密度/判重/纪律复核）。
+   与方案预览同一套计费链：先报价 → 用户确认 → hold → LLM → settle，失败释放（不扣费）。 */
+import {
+  TITLE_PATTERNS,
+  buildCopyPrompt,
+  disciplineCheck,
+  extractImageryTokens,
+  needsRewrite,
+  parseCopyJson,
+  rotatePatterns,
+} from './conceptCopywriting.mjs';
 import { ffmpegAvailable } from './videoLocalAdapter.mjs';
 app.get('/feishu/events', (req, res) => {
   const verificationToken = process.env.FEISHU_BOT_VERIFICATION_TOKEN || '';
@@ -5277,6 +5289,88 @@ app.post('/api/concept/live-photo', authenticateEcommerceRequest, async (req, re
       error: error?.status && error.status < 500 ? error.message : '做成动图失败，请稍后重试',
       required: error?.required,
       available: error?.available,
+    });
+  }
+});
+/* ═══ 「代写这一篇的文案」：概念视觉方案结果区那颗按钮的服务端（2026-09-28 批 DC 续-6）════════
+   用户口径（逐字）：「文案这块怎么办呢，我们文案要另外生成吗，统一一起生成的话，会不会更适配呢？
+   我们生成的文案能不能实现他们的那种风格呢，我们要**避免文案千篇一律**，但是也要**成功模仿他们的
+   风格**」。
+   ⇒ 架构 = **分开生成、共享上下文**：图里没有字（他的 402 张也如此），文案是发布层；
+     生成时带上这一篇的全部要素（母体/手法/人物/补充），读起来才像同一次策划。
+   防千篇一律的四条机制在 server/conceptCopywriting.mjs（句式轮换/意象密度/判重/纪律复核），
+   计费与方案预览同一条链（先报价 → 确认 → hold → LLM → settle，失败释放不扣费）。 */
+app.post('/api/concept/copywriting', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const ownerEmail = req._userEmail;
+    const theme = String(req.body?.theme || '').trim().slice(0, 120);
+    /* 与 /api/plan-preview 同一条铁律：**为无效请求扣费**是禁止的 —— 没有母体就在 hold 之前拒 */
+    if (!theme) {
+      return res.status(400).json({ code: 'CONCEPT_COPY_THEME_REQUIRED', error: '缺这一篇的母体，没法配文案' });
+    }
+    const shots = (Array.isArray(req.body?.shots) ? req.body.shots : [])
+      .map(item => String(item || '').trim().slice(0, 60)).filter(Boolean).slice(0, 10);
+    const person = String(req.body?.person || '').trim().slice(0, 80);
+    const notes = String(req.body?.notes || '').trim().slice(0, 400);
+    const product = String(req.body?.product || '').trim().slice(0, 40);
+    const attempt = Math.min(Math.max(Number.parseInt(req.body?.attempt, 10) || 1, 1), 9);
+    /* 判重的原料：本账号最近的标题（最多 8 条）+ 这一次要避开的句式组合 */
+    const recentTitles = db.prepare(
+      'SELECT title FROM concept_copy_log WHERE owner_email = ? ORDER BY id DESC LIMIT 8',
+    ).all(ownerEmail).map(row => row.title);
+    const imageryTokens = extractImageryTokens(notes, theme);
+    const { billingQuoteId: quoteId, actionId } = req.body || {};
+    const billed = await canvasOneShotBilling.execute({
+      ownerEmail,
+      quoteId,
+      actionId,
+      sku: 'ec_concept_copy',
+      referenceType: 'ec_concept_copy',
+      providerCostCny: 0.03,
+      metadata: { action: 'ec_concept_copy', feature: 'ecommerce' },
+      work: async () => {
+        /* 一次点击内最多两次模型调用：第一遍 + 纪律复核不过时的修正重试（不加钱） */
+        const attemptCopy = pass => {
+          const { systemPrompt, userPrompt } = buildCopyPrompt({
+            theme, shots, person, notes, product,
+            patterns: rotatePatterns(attempt + pass),
+            avoidTitles: recentTitles,
+            imageryTokens,
+          });
+          return callMiniLLM(systemPrompt, '', userPrompt, { maxTokens: 1600, temperature: 0.85 })
+            .then(content => {
+              const parsed = parseCopyJson(content);
+              if (!parsed) {
+                throw Object.assign(new Error('文案结果没法解析，这次不扣积分'), { status: 502, code: 'CONCEPT_COPY_PARSE_FAILED' });
+              }
+              return parsed;
+            });
+        };
+        let parsed = await attemptCopy(0);
+        let discipline = disciplineCheck(parsed, { imageryTokens });
+        if (!discipline.ok) {
+          parsed = await attemptCopy(1);
+          discipline = disciplineCheck(parsed, { imageryTokens });
+        }
+        /* 判重保险丝：与最近标题太像的直接不发（提示词里已避开，这里是第二道） */
+        const kept = parsed.titles.filter(title => !needsRewrite(title, recentTitles));
+        const titles = kept.length ? kept : parsed.titles;
+        /* 日志：判重的原料 + 天然的文案历史（失败不会走到这里 —— work 抛错时 hold 被释放且不落库） */
+        const insert = db.prepare(
+          'INSERT INTO concept_copy_log (owner_email, theme, title, body, tags_json) VALUES (?, ?, ?, ?, ?)',
+        );
+        for (const title of titles) {
+          insert.run(ownerEmail, theme, title, parsed.body, JSON.stringify(parsed.tags));
+        }
+        return { ...parsed, titles, discipline, recentChecked: recentTitles.length };
+      },
+    });
+    return res.json({ copy: billed.result, billing: billed.billing });
+  } catch (error) {
+    return res.status(error?.status || 500).json({
+      error: error?.status && error.status < 500 ? error.message : '文案生成失败，请稍后重试',
+      code: error?.code,
+      billing: error?.billing,
     });
   }
 });

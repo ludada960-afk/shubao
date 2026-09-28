@@ -67,6 +67,8 @@ const SKU_LABELS = Object.freeze({
   ec_direction_refresh: { label: '套图方向刷新', category: 'image', per: '次' },
   /* 2026-09-19 批 K-C：三步方案预览（图片侧「生成预览」/ 视频侧「代为撰写」共用，0.5 积分/次） */
   ec_plan_preview: { label: '方案预览（素材理解 + 方向偏好 + 方案生成）', category: 'text', per: '次' },
+  /* 2026-09-28 批 DC 续-6：「代写这一篇的文案」（概念视觉方案结果区，0.5 积分/次） */
+  ec_concept_copy: { label: '概念方案 · 代写发布文案（标题 + 正文 + 标签）', category: 'text', per: '次' },
   ec_smart_layer: { label: '画布 · 智能图层', category: 'canvas', per: '次' },
   ec_layer_psd: { label: '画布 · PSD 分层导出', category: 'canvas', per: '次' },
   /* 2026-09-10: 百度大模型 TTS 接入（语音合成 / 配音）—— 用户中心价格栏目与此同源（唯一真源）。 */

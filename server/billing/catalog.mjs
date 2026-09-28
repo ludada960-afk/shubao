@@ -323,6 +323,11 @@ export const FEATURE_SKUS = freezeCatalog({
      ⚠️ 老的 video_plan_analysis（1 积分）**保留**：它是同一件事的另一条入口，
        改价会动老账单口径；两个入口共用新 SKU，老 SKU 只服务历史记录。 */
   ec_plan_preview: { units: 500, providerCostCny: 0.03 },
+  /* ═══ 2026-09-28 批 DC 续-6：「代写这一篇的文案」（概念视觉方案结果区）══════════════════════
+     与 ec_plan_preview 同一档：一次文本 LLM 调用（产出 3 标题 + 正文 + 标签，比方案短），
+     面值 0.5×锚 ≈ ¥0.131，成本同 0.03，实算毛利 ≈77%，过 70% 地板。
+     失败/模型不可用 → one-shot 计费释放 hold（不扣费），与方案预览同一口径。 */
+  ec_concept_copy: { units: 500, providerCostCny: 0.03 },
   // One Xiaohongshu/Plog set is a cover plus eight content images.
   // It uses the same point ledger as ecommerce generation: 9 x 2K images.
   xhs_image_set_2k: { units: 9000, currency: 'ec_points', providerCostCny: 0.342 },

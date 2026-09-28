@@ -118,6 +118,21 @@ export function initDB(dbPath = DB_PATH) {
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     );
+
+    /* ═══ 2026-09-28 批 DC 续-6：「代写这一篇的文案」的标题日志 ═══════════════════════════
+       用途有二：① **判重** —— 生成时把本账号最近的标题带进提示词避开，出来后再过一遍
+       相似度保险丝（server/conceptCopywriting.mjs 的 needsRewrite）；
+       ② 天然是一份文案历史（只在服务端；前端 v1 不做历史面板，如实写在 docs/91）。 */
+    CREATE TABLE IF NOT EXISTS concept_copy_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_email TEXT NOT NULL,
+      theme TEXT DEFAULT '',
+      title TEXT NOT NULL,
+      body TEXT DEFAULT '',
+      tags_json TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_concept_copy_owner ON concept_copy_log(owner_email, created_at);
   `);
   // 兼容已经运行过旧版表结构的线上数据库。
   const taskColumns = db.prepare("PRAGMA table_info(tasks)").all().map(column => column.name);

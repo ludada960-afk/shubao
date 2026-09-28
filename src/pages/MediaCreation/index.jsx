@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Download, Layers, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
+import { AlertCircle, Copy, Download, Layers, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 
 /* ═══ 媒体板块页（图片 / 视频共用一个页面）═══════════════════════════════════════
    做法参照竞品实测：**一个页面按 ?id= 渲染全部技能**（他们也是 /image-creation?id=<skillId>），
@@ -113,6 +113,9 @@ import { quoteBillingAction } from '../../services/billing.js';
       （services/api.js 的 fetchLivePhotoStatus，同一条 GET + ?jobId=）。
    ⚠️ 注释写在 import **外面**：verify-exports 用正则扫 import 块，块内注释会被当成导入的符号。 */
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
+/* 「代写这一篇的文案」（2026-09-28 批 DC 续-6）：价格来自目录（CONCEPT_COPY_POINTS），
+   生成走先报价 → 确认 → 请求的同一条链（失败不扣）。风格语法（句式库/判重）在服务端。 */
+import { CONCEPT_COPY_POINTS, generateConceptCopy } from '../../services/conceptCopy.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { useWorksSync } from '../../store/useWorksSync.js';
 import '../Home/MediaHub.css';
@@ -199,7 +202,7 @@ function friendlyError(error) {
   return message;
 }
 
-function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse, sheet = null, livePhoto = null, onSendToCanvas = null }) {
+function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse, sheet = null, livePhoto = null, postCopy = null, onSendToCanvas = null }) {
   if (!run) return null;
   const done = run.slots.filter(slot => slot.status === 'completed' && slot.url);
   const failed = visualRetryIndexes(run);
@@ -296,6 +299,70 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
         <div className="media-run-actions">
           <a className="media-run-download" href={done[0].url} target="_blank" rel="noreferrer" download><Download size={14} />下载第一张</a>
           <button type="button" className="media-run-again" onClick={onDownload}><Sparkles size={14} />重新生成一组</button>
+        </div>
+      )}
+      {/* ═══ 「代写这一篇的文案」（2026-09-28 批 DC 续-6）══════════════════════════════════════
+          用户口径（逐字）：「文案这块怎么办呢……我们要**避免文案千篇一律**，但是也要**成功模仿他们的
+          风格**」。架构 = 分开生成、共享上下文（文案是发布层，图里没有字 —— 他的 402 张也如此）。
+          风格语法（句式库/密度/判重/纪律复核）**全在服务端**，这里只负责"看得见、改得动、拿得走"：
+          标题三选一、正文与标签可编辑、一键复制、再来一版（再来一版是新动作，确认框里写明扣多少）。
+          ⚠️ 它要花钱（0.5 积分/次），所以按钮上写价、点前确认 —— 与「做成动图」同一条铁律。 */}
+      {finished && postCopy && (
+        <div className="media-run-copy">
+          <div className="media-run-copy-head">
+            <span className="media-run-copy-lead">
+              {postCopy.state?.status === 'ready' ? '这一篇的发布文案（挑一个标题，正文与标签可以改）' : '发布文案'}
+            </span>
+            <button
+              type="button"
+              className="media-run-copy-write"
+              disabled={postCopy.busy}
+              onClick={() => postCopy.onWrite?.()}
+            >
+              <Sparkles size={14} />
+              {postCopy.busy ? '正在写…' : (postCopy.state?.status === 'ready' ? '再来一版 · ' + postCopy.points + ' 积分' : '代写这一篇的文案 · ' + postCopy.points + ' 积分')}
+            </button>
+          </div>
+          {postCopy.state?.note && <p className="media-run-copy-note" role="alert">{postCopy.state.note}</p>}
+          {postCopy.state?.status === 'ready' && (
+            <>
+              <ul className="media-run-copy-titles">
+                {(postCopy.state.titles || []).map((title, index) => (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={Number(postCopy.state.picked) === index}
+                      className={'media-run-copy-title' + (Number(postCopy.state.picked) === index ? ' is-active' : '')}
+                      onClick={() => postCopy.onPick?.(index)}
+                    >{title}</button>
+                  </li>
+                ))}
+              </ul>
+              <textarea
+                className="media-run-copy-body"
+                rows={7}
+                maxLength={600}
+                value={postCopy.state.body || ''}
+                aria-label="正文（可编辑）"
+                onChange={event => postCopy.onEdit?.('body', event.target.value)}
+              />
+              <input
+                type="text"
+                className="media-run-copy-tags"
+                maxLength={240}
+                value={postCopy.state.tags || ''}
+                aria-label="话题标签（可编辑，空格分隔，不带 # ）"
+                placeholder="话题标签（空格分隔，粘贴时会自己加 # ）"
+                onChange={event => postCopy.onEdit?.('tags', event.target.value)}
+              />
+              <div className="media-run-actions">
+                <button type="button" className="media-run-copy-all" onClick={() => postCopy.onCopyAll?.()}>
+                  <Copy size={14} />复制标题 + 正文 + 标签
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
       {/* ═══ 版式层（客户端确定性拼版）══════════════════════════════════════════════════════════
@@ -539,7 +606,9 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   const backToHub = useCallback(() => {
     window.history.pushState({}, '', basePath);
     setSkillId('');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    /* ⚠️ 批 CY-⑫：这里**不再** scrollTo(0) —— 归位统一由上面那个 effect 负责
+       （有记录就回记录处、没记录就回 0）。留在这儿的 smooth 滚回顶部会和恢复动画打架：
+       用户会先看到"跳到最上方"再被拉回来。 */
   }, [board]);
 
   const skill = useMemo(
@@ -1743,6 +1812,88 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     setNotice('已开始下载这张动图');
   }
 
+  /* ═══ 「代写这一篇的文案」（2026-09-28 批 DC 续-6）════════════════════════════════════════════
+     用户口径（逐字）：「文案这块怎么办呢，我们文案要另外生成吗，统一一起生成的话，会不会更适配呢？
+     我们生成的文案能不能实现他们的那种风格呢，我们要**避免文案千篇一律**，但是也要**成功模仿他们的
+     风格**」。
+     架构 = **分开生成、共享上下文**：他的 402 张图里几乎没有要读的字（英文文案条是拼版后期加的），
+     文案全部活在发布层 ⇒ 生成时带上这一篇的全部要素（母体/手法/人物/补充），读起来才像同一次策划。
+     防千篇一律的四条机制全在服务端（句式轮换/意象密度/判重/纪律复核，见 conceptCopywriting.mjs）——
+     前端不写第二份。**扣费铁律**：按钮 onClick → 确认框（写明这一次扣多少）→ 确认后才发请求；
+     失败/模型不可用由服务端释放 hold（如实告知"没有扣积分"）。 */
+  async function writePostCopy() {
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    const attempt = (Number(postCopy?.attempt) || 0) + 1;
+    const isRedo = attempt > 1;
+    const confirmed = await dialog.confirm({
+      title: isRedo ? '再来一版文案？' : '代写这一篇的文案？',
+      message: '会按这一篇的母体、手法与补充写一组发布文案（标题 3 选 1 + 正文 + 话题标签），'
+        + `正文与标签可以自己改。本次扣 ${CONCEPT_COPY_POINTS} 积分，写不出来不扣积分。`,
+      confirmLabel: isRedo ? '再来一版' : '代写文案',
+    });
+    if (!confirmed) return;
+    setPostCopyBusy(true);
+    setError('');
+    try {
+      const payload = await generateConceptCopy({
+        theme: effectiveValues.theme,
+        shots: Array.isArray(effectiveValues?.shots) ? effectiveValues.shots : [],
+        person: effectiveValues.person,
+        notes: effectiveValues.notes,
+        attempt,
+      });
+      const copy = payload?.copy || {};
+      const titles = (Array.isArray(copy.titles) ? copy.titles : []).filter(Boolean);
+      if (!titles.length && !String(copy.body || '').trim()) throw new Error('这一版没写出东西，请再试一次');
+      setPostCopy({
+        status: 'ready',
+        attempt,
+        titles,
+        picked: 0,
+        body: String(copy.body || ''),
+        tags: (Array.isArray(copy.tags) ? copy.tags : []).join(' '),
+        /* 把服务端的纪律复核结果如实带出来（用户看得到"为什么这一版被要求重写过"） */
+        note: copy.discipline && copy.discipline.ok === false
+          ? '有一处纪律没满足，已经自动重写过一版：' + copy.discipline.reasons.join('；')
+          : '',
+      });
+      setNotice('文案写好了：挑一个标题，正文与标签可以直接改，改完复制走');
+      await refreshBillingBalance?.().catch(() => undefined);
+    } catch (failure) {
+      const access = handleGenerationAccessError(failure, dispatch, { source: 'concept_copy' });
+      const message = String(failure?.message || '').trim() || '文案没写出来，请稍后再试';
+      setPostCopy(current => ({
+        ...(current || {}),
+        status: 'failed',
+        attempt,
+        note: access ? '还没有开始写，本次不扣积分。' : message + '（这次不扣积分）',
+      }));
+    } finally {
+      setPostCopyBusy(false);
+    }
+  }
+
+  /* 一键复制的文本：标题取选中的那一个 + 正文 + 标签（**发布时粘一次就够**） */
+  function copyPostCopyAll() {
+    const titles = Array.isArray(postCopy?.titles) ? postCopy.titles : [];
+    const title = titles[Number(postCopy?.picked) || 0] || titles[0] || '';
+    const text = [title, String(postCopy?.body || '').trim(), String(postCopy?.tags || '').trim()]
+      .filter(Boolean).join('\n\n');
+    if (!text) return;
+    const write = globalThis.navigator?.clipboard?.writeText;
+    if (typeof write === 'function') {
+      write.call(globalThis.navigator.clipboard, text)
+        .then(() => setNotice('已复制：标题 + 正文 + 标签，直接粘到小红书'))
+        .catch(() => setNotice('复制失败，可以手动选中这一段'));
+      return;
+    }
+    setNotice('这个浏览器不让自动复制，手动选中这一段吧');
+  }
+
   /* ═══ 存到我的资产：拼版图**服务端还不知道它**，所以要走既有的上传链路先落成稳定素材 ═══════════
      实测（saveWorkToAssets / server/ecommerceEngine/assetUpload）：能进资产库的只有
      `/api/generated-assets/<64hex>.(jpg|png|webp)` 这种稳定地址。
@@ -1868,6 +2019,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         所以用户改文案不需要重新出图，重新拼一次就好。 */
   const [sheetTemplate, setSheetTemplate] = useState(LAYOUT_INFO_DEFAULT_TEMPLATE);
   const [sheetCopy, setSheetCopy] = useState({ headline: '', body: '' });
+  /* ═══ 「代写这一篇的文案」（2026-09-28 批 DC 续-6）══════════════════════════════════════════
+     状态按**这一篇**存（{ status, titles[], picked, body, tags, note }）：
+     标题三选一（radio）、正文/标签都可编辑（模型给的只是初稿，用户改完再复制走）；
+     attempt 计数让「重新生成」成为有意的新动作（服务端照 0.5 积分/次，确认框里看得见）。
+     ⚠️ 只对概念视觉方案出现（CONCEPT_SKILL_ID 同 LIVE_PHOTO_SKILL_ID 的判据）。 */
+  const [postCopy, setPostCopy] = useState(null);
+  const [postCopyBusy, setPostCopyBusy] = useState(false);
   useEffect(() => () => { if (sheet?.url) { try { URL.revokeObjectURL(sheet.url); } catch { /* 忽略 */ } } },
     [sheet?.url]);
   /* ═══ 「做成动图」的价目：进这条技能时问一次服务端（**不是扣费调用**，只是一次只读读取）══════
@@ -1938,7 +2096,29 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     if (about) blocks.push({ title: "这条技能在做什么", lines: [about] });
     return { media, blocks };
   }, [skill, deliverables]);
-  if (!skill) return <div className="media-creation" data-surface="hub"><MediaHub board={board} onOpenSkill={openSkill} /></div>;
+  /* ═══ 2026-09-28 批 CY-⑫：**从哪儿进来的，「返回」就退回哪儿**（用户原话，逐字）══════════════════════
+     用户原话：「我现在在图片生成和视频生成的任意一个子页面去点击进去访问之后，**当我点击左上角的返回按钮
+       之后，它出来好像一直都会出现在这两个总页面的最上方**，这肯定是不对的呀。**我在哪个页面点进去的？
+       那我退出来，当然是在这个刚点击进去的时候的这个地方呀。**」
+     根因：`openSkill` 与 `backToHub` 都写死 `window.scrollTo({ top: 0 })` —— 进子页面当然要从顶上开始，
+     但**回 Hub 时把用户原来的位置也一起抹掉了**（Hub 与子页面是**同一个页面**，只是带不带 ?id，
+     所以滚动位置本来就是同一个文档的，记一下就能还回去）。
+     ⇒ 从 Hub 点卡片时记下当时的 scrollY，回 Hub 时恢复；深链/换板块进来的没记过 ⇒ 回 0（与从前一致）。 */
+  const hubScrollRef = useRef(0);
+  const openSkillFromHub = useCallback(id => {
+    hubScrollRef.current = (typeof window !== 'undefined' ? window.scrollY : 0) || 0;
+    openSkill(id);
+  }, [openSkill]);
+  /* 回到 Hub 之后再恢复（放在 effect 里：这时 Hub 已经渲染完，高度撑起来了，
+     在 backToHub 里直接 scrollTo 会**因为页面还没长高而被裁到 0**）。 */
+  useEffect(() => {
+    if (skillId) return undefined;
+    const top = hubScrollRef.current || 0;   /* 没记过（深链/换板块进来）= 0，与从前一致 */
+    const frame = window.requestAnimationFrame(() => window.scrollTo({ top, behavior: 'auto' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [skillId]);
+
+  if (!skill) return <div className="media-creation" data-surface="hub"><MediaHub board={board} onOpenSkill={openSkillFromHub} /></div>;
 
   /* 就近反馈（错误 / 提示）单独拎出来：嵌入形态下它要挂到页面**顶部**那条线上，
      而不是塞在右栏页签上面 —— 用户点完历史里的「用这组参数」会被滚回顶部，
@@ -1999,6 +2179,20 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onDownload: downloadLivePhoto,
       }
     : null;
+  /* 「代写这一篇的文案」：只在概念视觉方案上出现（与「做成动图」同一条判据），
+     一次 0.5 积分（价格来自目录常量，与确认框里的数字同源）。 */
+  const postCopyAction = skill?.id === LIVE_PHOTO_SKILL_ID
+    ? {
+        points: CONCEPT_COPY_POINTS,
+        state: postCopy,
+        busy: postCopyBusy,
+        onWrite: () => { void writePostCopy(); },
+        onPick: index => setPostCopy(current => (current ? { ...current, picked: index } : current)),
+        onEdit: (key, value) => setPostCopy(current => (current ? { ...current, [key]: value } : current)),
+        onCopyAll: copyPostCopyAll,
+        onReset: () => setPostCopy(null),
+      }
+    : null;
   /* ═══ 2026-09-28 批 CY-⑩（CV-2 第 2 步·反向）：**子页面 → 画布**（逐张「送到画布」）══════════════
      用户拍板：「画布↔子页面的入口位置，可以，你做吧」。这条与"画布 → 子页面"（批 CY-⑨）**对称**：
        · 载体仍是**同一个**跨路由 `creationLaunch`（站内只有一个，别再造第二个），kind = `to-canvas`；
@@ -2035,7 +2229,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   };
   const status = (
     <>
-      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} sheet={sheetAction} livePhoto={livePhotoAction} onSendToCanvas={sendResultToCanvas} />
+      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} sheet={sheetAction} livePhoto={livePhotoAction} postCopy={postCopyAction} onSendToCanvas={sendResultToCanvas} />
       {announce}
     </>
   );

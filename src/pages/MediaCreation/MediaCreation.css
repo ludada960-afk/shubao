@@ -223,6 +223,91 @@
 .media-run-sheet-copy-headline:focus-visible,
 .media-run-sheet-copy-body:focus-visible { outline: 0; box-shadow: var(--sb-focus-ring); }
 
+/* ═══ 「代写这一篇的文案」（2026-09-28 批 DC 续-6）══════════════════════════════════════════
+   用户口径：「我们要**避免文案千篇一律**，但是也要**成功模仿他们的风格**」。
+   ⚠️ 这一块**要花钱**（0.5 积分/次）⇒ 主按钮是品牌色实心、带价、点前弹确认；
+      与拼版那块（免费、中性胶囊）**长得明显不同** —— 点错的代价是一笔真实的钱。 */
+.media-run-copy {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--sb-surface-card);
+  box-shadow: 0 0 0 1px rgba(17, 20, 45, .06);
+}
+.media-run-copy-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.media-run-copy-lead { font-size: 12px; font-weight: 600; color: var(--sb-ink-1); }
+.media-run-copy-write {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-brand-600);
+  color: var(--sb-surface-card);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.media-run-copy-write:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 20, 45, .18); }
+.media-run-copy-write:disabled { opacity: .6; cursor: default; transform: none; box-shadow: none; }
+.media-run-copy-note { margin: 0; font-size: 12px; line-height: 1.5; color: var(--sb-ink-2); }
+.media-run-copy-titles { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.media-run-copy-title {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 10px;
+  background: var(--sb-surface-tint);
+  color: var(--sb-ink-1);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease;
+}
+.media-run-copy-title:hover { border-color: var(--sb-brand-500); }
+.media-run-copy-title.is-active {
+  border-color: var(--sb-brand-600);
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-brand-700);
+  font-weight: 600;
+}
+.media-run-copy-body,
+.media-run-copy-tags {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 10px;
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-1);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.7;
+  resize: vertical;
+}
+.media-run-copy-body:focus-visible,
+.media-run-copy-tags:focus-visible { outline: 0; box-shadow: var(--sb-focus-ring); }
+.media-run-copy-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.media-run-copy-all:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 20, 45, .14); }
+
+
 /* ═══ 做成动图 2026-09-27 批 DC-4 ══════════════════════════════════════════════════
    用户口径：「动图选 A 吧」—— 对**已生成的那张**给一颗「做成动图」（2~3 秒循环短片、可下载）。
    与上面那颗拼版按钮**长得明显不一样**：这个**要花钱**（面价 ¥3.90 ⇒ 按钮上带价），
