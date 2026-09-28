@@ -63,6 +63,8 @@ import { applyCanvasSkill } from '../EcCanvas/canvasStudioModel.js';
    click 永远不会触发。用户看到的「有素材、能点开、点了没反应 = 死按钮」就是它。
    共用组件早就把判定做对了（rootRef + menuRef 双包含），所以正确修法是**把逻辑拿过来用**。 */
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
+/* 2026-09-28 批 CY：@ 菜单里给有图的素材显示缩略图（共用件默认行也是这个组件） */
+import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { useApp } from '../../store/AppContext.jsx';
 import { quoteBillingAction } from '../../services/billing.js';
 import { stableCanvasActionId } from '../../services/api.js';
@@ -133,8 +135,31 @@ function videoMentionItems(list) {
   });
 }
 
-/* 菜单行自绘：视频素材没有统一缩略图（音频根本没有），所以用类型图标 + 名称 + 用途。 */
-function renderVideoMentionItem(item) {
+/* ═══ 菜单行自绘（2026-09-28 批 CY 修）═══════════════════════════════════════════════════════════
+   用户原话（逐字）：「你看首页视频生成这边的 @ 按钮的张开面板这个逻辑其实做的已经挺好了，
+   但是也存在一个问题。就是你**为什么没有映射到当前这个素材它的图片呢**？」
+   改前：这里一律用类型图标（ImagePlus / Video / FileAudio）—— 图片素材明明有画面却不显示，
+   与首页图片生成那一套（缩略图 + 名称 + 用途）**长得不一样**，用户一眼就看出来了。
+   缩略图从哪来（实测过三种来源，别只认一种）：
+     · `item.thumb` —— 目前没人填，留着给以后（比如服务端缩略图）；
+     · `item.file.previewUrl` —— 本地 object URL（槽位那些文件会带）；
+     · **上传记录里的 `asset.url`** —— 作曲台里真正在用的那一条（素材卡第 1946 行就是取它）。
+   最后一条必须由调用方给 resolver（`uploadsRef` 在组件作用域里），所以这里收第二个参数；
+   这样也不用把 `uploadFor` 写进任何 deps —— 它定义在 `mentionedAssets` **之后**，
+   在渲染期引用会 TDZ（本仓踩过多次）。 */
+/* 导出给门禁做**单元级**判据：探针环境里 tus 上传跑不完、拿不到素材 URL，
+   所以"菜单行会不会出缩略图"这件事只能在渲染层直接验（test/canvas-… 见 cy 门禁）。 */
+export function renderVideoMentionItem(item, resolveUpload = null) {
+  const thumb = item?.thumb || item?.file?.previewUrl || item?.url || (resolveUpload ? resolveUpload(item?.file) : '') || '';
+  const hasThumb = Boolean(thumb) && item?.kind !== 'audio';
+  if (hasThumb) {
+    return <React.Fragment>
+      <span className="image-mention-kind is-thumb" aria-hidden="true">
+        <ResponsiveImage src={thumb} alt="" variant="thumb" ratio={item.ratio || '1:1'} style={{ width: '100%', height: '100%' }} imgStyle={{ objectFit: 'contain' }} />
+      </span>
+      <span><b>{item.name}</b><small>{item.kindLabel}</small></span>
+    </React.Fragment>;
+  }
   const Icon = item?.kind === 'video' ? Video : item?.kind === 'audio' ? FileAudio : ImagePlus;
   return <React.Fragment>
     <span className="image-mention-kind" aria-hidden="true"><Icon size={15} /></span>
@@ -2251,7 +2276,9 @@ export default function VideoStudioPage({
               selectedImages={mentionedAssets}
               selectionMode="insert"
               normalize={videoMentionItems}
-              renderItem={renderVideoMentionItem}
+              /* 缩略图解析器：上传记录里的素材 URL（与素材卡同一条来源）——
+                 写成渲染期的箭头函数，取到的一定是最新值，也不会把 uploadFor 拖进任何 deps（TDZ）。 */
+              renderItem={item => renderVideoMentionItem(item, file => uploadsRef.current?.get?.(file)?.asset?.url || '')}
               menuTitle="引用素材"
               triggerLabel="引用素材"
               onToggle={insertMention}

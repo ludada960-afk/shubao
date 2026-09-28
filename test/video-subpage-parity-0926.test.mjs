@@ -132,13 +132,21 @@ test('CG-① 「生成记录」在右栏历史区（不是删掉，是搬走）�
 test('CP-① 那一行两个板块共用一份（图片侧从此也有 @ / 放大 / 字数）', () => {
   /* 用户原话（逐字）：「这个按钮图片生成那边应该是没有的，如果你这边要做的话，那边是不是也可以考虑
      做呢？」「同等级的东西，你应该**同等级的去进行设计**呀。」实测（.qa/cp-meta-row.mjs）：
-     视频侧 `.media-field-meta` 三件套 = at / expand / count，且在提示词框**下方**；
-     旧的框内绝对定位放大按钮（`.media-field-expand`）两侧都不再渲染。 */
+     视频侧 `.media-field-meta` 三件套 = @ / expand / count，且在提示词框**下方**；
+     旧的框内绝对定位放大按钮（`.media-field-expand`）两侧都不再渲染。
+     ═══ 2026-09-28 批 CY：@ 那一颗**不再是本文件自己写的**，改成全站共用的 `ImageMentionPicker` ═══
+     用户原话（逐字）：「我现在要求你把整个网站里面所有的这种 @ 按钮，就是不管是首页或者各种子页面
+     或者画布里面涉及到的这个按钮，你都要**统一同一个类型的标准**。」「你看首页图片生成这边就是有的。
+     他这个 @ 按钮的逻辑会更正确……包括张开的面板是**向上**的。」
+     ⇒ 判据从"本组件里有 `.media-field-meta-at`"改成"本组件用的是共用件"（旧类名的 CSS 已删）。 */
   const shared = read('src/components/media/PromptMetaRow.jsx');
   assert.match(shared, /className="media-field-meta"/, '共用组件要有那一行');
-  assert.match(shared, /media-field-meta-at/, '@ 按钮');
+  assert.match(shared, /import ImageMentionPicker from '\.\.\/creation\/ImageMentionPicker\.jsx'/, '@ 必须来自全站共用件（批 CY 统一）');
+  assert.match(shared, /<ImageMentionPicker/, '@ 那一颗就是共用件本体（不是自己写的一套）');
   assert.match(shared, /media-field-meta-expand/, '放大按钮');
   assert.match(shared, /media-field-meta-count/, '字数');
+  assert.doesNotMatch(shared.replace(/\/\*[\s\S]*?\*\//g, ''), /media-field-meta-at-menu/,
+    '批 CY 起不许再自建 @ 菜单（往下开、纯文字的那套）—— 注释里留案底不算');
   const field = read('src/components/media/FieldRenderer.jsx');
   assert.match(field, /<PromptMetaRow/, '图片侧（多行字段）要用它');
   assert.match(field, /const uploadedAssets = Object\.values\(values \|\| \{\}\)/, '图片侧的素材来源＝这条技能里已上传的字段值');

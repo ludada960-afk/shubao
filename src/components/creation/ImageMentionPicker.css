@@ -37,9 +37,16 @@
 .image-mention-menu b, .image-mention-menu small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .image-mention-menu b { font-size: var(--sb-text-xs); }
 .image-mention-menu small { color: var(--sb-text-muted); font-size: var(--sb-text-2xs); }
-/* 自绘行（视频素材：图片/视频/音频没有统一缩略图）—— 图标格 + 名称 + 类型。 */
+/* 自绘行（视频素材：图片/视频有画面、音频没有）—— 图标格 + 名称 + 类型。 */
 .image-mention-menu.is-custom-item > button { grid-template-columns: 28px minmax(0, 1fr) 18px; }
 .image-mention-menu .image-mention-kind {
   display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--sb-radius-control);
   background: var(--sb-surface-tint); color: var(--sb-ink-2);
 }
+/* ═══ 2026-09-28 批 CY：自绘行里的**缩略图**格 ════════════════════════════════════════════════════
+   用户原话（逐字）：「你看首页视频生成这边的 @ 按钮的张开面板这个逻辑其实做的已经挺好了，
+   但是也存在一个问题。就是你**为什么没有映射到当前这个素材它的图片呢**？」
+   ⇒ 有画面的素材（图片/视频）显示**缩略图**，并按共用件默认行的尺寸（首列 34px + 34×34 预览）排，
+     与首页图片生成那一套逐格对齐；音频没有画面，继续走 28px 图标格。 */
+.image-mention-menu.is-custom-item > button:has(.image-mention-kind.is-thumb) { grid-template-columns: 34px minmax(0, 1fr) 18px; }
+.image-mention-menu .image-mention-kind.is-thumb { width: 34px; height: 34px; padding: 0; overflow: hidden; }

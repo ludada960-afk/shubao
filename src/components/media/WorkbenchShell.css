@@ -1167,28 +1167,10 @@ html:not([data-scrolling]) .media-field-upload-library:hover:not(:disabled) { ba
 .media-field-meta-expand:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
 .media-field-meta-expand:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-field-meta-expand:disabled { opacity: .5; cursor: not-allowed; }
-.media-field-meta-at {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; padding: 0;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-pill);
-  background: var(--sb-surface-card); color: var(--sb-ink-2);
-  font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
-  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
-}
-.media-field-meta-at:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
-.media-field-meta-at:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
-.media-field-meta-at:disabled { opacity: .5; cursor: not-allowed; }
+/* ═══ 2026-09-28 批 CY：`.media-field-meta-at` / `.media-field-meta-at-menu` 两条规则**整块删除** ════
+   它们是"这一行自己写的那颗 @ 按钮 + 往下开的纯文字菜单"的样式。用户要求 @ 全站统一
+   （原话逐字：「我现在要求你把整个网站里面所有的这种 @ 按钮……你都要**统一同一个类型的标准**」），
+   这一行的 @ 已换成全站共用的 `ImageMentionPicker`（样式在 `ImageMentionPicker.css`：
+   34px 圆钮 / portal 到 body / 优先向上张开 / 34px 缩略图行）⇒ 这两条已无调用方。
+   留这段注释是为了让下一个人知道"这里原来有过一套、以及为什么没了"。 */
 .media-field-meta-count { margin-left: auto; font-size: 12px; color: var(--sb-ink-3); }
-.media-field-meta-at-menu {
-  display: grid; gap: 4px; margin-top: 6px; padding: 8px;
-  border: 1px solid var(--sb-border-default); border-radius: var(--sb-radius-lg);
-  background: var(--sb-surface-card); box-shadow: var(--sb-shadow-2);
-  max-height: 220px; overflow-y: auto;
-}
-.media-field-meta-at-menu button {
-  padding: 7px 10px; border: 0; border-radius: var(--sb-radius-md);
-  background: transparent; color: var(--sb-ink-1); text-align: left;
-  font: inherit; font-size: 13px; cursor: pointer;
-}
-.media-field-meta-at-menu button:hover { background: var(--sb-surface-tint-strong); }
-.media-field-meta-at-menu small { padding: 4px 6px; color: var(--sb-ink-3); font-size: 12px; }
