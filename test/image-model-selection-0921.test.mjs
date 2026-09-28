@@ -52,7 +52,12 @@ test('① 模型选择只出现在知渔有这一格的页面上（逐字段实�
   assert.deepEqual(builtinWithModel, ['image.copy', 'image.try_on'], '知渔内置页里有「模型选择」的是这两页');
 
   const ours = skillsWithModelField().map(skill => skill.id).sort();
-  assert.deepEqual(ours, ['image.copy', 'image.try_on'], '我们的模型选择必须与知渔逐页对应（多一页/少一页都是没对上）');
+  /* ⚠️ 2026-09-28 批 DC 续-5：`image.concept_set` **用户点名加入**（原话逐字：
+     「那现在最火的不是 image2.5 吗，**我不能用上吗，我们现在有支持吗**」）——
+     这是**改口径**，不是"随手全站铺下拉"：仍然只有点名的这一页 + 知渔对应的那两页，
+     "别把一个下拉铺到 108 页"这条门禁本意不变。 */
+  assert.deepEqual(ours, ['image.concept_set', 'image.copy', 'image.try_on'],
+    '我们的模型选择 = 知渔对应的两页 + 用户点名开放的概念工作台（多一页/少一页都是没对上）');
   for (const skill of skillsWithModelField()) {
     const field = modelFieldOf(skill);
     assert.equal(field.label, '模型选择', skill.id + '：字段标题照知渔原文');
