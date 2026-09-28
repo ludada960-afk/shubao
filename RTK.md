@@ -11918,3 +11918,62 @@ P0 回归（扫描式）/ 四个框一个没漏。
 四行现在**每一格**都是 `箭头✓ 两行摘要✓`、同高 40px（视频行 32px，与同行其它控件同基线），
 行宽全部放得下、无溢出。⚠️ 读数要除以**画布 0.68 缩放层**（132px 量出来是 90）——
 第一轮没意识到这一点，一度以为 CSS 完全没生效。
+
+### 提交 / 部署 / 线上复验
+
+提交 `f89f09f9`（13 个文件，只 stage 自己的 —— 共享树里同时有别的会话的
+`MediaCreation/*`、`skills/*`、`conceptCopy.js`、`app-sidebar.css` 等十几个未提交文件，
+`git add -A` 会把别人的半成品一起提交）。
+
+隔离树验证：`git worktree add --detach .worktrees/cy13-verify fac74f06` →
+`git diff -- <只有我的文件> > patch` → `git apply` + 单独 copy 新增文件。
+⚠️ **`node_modules` 的 junction 要指向 `.worktrees/codex-ecommerce-stability/node_modules`，
+不是父树 `F:\da\shubao\node_modules`** —— 父树里既没有 `playwright` 也没有 `onnxruntime-web`，
+指错了会得到 7 个"模块找不到"式的假红（构建挂在 onnxruntime-web/wasm、e2e 挂在 playwright）。
+
+- `npm test`：**4255 条 / pass 4241 / fail 7 / skipped 7**。
+  那 7 条在**干净 HEAD 上同样红**（`git stash` 掉本批改动复跑确认过）：都是要 vite dev server 的
+  活体测试，隔离树里 5173 不在本机。本批**零新增失败**。
+- `npm run precommit`：✅ **构建 exit 0 + 323 条 e2e 断言全绿 + 38 个 BLOCKING 门禁全绿 + 260 条门禁 0 失败**。
+
+部署：`pwsh -NoProfile -File scripts/deploy-production.ps1 -SkipPublicChecks`
+（Windows PowerShell 5.1 解不了 UTF-8 参数，会把脚本解析坏 —— 沿用批 DC 续-6 的口径）。
+⚠️ **必须从隔离树发起**：部署脚本是 `tar -czf $archive -C $repo <文件清单>`，
+打的是**工作区文件**、不是 `git archive`。从共享树部署会把别人未提交的 WIP 一起上线。
+先 `git checkout -f f89f09f9` 把隔离树指到那个提交，再发。
+⇒ `Deployed f89f09f9 to https://shuimg.cn/`，release `20260929-010946-f89f09f9`。
+
+**线上复验**（`.qa/cy13-live-asset-check.sh`，服务器侧读产物）：
+
+| 项 | 结果 |
+| --- | --- |
+| `current` 指向 | `/var/www/shubao/releases/20260929-010946-f89f09f9` ✅ |
+| 站点 / 画布 / `/health` | 200 / 200 / 200 ✅ |
+| pm2 | `shubao-production` online，重启 0 次 ✅ |
+| 新形态类名（JS chunk + CSS） | 5 项全部命中 ✅ |
+| 旧三颗小药丸 / 三块小弹层（JS + CSS） | 全部 **0** ✅ |
+| 视频框旧 `nth-of-type` 槽位表（CSS） | **0** ✅ |
+| 六个 surface 标记 | video-model / video-config / suite-settings 各 1 ✅ |
+| P0 签名 | 编译产物里是 `onOpenWorkbench:<别名>=null`（**不是**字面 `onOpenWorkbench=null`）✅ |
+| 父组件接线 | 入口侧 `onOpenWorkbench:Hn` 出现两次（图片 / 文案两个框）✅ |
+
+**这一节有两条值得单独记的教训**：
+
+1. **浏览器打不开生产站**：`page.goto('https://shuimg.cn/ec-canvas')` → `ERR_CONNECTION_RESET`。
+   这不是我的改动坏了，是部署脚本早就警告过的那条：部署机是机房来源 + 域名未备案 + Cloudflare 仅
+   DNS ⇒ 腾讯云拦机房来源访问该域名。**公网校验在部署机上物理上不可能跑通**，`-SkipPublicChecks`
+   不是图省事，是唯一可行解。⇒ 复验改成在服务器本地读已部署产物。
+2. **量产物要量对地方（我连着量错两次）**：
+   ① 第一次在整个 `assets/` 目录里 grep，命中 206 个 js 里都有 `ec-canvas-count-popover` ——
+      看着像"我的删除没上线"。实际是部署日志里那条 `Old static release cleanup failed`：
+      旧 release 的静态产物没清掉，`current/assets` 下堆了 **6193 个 js**（正常 30 来个），
+      命中的是**旧版本 chunk**。
+   ② 第二次只查 `index.html` 引用的那个入口 bundle，`data-canvas-config-trigger` 又是 0 ——
+      画布是**懒加载 chunk**，类名在 `index-<另一个hash>.js` 里。
+   ⇒ 正确姿势：**先按部署时刻的 mtime 筛出本次写入的文件，再在里面查**。
+   这两条已经写进 `.qa/cy13-live-asset-check.sh` 的文件头注释里。
+
+⚠️ **顺手发现的一条运维问题（如实报，不在本批擅自处理）**：
+`Old static release cleanup failed` —— 部署脚本清理旧静态产物那一步**一直在失败**，
+`current/assets` 里堆了 6193 个 js（正常一个 release 三十来个）。磁盘会一直涨，而且
+"在目录里 grep"这种复验方式会被它污染（见上）。这不是本批引入的，但建议单独排一批处理。
