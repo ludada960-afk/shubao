@@ -11445,3 +11445,85 @@ import **线上那份** `conceptLayoutSheet.js`，四族 + 信息图三种排法
 - 门禁：`concept-set-layout-sheet-0927`（③⑤⑥⑦⑧）、`concept-set-set-generation-0927`（⑥⑦）、
   `concept-set-workbench-0925`（⑨）；端到端新增场景㉔。
 - `npm run test` 4239 条 fail 0；`npm run precommit` 全绿（307+ 条 e2e 断言 / 38 个 BLOCKING 门禁）。
+
+## 2026-09-28 批 CY-⑥ —— 批注图3「设计风格区照知渔」：补上**芯片下面那颗整颗按钮**
+
+用户原话（逐字，7 张批注图第 3 条）
+- 「你看一下**人家 AI 推荐风格**，它这里是有个按钮的。他点击这个按钮才会生成结果在这里啊。他这个按钮
+  其实就跟右上角那个 AI 推荐应该是同一个按钮的。」
+- 「你这里为什么跟他不一样呢？**不是说要照抄吗**？照抄你为什么抄着抄着又抄的不对呢？」
+
+### ① 把知渔那一格**采清楚**（登录台还在登录态，白拿了）
+`node .qa/login-rig.mjs`（独立 profile 在 `%LOCALAPPDATA%\shubao-competitor-profile`、CDP 口 9333，
+cookie 不进项目文件）→ `.qa/cy5-quantv-style.mjs` 只读采 `?tool=product-listing-set`。
+**只点档位芯片，绝不点带积分的按钮**（点了就真花钱）。采到的结构：
+```
+section.mt-8「产品卖点与设计风格」
+ └ div.mt-6（设计风格那一格）
+     └ div.rounded-xl.bg-gray-50（灰底圆角容器，padding 9.92）
+         ├ 三档芯片「AI推荐 / 参考排版 / 自定义要求」各 160×45
+         ├ 结论区（99px，空着等结论）—— 我们这边就是「设计风格要求」那个 textarea
+         └ button「AI推荐风格分析 · 0.10 积分」**272×45**，父层 justify-content: center（**居中**）
+             h-9=45 / min-w-[180px] / px-5(19.84) / rounded-lg(9.92) / margin-top 19.84
+```
+他们**标签行右端**另有一颗小胶囊「AI推荐 · 0.10 积分」177×35（挂 `div.mb-4.flex`）——
+那正是我们行内那颗的对应物。⇒ 用户那句"同一个按钮"= 这两颗调的是同一件事；**我们缺的是芯片下面那颗整颗的**。
+⚠️ 三个探针的分工（别重写）：`cy5-quantv-style.mjs` 采整格 + 逐档点开；`-buttons.mjs` 核那两颗的身份与祖先；
+`-frame.mjs` 量按钮的祖先链间距（就是它把 `h-9=45 / min-w-180 / justify=center / margin-top 19.84` 量出来的）。
+
+### ② 改了什么（**只动我自己那两个干净文件**）
+当时 `src/skills/imageSkills.js` / `src/pages/MediaCreation/index.jsx` **正被另一个会话改着**（未提交）——
+按铁律一个字没碰。好在渲染层就够：图片子页面最终是 `SkillWorkbench.jsx` 把字段交给 **`WorkbenchShell.jsx`**
+渲染的（`SkillWorkbench` 只有 296 行，纯传参），所以这条规则落在 WorkbenchShell 里即可。
+1. `WorkbenchShell.jsx`：新增纯函数 `bigActionAfter(groups, paidActions)` ——
+   **只对 `kind === 'segmented'` 且挂了"可运行 + anchor"的动作**，把按钮渲染在**这一档内容块的末尾**。
+   "档内容块" = 该字段 + 紧跟其后 `visibleWhen.key === 该字段.key` 的那一串（声明源的语义就是"切这档换出的内容"）。
+   ⚠️ **FieldRenderer 对 visibleWhen 不满足的字段是渲染 null（数组槽位仍在）** ⇒ 按声明算"最后一个成员"即可，
+      当前档看不到的那些天然塌掉，按钮正好落在**可见内容**下面。
+   渲染**复用** `.media-workbench-paid`（45px 高 / 圆角 10 / 价钱写在按钮里）与**同一个 action 对象**
+   （`bigAction.onRun`）—— 不新起类名、不复制一条调用链；`groups` 也改成只算一次（原来在 JSX 里现算）。
+2. `WorkbenchShell.css`：`.media-workbench-field-action { grid-column: 1/-1; display:flex; justify-content:center }`。
+   间距**不另写**：字段网格自己的行距就是 18px（批 BF 定过"**站内一致优先于照抄竞品的具体数字**"）。
+
+### ③ 实测（`.qa/cy6-style-big-button.mjs`，/image-creation?id=image.product_suite，1440）
+- 按钮 188×45 · 圆角 10 · 内边距 18 · **相对字段列居中偏差 0px** · 文案带价钱「一键解析风格 0.2 积分」；
+- 三档逐档点过（点芯片免费）：**AI推荐档**按钮上方是「设计风格要求」框、**参考排版档**上方是
+  「风格/排版参考图 0/5」上传框、**自定义要求档**上方是「设计要求」框 ⇒ 每档都是"该档内容在上、按钮在下"，
+  与知渔同构（**只量不点**——那是付费动作，点一下真扣 0.2 积分）。
+- ⚠️ **探针第一版的坑（写进脚本注释）**：裸坐标 `page.mouse.click` 时芯片中心 y≈1006 已掉出 1000 高的视口，
+  点了等于没点 —— 四次测量长得一模一样、`选中档` 读数为空。**实机点击要么走 locator（自动滚进视口），
+  要么先 scrollIntoView**；这次是靠"四次结果完全相同"察觉的（测量数据太齐整就要怀疑没生效）。
+
+### ④ 判据
+`test/style-action-button-0928.test.mjs` 四条：① 只有"分段档位 + 可运行动作"才多渲染（**接不通的不许伪装成按钮**）；
+② 复用 `.media-workbench-paid` + 同一个 onRun + 价钱取自声明 + 不许另起类名；③ 那一行跨两列且居中；
+④ 视频侧没有 anchor 声明 ⇒ 这条规则不会在那边冒出新按钮（查过 `videoSkills.js` 与 `VideoStudio/index.jsx`）。
+
+### ⑤ 钱与文案（都按铁律办）
+- **价钱 0.2 积分一个字没改**（写在按钮上）；知渔那颗是 0.10 —— 那是他们的定价，不跟。
+- **文案沿用我们自己的「一键解析风格」**（批 Q 时用户认可过我们的命名法；知渔叫「AI推荐风格分析」）——
+  要逐字照抄只需改声明源那一处（`MediaCreation/index.jsx` 的 `label`），本批不动别人的文件。
+
+### ⑥ 验证与上线
+- 隔离 worktree（`.worktrees/cy6-verify`）：先在 `e27584fc` + 本批 diff 上跑过一遍
+  （tests 4234 / fail 0；precommit 307 条 e2e 全绿）；**随后重钉到当时的 HEAD `c62c896c` 又跑了一遍**
+  （下面那条并发事故之后这第二遍才算数）：`npm run test` → tests **4239** / pass **4229** / **fail 0** / skipped 10；
+  `npm run precommit` → 构建 exit 0 + render-smoke 通过 + `[media-e2e] 通过：320 条断言全绿`
+  + `[4/5] BLOCKING 门禁（38 个）`全绿 + `✅ precommit 通过`。
+- 提交 `0a26d989`（只按路径 stage 我这 7 个文件）。
+- **部署（一次成功）**：`Deployed 0a26d989 to https://shuimg.cn/` + `Released remote deployment lock`，exit 0。
+- **服务端复验（源站侧，只读）**：`current` → `releases/20260928-132052-**0a26d989**`；`/health` **200**（3002 口）；
+  线上入口 = `assets/index-Mi83Y4vO.js` + `assets/style-BI4zVWjY.css`，与部署仓 `dist/index.html` **逐字相同**
+  （这一批 JS 与 CSS **两个入口名都变了** —— 因为它动了 JSX，与上一批"纯 CSS"正好形成对照）；
+  线上 CSS 里 `.media-workbench-field-action` 命中、CY-⑤ 那条禁用档叠层串仍在（没回退）。
+- ⚠️ **并发事故（这次踩到的新形态，值得记进 RTK 教训）**：我提交 `0a26d989` 之后、验证之前，
+  另一个会话在同一分支上提交了 `54a80304`（版式族）与 `c62c896c`（RTK），而他们的提交**把我当时还没提交的
+  `scripts/media-workbench-e2e.mjs` 改动一起卷了进去**（HEAD 里 `bigAction` 出现 21 次 ⇒ 已入库，
+  东西没丢）。我第一轮隔离验证是钉在 `e27584fc`（**他们那次提交之前**）的树上跑的，而我从共享树拷 e2e 时
+  连**他们的 ㉔（版式族）断言**一起拷了过去 —— 源码是旧的、断言是新的 ⇒ e2e 在 ㉔ 处红。
+  **教训（两条，都很实用）**：
+  ① **从共享树拷文件进隔离树时，先问一句"这个文件里有没有别人的未提交改动"**（`git diff HEAD -- <file>` 一句话的事）；
+     拷进去的断言若依赖对方的源码改动，就会在你这棵旧树上红成"看起来像我改坏了"。
+  ② **隔离树钉的 commit 一旦落后于共享树 HEAD，验证结论就过期** —— 收尾前必须 `git log` 一次确认
+     自己钉的是不是当前 HEAD（这次是靠"同一批断言在两次运行里结果不同"发现的）。
+
