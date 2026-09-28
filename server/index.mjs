@@ -49,7 +49,7 @@ import {
 import { createWalletService } from './billing/walletService.mjs';
 import { createPaymentService } from './billing/paymentService.mjs';
 import { createPaymentChannelRegistry } from './billing/paymentChannels.mjs';
-import { assertCatalogMarginGates } from './billing/catalog.mjs';
+import { assertCatalogMarginGates, quoteFeature } from './billing/catalog.mjs';
 import { mountBillingRoutes } from './billing/routes.mjs';
 // 4c183cd4 续命 P-D commerce paywall: 微信/支付宝 sandbox 真接入 (4 档定价 + 月卡 2 档)
 import { createPaywallService } from './billing/paywall.mjs';
@@ -891,6 +891,13 @@ import { handleFeishuChallenge, dispatchFeishuEvent } from './feishu/webhook.mjs
 import { screenPromptText } from './contentScreen.mjs';
 /* 静图 → 微动效短视频（本机 ffmpeg，零上游成本）—— 见 server/motionStillRender.mjs 的文件头 */
 import { renderMotionStill } from './motionStillRender.mjs';
+/* ═══ 「做成动图」（概念视觉方案结果区那颗按钮）：真的走一次上游图生视频，再本地裁到 2~3 秒 ═══
+   与上面那条**不是同一条路**：motionStillRender 是纯本机微动效（免费）；这一条有上游成本
+   （Seedance Fast 5 秒 ≈ ¥0.91/条），所以独立 SKU 收费。判据与用户原话都在 stillMotion.mjs 头部。
+   ⚠️ `ffmpegAvailable` 也在这条链路上用：裁切是本机活，机器没有 ffmpeg 时**建单前**就要拒
+      （见 videoGeneration.createJob 的 stillMotion 预检与这里的 POST 预检）。 */
+import { livePhotoDescriptor } from './stillMotion.mjs';
+import { ffmpegAvailable } from './videoLocalAdapter.mjs';
 app.get('/feishu/events', (req, res) => {
   const verificationToken = process.env.FEISHU_BOT_VERIFICATION_TOKEN || '';
   const result = handleFeishuChallenge(verificationToken, req.query);
@@ -5146,6 +5153,114 @@ app.get('/api/video/jobs', authenticateVideoRequest, (req, res) => {
 app.get('/api/video/jobs/:id', authenticateVideoRequest, (req, res) => {
   const job = videoGeneration.getJob(req._userEmail, req.params.id);
   return job ? res.json({ job }) : res.status(404).json({ error: '视频任务不存在' });
+});
+/* ═══ 「做成动图」：概念视觉方案结果区那一颗按钮的服务端（2026-09-27 批 DC-4）══════════════════
+   用户口径（逐字）：「**动图选 A 吧**」（工作台里对**已生成的那张**给一颗「做成动图」：
+   静图 → 2~3 秒循环短片、可下载、电脑端可直接传）+「即便是在服务端做，**你也要收费呀**……
+   而且你确定你的方案没有成本吗，**你这个不是用到图生视频吗**」。
+
+   链路（一次点击 = 一条视频任务 = 一次上游调用 = 一次扣费）：
+     一张站内成品图 →（服务端建一条**视频任务**，产品 `live_photo` = 上游 Seedance Fast 最短档 5 秒）
+     → 交付前本地 ffmpeg 裁到 2~3 秒（videoGeneration.persistStillMotionOutput）→
+     客户端轮询**既有**的 GET /api/video/jobs/:id 拿成片地址（签名地址，可直接下载/预览）。
+
+   ⚠️ 为什么浏览器不直接 POST /api/video/jobs（那样就少这一层了）：
+      这一档**不吃提示词、不吃素材位**，它只吃"把哪一张图动起来"；直接暴露给通用视频入口，
+        用户会拿着它去干一件它不做的事（同 localEngine / videoProcess 那几条的纪律）。
+      ⇒ 这里只做一个**薄入口**：输入只有图 + 比例，产品/时长/清晰度全由服务端定死，
+        然后交给**既有**建单链路（hold / 幂等 / 失败自动退回积分一个字都没改）。
+   ⚠️ 报价令牌由**服务端自己开**（金额只由 billing/catalog 算）：客户端一个金额字段都传不上来，
+      这是"定价只有一个来源"的直接落地（test/pricing-single-source）。 */
+app.get('/api/concept/live-photo', authenticateEcommerceRequest, async (req, res) => {
+  const descriptor = livePhotoDescriptor();
+  const ffmpeg = await ffmpegAvailable();
+  return res.json({
+    /* ready = 现在点得动吗：上游通道（凭据/台账）与本机 ffmpeg 两道都要在 —— 与建单前的预检同源，
+       所以"页面亮着、点了 503"不会发生 */
+    ready: ffmpeg.ok === true && videoGeneration.capabilities().generationEnabled === true,
+    ...descriptor,
+  });
+});
+app.post('/api/concept/live-photo', authenticateEcommerceRequest, async (req, res) => {
+  try {
+    const ownerEmail = req._userEmail;
+    const imageUrl = String(req.body?.image_url || req.body?.imageUrl || '').trim();
+    if (!imageUrl) return res.status(400).json({ code: 'STILL_MOTION_IMAGE_REQUIRED', error: '请先选一张要动起来的成品图' });
+    const descriptor = livePhotoDescriptor();
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const publicBaseUrl = `${proto}://${req.get('host')}`;
+    /* ① 建单前预检（两处，都在**任何扣费之前**）：本机 ffmpeg 在不在 + 上游通道配没配。
+       缺机器组件时若先建单，用户会付了上游的钱却裁不出动图（"先扣再退"、余额抖动）。 */
+    const ffmpeg = await ffmpegAvailable();
+    if (!ffmpeg.ok) {
+      return res.status(503).json({ code: 'VIDEO_LOCAL_ENGINE_UNAVAILABLE', error: '本机渲染组件未就绪，该功能暂时不可用' });
+    }
+    /* ② 那张图先落成**本站素材**（走既有上传链路：体积/类型/属主三道校验都在），
+       上游拿到的是一条有时效的签名地址（purpose 'provider'），用户的原图不动。
+       ⚠️ 读图走既有的 imageInputReader（与 /api/reverse-prompt 同一条）：站内生成图的绝对地址
+          它自己会取回来；读不出来（图已过期/地址不对）就**在建单之前**如实拒绝，不产生任何费用。 */
+    let source;
+    try {
+      source = await imageInputReader.read(imageUrl);
+    } catch {
+      return res.status(400).json({
+        code: 'STILL_MOTION_IMAGE_UNREADABLE',
+        error: '这张图读不出来了（可能已过期），请重新生成这张图后再试',
+      });
+    }
+    const asset = await videoGeneration.uploadAsset({
+      ownerEmail,
+      kind: 'image',
+      contentType: source.contentType || 'image/png',
+      buffer: source.buffer,
+      publicBaseUrl,
+    });
+    /* ③ 比例：跟着这张图所属那一篇的设置来（白名单**从视频能力清单派生**，不在页面/路由里写第二份；
+       不合法就退回默认 3:4 —— 3:4 是这条技能的签名比例，实测那个账号 41 篇全是竖版，见 90 号文档 §五）。 */
+    const allowedRatios = new Set(videoGeneration.capabilities().aspectRatios || []);
+    const requestedRatio = String(req.body?.ratio || '').trim();
+    const ratio = allowedRatios.has(requestedRatio) ? requestedRatio : '3:4';
+    /* ④ 报价：金额**只由目录算**（quoteFeature），客户端不参与 */
+    const quote = quoteFeature(descriptor.sku, 1);
+    const reference = billingQuoteService.issue({ ownerEmail, quote });
+    /* ⑤ 幂等键由服务端从**这张图**派生（不信客户端传的键）：
+       同一次点击重复触发 = 同一条任务（既有链路按 owner+key 命中 replay，不再扣一次）；
+       换一张图 = 另一条任务。键里带上产品与比例，改规格才是新的一单。 */
+    const idempotencyKey = `still-motion:${crypto.createHash('sha256')
+      .update([ownerEmail, descriptor.productId, imageUrl, ratio].join('\u0000')).digest('hex').slice(0, 40)}`;
+    const created = await videoGeneration.createJob({
+      ownerEmail,
+      idempotencyKey,
+      billingQuoteId: reference.quoteId,
+      publicBaseUrl,
+      input: {
+        productId: descriptor.productId,
+        duration: descriptor.upstreamSeconds,
+        resolution: '720p',
+        mode: 'reference',
+        aspectRatio: ratio,
+        /* 循环短片不需要声音（上游本来也没让它出声）：省体积、循环时不会有断音。
+           裁切那一步还会再 `-an` 一次兜底（见 stillMotion.trimClipToSeconds）。 */
+        generateAudio: false,
+        references: { images: [asset.id] },
+      },
+    });
+    return res.status(created.replay ? 200 : 202).json({
+      jobId: created.job.id,
+      status: created.job.status,
+      replay: created.replay === true,
+      sku: descriptor.sku,
+      points: descriptor.points,
+      seconds: descriptor.clipSeconds,
+    });
+  } catch (error) {
+    return res.status(error?.status || 500).json({
+      code: error?.code,
+      error: error?.status && error.status < 500 ? error.message : '做成动图失败，请稍后重试',
+      required: error?.required,
+      available: error?.available,
+    });
+  }
 });
 app.get('/api/admin/video-reviews', adminRouteHandlers.requireAdmin, (req, res) => {
   res.json({ reviews: videoGeneration.listSubmissionReviews(req.query.limit) });

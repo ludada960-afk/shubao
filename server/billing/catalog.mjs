@@ -115,6 +115,27 @@ export const FEATURE_SKUS = freezeCatalog({
     subsidizedTeaser: false, routeRestriction: 'fast-only',
     maxDurationSeconds: 5, dailyLimitPerUser: 3, freeReruns: 0,
   },
+  /* ═══ 2026-09-27 批 DC-4：**「做成动图」的收费项**（用户口径，逐字）═══════════════════════════
+     用户原话：「**动图选 A 吧**」+「即便是在服务端做，**你也要收费呀**，用户又不知道你没有成本，
+     而且你确定你的方案没有成本吗，**你这个不是用到图生视频吗**」。
+     ⇒ 这一档**真的走一次上游图生视频**（静图 → Seedance Fast **5 秒**最短档 → 本地 ffmpeg 裁到
+        2.5 秒），成本按我们自己的最短档**如实**记：**¥0.91/条**
+        （agv-seedance2.0fast，与上面 video_seedance_fast_* 同一条已出片验证的路由；见
+         server/videoCatalog.mjs 的 ROUTE_REACHABILITY verified 证据）。不许为了过门禁填小。
+     定价：面价 **¥3.90/次**。门禁算的是**积分面值**（units × 锚 ¥199/760000 ≈ ¥0.000261842/unit）：
+        14900 units = ¥3.9015 ⇒ 毛利 (3.9015 × 0.97 − 0.91) ÷ 3.9015 ≈ **73.7%** ≥ 高端档 70% 地板 ✓
+        （现金口径 ¥3.90 时 1 − 0.91/3.90 = **76.7%**，就是 docs/design/90 §6.5 写给用户的那个数。）
+     ⚠️ 为什么必须是 `video_` 前缀：只有这个前缀会进 videoMarginGateReport()，而这一档有真实上游
+        成本、且成本会随上游调价漂 —— 必须和视频档位一起被启动期毛利门禁盯着（fail closed），
+        不许躲进图片 SKU 那一堆（那堆没有 70% 地板）。
+     ⚠️ 权益口径 maxDurationSeconds: 5 是**上游那一档的秒数**（买的就是 5 秒），
+        交付给用户的成片是本地裁出来的 2~3 秒（见 server/stillMotion.mjs 的 livePhotoTrimWindow）。 */
+  video_live_photo_short: {
+    units: 14900, providerCostCny: 0.91,
+    priceFen: 390, marginBand: 'premium',
+    subsidizedTeaser: false, routeRestriction: 'fast-only',
+    maxDurationSeconds: 5, dailyLimitPerUser: 30, freeReruns: 0,
+  },
   // 标准档 ¥11.9 实付面值毛利 54.9%，落在引流带规划上沿（距主力地板 60% 差 5.1pp）——
   // 这是终案定价的直接结果，非成本漂移；上调空间由 admin 报表披露，不做静默调价。
   video_seedance_standard_short: {

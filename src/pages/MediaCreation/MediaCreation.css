@@ -176,6 +176,34 @@
 .media-run-sheet-save:disabled,
 .media-run-sheet-again:disabled { opacity: .6; cursor: default; transform: none; box-shadow: none; }
 
+/* ═══ 做成动图 2026-09-27 批 DC-4 ══════════════════════════════════════════════════
+   用户口径：「动图选 A 吧」—— 对**已生成的那张**给一颗「做成动图」（2~3 秒循环短片、可下载）。
+   与上面那颗拼版按钮**长得明显不一样**：这个**要花钱**（面价 ¥3.90 ⇒ 按钮上带价），
+   拼版那颗不花钱。同一排里两个按钮长一样，用户点错的代价是一笔真实的钱。 */
+.media-run-live-make,
+.media-run-live-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sb-surface-card);
+  box-shadow: 0 0 0 1px var(--sb-brand-500);
+  color: var(--sb-brand-700);
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.media-run-live-make:hover,
+.media-run-live-download:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px var(--sb-brand-600), 0 6px 16px rgba(17, 20, 45, .14); }
+/* 就近说明（正在做 / 没做出来）：长在**那一张图下面**，不是转瞬即逝的 toast ——
+   用户要能看到"为什么没成、有没有扣钱"（失败不扣费这句话必须留在他眼前）。 */
+.media-run-live-note { margin: 0; padding: 5px 8px; font-size: 11px; line-height: 1.45; color: var(--sb-ink-1); background: var(--sb-surface-card); border-radius: 8px; }
+.media-run-live-clip { position: absolute; inset: 0; display: grid; align-content: end; gap: 6px; padding: 8px; background: rgba(17, 20, 45, .55); }
+.media-run-live-clip video { width: 100%; max-height: calc(100% - 36px); border-radius: 8px; background: var(--sb-neutral-900); }
+.media-run-live-clip .media-run-live-download { justify-self: start; }
+
 /* ═══ 结果区的「拿这张图接着做」2026-09-18 ═════════════════════════════════════════
    辅助能力（提升质感 / 再来一张相似的）长在**主技能的结果区**，不再单独占一张卡。
    点它只把这张结果带到下一条链路的素材位上，不生成、不扣费。 */

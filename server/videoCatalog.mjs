@@ -960,6 +960,53 @@ export const VIDEO_PRODUCTS = deepFreeze({
     concurrency: 2,
     pollIntervalMs: 5000,
   },
+  /* ═══ 2026-09-27 批 DC-4：**「做成动图」**（静图 → 上游图生视频最短档 → 本地裁到 2~3 秒）═══════
+     用户口径（逐字）：「**动图选 A 吧**」（工作台里对已生成的那张给一颗「做成动图」：静图 →
+     2~3 秒循环短片、可下载、电脑端可直接传）+「即便是在服务端做，**你也要收费呀**……而且你确定
+     你的方案没有成本吗，**你这个不是用到图生视频吗**」。
+     ⇒ 这是一条**真的走上游图生视频**的产品（不是本机微动效那条免费路，那条在小红书图文页
+        「让它动」），所以它有独立价档（video_live_photo_short，面价 ¥3.90 / 成本 ¥0.91）。
+
+     为什么把它登记成**产品**而不是在页面里直连上游：
+       · 路由、时长白名单、参考素材上限、清晰度都只能有一处声明 —— 就是这里；
+       · SKU 名由产品 id 派生（`video_${id}_${short|long}`）⇒ 有了这条产品，账上才会出现
+         `video_live_photo_short`，与既有 20 多条视频档同一套派生规则，不新造命名法。
+     为什么**不走**方案闸门（见 videoGeneration.createJob 里的分支）：闸门存在的理由是
+       "方案是收了钱的、收了钱就必须影响产出"，而这一档**不收方案费**（用户给的是**一张成品图**，
+       他手上没有可确认的拍摄方案），与"处理已有视频"那两条同一档待遇。
+
+     `stillToMotion: true` 的含义（见 isNonModelProduct）：**它不是用户在「视频创作」里选的模型**，
+     入口只有概念视觉方案结果区那一颗按钮 —— 进了模型下拉，用户会选到一条"点了其实是在给旧图做动图"
+     的档位（同 localEngine / videoProcess 那条纪律）。 */
+  live_photo: {
+    id: 'live_photo',
+    label: '做成动图',
+    providerLabel: '字节跳动',
+    tierLabel: '静图微动',
+    family: 'seedance', familyLabel: 'Seedance',
+    variant: 'sd-2.0-fast', variantLabel: 'Seedance 2.0 Fast',
+    description: '把一张成品图做成 2~3 秒的循环短片，可直接发小红书。',
+    limitations: '按次计费；成片 2~3 秒、原图比例；只吃一张成品图，不支持提示词与其它素材。',
+    /* 与 seedance_fast **同一条已真实出片验证过的通道**（台账 verified，2026-09-16 出片证据）。
+       同一条通道意味着：同一个 model 名、同一份报文（seedance 协议）、同一把凭证 ——
+       "不要新造第二条上游通道"这条纪律就是靠这里只写一个 routeId 落地的。 */
+    routeId: 'agv-seedance2.0fast',
+    credential: 'seedance',
+    stillToMotion: true,
+    public: true,
+    default: false,
+    /* 上游**按秒档位校验**，这一条通道只认 5/10/15 秒 ⇒ 我们按最短档 5 秒买，
+       交付前在本地裁到 2~3 秒（成本只在 5 秒那一档，裁切是本机 ffmpeg，不额外花钱）。 */
+    durations: { min: 5, max: 5 },
+    durationOptions: [5],
+    resolutions: ['720p'],
+    modes: ['reference'],
+    generatedAudio: false,
+    frameAudio: false,
+    limits: { images: 1, videos: 0, audios: 0, total: 1 },
+    concurrency: 2,
+    pollIntervalMs: 10000,
+  },
   /* ═══ 2026-09-26 批 AU：**数字人（火山口型对齐）**═════════════════════════════════════════════
      与 `desubtitle_volc` 同一类（`videoProcess: true` + `credential: 'volc'`），但输入契约**多一样**：
      它要 **一条真人视频 + 一段驱动音频**（`localSpec: { audio: true }` ⇒ createJob 多校验一个音频）。
@@ -1071,12 +1118,24 @@ export function isLocalEngineProduct(product) {
 
 /* ═══ 2026-09-26 批 AR：**"不是模型"的产品**（不进模型选择器）══════════════════════════════════
    · localEngine   —— 本机渲染（视频高清 / 手动去字幕）
-   · videoProcess  —— 处理已有视频的上游档（火山自动去字幕）
-   共同点：都**不吃提示词**，用户从各自的 skill 子页面进入。放进模型下拉＝用户会在「视频创作」里
-   选到一条点了必失败的档位（与本地那两条同一条纪律）。 */
+   · videoProcess  —— 处理已有视频的上游档（火山自动去字幕 / 数字人）
+   · stillToMotion —— 静图做成动图（概念视觉方案结果区那颗按钮，2026-09-27 批 DC-4）
+   共同点：都**不吃用户在「视频创作」里写的那套输入**（提示词 / 比例 / 素材位），
+   入口是各自的页面或按钮。放进模型下拉＝用户会在「视频创作」里选到一条点了必失败（或者
+   拿着他的提示词去干一件完全不相干的事）的档位。 */
 export function isNonModelProduct(product) {
-  return product?.localEngine === true || product?.videoProcess === true;
+  return product?.localEngine === true || product?.videoProcess === true || product?.stillToMotion === true;
 }
+
+/* 「做成动图」那一档的判据（产品声明只有一处：VIDEO_PRODUCTS.live_photo）。
+   ⚠️ 单独一个函数而不是各处 `product.stillToMotion === true`：建单分流、交付裁切、门禁
+     都要用它，散着写迟早会出现"少改一处 → 某条链路当成普通视频任务处理"。 */
+export function isStillMotionProduct(product) {
+  return product?.stillToMotion === true;
+}
+
+/* 「做成动图」的产品 id（只读常量，给服务端模块与门禁引用；页面不写第二份名单） */
+export const STILL_MOTION_PRODUCT_ID = 'live_photo';
 
 export function publicVideoProducts({ includeHidden = false } = {}) {
   return Object.values(VIDEO_PRODUCTS)

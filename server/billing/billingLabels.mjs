@@ -120,6 +120,11 @@ const SKU_LABELS = Object.freeze({
      所以 per 写「秒」且标签写明"口型对齐"（用户对账时能自己数出这一段配音多少秒）。 */
   video_lipsync_volc_short: { label: 'AI 视频 · 数字人（口型对齐）', category: 'video', per: '秒' },
   video_lipsync_volc_long: { label: 'AI 视频 · 数字人（口型对齐）', category: 'video', per: '秒' },
+  /* ═══ 2026-09-27 批 DC-4：做成动图（概念视觉方案结果区那颗按钮）══════════════════════════════
+     按**次**计费：一次点击 = 上游图生视频最短档（5 秒）一次 + 本机裁到 2~3 秒，所以 per 写「次」。
+     标签写明"做成动图" —— 这条明细在积分账单里要能被用户一眼认出是"那张图做成了动图"，
+     而不是又一条普通视频（两者单价不一样，混在一起他会以为算错了）。 */
+  video_live_photo_short: { label: 'AI 视频 · 做成动图', category: 'video', per: '次' },
   xhs_image_set_2k: { label: '小红书图文套装（1 封面 + 8 配图）', category: 'content', per: '套' },
   content_full_set: { label: '小红书内容集', category: 'content', per: '套' },
 });

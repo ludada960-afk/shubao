@@ -9,6 +9,7 @@ import {
   durationOptionsOf,
   getVideoProduct,
   isDurationSupported,
+  isNonModelProduct,
   nearestSupportedDuration,
   publicRouteViolations,
   publicVideoProducts,
@@ -59,6 +60,12 @@ test('video products expose one curated stable contract', () => {
        ⚠️ 批 AZ：它已 **public: true**（创作台接线完成，见 videoCatalog 里的三段式记录）——
           但**仍然不进模型清单**：它不吃提示词，进了模型下拉用户就会在「视频创作」里
           选到一条点了必失败的档位（下面 isNonModelProduct 那条断言守的就是这个）。 */
+    /* ═══ 2026-09-27 批 DC-4：+1（判据未变，事实变了）—— **「做成动图」**（live_photo）：
+       静图 → 上游 Seedance Fast 最短档 5 秒 → 本地 ffmpeg 裁到 2~3 秒（用户口径「动图选 A 吧」
+       +「你这个不是用到图生视频吗」）。它**不是模型**：入口只有概念视觉方案结果区那颗按钮，
+       进了模型下拉用户就会在「视频创作」里选到一条点了必失败的档位
+       （下面 isNonModelProduct 那条断言照旧守着它）。 */
+    'live_photo',
     'lipsync_volc',
   ]);
   assert.equal(getVideoProduct('seedance_standard').default, true);
@@ -248,11 +255,13 @@ test('public products omit hidden routes and private provider details', () => {
      现在有两类非模型产品：localEngine（本机渲染）与 videoProcess（上游"处理已有视频"，
      目前是火山自动去字幕）。两者都**不吃提示词**，进了模型下拉 = 用户会在「视频创作」里
      选到一条点了必失败的档位 —— 守的东西一个字没变，只是这类产品多了第二个成员。 */
-  const nonModelIds = Object.keys(VIDEO_PRODUCTS).filter(id => {
-    const product = getVideoProduct(id);
-    return product.localEngine === true || product.videoProcess === true;
-  });
-  assert.deepEqual(nonModelIds.sort(), ['desubtitle_local', 'desubtitle_volc', 'lipsync_volc', 'upscale_local']);
+  /* ═══ 批 DC-4：判据从"两类"扩成"三类"（判据本身没变：**不是模型的不许进模型清单**）════════════
+     新成员 stillToMotion（「做成动图」）：它吃的是"哪一张成品图"，页面入口是概念视觉方案结果区那颗
+     按钮 —— 与 localEngine / videoProcess 同一条纪律（进了模型下拉＝用户选到一条点了必失败/干错事的档）。
+     ⚠️ 这里改成直接调 `isNonModelProduct`（判据的**实现只有一处**）：三类成员还会继续加，
+        每加一类就要在这里再抄一遍条件，迟早抄漏一次。 */
+  const nonModelIds = Object.keys(VIDEO_PRODUCTS).filter(id => isNonModelProduct(getVideoProduct(id)));
+  assert.deepEqual(nonModelIds.sort(), ['desubtitle_local', 'desubtitle_volc', 'lipsync_volc', 'live_photo', 'upscale_local']);
   assert.deepEqual(all.filter(product => nonModelIds.includes(product.id)), [], '非模型产品不许出现在模型清单里');
   assert.deepEqual(all.map(product => product.id), Object.keys(VIDEO_PRODUCTS).filter(id => !nonModelIds.includes(id)));
   assert.equal(all.filter(product => product.id === 'kling_standard').length, 1);

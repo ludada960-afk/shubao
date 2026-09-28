@@ -134,7 +134,16 @@ test('tiered margin gates clear at load under the approved 2026-08-26 tiers', ()
      成本按每秒记 ¥1/60（口型对齐官方价 1 元/分钟，按输出时长计费）。
      ⚠️ 这两档 **public: false**：一次真调用都没跑过 + 价未签字（见 catalog 里的注释）——
         门禁在这里只数条数，公开与否由 video-catalog 那两条门禁守。 */
-  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 40);
+  /* ═══ 2026-09-27 批 DC-4：40 → **41**（判据未变，事实变了）════════════════════════════════════
+     新增「做成动图」一档：video_live_photo_short = 14900 units（面价 ¥3.90），
+     成本按**我们自己的最短档**如实记 ¥0.91/条（Seedance Fast 5 秒，与 video_seedance_fast_*
+     同一条已出片验证的通道）。它**只有短档**：这一档的产物是本地裁出来的 2~3 秒，
+     上游按条买 5 秒那一档，没有"长档"这回事。
+     ⚠️ 它必须留在 `video_` 前缀里被这条门禁数到 —— 有真实上游成本、且成本会随上游调价漂，
+        不能躲进图片 SKU 那一堆（那堆没有 70% 地板）。 */
+  assert.equal(Object.keys(FEATURE_SKUS).filter(sku => sku.startsWith('video_')).length, 41);
+  assert.equal(bySku.get('video_live_photo_short').status, 'ok', '做成动图那一档要过高端带 70% 地板');
+  assert.ok(bySku.get('video_live_photo_short').margin >= 0.70);
 
   assert.equal(bySku.get('video_seedance_standard_short').status, 'ok');
   assert.ok(bySku.get('video_seedance_standard_short').margin >= 0.40);

@@ -11,10 +11,14 @@ import {
   VIDEO_PRODUCTS,
   getVideoProduct,
   isLocalEngineProduct,
+  isStillMotionProduct,
   localVideoProducts,
   validateVideoProductInput,
   videoFeatureSku as catalogVideoFeatureSku,
 } from './videoCatalog.mjs';
+/* 「做成动图」：静图 → 上游最短档（5 秒）→ **本地裁到 2~3 秒**（见 server/stillMotion.mjs 文件头，
+   成本口径与用户口径都在那里）。裁切在交付那一步做（persistDeliveredOutput）。 */
+import { LIVE_PHOTO_CLIP_SECONDS, LIVE_PHOTO_PROMPT, livePhotoTrimWindow, trimClipToSeconds } from './stillMotion.mjs';
 import { createLocalVideoAdapter, ffmpegAvailable, probeDurationSeconds } from './videoLocalAdapter.mjs';
 import { validateLocalPlanInput } from './localVideoPlan.mjs';
 import { createVolcSubtitleAdapter, volcSubtitleReadiness } from './volcSubtitleErase.mjs';
@@ -922,6 +926,48 @@ export function createVideoGeneration({
     }
   }
 
+  /* ═══ 交付前的最后一道加工：**「做成动图」在本地裁到 2~3 秒**（2026-09-27 批 DC-4）════════════
+     上游按**最短档 5 秒**给的片子（成本 ¥0.91 就买这 5 秒），用户要的是"实况那种一小段"
+     ⇒ 交付件不是上游原片，而是本地 ffmpeg 裁出来的 2~3 秒短片（本机活，不额外花钱）。
+     ⚠️ 位置很关键：放在 `persistOutput` **之前**，也就是"没裁出来就还没交付、还没结算" ——
+        裁切失败会走 processJob 的失败分支 → 任务落 failed → 既有链路 releaseItem（退钱）。
+        绝不允许出现"扣了钱但拿不到动图"（铁律①的变体）。
+     ⚠️ 上游原片也是**先落临时文件**：它只用来裁，不进 video_assets（用户拿到的是 2~3 秒那条）。 */
+  async function persistStillMotionOutput(job, response) {
+    const contentType = clean(response.headers.get('content-type'), 100).split(';')[0] || 'video/mp4';
+    if (!contentType.startsWith('video/')) throw httpError(502, 'VIDEO_OUTPUT_TYPE_INVALID', '生成结果无效，请重试');
+    if (!response.body) throw httpError(502, 'VIDEO_OUTPUT_BODY_MISSING', '没有收到视频文件，请重试');
+    const rawPath = resolve(outputRoot, `.${job.id}.${crypto.randomUUID()}.raw.mp4`);
+    const clipPath = resolve(outputRoot, `.${job.id}.${crypto.randomUUID()}.clip.mp4`);
+    try {
+      /* 边下边数体积（与 persistOutput 同一个上限），避免把一段超预期的片子先落满磁盘 */
+      const meter = new Transform({
+        transform(chunk, _encoding, callback) {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          this.size = (this.size || 0) + buffer.length;
+          if (this.size > OUTPUT_LIMIT) return callback(httpError(502, 'VIDEO_OUTPUT_SIZE_INVALID', '视频文件过大，无法交付'));
+          return callback(null, buffer);
+        },
+      });
+      await pipeline(Readable.fromWeb(response.body), meter, fs.createWriteStream(rawPath, { flags: 'wx' }));
+      const sourceSeconds = await probeDurationSeconds(rawPath).catch(() => 0);
+      const window = livePhotoTrimWindow({ sourceSeconds, targetSeconds: LIVE_PHOTO_CLIP_SECONDS });
+      await trimClipToSeconds({ inputPath: rawPath, outPath: clipPath, seconds: window.seconds });
+      /* 裁完走**既有**的本地成片落库那条路（内容类型/体积/哈希/两行入库一处不少），
+         它顺手把裁切产物删掉；这里只负责再删掉上游原片。 */
+      return await persistLocalOutput(job, clipPath);
+    } finally {
+      await fs.promises.rm(rawPath, { force: true }).catch(() => undefined);
+    }
+  }
+
+  /* 交付件的分流点：普通视频任务原样落库；「做成动图」先裁再落库。
+     判据取自**产品声明**（isStillMotionProduct），不认提示词也不认路由名 —— 与派发点同一条纪律。 */
+  async function persistDeliveredOutput(job, response) {
+    if (!isStillMotionProduct(getVideoProduct(job.product_id))) return persistOutput(job, response);
+    return persistStillMotionOutput(job, response);
+  }
+
   function verifiedDeliveryForJob(job) {    const delivery = db.prepare("SELECT * FROM video_deliveries WHERE job_id = ? AND verification_state = 'verified'").get(job.id);
     if (!delivery) return null;
     const asset = db.prepare('SELECT id FROM video_assets WHERE id = ? AND owner_email = ?').get(delivery.id, job.owner_email);
@@ -1297,7 +1343,7 @@ export function createVideoGeneration({
         const progress = Math.max(job.progress || 0, Math.min(99, Number(result.progress) || 0));
         updateJob(id, { status: 'processing', progress });
         if (status === 'completed') {
-          const output = await persistOutput(job, await provider.download(job.provider_task_id, result));
+          const output = await persistDeliveredOutput(job, await provider.download(job.provider_task_id, result));
           if (job.current_attempt_id) attemptStore.markDelivered(job.current_attempt_id);
           await complete(job, output);
           return;
@@ -1441,6 +1487,14 @@ export function createVideoGeneration({
     const processProduct = isProcessProduct(product);
     if (product.localEngine === true) {
       await assertLocalEngineReady();
+    } else if (isStillMotionProduct(product)) {
+      /* ═══ 「做成动图」的**建单前预检**（2026-09-27 批 DC-4）══════════════════════════════════
+         这一档的成本在上游（¥0.91/条），但**交付前的裁切靠本机 ffmpeg** —— 换句话说：
+         这台机器没有 ffmpeg 时，用户会被扣一次上游的钱、却拿不到 2~3 秒的动图。
+         ⇒ 与"本地方案"同一条纪律（videoCatalog 的 local-ffmpeg 台账那段）：**缺了就 503、
+            不建单、不冻结积分**。预检放建单前是有意的 —— 放在交付时才拦就变成"先扣再退"，
+            用户会看到余额抖动（铁律①的变体，见 test/charge-requires-confirmation 末段）。 */
+      await assertLocalEngineReady();
     } else if (product.videoProcess === true && product.credential === 'volc') {
       /* 上游处理（火山）：凭据缺失就 503，**不建单不冻结积分** —— 与 ffmpeg 预检同一条纪律。
          批 AU 起这里有两条路（字幕擦除 / 口型对齐），分开报原因：用户要知道缺的是哪一把钥匙。 */
@@ -1471,10 +1525,24 @@ export function createVideoGeneration({
        ⚠️ 只对**上游生成**生效：本地方案的"方案"就是那份渲染清单（分辨率/帧率/区域），
           它已经由 validateLocalPlanInput 校验过，且不产生模型侧的口味问题 ——
           要一个"拍摄方案预览"再来处理一条已有视频，既不合逻辑也会凭空多收一次分析费。 */
+    /* ═══ 2026-09-27 批 DC-4：「做成动图」与"处理已有视频"同一档待遇（跳过闸门与编译）══════════
+       闸门存在的理由是**"方案是收了钱的、收了钱就必须影响产出"**（本文件上方 2026-09-18 那段）。
+       而这一档**不收方案费**（它只有一条 video_live_photo_short = 上游 5 秒那条通道的钱，
+       方案分析那 1 积分与它无关），用户给的输入也只有**一张成品图** —— 他手上不存在一份可确认的
+       拍摄方案。⇒ 与 localEngine / videoProcess 那几条同一条纪律：**跳过闸门，但下面每一道校验
+       （时长白名单 / 清晰度 / 参考素材 / 内容闸门 / 报价 hold）一个都不少**。
+       ⚠️ 这一段刻意写在 IIFE **之前**：IIFE 里那两行 `const prompt = compiled.prompt;` 必须字面
+          留在 createJob 内（test/video-plan-billing-chain-0918 守着"落库的 prompt 是编译结果"）。 */
+    const stillMotion = isStillMotionProduct(product);
     let compiled = { planHash: '' };
     let prompt = '';
     let negativePrompt = '';
-    if (!processProduct) {
+    if (stillMotion) {
+      /* 提示词是我们自己的固定一句（在 stillMotion.mjs 里，理由也写在那里）——
+         这一档没有"用户文案/方案"可编译，所以 plan_hash 保持空串（不冒充编译结果）。 */
+      prompt = LIVE_PHOTO_PROMPT;
+    }
+    if (!processProduct && !stillMotion) {
       /* 上游那条路：闸门 + 编译**都在这里**（服务端权威，客户端绕不过）。
          用 IIFE 的意义只有一个：`const prompt = compiled.prompt` 这两行必须**字面留在
          createJob 内** —— test/video-plan-billing-chain-0918 与 plan-affects-output-audit-0918
@@ -1546,6 +1614,12 @@ export function createVideoGeneration({
     const references = normalizeReferences(ownerEmail, input?.references, publicBaseUrl);
     if (processProduct && references.videos.length !== 1) {
       throw httpError(400, 'VIDEO_LOCAL_SOURCE_REQUIRED', '请先上传要处理的视频（一次一条）');
+    }
+    /* 「做成动图」吃的是**恰好一张静图**（那就是被做成动图的那张成品图）：
+       0 张无事可做、多张会变成"图生视频的参考图"（模型会自由编，裁出来的 2.5 秒就不是用户那张图了）。
+       ⚠️ 同样放在建单前：缺输入是用户现在就能补齐的事，不该等扣完钱才发现。 */
+    if (stillMotion && references.images.length !== 1) {
+      throw httpError(400, 'VIDEO_STILL_SOURCE_REQUIRED', '请先选一张成品图，再把这张图做成动图');
     }
     /* ═══ 有的方案**还要一样输入**：驱动音频（2026-09-26 批 AU，数字人口型对齐）══════════════════
        `localSpec.audio: true` 的产品（目前只有 lipsync_volc）必须恰好一个音频 ——

@@ -138,20 +138,38 @@
 | **M2** | 「一篇」成立：手法从"单选字段、每张点一次"改成**可勾选清单**（勾 N 种 = 出 N 张 = 收 N 张的钱，逐张下发各自的手法；某一张失败只重试/不扣那一张）；作品里写**篇标记**（`_piece`，历史一篇一张卡 + 可还原勾选）。另加**构图方向**（每张一档，默认居中/无方向；选了「空镜」时这一格锁死并说明原因）与**版式族**（每篇一档，只给拼得出来的两族） | 用户「「一套图片」可以按你说的做吧」；构图方向：严格口径 3/41 篇（7.3%）、放宽 9/41（22.0%）、全站真有横向引导 8.2%、镜像成对 **0 组可确证**（不做）；版式族：篇内同版式族反复用 74/402（18.4%）落在 21 篇 | `f93905ae` |
 | **M3** | 版式层（客户端确定性拼版）：宫格 / 底片条两种语法，**先出单图再拼**（纯几何 + canvas，不调模型、不计费），拼完成品图**看得见**、可下载、可存到「我的资产」（走既有上传 + 既有资产注册链路，无新端点）；<2 张不出图 | 拼版 60/402（14.9%）、分布在 36/41 篇（87.8%）；四种语法里前两种（宫格 / 底片条）本批可确定性渲染 | `b5d712b3` |
 
-### 7.2 未做：M4「做成动图」（**故意不做**，理由见下）
+### 7.2 M4「做成动图」：**已做齐（2026-09-27 批 DC-4）**，打桩全绿、真跑留给用户本人
 
 用户已选 A（工作台里对**已生成的那张**给一颗「做成动图」：2~3 秒循环短片、可下载、电脑端可直接传）。
-按"宁可少做一件，也不许留下半接线的东西"，本批**没有动工** —— 它要同时动四处
-（新 SKU + 上游图生视频 + 本地裁切 + 计费确认），而其中**上游那条 i2v 调用没法在本批真实验证**
-（要花钱、要真机跑），做出来就是一段"看着接上了、其实没人验过"的链路。下面把每一步写清，照着做即可。
+§7.1 那条写着"故意不做"的理由是"上游 i2v 没法在本批真实验证"——本批按用户的**新口径**解开了：
+「**真实跑还是我自己去做吧**」「你自己把这些功能都做齐全了，然后确保在**没有真实生产环境里面跑出来、
+不消耗我的上游 token** 的前提之下，把一切都做顺利了……确保**最大程度上没有问题**了，再交付给我」
+⇒ 上游那一次调用做成**可注入的桩**，整条链（建单 → 队列 → 轮询 → 下载 → **本地裁到 2~3 秒** → 落库 → 交付）
+用假上游跑通并逐条断言；真跑留给用户。
+下面那张"照着做即可"的清单保留（它就是要照做的事），**每一行后面加上本轮实际的做法与偏差**：
 
-| 步 | 做什么 | 落在哪个文件 | 关键口径 / 判据 |
-|---|---|---|---|
-| ① | **新 SKU** | `server/billing/catalog.mjs` 的 `FEATURE_SKUS` | 建议 `video_live_photo_short`：`providerCostCny: 0.91`（同 `video_seedance_fast_short` 那条上游 `agv-seedance2.0fast`，¥0.91/条）；要过 **70% 地板**就得 `priceFen ≥ 304`（0.91 ÷ 0.3 ≈ ¥3.04）—— 建议 ¥3.90（毛利 76.7%）或沿用现有 ¥6.90（86.8%）；必须声明 `maxDurationSeconds: 5`（上游 `durations.min = 5`）、`dailyLimitPerUser`、`routeRestriction: 'fast-only'`。⚠️ `video_*` 前缀的 SKU 会进 `videoMarginGateReport()`，**低于地板服务端拒绝启动**（`assertCatalogMarginGates` 是启动期 fail-closed） |
-| ② | **图生视频**（复用既有视频链路，不新写上游） | `server/videoGeneration.mjs` + `server/videoCatalog.mjs`（产品 `seedance_fast`）+ `/api/video/jobs` | 把那张静图当参考图（`limits.images = 9`，`modes` 含 `reference`），时长取 **5 秒**（`isDurationSupported` 先校验，别把 3 秒丢给上游）；路由白名单 fast-only 由 `videoModelRouter` 管 |
-| ③ | **本地裁到 2~3 秒（ffmpeg，免费）** | `server/videoExportRender.mjs`（`-t duration` / `manifest.output.duration`）与 `server/videoExportManifest.mjs`（clip 的 `trimStartMs/trimEndMs`） | 现有能力已够：**取第 0 秒起 2.5 秒**（要不要循环由产品定）⇒ 输出仍走 `generatedAssetStore`，得到稳定 `/api/generated-assets/…`；这一步**不再收费**（成本只在 ②）。⚠️ 要做 iOS 实况（MOV content identifier）是**另一条**决定，见本文件 §二 |
-| ④ | **计费与界面** | `src/pages/MediaCreation/index.jsx`（结果区，与 M3 的拼版入口同一处）+ `src/skills/skillRun.js` | 价格写在按钮上（「做成动图 · N 积分」）、点前确认、**失败不扣**（沿用 `test/charge-requires-confirmation` 那套：扣费只能由用户手势链发起） |
-| ⑤ | **门禁** | 新增 `test/concept-set-live-shot-0927.test.mjs` | ① 报价 = 按钮上的数（按条，不按张）；② 做成动图前必须先有一张成品图（没有入口）；③ 裁完时长落在 2–3 秒；④ 新 SKU 过 `assertCatalogMarginGates()`（可直接断言它返回 true）；⑤ 失败不扣：失败那张不进作品、也不产生扣费 |
+| 步 | 清单原话（2026-09-27 批 DC 写的） | 本轮实际做法 / 偏差与理由 |
+|---|---|---|
+| ① | 新 SKU `video_live_photo_short`，`providerCostCny: 0.91`，`priceFen ≥ 304`（建议 **¥3.90**） | **照做**：`units: 14900` + `priceFen: 390` + `marginBand: 'premium'` + `maxDurationSeconds: 5` + `routeRestriction: 'fast-only'` + `dailyLimitPerUser: 30`。门禁实算毛利 **73.7%**（积分面值口径）≥ 70% 地板 ✓。⚠️ **只有短档**：产物是本地裁出来的 2~3 秒，没有"长档"这回事 |
+| ② | 图生视频复用既有链路（写的是产品 `seedance_fast` + `/api/video/jobs`） | **改了两处，判据都写进代码注释**：<br>· **新开产品 `live_photo`**（不是复用 `seedance_fast`）：SKU 名由产品 id 派生（`video_${id}_${short|long}`），复用就会按 ¥6.90 那条 SKU 收钱 —— "独立收费"落不了地。产品仍走**同一条已出片验证的通道**（`routeId` 与 `seedance_fast` 逐字相同）、同一个适配器、同一份报文<br>· **浏览器不直接 POST `/api/video/jobs`**，改成薄入口 `GET/POST /api/concept/live-photo`：那一档不吃提示词，暴露给通用视频入口＝用户拿它去干一件它不做的事；入口里走**既有**建单链路（hold / 幂等 / 失败退回，一个字没改），状态查**既有** `GET /api/video/jobs/:id` |
+| ③ | 本地裁到 2~3 秒，建议复用 `videoExportRender` / `videoExportManifest` | **改用新模块 `server/stillMotion.mjs`**：`videoExportRender` 的契约是"已有视频的 concat/delogo/scale"（吃 manifest 与渲染清单），硬塞进去会把已跑通的去字幕/高清那条带歪（与 `motionStillRender` 当初分家的理由同一条）。裁切仍按清单的口径：**取第 0 秒起 2.5 秒**、H.264 / `yuv420p` / `+faststart` / `-an`。⚠️ 落地位置比清单更严：放在**落库之前**（`videoGeneration.persistStillMotionOutput`）—— 裁不出来这一单就 failed ⇒ 既有链路退钱，不会出现"扣了钱拿不到动图" |
+| ④ | 计费与界面：价格写在按钮上、点前确认、失败不扣 | **照做**，落点与清单一致（`src/pages/MediaCreation/index.jsx` 结果区，与 M3 拼版入口同一处）。价格**从服务端读**（`GET /api/concept/live-photo` 的 `points`，来自 catalog；页面里一个写死的价都没有）、点前弹**全站同一个**计费确认框、做完当场 `<video>` 预览 + **下载**（`概念视觉方案.mp4`）、失败/进行中**就近写在这一张下面**并写明没有扣积分 |
+| ⑤ | 门禁：新增 `test/concept-set-live-shot-0927.test.mjs` | **照做，文件名按本批的事实改成 `live-photo`**，并补齐清单里没有的两条：**幂等**（同一次点击重复触发 = 回放同一条任务）与**上游调用次数**（fake registry 数出来 = 1）。另外端到端加了一个场景㉒（`scripts/media-workbench-e2e.mjs`）：按钮带价 / 点前确认 / 拿到可下载的短片 / **浏览器从未 POST `/api/video/jobs`**（那条桩仍是 500"本轮不许真实出片"） |
+
+
+**验收边界（用户铁律：本批不许发生任何真实上游调用）**：
+- **打桩验过的**：SKU 过 `assertCatalogMarginGates()`、按钮上的价 = SKU 面价、**失败不扣费**
+  （打桩上游失败 / 裁切失败 → `billing_state = 'released'` 且**不结算**）、**幂等**（同一次点击重复触发
+  = 回放同一条任务，不再打上游、不再冻钱）、**一次点击只调一次上游**（fake registry 数出来的）、
+  裁切纯函数（2~3 秒且不超原片）、本机真裁一条（h264 / 2.5 秒 / 无音轨 / 体积更小）、
+  交付件是**裁过的那条**（ffprobe 复核资产时长落在 2~3 秒）、界面链路（按钮带价 / 点前确认 /
+  可轮询 / 下载文件名 / 失败就近说明）。端到端还额外看住一条：**浏览器这一侧一次都没有 POST `/api/video/jobs`**。
+  门禁：`test/concept-set-live-photo-0927.test.mjs`；端到端：`scripts/media-workbench-e2e.mjs` 场景㉒。
+- **只有用户真机点一次才能验的**（同一份清单也写进 `docs/design/91` 第 8 节）：① 上游真出片
+  （那条通道 5 秒档实测约 **2~3 分钟**，台账里的历史记录是 156 秒）；② 片子**动得自不自然**、
+  像不像这张图动了一下；③ 裁出来的 2~3 秒在手机/小红书里的播放与观感；④ 上游那条通道**当前是否还活着**
+  （台账是快照不是事实，见 `server/videoCatalog.mjs` 的判据纠错）。
+  ⚠️ 真跑前先确认中转余额 ≥ **¥0.91 × 并发**（余额不足时建单会被上游拒，**不扣我们的钱**但用户会看到失败）。
 
 ### 7.3 本批**没有**照做、也不打算照做的（实测不支持，免得下一轮有人又加回来）
 

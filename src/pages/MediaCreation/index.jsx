@@ -81,6 +81,8 @@ import {
   autoRecognizeEcommerce,
   polishECText,
   buildCanvasGenerationBody,
+  createLivePhotoClip,
+  fetchLivePhotoOffer,
   generateEcommerce,
   recoverCanvasGeneration,
   regenerateCanvasImage,
@@ -92,6 +94,12 @@ import {
    注释文字会被当成一个"被导入的符号"，构建直接判红（本批实测踩过一次）。
    `uploadEcommerceAsset` 是批 DC（M3）加的：拼版成品图要留档时，先经既有上传链路落成稳定素材。 */
 import { quoteBillingAction } from '../../services/billing.js';
+/* 「做成动图」要的两样既有能力：
+     · getVideoJob   —— 查任务状态（`/api/video/jobs/:id` 是既有路由，不新造状态口）；
+     · useDialog     —— 点之前的计费确认框（与 NoteModal 的「重新生成这张图片？」同一口径）。
+   ⚠️ 注释写在 import **外面**：verify-exports 用正则扫 import 块，块内注释会被当成导入的符号。 */
+import { getVideoJob } from '../../services/video.js';
+import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { useWorksSync } from '../../store/useWorksSync.js';
 import '../Home/MediaHub.css';
@@ -126,6 +134,18 @@ const HANDOFF_BY_PIPELINE = {
 };
 const HANDOFF_LABEL = { ecommerceSuite: '去套图工作台', xhsNote: '去图文工作台' };
 const VIDEO_HANDOFF_LABEL = '去视频工作台';
+/* ═══ 「做成动图」挂在哪条技能上（2026-09-27 批 DC-4）══════════════════════════════════════════
+   用户口径：「**动图选 A 吧**」—— A 就是"工作台里对**已生成的那张**给一颗「做成动图」"，
+   而那个工作台指的是**概念视觉方案**（docs/design/90 §7.2 的 M4 就是照这条写的）。
+   ⚠️ 所以这一颗只长在概念视觉方案的结果区：它不是通用能力（别的技能的结果图没有"一条 shoot 的
+      成套感"这个前提，硬塞进去等于给所有结果都加一个付费按钮）。 */
+const LIVE_PHOTO_SKILL_ID = 'image.concept_set';
+/* 轮询节奏：上游 5 秒档实测约 2~3 分钟出片（台账里的真实出片记录是 156 秒），
+   所以 5 秒问一次、最多问 90 次（7.5 分钟）—— 超了就如实说"还在做，去任务记录看"，
+   绝不假装失败（任务链路上它还在跑，回来还会退或结算）。 */
+const LIVE_PHOTO_POLL_MS = 5000;
+const LIVE_PHOTO_POLL_MAX = 90;
+
 const VISUAL_SKILL_IDS = {
   /* ⚠️ 2026-09-23 批 AB：`image.free`（自由创作）已按用户指令下架，这里那条映射一并删除。
      自由创作**这条链路本身还在**（首页的 visualCreation 模式是页面级模式，不是这张技能卡），
@@ -166,7 +186,7 @@ function friendlyError(error) {
   return message;
 }
 
-function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse, sheet = null }) {
+function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [], onFuse, sheet = null, livePhoto = null }) {
   if (!run) return null;
   const done = run.slots.filter(slot => slot.status === 'completed' && slot.url);
   const failed = visualRetryIndexes(run);
@@ -189,14 +209,41 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
         <span>{done.length}/{run.slots.length} 张</span>
       </header>
       <div className="media-run-grid">
-        {run.slots.map((slot, index) => (
-          <div className="media-run-slot" key={slot.id} data-status={slot.status}>
-            {slot.url
-              ? <img src={slot.url} alt={skillName + ' ' + (index + 1)} loading="lazy" />
-              : <span className="media-run-placeholder">{slot.status === 'failed' ? '失败' : (busy ? '生成中' : '待生成')}</span>}
-            {slot.error && <p className="media-run-error" role="alert">{slot.error}</p>}
-          </div>
-        ))}
+        {run.slots.map((slot, index) => {
+          /* ═══ 2026-09-27 批 DC-4：「做成动图」**逐张**长在这一张图下面 ═════════════════════════
+             用户口径：「**动图选 A 吧**」—— 对**已生成的那张**给一颗。所以：
+               · 只有这张真出了图（slot.url）才出现这颗按钮（没有图 = 没有可动的东西）；
+               · 正在做的时候说清"做好之前不会扣积分"；做完了就在原地给**下载**；
+               · 失败**就近说明**（这一张下面那行 role="alert"，不是转瞬即逝的 toast），并写清没扣积分。 */
+          const clip = livePhoto?.states?.[index] || null;
+          const canMake = finished && Boolean(slot.url) && Boolean(livePhoto?.offer)
+            && clip?.status !== 'working' && clip?.status !== 'pending' && !clip?.url;
+          return (
+            <div className="media-run-slot" key={slot.id} data-status={slot.status} data-live-photo={clip?.status || ''}>
+              {slot.url
+                ? <img src={slot.url} alt={skillName + ' ' + (index + 1)} loading="lazy" />
+                : <span className="media-run-placeholder">{slot.status === 'failed' ? '失败' : (busy ? '生成中' : '待生成')}</span>}
+              {slot.error && <p className="media-run-error" role="alert">{slot.error}</p>}
+              {clip?.status === 'working' && (
+                <p className="media-run-live-note">正在做成动图…（通常 1~3 分钟，做好之前不会扣积分）</p>
+              )}
+              {clip?.note && <p className="media-run-live-note" role="alert">{clip.note}</p>}
+              {clip?.url && (
+                <div className="media-run-live-clip">
+                  <video src={clip.url} controls muted loop playsInline preload="metadata" aria-label="动图成片" />
+                  <button type="button" className="media-run-live-download" onClick={() => livePhoto.onDownload?.(index)}>
+                    <Download size={14} />下载这张动图
+                  </button>
+                </div>
+              )}
+              {canMake && (
+                <button type="button" className="media-run-live-make" onClick={() => livePhoto.onMake?.(index)}>
+                  <Sparkles size={14} />做成动图 · {livePhoto.offer.points} 积分
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
       {finished && failed.length > 0 && (
         <div className="media-run-actions">
@@ -1429,6 +1476,110 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     setNotice('已开始下载这张拼版');
   }
 
+  /* ═══ 2026-09-27 批 DC-4：「做成动图」（结果区逐张）═══════════════════════════════════════════
+     用户口径（逐字）：「**动图选 A 吧**」（工作台里对**已生成的那张**给一颗「做成动图」：
+     静图 → 2~3 秒循环短片、可下载、电脑端直接传）+「即便是在服务端做，**你也要收费呀**……
+     而且你确定你的方案没有成本吗，**你这个不是用到图生视频吗**」。
+     ⇒ 这一颗是**真的花钱**的：服务端按最短档 5 秒去上游做一次图生视频（成本 ¥0.91/条），
+        交付前本地裁到 2~3 秒 —— 所以按钮上写价、点前确认、失败不扣（三条都是铁律）。
+
+     ⚠️ 为什么"轮询"这一半必须自己写：服务端那一步是**视频任务**（实测 2~3 分钟），
+        与拼版那种同步活儿不同。这一轮不新造状态口 —— 直接查**既有**的 /api/video/jobs/:id
+        （任务列表与「任务记录」里本来就有它，用户在别处也能看到同一条）。
+     ⚠️ 扣费点（createLivePhotoClip → 服务端建单 + hold）**只能从用户手势链发起**，
+        顺序固定为：按钮 onClick → dialog.confirm → 确认后才调 —— test/charge-requires-confirmation
+        追溯的就是这条链；金额与幂等都由服务端定（客户端一个金额字段都不传）。 */
+  async function pollLivePhotoJob(jobId) {
+    for (let attempt = 0; attempt < LIVE_PHOTO_POLL_MAX; attempt += 1) {
+      const payload = await getVideoJob(jobId).catch(() => null);
+      const job = payload?.job || null;
+      if (!job) throw new Error('这条动图任务查不到了，请在左下角「任务记录」里看结果');
+      if (job.status === 'completed') return job;
+      if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'needs_review') return job;
+      await new Promise(resolve => { setTimeout(resolve, LIVE_PHOTO_POLL_MS); });
+    }
+    /* 超时不假装失败：任务还在跑，链路上它回来还会结算/退回 —— 如实告诉用户去哪儿看 */
+    return { status: 'timeout' };
+  }
+
+  async function makeLivePhoto(index) {
+    const slot = runRef.current?.slots?.[index];
+    const url = String(slot?.url || '');
+    if (!url || !livePhotoOffer) return;
+    if (!state.logged) {
+      dispatch({ type: 'SET_LOGIN_INTENT', intent: { destination: state.page, source: state.page } });
+      dispatch({ type: 'SHOW_LOGIN', show: true });
+      return;
+    }
+    /* 铁律②：先确认，再扣费。价格来自服务端价目（livePhotoOffer.points），不在这里写死。 */
+    const confirmed = await dialog.confirm({
+      title: '把这张做成动图？',
+      message: `会按这张图生成一小段 ${livePhotoOffer.maxSeconds} 秒以内的循环短片，`
+        + `可直接下载发小红书。本次扣 ${livePhotoOffer.points} 积分，做不出来不扣积分。`,
+      confirmLabel: '做成动图',
+    });
+    if (!confirmed) return;
+    setError('');
+    setLivePhoto(current => ({ ...current, [index]: { status: 'working' } }));
+    try {
+      const created = await createLivePhotoClip({ imageUrl: url, ratio: effectiveValues?.ratio || '' });
+      const job = await pollLivePhotoJob(created.jobId);
+      if (job.status === 'completed' && job.resultUrl) {
+        setLivePhoto(current => ({
+          ...current,
+          [index]: { status: 'done', url: job.resultUrl, seconds: Number(created?.seconds) || 0 },
+        }));
+        setNotice('动图做好了，可以直接下载发给小红书（发布时选「视频」）');
+        await refreshBillingBalance?.().catch(() => undefined);
+        return;
+      }
+      if (job.status === 'timeout') {
+        setLivePhoto(current => ({
+          ...current,
+          [index]: { status: 'pending', note: '还在做（通常 1~3 分钟）。做好之前不会扣积分；结果会出现在「任务记录」里。' },
+        }));
+        return;
+      }
+      /* 服务端建单失败会 releaseItem（退冻结），所以这里说"没有扣积分"是**如实**的。
+         ⚠️ 服务端有些文案自己已经带了这句（例如裁切失败那条），不要再叠一遍。 */
+      const reason = String(job.error || '').trim() || '这条没有做出来，换一张图或稍后再试';
+      setLivePhoto(current => ({
+        ...current,
+        [index]: { status: 'failed', note: /不扣积分/.test(reason) ? reason : reason + '；本次不扣积分。' },
+      }));
+    } catch (failure) {
+      /* 就近说明（不是转瞬即逝的 toast）：说的位置就在那一张图下面，见 RunPanel 的 livePhoto 段 */
+      const access = handleGenerationAccessError(failure, dispatch, { source: 'concept_live_photo' });
+      const message = String(failure?.message || '').trim() || '做成动图失败，请稍后再试';
+      setLivePhoto(current => ({
+        ...current,
+        [index]: { status: 'failed', note: access ? '还没有开始做，本次不扣积分。' : message + '；本次不扣积分。' },
+      }));
+    }
+  }
+
+  function downloadLivePhoto(index) {
+    const clip = livePhoto?.[index];
+    if (!clip?.url) return;
+    const anchor = document.createElement('a');
+    anchor.href = clip.url;
+    /* 文件名要认得出是**哪一张**（用户下到本地要分得清，与历史下载同一口径）：
+       标题取技能名（概念视觉方案）+ 这一张的序号，扩展名按地址里的 .mp4。 */
+    anchor.download = downloadFileName({
+      title: skill?.name,
+      fallback: '动图',
+      url: clip.url,
+      index,
+      count: 1,
+      video: true,
+    });
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setNotice('已开始下载这张动图');
+  }
+
   /* ═══ 存到我的资产：拼版图**服务端还不知道它**，所以要走既有的上传链路先落成稳定素材 ═══════════
      实测（saveWorkToAssets / server/ecommerceEngine/assetUpload）：能进资产库的只有
      `/api/generated-assets/<64hex>.(jpg|png|webp)` 这种稳定地址。
@@ -1507,10 +1658,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
      （这是 e2e 抓到的：它点完返回等 .media-hub，等 15s 等不到。之前那条 .topbar-back 点击超时
        把真正的症状盖住了 —— 元素"不稳定"其实是因为**它所在的树正在崩**。）
      ⚠️ 规则：**任何新加的 hook 都得放在最早的那个提前返回之前**，不能图省事写在 JSX 前面。
-     （批 K-C：原来这里还有一个 useDialog()，是预览确认框用的；现在预览走三步方案预览组件，
-       它已经没有调用方了，于是**连 hook 带 import 一起删掉** —— 留着就是一段没人用的死代码。
+     （批 K-C：这里那个 useDialog() 曾是预览确认框用的；预览改走三步方案预览组件后它没有调用方了，
+       于是**连 hook 带 import 一起删掉** —— 留着就是一段没人用的死代码。
        ⚠️ 踩坑记录：删 import 时漏删了这里的调用，实测**整页塌成错误页**
-       「useDialog is not defined」——e2e 因为只钩了 pageerror 没抓到，是我用 CDP 直接读页面文案才看见的。） */
+       「useDialog is not defined」——e2e 因为只钩了 pageerror 没抓到，是我用 CDP 直接读页面文案才看见的。
+       ⚠️ 2026-09-27 批 DC-4：**它又回来了**，但这一次有真的调用方 ——
+          「做成动图」这颗按钮点下去会**扣积分**，按铁律②「没有用户确认绝不扣费」，
+          点之前必须先弹一次确认（沿用全站同一个 DialogProvider，与 NoteModal 那颗
+          「重新生成这张图片？」同一口径）。没有第二个 hook 被加回来。） */
+  const dialog = useDialog();
   /* ═══ 2026-09-19 批 K-C：图片侧「预览」升级成三步方案预览 ═══════════════════════════════════
      用户第 16 轮原话：「图片生成这边是没有这个代为撰写的，这个分析方案的步骤是在那个**预览**的那个地方……
      这个预览实际上就跟这个代为撰写是一样的东西……它实际上就是**一个设计方案**。然后再进行生成。」
@@ -1534,8 +1690,31 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   const [sheet, setSheet] = useState(null);
   const [sheetBusy, setSheetBusy] = useState(false);
   const [sheetSaving, setSheetSaving] = useState(false);
+  /* ═══ 2026-09-27 批 DC-4：「做成动图」的两个 state ═══════════════════════════════════════════
+     · livePhotoOffer —— 服务端给的**价目与规格**（按钮上那个数字就是它的 points；
+       取不到就**不渲染这颗按钮**：宁可少一颗，也不许在页面上写死一个价）。
+     · livePhoto —— **逐张**的状态（{ [slotIndex]: { status, url, note, seconds } }）：
+       用户可能只给其中一张做动图，也可能几张同时在做，所以状态按槽位分开存，
+       「正在做 / 做完了给下载 / 没做出来（并说明没扣积分）」都就近长在那一张下面。 */
+  const [livePhotoOffer, setLivePhotoOffer] = useState(null);
+  const [livePhoto, setLivePhoto] = useState({});
   useEffect(() => () => { if (sheet?.url) { try { URL.revokeObjectURL(sheet.url); } catch { /* 忽略 */ } } },
     [sheet?.url]);
+  /* ═══ 「做成动图」的价目：进这条技能时问一次服务端（**不是扣费调用**，只是一次只读读取）══════
+     为什么不写在页面里：铁律「定价只有一个来源 = 后端目录」（test/pricing-single-source）。
+     所以按钮上的数字 = 服务端从 catalog 算出来的 points；取不到就 null ⇒ 那颗按钮根本不渲染，
+     绝不会出现"页面上写着一个价、账上按另一个价扣"。
+     ⚠️ 读失败**不报错**：这条链路取不到价就退化成"这一版没有这颗按钮"，不该让整页顶一条红字。 */
+  useEffect(() => {
+    if (skill?.id !== LIVE_PHOTO_SKILL_ID) { setLivePhotoOffer(null); return undefined; }
+    let cancelled = false;
+    fetchLivePhotoOffer()
+      .then(offer => { if (!cancelled) setLivePhotoOffer(offer?.ready ? offer : null); })
+      .catch(() => { if (!cancelled) setLivePhotoOffer(null); });
+    /* 换技能/换一篇就把上一轮的动图状态清掉：它是**这一篇那几张**的产物，留着会挂错图 */
+    setLivePhoto({});
+    return () => { cancelled = true; };
+  }, [skill?.id]);
   const closePlanPreview = () => setPlanSession(current => (current ? { ...current, opened: false } : null));
   /* 换技能就把这份会话丢掉：它的 prompt/materials 来自上一条技能的字段，留着会串味。
      ⚠️ 这同时是"确认离开"之后的收尾 —— 那份方案确实没地方可去了（提示里就是这么说的）。 */
@@ -1619,9 +1798,19 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onSaveAssets: () => { void saveSheetToAssets(); },
       }
     : null;
+  /* 「做成动图」：把**服务端给的价目**与逐张状态交给结果区。
+     ⚠️ 取不到价目（offer 为 null）就整个不渲染 —— 宁可少一颗按钮，也不许在页面上写死一个价。 */
+  const livePhotoAction = livePhotoOffer
+    ? {
+        offer: livePhotoOffer,
+        states: livePhoto,
+        onMake: index => { void makeLivePhoto(index); },
+        onDownload: downloadLivePhoto,
+      }
+    : null;
   const status = (
     <>
-      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} sheet={sheetAction} />
+      <RunPanel run={run} skillName={skill.name} busy={busy} onRetry={retryFailedAssets} onDownload={generate} fuseActions={fuseActions} onFuse={fuseFromResult} sheet={sheetAction} livePhoto={livePhotoAction} />
       {announce}
     </>
   );

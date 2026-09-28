@@ -1038,6 +1038,36 @@ export async function generateMotionStill({ url, preset = 'zoom_in', seconds = 3
   return res.json();
 }
 
+/* ═══ 「做成动图」：把一张成品图做成 2~3 秒短片（2026-09-27 批 DC-4）═══════════════════════════
+   用户口径（逐字）：「**动图选 A 吧**」（工作台里对**已生成的那张**给一颗「做成动图」：
+   静图 → 2~3 秒循环短片、可下载、电脑端直接传）+「即便是在服务端做，**你也要收费呀**……
+   而且你确定你的方案没有成本吗，**你这个不是用到图生视频吗**」。
+   ⇒ 与上面那条 `generateMotionStill`（本机微动效、免费）**不是同一条路**：这一条真的走一次上游
+     图生视频（Seedance Fast 最短档 5 秒 ≈ ¥0.91/条），交付前在服务端本地裁到 2~3 秒，
+     所以它**收费**（SKU video_live_photo_short，面价 ¥3.90/次）。
+
+   为什么是两个接口：
+     · GET  —— 拿**价目与规格**（按钮上那个数字必须是服务端从 catalog 算出来的；
+               铁律：定价只有一个来源，前端不许有第二份参与计算/展示的价目表）。
+     · POST —— 开始做（服务端自己开报价令牌并走既有视频建单链路；
+               **客户端一个金额字段都不传**，连幂等键都由服务端从这张图派生）。 */
+export async function fetchLivePhotoOffer({ signal } = {}) {
+  const res = await fetch(`${API_BASE}/api/concept/live-photo`, { headers: signedSessionHeaders(), signal });
+  if (!res.ok) throw await createApiError(res, '动图价目暂时取不到');
+  return res.json();
+}
+
+export async function createLivePhotoClip({ imageUrl, ratio = '', signal } = {}) {
+  const res = await fetch(`${API_BASE}/api/concept/live-photo`, {
+    method: 'POST',
+    headers: signedSessionHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(withSessionEmail({ image_url: normalizeCanvasImageUrl(imageUrl), ratio })),
+    signal,
+  });
+  if (!res.ok) throw await createApiError(res, '做成动图失败');
+  return res.json();
+}
+
 export async function generatePlogContent({
   text,
   refImage,

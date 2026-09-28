@@ -54,6 +54,12 @@ const ADAPTIVE_UPLOAD_FILE = 'public/images/visual-recipes/cases/free-glass-whal
 const RESULT_FILE = 'public/images/visual-recipes/cases/free-glass-whale.png';
 const RESULT_ASSET = 'b'.repeat(64) + '.png';       /* 服务端"持久化资产"的真实形状 */
 const RESULT_IMAGE = '/api/generated-assets/' + RESULT_ASSET;
+/* ── 做成动图（批 DC-4）：技能 id 与"成片地址"都从**声明源/真实形状**来 ──
+   ⚠️ 技能 id 用**声明源里那条真实存在的 id**（不是手抄一个字符串）：技能改名/下线时这里跟着走。
+   ⚠️ 成片地址是**视频资产**的形状（/api/video/media/<uuid>.mp4?purpose=playback&签名），
+      与线上 serializeOwnedJob 给的签名地址同形 —— 下载文件名就靠它末尾那个 .mp4 认出来。 */
+const LIVE_PHOTO_SKILL_ID = IMAGE_SKILLS.find(skill => skill.id === 'image.concept_set')?.id || 'image.concept_set';
+const LIVE_PHOTO_CLIP_URL = '/api/video/media/live-photo-e2e.mp4?purpose=playback&expires=4102444800000&signature=e2e-stub';
 
 /* ── 打桩开关：每个场景只改自己关心的那一项 ── */
 const fx = {
@@ -64,8 +70,11 @@ const fx = {
   suiteDelivered: 3,         /* 套图任务最终交付几张（< 方案张数 = 部分交付） */
   works: [],
   videoJobs: [],             /* 服务端 /api/video/jobs 返回的任务（嵌入的视频工作台用它渲染生成记录） */
+  /* 「做成动图」：POST /api/concept/live-photo 返回的任务号（随后由**既有**的
+     GET /api/video/jobs/:id 桩去查它 —— 与线上同一条路：入口一条，状态查既有路由） */
+  livePhotoJobId: 'live-photo-e2e-1',
 };
-const calls = { planPreview: [], assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0, recognize: [] };
+const calls = { planPreview: [], assets: 0, assetRole: '', regenerate: [], status: 0, quote: [], saveWork: [], session: 0, suite: [], suitePoll: 0, deleteWork: [], videoJob: 0, recognize: [], livePhoto: [], livePhotoGet: 0 };
 
 const failures = [];
 const passed = [];
@@ -219,6 +228,31 @@ const server = createServer(async (req, res) => {
     if (path === '/api/video/jobs' && req.method === 'POST') {
       calls.videoJob += 1;
       return json(res, 500, { error: 'E2E：本轮不允许真实提交视频任务' });
+    }
+    /* ── 「做成动图」：概念视觉方案结果区那一颗（2026-09-27 批 DC-4）──────────────────────────
+       ⚠️ 这里**只桩这一条入口**，成片状态走上面那条**既有**的 GET /api/video/jobs/:id ——
+          也就是"浏览器这一侧一次真实视频任务都没有提交"：
+          上面那条 POST /api/video/jobs 仍然一律 500（本轮不许真实出片），而本场景要断言
+          **它一次都没被调到**（calls.videoJob === 0）。真要有人把浏览器这条链改成直接
+          提交视频任务，这个场景会立刻红。
+       ⚠️ 返回的价目是**桩数据**（与真实目录同值：面价 ¥3.90 = 14900 units ≈ 15 积分），
+          成片地址也是桩的（本站没有可播放的样例片）—— 所以本场景验的是
+          "按钮带价 / 点前确认 / 拿到可下载的入口 / 没偷偷提交真实任务"，
+          **片子本身好不好看、能不能播**只有用户真机那一次才能验（docs/design/91 已如实写明）。 */
+    if (path === '/api/concept/live-photo' && req.method === 'GET') {
+      calls.livePhotoGet += 1;
+      return json(res, 200, {
+        ready: true, sku: 'video_live_photo_short', productId: 'live_photo',
+        units: 14900, totalUnits: 14900, points: 15, providerCostCny: 0.91,
+        upstreamSeconds: 5, clipSeconds: 2.5, minSeconds: 2, maxSeconds: 3,
+      });
+    }
+    if (path === '/api/concept/live-photo' && req.method === 'POST') {
+      calls.livePhoto.push(parse());
+      return json(res, 202, {
+        jobId: fx.livePhotoJobId, status: 'queued', replay: false,
+        sku: 'video_live_photo_short', points: 15, seconds: 2.5,
+      });
     }
     if (path === '/api/video/jobs') return json(res, 200, { jobs: fx.videoJobs });
     /* 单条任务：点「生成记录」里的某一条时会拉它（缺这条路由会让任务状态被清成 undefined——
@@ -2122,6 +2156,96 @@ try {
   check(layout.ctaHittable, '主 CTA 中心点命中按钮本体（elementFromPoint —— 点得到才是能用）', String(layout.ctaHittable));
   check(layout.gapLeft <= 40 && layout.gapRight <= 40, '工作台左右拉满（与顶栏同一条线，不是各留 136px 的大片空白）',
     'left=' + layout.gapLeft + ' right=' + layout.gapRight);
+
+  /* ═══ ㉒ 做成动图（M4）════════════════════════════════════════════════════════════════════════
+     用户口径（逐字）：「**动图选 A 吧**」—— 工作台里对**已生成的那张**给一颗「做成动图」：
+     静图 → 2~3 秒循环短片、可下载、电脑端直接传小红书；「即便是在服务端做，**你也要收费呀**…
+     而且你确定你的方案没有成本吗，**你这个不是用到图生视频吗**」⇒ 独立计费、价格写在按钮上。
+     ⚠️ 本场景**不产生任何真实上游调用**（用户铁律）：上游一律打桩，而且要看住一件事 ——
+        浏览器这条链**一次都没有**去 POST /api/video/jobs（那条桩仍然是 500"本轮不许真实出片"）。
+        服务端那一步（真的调上游图生视频 + 本地裁到 2~3 秒）由
+        test/concept-set-live-photo-0927.test.mjs 用 fake registry 打桩压过；
+        端到端这一次只验**界面与接口**这条链。 */
+  scenario('㉒ 做成动图：结果区那颗按钮（带价）→ 计费确认 → 拿到可下载的短片');
+  fx.regenerateMode = 'ok'; fx.quoteStatus = 200; fx.statusRemaining = 0;
+  fx.videoJobs = [{
+    id: fx.livePhotoJobId,
+    status: 'completed',
+    resultUrl: LIVE_PHOTO_CLIP_URL,
+    productId: 'live_photo',
+    duration: 5,
+    billingState: 'settled',
+  }];
+  calls.videoJob = 0;
+  calls.livePhoto.length = 0;
+
+  await page.goto('http://127.0.0.1:' + PORT + '/image-creation?id=' + encodeURIComponent(LIVE_PHOTO_SKILL_ID), { waitUntil: 'load', timeout: 40000 });
+  await page.waitForSelector('.media-workbench-submit', { timeout: 20000 });
+  await page.waitForTimeout(400);
+  /* 像真实用户那样配齐：勾**一个**手法（这一篇的手法默认一个都不勾，见批 AW） */
+  await page.evaluate(() => {
+    const box = document.querySelector('.media-workbench-checklist.is-selectable .media-workbench-checklist-toggle');
+    if (box && box.getAttribute('aria-checked') !== 'true') box.click();
+  });
+  await page.waitForTimeout(250);
+  await clickGenerate();
+  await page.waitForFunction(() => document.querySelectorAll('.media-run-slot img').length > 0, null, { timeout: 25000 });
+  await page.waitForTimeout(400);
+
+  const beforeMake = await page.evaluate(() => ({
+    makeText: document.querySelector('.media-run-live-make')?.textContent || '',
+    hasDownload: Boolean(document.querySelector('.media-run-live-download')),
+    offerReady: document.querySelector('.media-run-slot')?.dataset.livePhoto || '',
+  }));
+  check(/做成动图 · 15 积分/.test(beforeMake.makeText), '结果区那一张下面有一颗「做成动图 · 15 积分」（价格写在按钮上）', beforeMake.makeText);
+  check(!beforeMake.hasDownload, '没点之前不给下载入口（不给空壳）');
+
+  /* 点它 → **先弹计费确认**（铁律②：没有用户确认绝不扣费） */
+  await page.click('.media-run-live-make');
+  const confirmDialog = await page.waitForSelector('[role="dialog"][aria-labelledby="app-dialog-title"]', { timeout: 8000 }).catch(() => null);
+  const confirmText = confirmDialog ? await confirmDialog.evaluate(node => node.textContent || '') : '';
+  check(Boolean(confirmDialog), '点之前弹出计费确认框');
+  check(/15 积分/.test(confirmText), '确认框里写明这次要扣多少积分', confirmText.slice(0, 80));
+  check(calls.livePhoto.length === 0, '还没确认就不许发请求（没有用户确认绝不扣费）', 'calls=' + calls.livePhoto.length);
+
+  await page.evaluate(() => {
+    const dialogNode = document.querySelector('[role="dialog"][aria-labelledby="app-dialog-title"]');
+    const button = [...(dialogNode?.querySelectorAll('button') || [])].find(node => /做成动图/.test(node.textContent || ''));
+    if (button) button.click();
+  });
+  await page.waitForSelector('.media-run-live-clip', { timeout: 25000 }).catch(() => null);
+  await page.waitForTimeout(400);
+
+  const after = await page.evaluate(() => {
+    const clip = document.querySelector('.media-run-live-clip');
+    return {
+      hasClip: Boolean(clip),
+      videoSrc: clip?.querySelector('video')?.getAttribute('src') || '',
+      downloadText: clip?.querySelector('.media-run-live-download')?.textContent || '',
+      note: document.querySelector('.media-run-live-note')?.textContent || '',
+    };
+  });
+  check(after.hasClip, '点完拿到短片（结果区里能看得到、也有下载入口）', JSON.stringify(after).slice(0, 120));
+  check(/live-photo-e2e/.test(after.videoSrc), '短片地址来自服务端返回的那一条', after.videoSrc.slice(0, 80));
+  check(/下载这张动图/.test(after.downloadText), '下载入口就在这张动图下面', after.downloadText);
+  check(after.note === '', '成功路径不要再叠一条提示（就近说明只留给"正在做/没做出来"）', after.note);
+
+  /* 接口这一侧：一次点击发一次、body 里**没有任何金额字段**（金额只由服务端目录算） */
+  check(calls.livePhoto.length === 1, '一次点击只发一次做成动图请求', 'calls=' + calls.livePhoto.length);
+  const liveBody = calls.livePhoto[0] || {};
+  check(String(liveBody.image_url || '').includes(RESULT_ASSET), '请求带的是"哪一张图"（那张成品图的地址）', String(liveBody.image_url).slice(0, 100));
+  check(['units', 'totalUnits', 'points', 'price', 'amount'].every(key => !(key in liveBody)),
+    '请求里不许出现任何金额字段（定价只有一个来源 = 服务端目录）', Object.keys(liveBody).join(','));
+  check(calls.livePhotoGet >= 1, '页面进来时问过一次服务端价目（按钮上的数字从这里来）', 'calls=' + calls.livePhotoGet);
+  /* ⚠️ 这一条是"本场景没有真实出片"的证据：浏览器这一侧一次都没提交真实视频任务 */
+  check(calls.videoJob === 0, '**没有偷偷提交真实视频任务**（POST /api/video/jobs 那条桩原样还在：点了必 500）', 'calls=' + calls.videoJob);
+
+  /* 下载链：文件名要认得出是哪一张（真点一次，看浏览器收到的文件名） */
+  const downloadPromise = page.waitForEvent('download', { timeout: 8000 }).catch(() => null);
+  await page.click('.media-run-live-download');
+  const download = await downloadPromise;
+  check(Boolean(download), '点「下载这张动图」真的把文件交给浏览器了');
+  check(/概念视觉方案\.mp4$/.test(download?.suggestedFilename() || ''), '下载的文件名认得出是哪一张（技能名 + .mp4）', String(download?.suggestedFilename()));
 
 } catch (error) {
   failures.push('✖ 端到端脚本自身失败：' + (error?.message || error));
