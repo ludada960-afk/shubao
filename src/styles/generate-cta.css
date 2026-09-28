@@ -58,9 +58,20 @@ html:not([data-scrolling]) .shubao-gen-cta:hover:not(:disabled) {
 .shubao-gen-cta:active:not(:disabled) { transform: translateY(0); }
 /* 批 BN：禁用档改用 V3 的既有语言（--sb-state-disabled-bg / -ink，与 Button.jsx / Home.css /
    skill-library.css 同一对）—— 三处主 CTA（全局 / 图片侧工作台 / 视频侧）从此只认一份来源，
-   也不再硬编码色值。旧写法是 V2 家族的 footer-actions-* 两个 hex（全仓棘轮要求 V2 用法为 0）。 */
+   也不再硬编码色值。旧写法是 V2 家族的 footer-actions-* 两个 hex（全仓棘轮要求 V2 用法为 0）。
+   ═══ 2026-09-28 批 CY-⑤：**禁用档必须是不透明的**（用户批注图4，逐字）══════════════════════════
+   用户原话：「你好好看一下现在你这个**生成预览或者生成图片、生成视频的这个按钮**，它**左右两边实际上
+   好像还是没有覆盖满**。就是我去**滑动它还是能够看到它背后的那个工作台的内容**。还是会被露出来。」
+   根因（我自己跑探针 + 逐像素量出来的，.qa/cy2-cta-edges.mjs）：`--sb-state-disabled-bg` 是
+   **rgba(12, 10, 9, .04)** ——4% 黑，**半透明**。所以禁用时**按钮背后的东西会从按钮里透出来**：
+   批注图4 里那颗灰的「分析并生成方案 58 积分」就把下层输入框的**白底圆角轮廓**整条透了出来
+   （实测按钮左右两半的像素值分别是 245,245,245 与 243,242,244 —— 同一颗按钮两种灰，就是透出来的证据）。
+   修法：**把那 4% 的黑叠在一层不透明的卡片底上**再当背景用 —— 渲染结果与今天逐像素相同
+   （白底上合成 = 245,245,245），但下面再没有东西能透过来；暗色主题同理（那边是 5% 白叠深底）。
+   ⚠️ 不新增 token、也不改 `--sb-state-disabled-bg` 本体：那个 token 另有 17 处引用（Button.jsx /
+      SizingPanel / Pricing / Plog…），本次只修"主 CTA 的禁用档"，别处一条都不碰。 */
 .shubao-gen-cta:disabled {
-  background: var(--sb-state-disabled-bg);
+  background: linear-gradient(var(--sb-state-disabled-bg), var(--sb-state-disabled-bg)), var(--sb-surface-card);
   color: var(--sb-state-disabled-ink);
   box-shadow: none;
   cursor: not-allowed;

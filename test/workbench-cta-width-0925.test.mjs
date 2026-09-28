@@ -46,10 +46,18 @@ test('② 禁用态"不亮"：灰底静音字，不再是品牌紫淡化；但�
   const disabled = css.slice(disabledStart, css.indexOf('.media-workbench-submit:disabled .media-workbench-points'));
   const points = css.slice(css.indexOf('.media-workbench-submit:disabled .media-workbench-points'), css.indexOf('.media-workbench-submit-label'));
   /* 禁用底色/字色必须与全局 CTA 用**同一对** token —— 实机探针抓到过一次两边不一致
-     （一边一种灰）：同一件事两个长相正是用户最烦的"两套东西"。 */
-  assert.match(disabled, /background: var\(--sb-state-disabled-bg\)/);
+     （一边一种灰）：同一件事两个长相正是用户最烦的"两套东西"。
+     ═══ 2026-09-28 批 CY-⑤（**用户改向**，同一批的图4/图7）：这行判据原来要求"底 = token 本体"，
+       而那个 token 是 **rgba(12,10,9,.04) 半透明** —— 于是禁用时**背后内容从按钮里透出来**
+       （用户原话：「就是我去**滑动它还是能够看到它背后的那个工作台的内容**。还是会被露出来。
+        **这个问题已经有让你去解决啦**，你还是没解决掉呀。」实测那颗灰按钮左右两半
+       245,245,245 与 243,242,244 —— 同一颗按钮两种灰就是透出来的证据）。
+       ⇒ 判据收窄为"那层半透明灰必须**叠在**一层不透明的卡片底上"：渲染结果与原来逐像素相同，
+         但下面再没有东西能透过来。完整理由见 generate-cta.css 同一段。 */
+  assert.match(disabled, /background: linear-gradient\(var\(--sb-state-disabled-bg\), var\(--sb-state-disabled-bg\)\), var\(--sb-surface-card\);/,
+    '禁用底 = 半透明灰叠在不透明卡片底上（不许直接写半透明 token）');
   assert.match(disabled, /color: var\(--sb-state-disabled-ink\)/);
-  assert.doesNotMatch(disabled, /opacity/, '禁用主块里不许再有 opacity（那是"品牌紫淡化"的老写法）');
+  assert.doesNotMatch(disabled, /opacity/, '禁用主块里不许再有 opacity（那是"品牌紫淡化"的老写法，也会让背后内容透出来）');
   assert.match(disabled, /cursor: not-allowed/);
   /* 9-12 的用户口径：按钮可以是灰的，但积分必须仍然显眼 */
   assert.match(points, /background: var\(--sb-brand-a10\)/);
@@ -146,4 +154,60 @@ test('⑥ 缺料提示说**人话**（知渔式整句），且句子里保留字
   assert.match(page, /'请先填写' \+ \(first \|\| '必填项'\)/, '文本位：请先填写{字段名}');
   assert.doesNotMatch(page, /'还差：' \+ validation\.missing/, '旧的生硬简写已下线');
   assert.match(page, /'请先勾选要生成的内容模块'/, '模块闸门也改成人话');
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   第六节（批 CY-⑤）：**白底要铺满 + 禁用档不许透明**（用户批注图7 / 图4）
+
+   用户原话（逐字）：「你好好看一下现在你这个**生成预览或者生成图片、生成视频的这个按钮**，
+   它**左右两边实际上好像还是没有覆盖满**。就是我去**滑动它还是能够看到它背后的那个工作台的内容**。
+   还是会被露出来。**这个问题已经有让你去解决啦**，你还是没解决掉呀。」
+
+   两处成因（都不是猜的，逐像素量出来的：`.qa/cy2-cta-edges.mjs` + 用户截图像素）：
+     · 图7：左栏自己有 `padding: 24px 20px 0`，而 CTA 是它**内容盒**里的 sticky 长条 ⇒ 白底只铺到
+       内容盒（x 140→526），左 20px / 右 31px（20 内边距 + 11 滚动条槽）留在外面。图6（背后恰好是
+       白底）看不出来；**图7 露馅**：被压在下面的「设计风格」行里那颗紫边「AI推荐」按钮的左边缘
+       （约 4px 宽、50px 高、RGB≈(224,208,251)）从「生成预览」按钮左沿外透出来。
+     · 图4/图7：三处主 CTA 的禁用底色是 `--sb-state-disabled-bg` = **rgba(12,10,9,.04) 半透明** ⇒
+       禁用时**背后内容从按钮里透出来**（图4 那颗灰按钮左右两半实测 245,245,245 与 243,242,244 ——
+       同一颗按钮两种灰，就是下层输入框的白底圆角透出来的证据）。
+   ⚠️ 这两条判据都**不写死数字/色值**：白底那条从"左栏自己的内边距"算出来比，禁用那条要求
+      "半透明 token 必须叠在一层不透明的卡片底上"。以后谁改了一边，这里当场红。
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+test('⑦ 图片侧底栏白底：左右**铺满左栏**（负外边距 + 等量内边距，数值跟着左栏内边距走）', () => {
+  const css = read('src/components/media/WorkbenchShell.css');
+  const leftBlock = css.slice(css.indexOf('.media-workbench-left {'), css.indexOf('}', css.indexOf('.media-workbench-left {')));
+  const pad = (leftBlock.match(/padding:\s*([^;]+);/) || [, ''])[1].trim().split(/\s+/);
+  const padX = parseFloat(pad.length >= 2 ? pad[1] : pad[0]);
+  assert.equal(padX, 20, '左栏左右内边距 = 20（真源：`.media-workbench-left { padding: 24px 20px 0 }`）');
+
+  const ctaBlock = css.slice(css.indexOf('.media-workbench-cta {'), css.indexOf('.media-workbench-submit {'));
+  assert.match(ctaBlock, new RegExp('margin-left:\\s*-' + padX + 'px;'), 'CTA 要用负外边距把左栏那圈内边距吃进来（左右都算）');
+  assert.match(ctaBlock, new RegExp('margin-right:\\s*-' + padX + 'px;'), '右边同样要吃（只修一边＝还是没铺满）');
+  assert.match(ctaBlock, new RegExp('padding-left:\\s*' + padX + 'px;'), '补回等量内边距，按钮本体位置不变');
+  assert.match(ctaBlock, new RegExp('padding-right:\\s*' + padX + 'px;'), '补回等量内边距（右）');
+  assert.match(ctaBlock, /background: var\(--sb-surface-card\);/, '底栏必须有**不透明**底色（白底才谈得上"铺满"）');
+  /* 上下两条是批 BL/BM 定过的，不许被这次改动带歪。 */
+  assert.match(ctaBlock, /padding-top: 20px;/, '上内边距仍是批 BL 定的 20（不动）');
+  assert.match(ctaBlock, /padding-bottom: 28px;/, '下内边距仍是批 BM 定的 28（不动）');
+});
+
+test('⑧ 三处主 CTA 的禁用档：半透明 token 必须叠在**不透明的卡片底**上（否则背后内容透出来）', () => {
+  const layered = /background:\s*linear-gradient\(var\(--sb-state-disabled-bg\), var\(--sb-state-disabled-bg\)\),\s*var\(--sb-surface-card\);/;
+  const files = [
+    ['全局 CTA', 'src/styles/generate-cta.css', /\.shubao-gen-cta:disabled \{[\s\S]*?\}/],
+    ['图片侧工作台', 'src/components/media/WorkbenchShell.css', /\.media-workbench-submit:disabled \{[\s\S]*?\}/],
+    ['视频侧工作台', 'src/pages/VideoStudio/VideoStudio.css', /\.video-submit-row button:disabled \{[\s\S]*?\}/],
+  ];
+  for (const [name, file, re] of files) {
+    const css = read(file);
+    const block = (css.match(re) || [''])[0];
+    assert.ok(block, name + ' 必须有一条 :disabled 规则');
+    assert.match(block, layered, name + ' 的禁用底色 = 半透明灰**叠**在不透明卡片底上（不许只写 token）');
+    assert.doesNotMatch(block, /background:\s*var\(--sb-state-disabled-bg\);/, name + ' 不许把半透明 token 直接当底色（那就是"透出来"的成因）');
+  }
+  /* token 本体保持原样（另有 17 处引用：Button.jsx / SizingPanel / Pricing / Plog…，本批一条都不碰） */
+  const tokens = read('src/styles/design-tokens-v3.css');
+  assert.match(tokens, /--sb-state-disabled-bg:\s*rgba\(12, 10, 9, 0\.04\)/, '亮色主题的禁用底仍是那个半透明值（所以要靠"叠"来不透明）');
+  assert.match(tokens, /--sb-state-disabled-bg:\s*rgba\(255, 255, 255, 0\.05\)/, '暗色主题同理（5% 白）');
 });

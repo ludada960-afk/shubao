@@ -266,3 +266,54 @@ test('⑧ 全屏按钮：图片侧与视频侧同一套', () => {
     sameDecls(blockOf(imageRules, imgSel, '图片侧'), vid, Object.keys(vid.decls), '全屏按钮 ' + vidSel);
   }
 });
+
+/* ── ⑨ 模型面板的**内边距与上下节奏**：视频侧按图片侧的取值算出来 ─────────────────────────────
+   用户原话（逐字，7 张批注图第 5 条）：
+     「你现在**生图模型**这边的张开面板，左右两边的间距，上下的间距，我觉得做的也还行吧，可是你
+       **视频生成那边的模型选择面板**似乎是不一样的。」「你看很明显视频生成这边的模型选择的面板。
+       他这些按钮**左右两边的空白间距是跟图片生成那边不一样的**。这个你也得去**对齐**一下。」
+   实测（.qa/cy2-model-panels.mjs，1440×1000；两个面板同为 480 宽 / 圆角 20）：
+     图片侧 `.visual-config-panel`（基准）：行左/右内缩 21（= 1px 边框 + 20）、顶到首行 57
+       （= 1 + 24 + 标题 20 + 12）、末行到面板底 31（= 1 + 24 + 面板自身 6）、行间距 8。
+     视频侧改前：行左/右内缩 **9**、顶到首行 50、末行到面板底 **9**。
+   这条判据**不写死视频侧的那组数**，而是从图片侧的真源算出来再比 —— 以后谁把图片侧的 20/24/12
+   改了，视频侧不跟着算就会当场红（这正是"两套东西"复发的那条路）。 */
+test('⑨ 模型面板内边距与上下节奏：视频侧必须由图片侧的取值算出来', () => {
+  const section = blockOf(imageRules, '.visual-panel-section', '图片侧');
+  const padX = px(section.decls.padding.split(/\s+/)[1]);
+  const padTop = px(blockOf(imageRules, '.visual-panel-section:first-child', '图片侧').decls['padding-top']);
+  const padBottom = px(blockOf(imageRules, '.visual-panel-section:last-child', '图片侧').decls['padding-bottom']);
+  const headGap = px(blockOf(imageRules, '.visual-panel-section-heading', '图片侧').decls['margin-bottom']);
+  const panelPadBottom = px(blockOf(imageRules, '.visual-config-panel', '图片侧', { prop: 'padding-bottom' }).decls['padding-bottom']);
+  assert.equal(padX, 20, '图片侧分区左右内边距 = 20（真源）');
+  assert.equal(padTop, 24, '图片侧首段上内边距 = 24（真源）');
+  assert.equal(padBottom, 24, '图片侧末段下内边距 = 24（真源）');
+  assert.equal(headGap, 12, '图片侧标题到第一行 = 12（真源）');
+  assert.equal(panelPadBottom, 6, '图片侧面板自身下内边距 = 6（真源）');
+
+  /* padding 允许简写（CSS 的 3 值写法 = 上 / 左右 / 下）—— 按 CSS 的展开规则补全成上右下左再比，
+     否则"写法不同"会被误判成"取值不同"。 */
+  const expand = parts => { const [t, r = t, b = t, l = r] = parts.map(v => px(v)); return [t, r, b, l]; };
+  const videoPad = expand(blockOf(videoRules, '.video-inline-menu.is-model', '视频侧', { prop: 'padding' })
+    .decls.padding.split(/\s+/));
+  assert.deepEqual(videoPad, [padTop, padX, padBottom + panelPadBottom, padX],
+    '视频侧模型面板的内边距 = [图片侧首段顶, 图片侧左右, 图片侧末段底 + 面板自身底, 图片侧左右]；'
+    + '实测 ' + JSON.stringify(videoPad) + '，应为 ' + JSON.stringify([padTop, padX, padBottom + panelPadBottom, padX]));
+
+  /* 标题到第一行：容器是 `display: grid; gap: var(--sb-space-2)`，面板头**也是网格项**，
+     所以那 12px 里有一部分是容器给的 —— 头自己的下内边距 + 容器 gap 必须正好等于 12。 */
+  const token = Number((read('src/styles/design-tokens-v3.css').match(/--sb-space-2:\s*(\d+)px/) || [])[1]);
+  const menuGap = blockOf(videoRules, '.video-inline-menu', '视频侧', { prop: 'gap' }).decls.gap;
+  assert.equal(menuGap, 'var(--sb-space-2)', '模型列表的行距读的是那个间距 token（与图片侧同源的 8）');
+  assert.equal(px(menuGap.replace(/var\(--sb-space-2\)/, token + 'px')), 8, '--sb-space-2 = 8');
+  const headPad = blockOf(videoRules, '.video-inline-menu.is-model .video-model-menu-head', '视频侧')
+    .decls.padding.split(/\s+/).map(v => px(v));
+  assert.equal(headPad[2] + token, headGap, '头部下内边距 + 容器 gap 必须等于图片侧的 12px（实测 ' + (headPad[2] + token) + '）');
+
+  /* 行按钮自身（内边距 / 圆角 / 间距）两侧本来就同值 —— 一起钉住，防止下次从这一侧被改动。
+     ⚠️ `last: true`：`.video-inline-menu > button` 在本仓有**多条叠加**定义（376 行那条是 8px 的老版），
+        生效值在最后一条 —— 取第一条会拿到早已被覆盖的旧值（本轮踩到）。 */
+  const row = blockOf(videoRules, '.video-inline-menu > button', '视频侧', { prop: 'padding', last: true });
+  assert.equal(row.decls.padding, 'var(--sb-space-2) var(--sb-space-3)', '模型行自身内边距仍读站内 token（8/12）');
+  assert.equal(row.decls['border-radius'], 'var(--sb-radius-card)', '模型行圆角 = 卡片档（图片侧同档）');
+});

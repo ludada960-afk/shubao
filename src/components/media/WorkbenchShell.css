@@ -711,6 +711,23 @@ html:not([data-scrolling]) .media-field-segmented button:hover:not(:disabled) { 
   /* 批 BM：左栏的下内边距已经归零 ⇒ CTA 不需要再用负 margin"吃掉"它；
      它自己带 padding-bottom 28 把按钮托离面板下沿，白底一直铺到左栏底（缝没了）。 */
   padding-bottom: 28px;
+  /* ═══ 2026-09-28 批 CY-⑤：**左右也要铺满**（用户批注图7，逐字）════════════════════════════════
+     用户原话：「你好好看一下现在你这个**生成预览或者生成图片、生成视频的这个按钮**，它**左右两边
+     实际上好像还是没有覆盖满**。就是我去**滑动它还是能够看到它背后的那个工作台的内容**。还是会被
+     露出来。**这个问题已经有让你去解决啦**，你还是没解决掉呀。」
+     批 BM 只修了**下边**那条缝；这一条修**左右**。逐像素实测（用户截图像素 + .qa/cy2-cta-edges.mjs）：
+       左栏 `.media-workbench-left` 自己有 `padding: 24px 20px 0`，而 CTA 是它的**内容盒**里的
+       sticky 长条 ⇒ 白底只铺到内容盒（x 140→526），左 20px、右 31px（20 内边距 + 11 滚动条槽）
+       留在外面。图6（背后恰好是白底）看不出来，**图7 就露馅了**：被压在下面的「设计风格」行里
+       那颗**紫边「AI推荐」按钮的左边缘**（约 4px 宽、50px 高的淡紫竖条，RGB≈(224,208,251)）
+       从「生成预览」按钮左沿外透了出来，还在按钮左上圆角处形成一弯紫月牙。
+     ⇒ 与批 AV/BM 修下边缝**同一套办法**：把左栏那圈内边距"吃"进 CTA 自己（负外边距 + 等量内边距），
+       白底从此横向铺到左栏两边；按钮本体位置不变（内边距补回来了，实测内容列仍是 x 140 起）。
+     ⚠️ 只动左右：上下那两条（padding-top 20 / padding-bottom 28）是批 BL/BM 定过的，一个数不碰。 */
+  margin-left: -20px;
+  margin-right: -20px;
+  padding-left: 20px;
+  padding-right: 20px;
   background: var(--sb-surface-card);
   /* ═══ 2026-09-25 批 BN：**按钮通栏 + 提示在按钮下方**（用户改向；批 BF 的原话也留在下面）═════
      ▌批 BF 当时的原话（**已被本批推翻**）：「我真的不太知道你为什么**按钮要做到这么宽**？……
@@ -764,8 +781,11 @@ html:not([data-scrolling]) .media-workbench-submit:hover:not(:disabled) {
 .media-workbench-submit:disabled {
   /* ⚠️ 与视频侧、与全局 CTA 用**同一对** token：--sb-state-disabled-bg / -ink
      （Button.jsx、Home.css、skill-library.css 等处的既有语言）。
-     实机探针抓到过两边不一致（视频侧一种灰、图片侧另一种灰）—— 同一件事两个长相就是"两套东西"。 */
-  background: var(--sb-state-disabled-bg);
+     实机探针抓到过两边不一致（视频侧一种灰、图片侧另一种灰）—— 同一件事两个长相就是"两套东西"。
+     批 CY-⑤：**半透明灰必须叠在不透明的卡片底上**（否则禁用时背后的内容会从按钮里透出来 ——
+     用户批注图4/图7 都是这条：实测左右两半 245,245,245 与 243,242,244 两种灰）。
+     完整理由与逐像素证据见 src/styles/generate-cta.css 同一段。 */
+  background: linear-gradient(var(--sb-state-disabled-bg), var(--sb-state-disabled-bg)), var(--sb-surface-card);
   color: var(--sb-state-disabled-ink);
   box-shadow: none;
   cursor: not-allowed;

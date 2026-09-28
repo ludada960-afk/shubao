@@ -504,9 +504,12 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
   box-shadow: var(--sb-cta-shadow-hover);
 }
 .video-submit-row button:active:not(:disabled) { transform: translateY(0); box-shadow: 0 6px 16px var(--sb-brand-a32); }
-/* 批 BN：改用与全局 CTA 同一对禁用 token（值不变），三处禁用态只认一份来源。 */
+/* 批 BN：改用与全局 CTA 同一对禁用 token（值不变），三处禁用态只认一份来源。
+   批 CY-⑤：**半透明灰必须叠在不透明的卡片底上** —— 否则禁用时背后的内容会从按钮里透出来
+   （用户批注图4：灰的「分析并生成方案 58 积分」把下层输入框的白底圆角轮廓整条透了出来）。
+   完整理由与逐像素证据见 src/styles/generate-cta.css 同一段。 */
 .video-submit-row button:disabled {
-  background: var(--sb-state-disabled-bg);
+  background: linear-gradient(var(--sb-state-disabled-bg), var(--sb-state-disabled-bg)), var(--sb-surface-card);
   box-shadow: none;
   color: var(--sb-state-disabled-ink);
   cursor: not-allowed;
@@ -1372,6 +1375,26 @@ html:not([data-scrolling]) .video-inline-menu > button:hover:not(.is-selected) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ═══ 2026-09-28 批 CY-④：模型面板的**内边距与上下节奏**逐值对齐首页「生图模型」面板 ═══════════════
+   用户原话（逐字）：「你现在**生图模型**这边的张开面板，左右两边的间距，上下的间距，我觉得做的也还行吧，
+   可是你**视频生成那边的模型选择面板**似乎是不一样的。」「你看很明显视频生成这边的模型选择的面板。
+   他这些按钮**左右两边的空白间距是跟图片生成那边不一样的**。这个你也得去**对齐**一下。」
+   实测（.qa/cy2-model-panels.mjs，1440×1000，两侧面板同为 480 宽、圆角 20）：
+     · 图片侧 `.visual-config-panel`（基准，值出自 VisualCreationMode.css:420-431——
+       `.visual-panel-section` 左右 20 / 首段顶 24 / 末段底 24 / 段距 16 / 标题下 12）：
+       行左/右内缩 **21**（1px 边框 + 20）、顶到首行 **57**、末行到面板底 **31**（24 + 面板自身 6）、行间距 8。
+     · 视频侧本档改前：行左/右内缩 **9**、顶到首行 **50**、末行到面板底 **9**；行按钮自身
+       （padding 8/12、圆角 12、gap 8）两边**本来就同值**，所以只补"面板给的那一圈空白"。
+   ⚠️ 只改 `.is-model` 这一档：它是首页那颗「视频模型」的**唯一**使用者（index.jsx:2410，`inlineMenu === 'model'`），
+      别的 `.video-inline-menu`（设置类）形态不同，不在本次对照范围内，一条都不碰。 */
+.video-inline-menu.is-model { padding: 24px 20px 30px; }
+/* 面板头原来是 `5px 7px 8px 7px`（自带一圈内边距，把标题又往里推 7px）——
+   图片侧的标题 = 内容左缘起、图标 14 + gap 4，且**标题下方 12px** 就是第一行。
+   ⚠️ 这里只能写 **4px**：容器本身是 `display: grid; gap: 8px`（1288 行），面板头也是网格项，
+      所以"标题 → 第一行" = 4 + 8 = **12**，正好是图片侧那 12px（`margin-bottom: 12px`）。
+      写成 12 会变成 20，实测顶到首行 65 ≠ 基准 57。 */
+.video-inline-menu.is-model .video-model-menu-head { padding: 0 0 4px; }
 
 @media(max-width:1180px) {
   .video-toolbar { align-items: stretch; flex-direction: column; }
