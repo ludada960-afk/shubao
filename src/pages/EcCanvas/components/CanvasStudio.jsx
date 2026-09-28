@@ -2285,7 +2285,7 @@ export function CanvasImageNode({
       <ResponsiveImage
         /* 9-11 用户批注#2: 本地预览优先 — 持久 url 尚未解码成功前用本地 data URI 兜底, 不再空白闪屏 */
         src={node.localPreviewUrl || node.url}
-        alt={node.name || node.displayLabel || '电商图片'}
+        alt={node.name || node.displayLabel || '图片'}
         variant="canvas"
         sizes={`${Math.ceil(node.w)}px`}
         ratio={node.ratio}

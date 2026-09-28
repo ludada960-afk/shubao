@@ -95,7 +95,9 @@ export async function chooseDeliveryDestination(request = {}, {
       return { strategy, handle, name: handle.name || filename, filename };
     }
     if (strategy === 'zip') {
-      const fallbackName = `${request.productName || '商品'}-电商图片.zip`;
+      /* 批 CY-⑭：无商品名时的兜底名去「电商」——通用用户导出自己的图，
+     文件名不该自称「电商图片」。有商品名时保留（那是用户自己填的，该留）。 */
+  const fallbackName = `${request.productName ? `${request.productName}-` : ''}图片.zip`;
       return { strategy, name: fallbackName, filename: fallbackName, fallback: true };
     }
     return { strategy, name: filename, filename, fallback: true };
@@ -266,7 +268,7 @@ export async function writePreparedDeliverables(destination, prepared, {
     zip.file('manifest.json', JSON.stringify(buildDeliveryManifest(prepared), null, 2));
     const blob = await zip.generateAsync({ type: 'blob' });
     if (!Number(blob?.size)) throw new Error('压缩包内容为空');
-    deliverBlob(blob, destination.filename || destination.name || '电商图片.zip');
+    deliverBlob(blob, destination.filename || destination.name || '图片.zip');
     onProgress({ completed: prepared.length, total: prepared.length, phase: 'writing' });
   } else if (destination.strategy === 'single-download') {
     if (prepared.length !== 1) throw new Error('单文件下载只能包含一张图片');

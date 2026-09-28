@@ -89,9 +89,21 @@ test('导出文件名按「用户起的名 → 业务角色 → 提示词首句 
 test('落盘文件名经过非法字符清洗，且不再以 hash 结尾', () => {
   const name = safeDeliveryName(deliveryNameFor({ name: '主图/详情:图*' }, 0, 1), 'PNG');
   assert.equal(name, '主图-详情-图.png');
-  assert.ok(!/\.png$/.test('') && name.endsWith('.png'));
   const hashed = safeDeliveryName(deliveryNameFor({ name: 'b'.repeat(64) }, 0, 1), 'PNG');
   assert.ok(!/^[0-9a-f]{60,}\.png$/.test(hashed), '绝不允许 hash 直接当文件名');
+});
+
+test('打包名与 alt 兜底名也不许自称「电商」（线上复验抓到的漏网）', () => {
+  /* 服务器侧读已部署产物时抓到：弹窗标题改了「电商图片交付」，但多张打包的兜底文件名
+     仍然是 `电商图片.zip` —— 通用用户导出自己做的图，文件名却自称电商，等于只改了一半。
+     同样收掉 alt 的兜底名（用户看不见，但读屏软件会念出来）。 */
+  const delivery = read('src/pages/EcCanvas/browserFileDelivery.js').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!delivery.includes('电商图片.zip'), '打包兜底名不许再叫「电商图片.zip」');
+  assert.ok(!delivery.includes("|| '电商图片'"), '落盘兜底名不许再是「电商图片」');
+  const studioCode = read('src/pages/EcCanvas/components/CanvasStudio.jsx').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!studioCode.includes("|| '电商图片'"), 'alt 兜底名不许再是「电商图片」');
+  /* 有商品名时保留商品名 —— 那是用户自己填的，不该动 */
+  assert.match(delivery, /request\.productName/, '有商品名时打包名仍应带上它');
 });
 
 test('套图节点的图位名跳过哈希（事故链：image.id 就是内容的 sha256）', () => {
