@@ -11216,3 +11216,57 @@ CV-5 社区闭环**。需要用户拍板 5 条（模板是否收费/解锁模式
 所以**部署会连他们的未提交 WIP 一起发出去**。下次值得先看一眼 `git status` 里
 "不是我的文件"有几个、是不是收尾状态，再决定要不要等一下 —— 本轮判断依据是
 **他们把配套门禁也一起改了**（`video-subpage-parity-0926` 的断言跟着换成共用件），属于收尾而不是半成品。
+
+### ⑦ 部署与复验（**第 3 次才成**，前两次的失败都不是代码问题，值得记住）
+
+- **第 1 次**：`powershell -File deploy-production.ps1`（Windows PowerShell 5.1）→ **整个脚本解析失败**
+  （UTF-8 无 BOM 的中文被按 ANSI 解，报一堆"缺少 ) / 必须提供值表达式"）。
+  ⇒ **一律用 `pwsh`（PowerShell 7）跑部署脚本**。
+- **第 2 次**：在 cmd 里写成 `pwsh -File scripts/deploy-production.ps1 > log 2>&1; echo "exit=$?"` ——
+  **cmd 不认 `;` 做分隔符**，于是 `;` / `echo` / `exit=$?` 被当成**位置参数**绑进了 param 块
+  （HostName=';'、User='echo'、KeyPath='exit=$?'）⇒ ssh 报 `Could not resolve hostname ;`、
+  `Identity file exit=$? not accessible`。**脚本没碰到生产**（连远端都没连上），但白跑 10 分钟。
+  ⇒ **给 ps1/npm 追加东西一律用 `&&`，绝不用 `;`**（本仓踩过的老坑，这次换了形态又栽一次）。
+- **第 2 次（真跑通了远端）**：跑到 `Public gallery verification failed for xm/06.png thumb/webp: fetch failed`
+  ⇒ 脚本**自动回滚**（这是设计好的失败闭环，不是事故）。根因是**部署机访问不了公网域名**
+  （未备案 + 仅 DNS + 腾讯云拦截）——脚本自己也打了这句警告。
+  **正确姿势：`-SkipPublicChecks`**（跳过项会逐条告警，必须在大陆视角/源站侧补验）。
+  ⚠️ 回滚留下的痕迹：`/var/www/shubao/releases/rollback-<ts>-<sha>` 与那次没成功的 release 目录（无害，
+  下次部署会自动清理旧 release）。回滚后实测：`current` 指回上一版、`/health` 200、pm2 online
+  ⇒ **线上没有半成品状态**。
+- **第 3 次（成功）**：`pwsh -NoProfile -File scripts/deploy-production.ps1 -SkipPublicChecks`
+  ⇒ `Deployed 0e76bbe0 to https://shuimg.cn/`，exit 0。
+
+### ⑧ 部署时必须换隔离 worktree（这回是**必须**，不是讲究）
+
+第 2 次失败里还有一次更隐蔽的：**部署脚本自带的全量测试**（`npm run test`）判红，
+红的是 `test/workbench-cta-width-0925.test.mjs` ④ —— **另一个会话当场在改视频侧 CTA**
+（`src/components/media/VideoWorkbench.jsx` / `VideoStudio/index.jsx` / `VideoStudio.css` /
+`media-workbench-e2e.mjs`，批 CY-① 用户改向"生成脚本搬回脚本字段标题行"），代码与门禁还没对齐。
+⇒ **共享树此刻是红的中间态，绝不可能从它部署**。
+办法（照批 CX 那次的既定办法，这回一次成功）：
+```
+git worktree add .worktrees/dc4-deploy --detach 0e76bbe0      # 钉在我自己已验证的提交上
+cd .worktrees\dc4-deploy && mklink /J node_modules <共享树>\node_modules   # 单独一条命令跑
+pwsh -NoProfile -File scripts/deploy-production.ps1 -SkipPublicChecks
+```
+**收尾**：先 `rmdir node_modules`（**只删联接本身**）→ 再 `git worktree remove -f`。
+⚠️ 顺序反了或用了 `rmdir /s /q`，会**穿透联接删掉共享树的 node_modules**（309 个包）。
+
+### ⑨ 生产复验（源站侧 + 会话签发，**只读、零上游花费**）
+
+- `readlink -f /var/www/shubao/current` → `.../20260928-111513-**0e76bbe0**`；
+  `/health` 200；`https://shuimg.cn/` 200；`/image-creation?id=image.concept_set` 200；pm2 online。
+- **产物逐字比对**（照 RTK 既有口径，别去 grep 累积的 assets 目录）：线上 `index.html` 的入口 =
+  `assets/index-C4tvy3Hc.js` + `assets/style-D1oJxSSs.css`，与我本地那次构建**逐字相同**；
+  线上 CSS 里有 `media-run-live-recheck`、线上 chunk `index-B3YqU9xX.js` 里有 `再看一眼` 与 `做成动图`
+  ⇒ **线上跑的就是改后的这份**（不是只发了 M4）。
+- 服务端代码：`grep -c STILL_MOTION_PRODUCT_ID server/index.mjs` = 2（新增的那处核在产品上）。
+- **带会话的只读复验**（用 `scripts/issue-production-canary-session.mjs --process-id $(pm2 pid shubao-production)`
+  在服务器本机签一个本人会话，token 不落盘不进对话）：
+  · `GET /api/concept/live-photo` → `{"ready":true, sku:"video_live_photo_short", points:15,
+    providerCostCny:0.91, upstreamSeconds:5, clipSeconds:2.5}` ⇒ **按钮上的 15 积分是真的、`ready:true`
+    说明服务器上 ffmpeg 与上游通道两道预检都过**（这才是"明天点一次能成"最硬的一条证据）；
+  · `GET /api/concept/live-photo?jobId=<不存在>` → **404 `STILL_MOTION_JOB_NOT_FOUND`**（新分支在线）；
+  · `GET /api/session` → `867550189@qq.com`（签的是本人）。
+- **本批从头到尾没有发生过一次真实上游调用**（唯一的上游接触是 `ready` 那道只读预检）。
