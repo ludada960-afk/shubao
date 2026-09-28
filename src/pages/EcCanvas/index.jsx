@@ -7412,6 +7412,7 @@ const handlePointerUp = useCallback((e) => {
               onToggleSource={(source, options) => toggleComposerSource(selectedNode.id, source, 'reference', options)}
               onGenerate={() => handleTextGenerationGenerate(selectedNode)}
               onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'image')}
+             onOpenWorkbench={selectedWorkbenchOpen}
             />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'suite-composer' && <CanvasEcommerceComposer
               node={selectedNode}

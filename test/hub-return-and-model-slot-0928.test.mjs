@@ -42,8 +42,23 @@ test('⑫B 画布模型槽：给足宽度（75 → 132），名字长了先裁�
   assert.match(lang, /它不是\*\*模型选择按钮\*\*吗？模型选择按钮不应该这么小呀/, '为什么改要写在注释里（用户原话）');
 
   const studio = code('src/pages/EcCanvas/components/CanvasStudio.jsx');
-  assert.match(studio, /aria-label="生图模型"[\s\S]{0,200}<span>\{imageModelLabel\(imageModel\)\}<\/span><ChevronDown size=\{12\} \/>/,
-    '模型名要包进 span（可收缩），箭头在 span 之后 ⇒ 裁的是字、不是箭头');
+  /* ═══ 2026-09-28 批 CY-⑬：模型按钮改成两行摘要触发器，判据跟着换写法，**要求没松** ═══════════════
+     原来那条断言盯的是单行写法 `<span>{imageModelLabel(imageModel)}</span><ChevronDown />`：
+     模型名包在可收缩的 span 里、箭头排在它后面，所以超长时被裁的是**字**、箭头永远在。
+     现在这一行是 <CanvasConfigTrigger>：
+       · 模型名落在 `<strong>{value}</strong>` 里，`.ec-canvas-config-trigger-copy` 有 min-width:0 + overflow:hidden ⇒ 同样可裁；
+       · 箭头是独立的兄弟节点且 `margin-left:auto` 顶到右缘 ⇒ 更不可能被裁掉。 */
+  const triggerStart = studio.indexOf('function CanvasConfigTrigger');
+  assert.ok(triggerStart > 0, '必须找得到共用触发器');
+  const trigger = studio.slice(triggerStart, triggerStart + 900);
+  assert.match(trigger, /<strong>\{value\}<\/strong>/, '模型名要落在可收缩的值节点里');
+  assert.match(trigger, /className="ec-canvas-config-trigger-chevron"/, '箭头必须是独立节点（排在值之后）');
+  assert.match(studio, /ariaLabel="生图模型"/, '模型触发器必须仍带这个 aria-label');
+  assert.match(studio, /surface="model"/, '模型触发器必须带 surface 标记（槽位表按它定宽）');
+  const cssTrigger = read('src/pages/EcCanvas/EcCanvas.css');
+  const chevron = (cssTrigger.match(/\.ec-canvas-config-trigger-chevron \{[^}]*\}/) || [''])[0];
+  assert.match(chevron, /flex:\s*0 0 auto/, '箭头不参与收缩');
+  assert.match(chevron, /margin-left:\s*auto/, '箭头顶到右缘，不会被长名字推走');
   /* 老规矩不许回退：参数行按钮**不写省略号**（9-17 用户口径：「真的不要用省略号」）。
      ⚠️ 切片要精确：本文件里同名选择器有多条，整段截取会扫到别处的规则（第一版就这么红的）。 */
   const css = read('src/pages/EcCanvas/EcCanvas.css');

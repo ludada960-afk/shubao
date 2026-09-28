@@ -104,9 +104,12 @@ test('输入框拉伸几何复用首页纯函数（不用 CSS resize:vertical）
 });
 
 test('点击区下限 32px：画布交互控件不再低于规范', () => {
-  /* 抽查几个高频交互控件必须落在 32px 档 */
-  assert.ok(/\.ec-canvas-count-popover button \{[^}]*var\(--cvl-control-compact, 32px\)/.test(canvasCss),
-    '数量选择按钮必须 ≥32px');
+  /* 抽查几个高频交互控件必须落在 32px 档。
+     2026-09-28 批 CY-⑬：数量 / 时长两排从独立的 .ec-canvas-count-popover 收进了「生成配置」面板
+     （用户原话：「什么尺寸，清晰度，数量这些都是可以放在同一个**生成配置**里面去呀」），
+     那一小段样式整条删除 ⇒ 这里改盯新类名，**判定本身一个字没松**（仍是 32px 那一档）。 */
+  assert.ok(/\.ec-canvas-config-count-row button \{[^}]*var\(--cvl-control-compact, 32px\)/.test(canvasCss),
+    '数量/时长选择按钮必须 ≥32px');
   assert.ok(/\.ec-canvas-selection-mode button \{[^}]*var\(--cvl-control-compact, 32px\)/.test(canvasCss),
     '选区模式按钮必须 ≥32px');
   assert.ok(/\.ec-canvas-layer-row > button:not\(\.ec-canvas-layer-main\) \{[^}]*var\(--cvl-control-compact, 32px\)/.test(canvasCss),

@@ -698,17 +698,14 @@
   padding: 7px 10px; color: #4b5563; font-size: 11px; font-weight: 600;
 }
 .ec-canvas-skill-popover button.ec-canvas-skill-workbench:hover { color: #111827; background: var(--sb-surface-tint-strong); }
-.ec-canvas-ratio-popover { width: 274px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
-.ec-canvas-ratio-popover button { min-height: 66px; display: grid; place-items: center; align-content: center; gap: 5px; border-radius: 12px; font-size: 11px; }
+/* ═══ 2026-09-28 批 CY-⑬：三块小弹层（比例 / 清晰度 / 数量）**整条删除** ═══════════════════════
+   用户原话：「然后你这几块按钮**明明可以合成一块按钮**啊。什么尺寸，清晰度，数量这些都是可以放在同一个
+     **生成配置**里面去呀。」⇒ 这三块样式对应的类名在 JSX 里已无引用（全仓检索为 0），
+   比例的图形（.ec-canvas-ratio-shape）**继续用**，新面板照旧画它。 */
 .ec-canvas-ratio-shape { display: block; width: 22px; height: 22px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 4px; }
 .ec-canvas-ratio-shape.is-3-4, .ec-canvas-ratio-shape.is-9-16 { width: 17px; }
 .ec-canvas-ratio-shape.is-4-3, .ec-canvas-ratio-shape.is-16-9 { width: 27px; height: 17px; }
 .ec-canvas-ratio-shape.is-16-9 { width: 29px; height: 16px; }
-.ec-canvas-resolution-popover { width: 218px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-.ec-canvas-resolution-popover button { min-height: 56px; display: grid; place-items: center; align-content: center; gap: 3px; border-radius: 12px; }
-.ec-canvas-resolution-popover small { color: #8d95a0; font-size: 11px; }
-.ec-canvas-count-popover { width: 172px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
-.ec-canvas-count-popover button { width: var(--cvl-control-compact, 32px); height: var(--cvl-control-compact, 32px); border-radius: var(--cvl-radius-control, 8px); font-size: var(--cvl-font-helper, 11px); }
 .ec-canvas-generation-text-board { width: 100%; height: 100%; box-sizing: border-box; overflow: auto; padding: 16px 18px; outline: 0; color: #20242a; background: #fff; text-align: left; white-space: pre-wrap; word-break: break-word; }
 .ec-canvas-generation-text-board:empty::before { content: attr(data-placeholder); color: #a0a8b3; pointer-events: none; }
 .ec-canvas-generation-text-board:focus { box-shadow: inset 0 0 0 2px var(--canvas-command); }
@@ -809,18 +806,25 @@
    权重依据实际内容长度：模型名最长（Seedance 2.0 标准 · 正式交付）> 清晰度 > 时长 ≈ 画幅 > 技能 > 引用。 */
 .ec-canvas-video-controls > label { flex: 0 1 auto; min-width: 0; }
 .ec-canvas-video-controls > label > select { width: 100%; min-width: 0; }
-/* 固定槽位（2026-09-17 用户把这里点名为**正确参照**）：
-   每个控件位宽度由这张表给定，**与文案长度无关** —— 字太长只在槽位内向右裁切，
-   绝不把整个按钮撑宽。这就是「视频模型下拉那个逻辑」。
-   取值：模型给最大固定位，其余按最长短标签（含 2 行标题）定宽。 */
-.ec-canvas-video-controls > label:nth-of-type(2) { flex: 0 0 var(--cvl-vslot-model, 112px); }
-.ec-canvas-video-controls > label:nth-of-type(3) { flex: 0 0 var(--cvl-vslot-resolution, 62px); }
-.ec-canvas-video-controls > label:nth-of-type(4) { flex: 0 0 var(--cvl-vslot-ratio, 52px); }
-.ec-canvas-video-controls > label:nth-of-type(5) { flex: 0 0 var(--cvl-vslot-duration, 56px); }
-.ec-canvas-video-controls > label:nth-of-type(6) { flex: 0 0 var(--cvl-vslot-label, 56px); }
-/* 模型槽里的 select 是原生控件，字太长会**撑宽自己**（这正是用户看到的"按钮变宽"）。
-   锁 width:100% + min-width:0，让它只占槽位宽度，超出部分被槽位右缘裁掉。 */
-.ec-canvas-video-controls > label:nth-of-type(2) > select {
+/* ═══ 2026-09-28 批 CY-⑬：视频框这一行的**槽位表整条重写** ══════════════════════════════════════════
+   改前是 `> label:nth-of-type(2..6)` —— 它按「第几个 <label>」定宽，成立的前提是这一行有
+   6 个 <label>（引用/视频模型/清晰度/画幅/时长/技能）。批 CY-⑬ 把后三颗原生 `<select>` 收成
+   一颗「生成配置」触发器之后，<label> 只剩 3 个（引用 / 技能 / 声音），
+   于是这条表**整体错位**：技能被当成"视频模型"分到 112px、声音被当成"清晰度"分到 62px。
+   ⇒ 改成按 `data-canvas-config-trigger` 这个**语义标记**定宽（与位置无关），
+     这也和图片框那边 CY-⑫ 的做法一致：**宽度由控件类型决定，不由它在第几位决定**。 */
+.ec-canvas-video-controls > .ec-canvas-parameter-item:has(> [data-canvas-config-trigger="video-model"]) {
+  flex: 0 0 var(--cvl-vslot-model, 112px);
+}
+.ec-canvas-video-controls > .ec-canvas-parameter-item:has(> [data-canvas-config-trigger="video-config"]) {
+  flex: 0 0 var(--cvl-vslot-config, 148px);
+}
+/* 技能 / 声音：按内容收敛（视频框这两格都是短文案，不需要固定位） */
+.ec-canvas-video-controls > label:not(.is-mention):not(.is-toggle) { flex: 0 1 auto; }
+/* 原生 select 已全部退役（CY-⑬：视频框一行原来有 4 个原生 <select>，22px 高、无箭头、
+   系统外观，与站内另外三个框完全不是一套语言）。保留这条兜底：若将来有人在
+   .ec-canvas-video-controls 里再加 <select>，它至少不许撑宽自己。 */
+.ec-canvas-video-controls > label > select {
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -1801,24 +1805,18 @@
   width: 100%;
 }
 
-/* 按控件类型给固定槽位宽（与文案长度无关；模型槽是唯一长文案槽） */
+/* 按控件类型给固定槽位宽（与文案长度无关；模型槽是唯一长文案槽）
+   ═══ 批 CY-⑬：整条表从 `aria-label="图片比例/清晰度/生成数量/时长"` 这几个
+   **已经不存在的小药丸** 换成 `data-canvas-config-trigger` 语义标记。
+   换的必要性：那条表里 4/5 的行已经匹配不到任何元素，剩下 1/5（模型）还在生效，
+   于是"规则看起来齐全、实际只剩一条在管"——新加的「生成配置」触发器会**落回默认 104px**，
+   摘要「2K · 1:1 · x4」直接被裁。宽度必须由**语义**决定（这正是上面那四条固定槽位规则的意思）。 */
 .ec-canvas-parameter-controls > .ec-canvas-parameter-item { flex: 0 0 var(--cvl-slot-label, 104px); }
-.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="生图模型"]),
-.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="文案模型"]) {
-  flex: 0 0 var(--cvl-slot-model, 75px);
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> [data-canvas-config-trigger="model"]) {
+  flex: 0 0 var(--cvl-slot-model, 132px);
 }
-.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="图片比例"]),
-.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="画幅"]) {
-  flex: 0 0 var(--cvl-slot-ratio, 88px);
-}
-.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="清晰度"]) {
-  flex: 0 0 var(--cvl-slot-resolution, 64px);
-}
-.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="生成数量"]) {
-  flex: 0 0 var(--cvl-slot-count, 64px);
-}
-.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> button[aria-label="时长"]) {
-  flex: 0 0 var(--cvl-slot-duration, 80px);
+.ec-canvas-parameter-controls > .ec-canvas-parameter-item:has(> [data-canvas-config-trigger="config"]) {
+  flex: 0 0 var(--cvl-slot-config, 128px);
 }
 /* 取消旧的「最后一格单独压窄」——它让宽度取决于**位置**而非**控件类型**，
    模型槽换到别的位次就会又变形。现在一律按类型定宽。 */
@@ -2314,4 +2312,244 @@
 /* ⚠️ 修正：此按钮是**实色深底**（bg #202226 / 白字），按 §22 必须走**海拔**而非表面色 ——
    用 --sb-hover-bg 会产生「白字 + 浅灰底」的不可读组合（已用 Playwright 实测抓出）。 */
 .ec-canvas-work-empty button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   批 CY-⑬（2026-09-28）：画布四个生成框的**参数行统一为「两行摘要触发器」**
+   ═══════════════════════════════════════════════════════════════════════════
+
+   用户原话（逐字，两条一起看）：
+     ① 「你这个阶段应该得是比如说你现在其他的按钮，它后面不是有一个**箭头的符号吗**？
+         那你这里为什么没有符号呢？还有就是你为什么这个按钮做的**这么的小**呢？
+         它不是**模型选择按钮**吗？**模型选择按钮不应该这么小呀**。」
+     ② 「然后你这几块按钮**明明可以合成一块按钮**啊。什么尺寸，清晰度，数量
+         这些都是可以放在同一个**生成配置**里面去呀。」
+
+   全局盘点（`.qa/cy13-param-row-audit.mjs`，1440×900 实测；四个生成框 + 首页对照）：
+
+     位置              改造前                                              判定
+     ─────────────────────────────────────────────────────────────────────────
+     首页 图片/视频     2 颗两行摘要触发器（180×52，logo + 小标题 + 值 + 箭头）  ✅ 已拍板的目标形态
+     画布 图片 / 文案   5 颗单行 27px 高药丸：                                ✗
+                       生图模型 90×27 / 图片比例 60 / 清晰度 44 / 生成数量 44 / 技能 71
+     画布 视频          6 颗，其中 **4 个是原生 <select>**（22px 高、无箭头、系统外观） ✗
+     画布 电商套图      智能套图 / SKU变体 / 技能 / 单行「GPT Image 2·2K」      ✗ 无标题、看不出是什么
+
+   ⇒ 结论：**不发明第三种形态**。首页那两颗（2026-07-19 用户批注 #5-① 已拍板）就是答案，
+     画布四个框全部对齐到它：图标 + 小标题 + 当前值 + 下拉箭头，四字小标题一行、值一行。
+   触发行布局：@引用 → 模型 → 生成配置 → 技能（视频框再接声音；套图框见 .ec-canvas-suite-settings-control）。
+
+   跨页面不动的地方（盘点结论，避免过度改造）：
+     · 首页图片侧已经是用户要的那一块合成面板（specs: 画面规格 = 分辨率 + 尺寸 + 数量），**无需改**；
+     · 子页面工作台（Workbench）用的是表单栅格（label + select 上下排），与"一行参数"是两种范式，
+       用户没有点名它，**不并入本批**。 */
+
+/* ── 触发器本体 ────────────────────────────────────────────────────────────
+   形制照抄首页 `.visual-config-trigger`（Home/VisualCreationMode.css:211-260）：
+     mark（品牌 logo 或图标 18px） + copy（small 标题 / strong 值） + ChevronDown。
+   尺寸按画布密度收一档（首页 180×52 → 画布 槽位宽 × 40px）：
+     · 画布一行只放得下 434px 内容，触发器若照抄 52px 高，整行会从 34px 涨到 40px，
+       底栏连生成按钮一起被顶高；
+     · 40px = 上内边距 7 + small 13 + gap 2 + strong 15 + 下内边距 3，两行仍然各自完整。 */
+.ec-canvas-config-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 40px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #3f4a58;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+/* ⚠️ 必须打这一条，**不能只靠上面那条**。
+   画布里早就有一条 `.ec-canvas-parameter-item > button`（本文件 675 / 1255 / 1265 / 1742 / 1796 共五处），
+   它的特异度是 (0,1,1)，**比 `.ec-canvas-config-trigger` 的 (0,1,0) 高** ——
+   于是它会把 height:32px / max-width:116px / max-width:132px / padding 全部抢回去，
+   触发器就会被压回"27px 高的小药丸"（这正是用户点名的「模型选择按钮不应该这么小」）。
+   套图框那条 `.ec-canvas-suite-control > button` 同理。
+   ⇒ 这两行用 (0,2,1) 明确压过去，把尺寸/内边距/圆角/字号一次性定死。 */
+.ec-canvas-parameter-item > .ec-canvas-config-trigger,
+.ec-canvas-suite-settings-control > .ec-canvas-config-trigger {
+  height: 40px;
+  max-width: none;
+  padding: 0 8px;
+  border-radius: 8px;
+  /* 旧规则里的 `font: 10px inherit` 简写会把继承字号改掉，这里显式还回父级 */
+  font: inherit;
+}
+.ec-canvas-config-trigger:hover,
+.ec-canvas-config-trigger.is-open {
+  border-color: #7da5ef;
+  background: #f3f7ff;
+  box-shadow: 0 0 0 2px rgba(37,99,235,.08);
+}
+/* 左侧标记：模型触发器放品牌 logo，配置触发器放调节图标（两者都 18px，视觉重量一致） */
+.ec-canvas-config-trigger-mark {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: #5b7fc4;
+}
+/* 右侧箭头：展开时旋转 180°（用户 2026-07-27 批 BJ 定的「向上的箭头」那一档） */
+.ec-canvas-config-trigger-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: #8f8792;
+  transition: transform .16s ease;
+}
+.ec-canvas-config-trigger.is-open .ec-canvas-config-trigger-chevron { transform: rotate(180deg); }
+/* 两行文案：小标题 + 当前值。
+   ⚠️ 不写 text-overflow: ellipsis —— 用户 2026-09-17 逐字定过：
+     「真的不要用省略号」「显示不全也没关系，但是真的不要用省略号」。
+     值太长时由 min-width:0 + overflow:hidden **纯裁切**，箭头永远在（CY-⑫ 的口径）。 */
+.ec-canvas-config-trigger-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+.ec-canvas-config-trigger-copy small {
+  color: #8a93a0;
+  font-size: var(--cvl-font-helper, 11px);
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ec-canvas-config-trigger-copy strong {
+  color: #20242a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ec-canvas-config-trigger.is-open .ec-canvas-config-trigger-copy strong { color: #245fca; }
+
+/* ── 「生成配置」面板（原来 3 块小弹层合并成 1 块）────────────────────────
+   面板宽度取 3 块之和里最宽的一块所需（比例网格 4 列 × 66px ≈ 274px）再留白 = 288px。 */
+.ec-canvas-config-popover { width: 288px; }
+.ec-canvas-config-panel-body {
+  display: grid;
+  gap: 14px;
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.ec-canvas-config-group { display: grid; gap: 7px; }
+.ec-canvas-config-group-title {
+  margin: 0;
+  color: #8a93a0;
+  font-size: var(--cvl-font-helper, 11px);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.ec-canvas-config-panel-body button {
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #3f4a58;
+  font-size: 12px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.ec-canvas-config-panel-body button:hover { border-color: #7da5ef; color: #245fca; background: #f3f7ff; }
+.ec-canvas-config-panel-body button.is-active {
+  border-color: #7da5ef;
+  color: #245fca;
+  background: #eef4ff;
+  font-weight: 700;
+}
+/* 清晰度：3 列（1K/2K/4K 或 720P） */
+.ec-canvas-config-resolution-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.ec-canvas-config-resolution-row button {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+}
+.ec-canvas-config-resolution-row button strong { font-size: 13px; font-weight: 700; }
+.ec-canvas-config-resolution-row button small { color: #8a93a0; font-size: var(--cvl-font-helper, 11px); }
+/* 画面尺寸：4 列形状卡（沿用原比例弹层的 .ec-canvas-ratio-shape 图形，不重新画） */
+.ec-canvas-config-ratio-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+.ec-canvas-config-ratio-row button {
+  min-height: 56px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  font-size: var(--cvl-font-helper, 11px);
+}
+/* 生成数量 / 时长：5 列小方块。
+   ⚠️ 高度锁 var(--cvl-control-compact, 32px) —— 2026-09-17 门禁
+     「点击区下限 32px：画布交互控件不再低于规范」原本盯的是已删掉的
+     .ec-canvas-count-popover button，这里由同一档数字接管（见 test/canvas-generation-config-0929.test.mjs）。 */
+.ec-canvas-config-count-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+.ec-canvas-config-count-row button {
+  height: var(--cvl-control-compact, 32px);
+  min-width: 0;
+  font-size: var(--cvl-font-helper, 11px);
+}
+
+/* ── 套图框的「生成配置」格 ────────────────────────────────────────────────
+   改前是一颗单行药丸「GPT Image 2·2K」（无标题、看不出这颗是什么）；
+   改后与另外三个框同一形态。值是两个字段拼的（「模型 · 清晰度」），比另外三框都长。 */
+/* ⚠️ 宽度给**外层**那一格，不给内层。
+   JSX 结构是 `<div class="ec-canvas-suite-control ec-canvas-suite-settings-in-row">
+                  <div class="ec-canvas-suite-settings-control">…触发器…</div></div>`，
+   套图行的固定槽位是按 `.ec-canvas-suite-controls > .ec-canvas-suite-control`（外层）给的；
+   内层那个 div 不是那一行的 flex 子项，在它上面写 flex / max-width 完全不起作用。
+   取模型槽那一档（132）：四字标签位（104）装不下「GPT Image 2 · 2K」，会被右缘裁掉。
+   实测（`.qa/cy13-param-row-audit.mjs`）：套图行内容盒 434，这一行合计
+   @44 + 方案104 + 变体104 + 技能104 + 配置132 + 4×8 = 520 —— 行是 flex-wrap，
+   放不下的整颗换行，**不会溢出也不会互相挤压**（批 CU 定的兜底口径）。 */
+.ec-canvas-suite-controls > .ec-canvas-suite-settings-in-row {
+  flex: 0 0 var(--cvl-slot-model, 132px);
+  max-width: var(--cvl-slot-model, 132px);
+}
+.ec-canvas-suite-settings-control { width: 100%; min-width: 0; }
+.ec-canvas-suite-settings-control > .ec-canvas-config-trigger { width: 100%; }
+/* 套图方案 / SKU变体：与技能同档（--cvl-slot-label = 四字标签位）。 */
+.ec-canvas-suite-controls > .ec-canvas-suite-param-sizing,
+.ec-canvas-suite-controls > .ec-canvas-suite-param-variants {
+  flex: 0 0 var(--cvl-slot-label, 104px);
+  max-width: var(--cvl-slot-label, 104px);
+}
+
+/* ── 视频框：两颗触发器与既有「标题在上」的 <label> 对齐 ────────────────────
+   .ec-canvas-video-controls > .ec-canvas-parameter-item 走的是 grid + gap:4px
+   （原来放的是原生 select）；触发器自带标题行，所以这里只需把按钮拉满槽宽、
+   并撤掉那条只对 select 生效的 32px 高度。 */
+.ec-canvas-video-controls > .ec-canvas-parameter-item > .ec-canvas-config-trigger {
+  height: var(--cvl-control-compact, 32px);
+  padding: 0 6px;
+  gap: 4px;
+}
+/* 两行在 32px 里刚好：small 11×1.2 + strong 12×1.2 = 27.6，gap 收到 0，上下各留 2。 */
+.ec-canvas-video-controls > .ec-canvas-parameter-item > .ec-canvas-config-trigger .ec-canvas-config-trigger-copy {
+  gap: 0;
+}
 

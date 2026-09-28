@@ -65,7 +65,7 @@ import ModelLogo from '../../../components/ModelLogo.jsx';
 import { IMAGE_PROMPT_LIMIT, TEXT_PROMPT_LIMIT, VIDEO_PROMPT_LIMIT, PROMPT_MAX_ROWS, PROMPT_MIN_ROWS, promptFieldCssVars, promptLimitNotice } from '../../../constants/promptLimits.js';
 /* 2026-09-17 统一视觉语言：拉伸几何与首页共用同一套规范与纯函数，不另发明 */
 import { TEXTAREA_RESIZE, resolveResizedHeight } from '../../Home/ec/panelVisualLanguage.js';
-import { brandLogo } from '../../../services/modelLogos.js';
+import { brandLogo, imageModelLogo, videoProductLogo } from '../../../services/modelLogos.js';
 import ImageMentionPicker from '../../../components/creation/ImageMentionPicker.jsx';
 import MentionPromptField from '../../../components/creation/MentionPromptField.jsx';
 import SizingPanel from '../../Home/ec/SizingPanel.jsx';
@@ -728,9 +728,25 @@ function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChang
   /* 9-17（图6）：面板走 portal 脱离裁剪上下文；锚点口径仍是「水平居中于按钮正上方」 */
   const [skillAnchorRef, skillAnchor] = useCanvasPopoverAnchor(open === 'skill' ? 'skill' : '');
   const skills = filterCanvasSkills(domain);
-  const activeLabel = node?.skillLabel || skills.find(item => item.slug === node?.skill)?.name || '技能';
+  const activeLabel = node?.skillLabel || skills.find(item => item.slug === node?.skill)?.name || '未选择';
   return <div className="ec-canvas-parameter-item">
-    <button ref={skillAnchorRef} type="button" data-canvas-control="true" aria-label="技能" aria-haspopup="menu" aria-expanded={open === 'skill'} className={node?.skill ? 'is-active' : ''} onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'parameter:skill'))}>{activeLabel}<WandSparkles size={12} /><ChevronDown size={12} /></button>
+    {/* ═══ 批 CY-⑬：技能也换成**两行摘要**触发器 ══════════════════════════════════════════════════
+        理由不是"顺手统一"，是它和模型/生成配置**在同一行**：
+        27px 的单行小药丸夹在两颗 40px 触发器中间，整行基线会明显歪 —— 这正是用户 9-17 在视频面板
+        批注过的那一类（「技能按钮没有和其它项同一套结构，于是它歪上去了、高低也和别人对不齐」，
+        当时只对齐了结构、没换形制，这一批把形制也换掉）。
+        值用 `activeLabel`（已选技能名），未选时显示「未选择」——不再拿「技能」二字当值，
+        那会让标题和值一模一样，看着像没填。 */}
+    <CanvasConfigTrigger
+      surface="skill"
+      title="技能"
+      value={activeLabel}
+      icon={<WandSparkles size={14} />}
+      open={open === 'skill'}
+      anchorRef={skillAnchorRef}
+      onToggle={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'parameter:skill'))}
+      ariaLabel="技能"
+    />
     <CanvasPopoverPortal open={open === 'skill'} anchor={skillAnchor} className="ec-canvas-skill-popover" label="技能选项">
       {skills.map(skill => <button key={skill.slug} type="button" className={skill.slug === node?.skill ? 'is-active' : ''} onClick={() => { const next = applyCanvasSkill({ prompt: node?.prompt || '', skill: skill.slug }); onChange?.({ prompt: next.prompt, skill: next.skill, skillLabel: next.skillLabel }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
         <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
@@ -746,6 +762,95 @@ function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChang
       {onOpenWorkbench && <button type="button" className="ec-canvas-skill-workbench" onClick={() => { onSurfaceChange?.(closeCanvasComposerSurface()); onOpenWorkbench(); }}>在完整工作台里编辑<ArrowUpRight size={11} /></button>}
       {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null, skillLabel: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
     </CanvasPopoverPortal>
+  </div>;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   批 CY-⑬（2026-09-28）：画布参数行 = **模型 + 生成配置 + 技能** 三颗触发器
+   ═══════════════════════════════════════════════════════════════════════════
+
+   用户原话（逐字，图片批注第 2 条）：
+   「然后你这几块按钮**明明可以合成一块按钮**啊。什么**尺寸，清晰度，数量**这些都是可以放在同一个
+     **生成配置**里面去呀。你为什么没有把这些问题都考虑清楚呢？然后我说的只是其中一个部分，我觉得
+     你应该**全局都要去查看一下**，肯定有很多这种生成面板，他们的配置这里都是存在同等问题的。
+     你要全部去考虑明白，然后全部去重新规划，重新设计。」
+   加上第 1 条（同一张图）：
+   「如果名称太长的话，你后面就可以截断的，用户是不会在意的。但是你不能像这样**粗暴的去截断**呀……
+     你现在其他的按钮，它后面不是有一个**箭头的符号**吗？那你这里为什么没有符号呢？还有就是**你为什么
+     这个按钮做的这么的小呢**？它不是**模型选择按钮**吗？模型选择按钮不应该这么小呀。」
+
+   ── 改造前的实测盘点（`.qa/cy13-param-row-audit.mjs`，1440 视口）────────────
+     位置            现状                                                        判定
+     首页图片/视频   2 颗**两行摘要**触发器（180×52，logo + 小标题 + 值 + 箭头）  ✅ 目标形态
+     画布图片/文案   5 颗**单行** 27px 高小药丸：模型 90 / 比例 60 / 清晰度 44 /
+                    数量 44 / 技能 71                                          ✗ 三颗参数散着
+     画布视频        6 颗，其中 4 个是**原生 `<select>`**（22px 高、无箭头）        ✗ 与站内全不一样
+     画布套图        智能套图 / SKU变体 / 技能 / 「GPT Image 2·2K」单行          ✗ 已有合并块但无标题
+   ⇒ **首页那两颗就是用户早就拍过板的目标版式**（2026-07-19 批注 #5-① 原话：「一个是选模型的
+     面板，另一个就是把这些**尺寸啊、数量啊、清晰度啊集合到同一个面板**里面的就可以了」），
+     画布三个框都还没跟上 ⇒ 本批把画布对齐到首页，不新发明第三种形态。
+
+   ── 两条不许破的老规矩（2026-09-17 用户批注，仍然有效）────────────────────
+     · 槽位宽度**固定**，长文案只在槽内**向右裁切**，绝不写省略号、绝不换行、绝不缩字号；
+     · 控件之间固定 8pt 间距，任何文案长度下整行不变形。
+   本批的「两行摘要」正好让**摘要本身变短**（`2K · 1:1 · x2` 而不是三颗各写一遍），
+   两件事一起成立。 */
+
+/** 参数行触发器（两行摘要）—— 照首页 `.visual-config-trigger` 的形态：
+ *  左侧图标/品牌标 + 中间「小标题 + 当前值」+ 右侧下拉箭头（张开时转 180°）。
+ *  ⚠️ 值必须包在可收缩的元素里（min-width:0 + overflow:hidden）：否则名字一长，
+ *     整颗按钮溢出、`overflow:hidden` 会把**右边的箭头一起裁掉**（CY-⑫ 用户点名的现象）。 */
+function CanvasConfigTrigger({ title, value, icon = null, open = false, anchorRef, onToggle, ariaLabel, surface }) {
+  return <button
+    ref={anchorRef}
+    type="button"
+    data-canvas-control="true"
+    data-canvas-config-trigger={surface || ''}
+    aria-label={ariaLabel}
+    aria-haspopup="menu"
+    aria-expanded={open}
+    className={'ec-canvas-config-trigger' + (open ? ' is-open' : '')}
+    onClick={onToggle}
+  >
+    {icon ? <span className="ec-canvas-config-trigger-mark" aria-hidden="true">{icon}</span> : null}
+    <span className="ec-canvas-config-trigger-copy"><small>{title}</small><strong>{value}</strong></span>
+    <ChevronDown className="ec-canvas-config-trigger-chevron" size={12} aria-hidden="true" />
+  </button>;
+}
+
+/* 视频侧「生成配置」的选项表 —— **值与改前那三个原生 `<select>` 逐字相同**，
+   只是从系统下拉搬进了站内弹层（批 CY-⑬）。清晰度只有 720P 一档是上游契约，不许在这里加档。 */
+const VIDEO_RESOLUTION_OPTIONS = Object.freeze(['720p']);
+const VIDEO_ASPECT_OPTIONS = Object.freeze(['9:16', '16:9', '1:1', '4:3', '3:4', '21:9']);
+
+/** 「生成配置」面板里的一组：标题 + 一行选项（照首页 VisualSpecsPanel 的分组写法）。 */
+function CanvasConfigGroup({ title, children }) {
+  return <section className="ec-canvas-config-group">
+    <h4 className="ec-canvas-config-group-title">{title}</h4>
+    {children}
+  </section>;
+}
+
+/* 图片/文案框的「生成配置」：**分辨率 · 画面尺寸 · 生成数量** 三组收在这一块里。
+   清晰度选项跟着模型能力走（Midjourney 上游只有 1K/2K）—— 与合并前那条契约完全一致。 */
+function CanvasImageConfigPanel({ ratio, resolution, imageModel, count, countOptions, onRatio, onResolution, onCount, onClose }) {
+  const resolutions = CANVAS_RESOLUTION_OPTIONS.filter(value => imageModelResolutions(imageModel).includes(value));
+  return <div className="ec-canvas-config-panel-body">
+    <CanvasConfigGroup title="分辨率">
+      <div className="ec-canvas-config-resolution-row">
+        {resolutions.map(value => <button key={value} type="button" className={value === resolution ? 'is-active' : ''} aria-pressed={value === resolution} onClick={() => onResolution(value)}><strong>{value}</strong><small>{value === '1K' ? '标准' : value === '2K' ? '高清' : '超清'}</small></button>)}
+      </div>
+    </CanvasConfigGroup>
+    <CanvasConfigGroup title="画面尺寸">
+      <div className="ec-canvas-config-ratio-row">
+        {CANVAS_RATIO_OPTIONS.map(value => <button key={value} type="button" className={value === ratio ? 'is-active' : ''} aria-pressed={value === ratio} onClick={() => onRatio(value)}><i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} /><span>{value}</span></button>)}
+      </div>
+    </CanvasConfigGroup>
+    {countOptions.length > 1 && <CanvasConfigGroup title="生成数量">
+      <div className="ec-canvas-config-count-row">
+        {countOptions.map(value => <button key={value} type="button" className={Number(value) === Number(count) ? 'is-active' : ''} aria-pressed={Number(value) === Number(count)} onClick={() => onCount(value)}>x{value}</button>)}
+      </div>
+    </CanvasConfigGroup>}
   </div>;
 }
 
@@ -767,17 +872,31 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   const toggle = key => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `parameter:${key}`));
   /* 9-17（图6）：「张开的面板必须居中于按钮的正上方」+ 必须真的能张开（portal 脱离裁剪） */
   const [modelAnchorRef, modelAnchor] = useCanvasPopoverAnchor(open === 'model' ? 'model' : '');
-  const [ratioAnchorRef, ratioAnchor] = useCanvasPopoverAnchor(open === 'ratio' ? 'ratio' : '');
-  const [resolutionAnchorRef, resolutionAnchor] = useCanvasPopoverAnchor(open === 'resolution' ? 'resolution' : '');
-  const [countAnchorRef, countAnchor] = useCanvasPopoverAnchor(open === 'count' ? 'count' : '');
+  /* ═══ 批 CY-⑬：比例 / 清晰度 / 数量**三块并成一块「生成配置」**（用户原话见本文件上方那段）═══
+     改前是三颗并排的小药丸，各带一个箭头；改后一颗触发器，摘要写「2K · 1:1 · x2」，
+     三项在同一个面板里 —— 与首页「画面规格」那颗（2026-07-19 用户批注 #5-①）同一个口径。
+     键名沿用 `parameter:config`（不是新造一套 activeSurface 语义）。 */
+  const [configAnchorRef, configAnchor] = useCanvasPopoverAnchor(open === 'config' ? 'config' : '');
+  const modelDef = IMAGE_MODELS.find(model => model.id === imageModel);
+  /* 品牌标用 `imageModelLogo`（按 id 反查品牌，认不出也回落到 openai），不用 `brandLogo(modelDef?.brand)`：
+     后者在 modelDef 为空时返回 null ⇒ `ModelLogo` 整颗返回 null ⇒ 图标位空着，触发器左边少一块。 */
+  const configSummary = includeCount ? `${resolution} · ${ratio} · x${count}` : `${resolution} · ${ratio}`;
   return <div className="ec-canvas-parameter-controls" ref={rootRef} onPointerDown={event => event.stopPropagation()}>
     <div className="ec-canvas-parameter-item">
-      {/* ⚠️ 批 CY-⑫：模型名要包进 `<span>`（原来是一段**裸文本节点**）。裸文本不可收缩 ⇒ 名字一长，
-          整颗按钮就溢出，`overflow:hidden` 把**右边的箭头一起裁掉** —— 用户原话：「你现在其他的按钮，
-          它后面不是有一个箭头的符号吗？那你这里为什么没有符号呢？」。包成 span 之后按站内规矩
-          （`.ec-canvas-parameter-item > button > span` 有 min-width:0 + overflow:hidden）：
-          **先裁文字、箭头永远在**（仍然不写省略号，那是 9-17 的老规矩）。 */}
-      <button ref={modelAnchorRef} type="button" data-canvas-control="true" aria-label="生图模型" aria-haspopup="menu" aria-expanded={open === 'model'} onClick={() => toggle('model')}><span>{imageModelLabel(imageModel)}</span><ChevronDown size={12} /></button>
+      {/* ═══ 批 CY-⑬：模型按钮改成**两行摘要**（小标题 + 当前值 + 箭头），照首页 `.visual-config-trigger`
+          —— 用户原话：「它不是**模型选择按钮**吗？模型选择按钮不应该这么小呀。」
+          ⚠️ 值仍然必须可收缩（`.ec-canvas-config-trigger-copy` 有 min-width:0 + overflow:hidden）：
+             名字一长先裁字，**箭头永远在**（CY-⑫ 那条老规矩，本批继续成立，仍不写省略号）。 */}
+      <CanvasConfigTrigger
+        surface="model"
+        title="生图模型"
+        value={imageModelLabel(imageModel)}
+        icon={<ModelLogo logo={imageModelLogo(imageModel)} size={18} radius={5} />}
+        open={open === 'model'}
+        anchorRef={modelAnchorRef}
+        onToggle={() => toggle('model')}
+        ariaLabel="生图模型"
+      />
       <CanvasPopoverPortal open={open === 'model'} anchor={modelAnchor} className="ec-canvas-model-popover" label="生图模型选项">
         {/* 9-11 用户批注: 模型与首页同源 (IMAGE_MODELS), 选项也带首页同款图标 */}
         {SELECTABLE_IMAGE_MODELS.map(model => <button key={model.id} type="button" className={model.id === imageModel ? 'is-active' : ''} onClick={() => {
@@ -792,26 +911,29 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
       </CanvasPopoverPortal>
     </div>
     <div className="ec-canvas-parameter-item">
-      <button ref={ratioAnchorRef} type="button" data-canvas-control="true" aria-label="图片比例" aria-haspopup="menu" aria-expanded={open === 'ratio'} onClick={() => toggle('ratio')}>自动 / {ratio}<ChevronDown size={12} /></button>
-      <CanvasPopoverPortal open={open === 'ratio'} anchor={ratioAnchor} className="ec-canvas-ratio-popover" label="图片比例选项">
-        {CANVAS_RATIO_OPTIONS.map(value => <button key={value} type="button" className={value === ratio ? 'is-active' : ''} onClick={() => { onChange?.({ ratio: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>
-          <i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} /><span>{value}</span>
-        </button>)}
+      <CanvasConfigTrigger
+        surface="config"
+        title="生成配置"
+        value={configSummary}
+        icon={<SlidersHorizontal size={14} />}
+        open={open === 'config'}
+        anchorRef={configAnchorRef}
+        onToggle={() => toggle('config')}
+        ariaLabel="生成配置"
+      />
+      <CanvasPopoverPortal open={open === 'config'} anchor={configAnchor} className="ec-canvas-config-popover" label="生成配置选项">
+        <CanvasImageConfigPanel
+          ratio={ratio}
+          resolution={resolution}
+          imageModel={imageModel}
+          count={count}
+          countOptions={includeCount ? countOptions : []}
+          onRatio={value => { onChange?.({ ratio: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}
+          onResolution={value => { onChange?.({ resolution: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}
+          onCount={value => { onChange?.({ count: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}
+        />
       </CanvasPopoverPortal>
     </div>
-    <div className="ec-canvas-parameter-item">
-      <button ref={resolutionAnchorRef} type="button" data-canvas-control="true" aria-label="清晰度" aria-haspopup="menu" aria-expanded={open === 'resolution'} onClick={() => toggle('resolution')}>{resolution}<ChevronDown size={12} /></button>
-      <CanvasPopoverPortal open={open === 'resolution'} anchor={resolutionAnchor} className="ec-canvas-resolution-popover" label="清晰度选项">
-        {/* 9-13：清晰度跟着模型能力走（Midjourney 上游只有 1K/2K，画布同样不给 4K） */}
-        {CANVAS_RESOLUTION_OPTIONS.filter(value => imageModelResolutions(imageModel).includes(value)).map(value => <button key={value} type="button" className={value === resolution ? 'is-active' : ''} onClick={() => { onChange?.({ resolution: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}><strong>{value}</strong><small>{value === '1K' ? '标准' : value === '2K' ? '高清' : '超清'}</small></button>)}
-      </CanvasPopoverPortal>
-    </div>
-    {includeCount && <div className="ec-canvas-parameter-item">
-      <button ref={countAnchorRef} type="button" data-canvas-control="true" aria-label="生成数量" aria-haspopup="menu" aria-expanded={open === 'count'} onClick={() => toggle('count')}>x{count}<ChevronDown size={12} /></button>
-      <CanvasPopoverPortal open={open === 'count'} anchor={countAnchor} className="ec-canvas-count-popover" label="生成数量选项">
-        {countOptions.map(value => <button key={value} type="button" className={value === count ? 'is-active' : ''} onClick={() => { onChange?.({ count: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>{value}</button>)}
-      </CanvasPopoverPortal>
-    </div>}
     {/* 9-11 用户批注: skill 选项进生成器 (对标流影AI) —— 技能 = P2 五套内置技能,
         选择即把技能提示词预填进 prompt (空 prompt 才填, 不覆盖已写内容), 用户可改可清除。
         9-13: 抽成 CanvasSkillControl, 与视频/套图框共用同一个入口。 */}
@@ -937,16 +1059,22 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
     {/* 参数行只放**短文案**四字按钮（首页同序）：套图方案 → SKU变体 → 技能 → 商品信息 → 内容规范。
         「生成设置」不在这里 —— 它是「模型·清晰度」，是长文案、允许被裁的那一格，
         与图片框的模型按钮同级，位置在**底栏**（与 @ / 技能 / 生成 同一行）。 */}
-    {SUITE_PARAM_BUTTONS.slice(0, 2).map(item => <div className="ec-canvas-suite-control" key={item.key}>
-      <button
-        ref={activePanel === item.key ? suiteAnchorRef : undefined}
-        type="button"
-        data-canvas-control="true"
-        className={`${activePanel === item.key ? 'is-active' : ''}${adjustedPanels[item.key] ? ' is-adjusted' : ''}`}
-        aria-expanded={activePanel === item.key}
-        aria-haspopup="dialog"
-        onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `suite:${item.key}`))}
-      ><item.icon size={14} /><span>{summary(item.key)}</span>{adjustedPanels[item.key] && <small>已调整</small>}<ChevronDown size={12} /></button>
+    {SUITE_PARAM_BUTTONS.slice(0, 2).map(item => <div className={`ec-canvas-suite-control ec-canvas-suite-param-${item.key}`} key={item.key}>
+      {/* ═══ 批 CY-⑬：这两格也换成**两行摘要**触发器（原来也是 27px 单行药丸）══════════════════════
+          与「技能 / 生成配置」并排放在同一行，高度必须一致 ——
+          27px 的药丸夹在 40px 触发器中间，整行基线会歪，这正是用户反复报的那一类。
+          「已调整」那个角标折进**值**里（`（已调整）`），信息一点没丢，
+          但不再额外占一行高度；角标原本是 `is-adjusted` 类的视觉态，现在由值本身表达。 */}
+      <CanvasConfigTrigger
+        surface={`suite-${item.key}`}
+        title={item.label}
+        value={`${summary(item.key)}${adjustedPanels[item.key] ? '（已调整）' : ''}`}
+        icon={<item.icon size={14} />}
+        open={activePanel === item.key}
+        anchorRef={activePanel === item.key ? suiteAnchorRef : undefined}
+        onToggle={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `suite:${item.key}`))}
+        ariaLabel={item.label}
+      />
       <CanvasPopoverPortal open={activePanel === item.key} anchor={suiteAnchor} className="ec-canvas-suite-panel-popover" label={`${item.label}设置`}>
         {item.key === 'sizing' && <SizingPanel
           platform={configuration.platform}
@@ -991,26 +1119,28 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
   </div>;
 }
 
-/* 「生成设置」独立成格：模型 · 清晰度（长文案，允许被右缘纯裁切）。
-   它与 CanvasSuiteControls 共用同一套 popover 锚点机制与 GenSettingsPanel，
-   但渲染在**底栏**（与 @ 引用 / 技能 / 生成按钮同一行），
-   这样参数行只剩五个短文案格，四个字全部完整显示。 */
+/* 「生成设置」独立成格：模型 · 清晰度。
+   它与 CanvasSuiteControls 共用同一套 popover 锚点机制与 GenSettingsPanel。
+   ═══ 批 CY-⑬：触发器改成与另外三个框**同一套两行摘要**（小标题「生成配置」+ 当前值 + 箭头）——
+       改前是一颗单行药丸「GPT Image 2·2K」，既没有标题、也看不出这颗是什么。
+       面板内容一字未动（仍是 GenSettingsPanel：模型 · 清晰度 · 品牌色 · 负面提示词）。 */
 function CanvasSuiteSettingsControl({ node, onChange, activeSurface = '', onSurfaceChange }) {
   const configuration = suiteConfiguration(node);
   const activePanel = activeSurface.startsWith('suite:') ? activeSurface.slice('suite:'.length) : '';
   const [anchorRef, anchor] = useCanvasPopoverAnchor(activePanel === 'settings' ? 'settings' : '');
-  const label = `${imageModelLabel(configuration.genSettings?.imageModel)}·${configuration.genSettings?.resolution || '2K'}`;
+  const suiteModel = configuration.genSettings?.imageModel || 'image2';
   return <div className="ec-canvas-suite-settings-control">
-    <button
-      ref={activePanel === 'settings' ? anchorRef : undefined}
-      type="button"
-      data-canvas-control="true"
-      className={activePanel === 'settings' ? 'is-active' : ''}
-      aria-expanded={activePanel === 'settings'}
-      aria-haspopup="dialog"
-      onClick={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'suite:settings'))}
-    ><SlidersHorizontal size={14} /><span>{label}</span><ChevronDown size={12} /></button>
-    <CanvasPopoverPortal open={activePanel === 'settings'} anchor={anchor} className="ec-canvas-suite-panel-popover" label="生成设置">
+    <CanvasConfigTrigger
+      surface="suite-settings"
+      title="生成配置"
+      value={`${imageModelLabel(suiteModel)} · ${configuration.genSettings?.resolution || '2K'}`}
+      icon={<ModelLogo logo={imageModelLogo(suiteModel)} size={18} radius={5} />}
+      open={activePanel === 'settings'}
+      anchorRef={activePanel === 'settings' ? anchorRef : undefined}
+      onToggle={() => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, 'suite:settings'))}
+      ariaLabel="生成配置"
+    />
+    <CanvasPopoverPortal open={activePanel === 'settings'} anchor={anchor} className="ec-canvas-suite-panel-popover" label="生成配置">
       <GenSettingsPanel value={configuration.genSettings} onChange={value => onChange?.({ resolution: value.resolution || node.resolution, configuration: { ...configuration, genSettings: value } })} />
     </CanvasPopoverPortal>
   </div>;
@@ -1347,7 +1477,13 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
   </section>;
 }
 
-export function CanvasTextGenerationComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
+/* ⚠️ 2026-09-28 批 CY-⑬ **`onOpenWorkbench` 必须在这个签名里**（CY-⑨ 留下的真崩溃）。
+   现象（`.qa/cy13-param-row-audit.mjs` 实测）：从左侧「+」建出**文案生成**节点时抛
+   `ReferenceError: onOpenWorkbench is not defined` —— 组件体第 1371 行把它传给了
+   `CanvasParameterControls`，而签名里没有解构 ⇒ 整个文案框**渲染即崩**（已上线，d8e38798 起）。
+   ⇒ ① 签名补上（默认 null，语义同另两个框：解析不出子页面坐标就不给入口）；② 父组件也把它接上，
+      这样"有技能的文案节点"同样能在技能层里"去完整工作台里编辑"（用户元要求：同型的一起改）。 */
+export function CanvasTextGenerationComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null, onOpenWorkbench = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   /* 9-13: 文案按次计费（后端 ec_ai_assistant），与首页同样的动态积分展示 */
@@ -1380,6 +1516,20 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
   const [planOpen, setPlanOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [previewPlan, setPreviewPlan] = useState(null);
+  /* ═══ 批 CY-⑬：把「点外面关掉」接到 `video:*` 键上 ═══════════════════════════════════════════════
+     改前这一行是 4 个原生 `<select>` —— 点外面自动收起是**浏览器免费给**的，
+     换成站内弹层（CanvasPopoverPortal portal 到 body）之后这份免费午餐就没了：
+     不补这个 effect，点画布空白处面板会一直挂着。
+     做法与 CanvasParameterControls（`parameter:*`）逐字同源，只有键前缀不同。 */
+  const videoControlsRef = useRef(null);
+  useEffect(() => {
+    if (!activeSurface?.startsWith('video:')) return undefined;
+    const close = event => {
+      if (!videoControlsRef.current?.contains(event.target)) onSurfaceChange?.(closeCanvasComposerSurface());
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [activeSurface, onSurfaceChange]);
   if (!node) return null;
   const mode = node.mode || 'smart';
   const imageSources = sources.filter(source => source.kind !== 'video' && source.kind !== 'audio');
@@ -1407,6 +1557,24 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
   const selectedVideoProduct = videoProducts.find(item => item.id === (node.modelProductId || 'seedance_standard')) || videoProducts[0] || null;
   const durationChoices = videoDurationChoices(selectedVideoProduct);
   const durationValue = snapVideoDuration(selectedVideoProduct, node.duration);
+  /* ═══ 批 CY-⑬：视频框的两颗触发器（视频模型 / 生成配置）—— 键名带 `video:` 前缀，
+     与图片/文案框的 `parameter:*` 分开；技能那格仍走 `parameter:skill`（CanvasSkillControl 的老键名），
+     两套互不干扰，Escape / 点画布空白仍能一起关掉（index.jsx 那一处是全局的）。
+     选项表从 `<select>` 里**原样搬过来**，值一字未改，只是从"系统下拉"变成"站内弹层"。 */
+  const videoProductChoices = videoProducts.length ? videoProducts : [
+    { id: 'seedance_standard', label: 'Seedance 2.0 标准', tierLabel: '正式交付' },
+    { id: 'seedance_fast', label: 'Seedance 2.0 Fast', tierLabel: '快速成片' },
+  ];
+  const videoOpen = activeSurface.startsWith('video:') ? activeSurface.slice('video:'.length) : '';
+  const toggleVideoSurface = key => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `video:${key}`));
+  /* 触发器上那行「当前值」= 选中的视频模型名。取的是**兜底后**的 choices，
+     这样在产品表还没加载完（videoProducts 为空）的那一帧，摘要也照常显示 Seedance 2.0 标准，
+     不会闪一下空白。 */
+  const activeVideoProduct = videoProductChoices.find(item => item.id === (node.modelProductId || 'seedance_standard')) || videoProductChoices[0] || null;
+  const [videoModelAnchorRef, videoModelAnchor] = useCanvasPopoverAnchor(videoOpen === 'model' ? 'model' : '');
+  const [videoConfigAnchorRef, videoConfigAnchor] = useCanvasPopoverAnchor(videoOpen === 'config' ? 'config' : '');
+  const videoAspect = node.aspectRatio || '9:16';
+  const videoResolutionLabel = String(node.resolution || '720p').toUpperCase();
   const localPlan = buildVideoPlan({ mode, prompt: node.prompt, files: planFiles, duration: durationValue, ratio: node.aspectRatio || '9:16', resolution: node.resolution || '720p', sound: node.generateAudio !== false });
   const analyzedPlan = previewPlan || node.videoPlan;
   const plan = analyzedPlan ? { ...localPlan, ...analyzedPlan, assets: analyzedPlan.assets?.length ? analyzedPlan.assets : localPlan.assets, beats: analyzedPlan.beats?.length ? analyzedPlan.beats : localPlan.beats, analyzed: true } : { ...localPlan, analyzed: false };
@@ -1464,13 +1632,66 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
     </div>}
     {/* 9-13 用户批注：四个框统一要有 @ 键 —— 视频框原来只有 textarea，没有 @ 引用 */}
     <CanvasPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={VIDEO_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述主体、动作、镜头、场景和节奏" onChange={value => change({ prompt: value })} />
-    <div className="ec-canvas-video-controls">
+    <div className="ec-canvas-video-controls" ref={videoControlsRef}>
       {/* 2026-09-17 用户批注：@ 键放到**最前面**（视频模型之前）。 */}
       <label className="ec-canvas-video-field is-mention"><span>引用</span><ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} /></label>
-      <label className="ec-canvas-video-field">视频模型<select value={node.modelProductId || 'seedance_standard'} onChange={event => { const nextId = event.target.value; const nextProduct = videoProducts.find(item => item.id === nextId) || null; change({ modelProductId: nextId, duration: snapVideoDuration(nextProduct, node.duration) }); }}>{(videoProducts.length ? videoProducts : [{ id: 'seedance_standard', label: 'Seedance 2.0 标准', tierLabel: '正式交付' }, { id: 'seedance_fast', label: 'Seedance 2.0 Fast', tierLabel: '快速成片' }]).map(product => <option key={product.id} value={product.id}>{product.label}{product.tierLabel ? ` · ${product.tierLabel}` : ''}{product.quotes?.short?.points ? ` (${product.quotes.short.points}-${product.quotes?.long?.points || product.quotes.short.points} 积分/次)` : ''}</option>)}</select></label>
-      <label className="ec-canvas-video-field">清晰度<select value={node.resolution || '720p'} onChange={event => change({ resolution: event.target.value })}><option value="720p">720P 成片</option></select></label>
-      <label className="ec-canvas-video-field">画幅<select value={node.aspectRatio || '9:16'} onChange={event => change({ aspectRatio: event.target.value })}>{['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'].map(value => <option key={value}>{value}</option>)}</select></label>
-      <label className="ec-canvas-video-field">时长<select value={durationValue} onChange={event => change({ duration: Number(event.target.value) })}>{durationChoices.map(value => <option key={value} value={value}>{value} 秒</option>)}</select></label>
+      {/* ═══ 批 CY-⑬：视频框原来这一行是 **4 个原生 `<select>`**（22px 高、无箭头、系统外观，
+          与站内其它三个框完全不是一套语言 —— 盘点见文件上方那张表）。现在换成与图片框**同一套**
+          两行摘要触发器：视频模型一颗 + 「生成配置」一颗（清晰度 · 画幅 · 时长）。
+          ⚠️ 契约一字未改：时长仍走 `videoDurationChoices` + `snapVideoDuration`（换模型时自动夹取），
+             清晰度仍只有 720P 一档，选项值与改前逐字相同。 */}
+      <div className="ec-canvas-parameter-item">
+        <CanvasConfigTrigger
+          surface="video-model"
+          title="视频模型"
+          value={activeVideoProduct?.label || 'Seedance 2.0 标准'}
+          icon={<Film size={14} />}
+          open={videoOpen === 'model'}
+          anchorRef={videoModelAnchorRef}
+          onToggle={() => toggleVideoSurface('model')}
+          ariaLabel="视频模型"
+        />
+        <CanvasPopoverPortal open={videoOpen === 'model'} anchor={videoModelAnchor} className="ec-canvas-model-popover" label="视频模型选项">
+          {videoProductChoices.map(product => <button key={product.id} type="button" className={product.id === (node.modelProductId || 'seedance_standard') ? 'is-active' : ''} onClick={() => {
+            const nextProduct = videoProducts.find(item => item.id === product.id) || null;
+            change({ modelProductId: product.id, duration: snapVideoDuration(nextProduct, node.duration) });
+            onSurfaceChange?.(closeCanvasComposerSurface());
+          }}>
+            <span className="ec-canvas-model-copy"><strong>{product.label}</strong><small>{[product.tierLabel, product.quotes?.short?.points ? `${product.quotes.short.points}-${product.quotes?.long?.points || product.quotes.short.points} 积分/次` : ''].filter(Boolean).join(' · ')}</small></span>
+          </button>)}
+        </CanvasPopoverPortal>
+      </div>
+      <div className="ec-canvas-parameter-item">
+        <CanvasConfigTrigger
+          surface="video-config"
+          title="生成配置"
+          value={`${videoResolutionLabel} · ${videoAspect} · ${durationValue} 秒`}
+          icon={<SlidersHorizontal size={14} />}
+          open={videoOpen === 'config'}
+          anchorRef={videoConfigAnchorRef}
+          onToggle={() => toggleVideoSurface('config')}
+          ariaLabel="生成配置"
+        />
+        <CanvasPopoverPortal open={videoOpen === 'config'} anchor={videoConfigAnchor} className="ec-canvas-config-popover" label="生成配置选项">
+          <div className="ec-canvas-config-panel-body">
+            <CanvasConfigGroup title="清晰度">
+              <div className="ec-canvas-config-resolution-row">
+                {VIDEO_RESOLUTION_OPTIONS.map(value => <button key={value} type="button" className={value === (node.resolution || '720p') ? 'is-active' : ''} aria-pressed={value === (node.resolution || '720p')} onClick={() => { change({ resolution: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}><strong>{value}</strong><small>成片</small></button>)}
+              </div>
+            </CanvasConfigGroup>
+            <CanvasConfigGroup title="画幅">
+              <div className="ec-canvas-config-ratio-row">
+                {VIDEO_ASPECT_OPTIONS.map(value => <button key={value} type="button" className={value === videoAspect ? 'is-active' : ''} aria-pressed={value === videoAspect} onClick={() => { change({ aspectRatio: value }); onSurfaceChange?.(closeCanvasComposerSurface()); }}><i className={`ec-canvas-ratio-shape is-${value.replace(':', '-')}`} /><span>{value}</span></button>)}
+              </div>
+            </CanvasConfigGroup>
+            <CanvasConfigGroup title="时长">
+              <div className="ec-canvas-config-count-row">
+                {durationChoices.map(value => <button key={value} type="button" className={Number(value) === Number(durationValue) ? 'is-active' : ''} aria-pressed={Number(value) === Number(durationValue)} onClick={() => { change({ duration: Number(value) }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>{value} 秒</button>)}
+              </div>
+            </CanvasConfigGroup>
+          </div>
+        </CanvasPopoverPortal>
+      </div>
       {/* 9-11: skill 选项 (与图片生成器同源 CANVAS_SKILLS, 预填提示词不覆盖已写内容)
           9-13 用户批注：技能入口要和另外三个框**长得一模一样**（同一个组件 + 同一个「更多技能…」进技能管理）。
           2026-09-17 用户批注（图：视频面板）：技能按钮**没有和其它四项同一套结构** ——

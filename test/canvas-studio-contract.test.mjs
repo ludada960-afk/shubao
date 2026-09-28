@@ -430,7 +430,12 @@ test('right-side image generation reuses the independent image composer with sou
 test('contextual composers expose fixed product controls without model selectors or destructive close buttons', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(source, /export function CanvasGenerationNode/);
-  assert.match(source, /aria-label="清晰度"/);
+  /* 2026-09-28 批 CY-⑬：清晰度不再是一颗独立的 `aria-label="清晰度"` 小药丸，
+     它与画面尺寸、生成数量一起收进了「生成配置」面板（用户原话：「什么尺寸，清晰度，数量
+     这些都是可以放在同一个**生成配置**里面去呀」）。
+     这条契约要保的是"**还能调**"，不是"必须还是那颗按钮"——所以判据跟着换成面板里的分组。 */
+  assert.match(source, /<CanvasConfigGroup title="清晰度">/);
+  assert.match(source, /<CanvasConfigGroup title="画面尺寸">/);
   assert.match(source, /套图方案/);
   assert.match(source, /生成设置/);
   assert.match(source, /ImageMentionPicker/);
@@ -445,8 +450,10 @@ test('canvas composers keep text boards editable and expose shared image-generat
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(source, /ec-canvas-generation-text-board/);
   assert.match(source, /contentEditable/);
-  assert.match(source, /aria-label="图片比例"/);
-  assert.match(source, /aria-label="清晰度"/);
+  /* 比例 / 清晰度 / 数量三项都还在，只是从触发行搬进了「生成配置」面板（批 CY-⑬） */
+  assert.match(source, /<CanvasConfigGroup title="画面尺寸">/);
+  assert.match(source, /<CanvasConfigGroup title="分辨率">/);
+  assert.match(source, /<CanvasConfigGroup title="生成数量">/);
   assert.match(source, /CANVAS_COUNT_OPTIONS/);
   assert.match(source, /aria-label="引用图片"/);
   assert.doesNotMatch(source, /描述要生成的标题、卖点、详情文案或设计要求/);

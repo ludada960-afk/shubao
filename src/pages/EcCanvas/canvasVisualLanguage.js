@@ -130,6 +130,15 @@ export const SLOT_WIDTH = Object.freeze({
      新口径：模型是**选择按钮**，槽位给足（132 = 「GPT Image 2」完整 + 图标 + 间距 + 箭头 + 内边距），
        更长的名字仍然在这槽内**向右裁切**（保持不写省略号那条老规矩），但**箭头永远在**。 */
   model: 132,
+  /* ═══ 2026-09-28 批 CY-⑬ 新增：**「生成配置」合并槽** ══════════════════════════════════════════════
+     用户原话（逐字）：「然后你这几块按钮**明明可以合成一块按钮**啊。什么尺寸，清晰度，数量
+       这些都是可以放在同一个**生成配置**里面去呀。」
+     ⇒ 比例(88) + 清晰度(64) + 数量(64) 三格共 216px + 2 个 8px 间距 = 232px，
+       收成**一颗**两行摘要触发器后，槽位必须一次给足，否则「2K · 1:1 · x4」这种摘要会被裁
+       —— 那就又回到"看不全"的老问题，等于把三颗小药丸的毛病搬到一颗大按钮上。
+     128 的构成：左内边距 8 + 标记图标 18 + 间距 5 + 摘要文字 ≈70 + ChevronDown 12 + 右内边距 8 + 余量 7。
+     改后图片/文案框底栏合计：@44+8+模型132+8+配置128+8+技能104 = **432 ≤ 434**（行内容盒，实测值）。 */
+  config: 128,
   /* 比例 / 画幅：最长「自动 / 21:9」 */
   ratio: 88,
   /* 清晰度：最长「4K」/「2K」 */
@@ -150,6 +159,11 @@ export const SLOT_WIDTH = Object.freeze({
  *  实测取值保证「视频模型 / 清晰度 / 画幅 / 时长 / 技能」五个标题都不折行。 */
 export const VIDEO_SLOT_WIDTH = Object.freeze({
   model: 112,
+  /* 批 CY-⑬：视频框原来的「清晰度 / 画幅 / 时长」三颗原生 `<select>` 收成一颗「生成配置」
+     （62+52+56+2×8 = 186 → 一颗）。摘要最坏是「720P · 16:9 · 12 秒」≈ 96px，
+     148 = 内边距 16 + 标记 18 + 间距 5 + 摘要 96 + ChevronDown 12 + 余量 1。
+     视频行是 flex-wrap（批 CU 已定），加宽不会溢出，只会让第二行更整齐。 */
+  config: 148,
   resolution: 62,
   ratio: 52,
   duration: 56,
@@ -229,6 +243,7 @@ export function canvasSlotCssVars() {
   return {
     '--cvl-slot-mention': `${SLOT_WIDTH.mention}px`,
     '--cvl-slot-model': `${SLOT_WIDTH.model}px`,
+    '--cvl-slot-config': `${SLOT_WIDTH.config}px`,
     '--cvl-slot-ratio': `${SLOT_WIDTH.ratio}px`,
     '--cvl-slot-resolution': `${SLOT_WIDTH.resolution}px`,
     '--cvl-slot-count': `${SLOT_WIDTH.count}px`,
@@ -237,6 +252,7 @@ export function canvasSlotCssVars() {
     '--cvl-slot-toggle': `${SLOT_WIDTH.toggle}px`,
     '--cvl-slot-gap': `${SLOT_GAP}px`,
     '--cvl-vslot-model': `${VIDEO_SLOT_WIDTH.model}px`,
+    '--cvl-vslot-config': `${VIDEO_SLOT_WIDTH.config}px`,
     '--cvl-vslot-resolution': `${VIDEO_SLOT_WIDTH.resolution}px`,
     '--cvl-vslot-ratio': `${VIDEO_SLOT_WIDTH.ratio}px`,
     '--cvl-vslot-duration': `${VIDEO_SLOT_WIDTH.duration}px`,

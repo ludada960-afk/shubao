@@ -17,15 +17,29 @@ function videoControlsBlock() {
   return studio.slice(start, end > start ? end : start + 6000);
 }
 
-test('① 六项统一「标题在上 + 控件在下」两行结构（技能不再是没有标题的光板按钮）', () => {
+test('① 每一项都有标题（技能不再是没有标题的光板按钮）', () => {
   const block = videoControlsBlock();
-  for (const label of ['视频模型', '清晰度', '画幅', '时长', '技能']) {
-    assert.ok(new RegExp('<label[^>]*>' + label).test(block), label + ' 必须有标题并置于 label 内');
+  /* ═══ 2026-09-28 批 CY-⑬：这一行的**结构变了**，判据跟着变，但一个字的要求都没松 ═══════════════
+     用户 ① 的原话是「其他那四个按钮的规则都是上面有标题、下面是一个选项，你这个都没有这个逻辑在」——
+     要的是"每一项都必须有标题"，**不是**"每一项都必须写成 <label> + <select>"那个具体写法。
+     批 CY-⑬ 把「视频模型 / 清晰度 / 画幅 / 时长」四个原生 <select> 换成
+     ① 一颗「视频模型」两行摘要触发器（标题在按钮内）＋ ② 一颗「生成配置」触发器
+        （清晰度 · 画幅 · 时长 收在这一块里 —— 用户原话：「什么尺寸，清晰度，数量这些都是可以放在
+        同一个**生成配置**里面去呀」）。
+     于是视频行现在是：@引用 → 视频模型 → 生成配置 → 技能 → 声音，
+     技能/声音仍是「<label>标题 + 控件」两行，两颗触发器自带标题行。 */
+  assert.ok(/title="视频模型"/.test(block), '视频模型必须有标题（两行摘要触发器的小标题）');
+  assert.ok(/title="生成配置"/.test(block), '清晰度 / 画幅 / 时长 必须收进有标题的「生成配置」块');
+  /* 这三项必须真的都在那块面板里，不许有一项漏在外面 */
+  for (const group of ['清晰度', '画幅', '时长']) {
+    assert.ok(new RegExp('<CanvasConfigGroup title="' + group + '">').test(block), group + ' 必须在生成配置面板里');
   }
-  /* 技能必须是 <label>技能<CanvasSkillControl/></label> 结构，而不是裸的 CanvasSkillControl */
+  /* 技能仍然是 <label>技能<CanvasSkillControl/></label>，不是裸组件 */
   assert.ok(/<label className="[^"]*">技能<CanvasSkillControl/.test(block),
     '技能必须包在带标题的 label 里（与其余项同结构）');
   assert.ok(!/(^|\n)\s*<CanvasSkillControl/.test(block), '技能不得再以裸组件形式直接排在进行里');
+  /* 这一行不许再出现原生 <select>（批 CY-⑬ 的根因：22px 高、无箭头、系统外观） */
+  assert.ok(!/<select[\s>]/.test(block.replace(/\/\*[\s\S]*?\*\//g, '')), '视频行不许再有原生 <select>');
 });
 
 test('① 六个 label 共用同一条样式规则（同基线才会对齐）', () => {
@@ -39,11 +53,12 @@ test('① 六个 label 共用同一条样式规则（同基线才会对齐）', 
 
 test('② @ 键在参数行**最前面**（视频模型之前）', () => {
   const block = videoControlsBlock();
-  /* 只看 JSX 标签顺序：@ 的 <label …is-mention…> 必须出现在「视频模型」这个 label 之前 */
+  /* 只看 JSX 标签顺序：@ 的 <label …is-mention…> 必须出现在「视频模型」这颗之前。
+     批 CY-⑬ 之后「视频模型」不再是 <label>，是 <CanvasConfigTrigger title="视频模型">。 */
   const mentionIdx = block.search(/<label[^>]*is-mention/);
-  const modelIdx = block.indexOf('>视频模型<');
+  const modelIdx = block.indexOf('title="视频模型"');
   assert.ok(mentionIdx > 0, '@ 必须作为 label 出现在参数行内');
-  assert.ok(modelIdx > 0, '视频模型必须作为 label 出现在参数行内');
+  assert.ok(modelIdx > 0, '视频模型必须出现在参数行内');
   assert.ok(mentionIdx < modelIdx, '@ 必须在视频模型之前（实测渲染顺序 引用 → 视频模型 → …）');
   /* 底栏不得再保留第二个 @（参数行里已经有一个了）。
      注意要定位**视频框自己的**底栏：文件里前面还有图片/文案框的 footer，
@@ -81,16 +96,30 @@ test('② 宽度固定（2026-09-17 用户批注：槽位宽绝不随文案变�
      并指着视频模型下拉说「这个逻辑就是对的：字太长就让它右边显示不出来，
      但绝对不能让整个按钮跟着文字去变宽。这四个框全部按这套逻辑做」。
      → 视频框槽位从「按内容收敛（flex: 0 1 <px>）」改为「固定槽位（flex: 0 0 <px>）」：
-       grow 0 = 内容再长也不撑宽；shrink 0 = 邻居再长也不被压窄。 */
-  for (const [nth, reason] of [['2', '视频模型'], ['3', '清晰度'], ['4', '画幅'], ['5', '时长'], ['6', '技能']]) {
-    const re = new RegExp('\\.ec-canvas-video-controls > label:nth-of-type\\(' + nth + '\\) \\{[^}]*flex:\\s*0\\s+0\\s+var\\(--cvl-vslot-');
-    assert.ok(re.test(css), reason + ' 必须是固定槽位（flex: 0 0 var(--cvl-vslot-*)）');
+       grow 0 = 内容再长也不撑宽；shrink 0 = 邻居再长也不被压窄。
+     ═══ 批 CY-⑬：键从「第几个 <label>」换成 `data-canvas-config-trigger` 这个**语义标记** ═══════════
+       改前是 `> label:nth-of-type(2..6)`，成立的前提是这一行有 6 个 <label>；
+       三个原生 <select> 收成一颗触发器之后 <label> 只剩 3 个，那张表**整体错位**
+       （技能被当成视频模型分到 112px、声音被当成清晰度分到 62px）。
+       换成语义标记后，宽度重新由**控件类型**决定 —— 这才是 2026-09-17 那条规则的原意。 */
+  for (const [surface, variable, reason] of [
+    ['video-model', '--cvl-vslot-model', '视频模型'],
+    ['video-config', '--cvl-vslot-config', '生成配置（清晰度·画幅·时长）'],
+  ]) {
+    const re = new RegExp('\\.ec-canvas-video-controls > \\.ec-canvas-parameter-item:has\\(> \\[data-canvas-config-trigger="' + surface + '"\\]\\) \\{[^}]*flex:\\s*0\\s+0\\s+var\\(' + variable);
+    assert.ok(re.test(css), reason + ' 必须是固定槽位（flex: 0 0 var(' + variable + ', …)）');
   }
   assert.ok(/\.ec-canvas-video-controls > label\.is-mention \{ flex: 0 0 auto; \}/.test(css), '@ 固定窄列不参与收缩');
-  /* 技能必须给足宽度显示标题（用户批注「技能又做得特别窄」） */
-  const skillRule = css.match(/\.ec-canvas-video-controls > label:nth-of-type\(6\) \{ flex: 0 0 var\(--cvl-vslot-label, (\d+)px\); \}/);
-  assert.ok(skillRule, '技能必须有明确的固定 flex-basis');
-  assert.ok(Number(skillRule && skillRule[1]) >= 48, '技能槽位不得过窄（要容得下「技能」标题），实际 ' + (skillRule && skillRule[1]));
+  /* 技能仍走「按内容收敛」那一档（它是短文案，不需要固定位），但必须收得到、不许塌成 0 */
+  assert.match(css, /\.ec-canvas-video-controls > label:not\(\.is-mention\):not\(\.is-toggle\) \{ flex: 0 1 auto; \}/,
+    '技能等短文案格必须可收缩且有最小内容宽');
+  /* 触发器本体锁宽：width:100% + min-width:0 + overflow:hidden + nowrap —— 字长不撑宽按钮 */
+  const trigger = css.match(/\.ec-canvas-config-trigger \{([^}]*)\}/);
+  assert.ok(trigger, '必须能找到触发器基础规则');
+  assert.match(trigger[1], /width:\s*100%/);
+  assert.match(trigger[1], /min-width:\s*0/);
+  assert.match(trigger[1], /overflow:\s*hidden/);
+  assert.match(trigger[1], /white-space:\s*nowrap/);
 });
 
 test('② 声音开关与其余控件同结构同基线（原来是 flex+padding-top 硬顶）', () => {

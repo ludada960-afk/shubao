@@ -161,8 +161,16 @@ test('六个按钮文案与首页逐字一致，且短文案 ≤4 字', () => {
 test('参数行按钮都带 data-canvas-control（画布手势不会误触）', () => {
   const start = studio.indexOf('function CanvasSuiteControls');
   const seg = studio.slice(start, studio.indexOf('\nfunction CanvasSuiteSettingsControl'));
-  const buttons = (seg.match(/<button/g) || []).length;
-  const tagged = (seg.match(/data-canvas-control="true"/g) || []).length;
-  assert.ok(buttons > 0, '参数行必须有按钮');
-  assert.ok(tagged >= buttons - 1, '参数行按钮都要 data-canvas-control（技能由子组件自带）');
+  /* ═══ 2026-09-28 批 CY-⑬：这一行现在**一个裸 `<button>` 都不剩** ═══════════════════════════════════
+     套图方案 / SKU变体 两格改走 <CanvasConfigTrigger>，技能走 <CanvasSkillControl>，
+     两者都在自己的组件里带 data-canvas-control="true"（触发器那份见 CanvasConfigTrigger）。
+     所以判据从"数这一段里有几个 <button>"改成：
+       ① 这一段里出现的一律是共用触发器或子组件 —— 不许再自己写裸 <button>；
+       ② 共用触发器自己必须带 data-canvas-control="true"。 */
+  assert.equal((seg.match(/<button/g) || []).length, 0,
+    '参数行不许再写裸 <button>（全部走共用触发器 / 子组件，标记才不会漏）');
+  assert.ok((seg.match(/<CanvasConfigTrigger/g) || []).length > 0, '参数行必须有按钮（触发器）');
+  const trigger = studio.slice(studio.indexOf('function CanvasConfigTrigger'));
+  assert.ok(trigger.slice(0, 900).includes('data-canvas-control="true"'),
+    '共用触发器必须自带 data-canvas-control（画布手势靠它识别控件）');
 });

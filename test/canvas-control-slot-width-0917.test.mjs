@@ -68,9 +68,12 @@ test('槽位间距取自 8pt 阶梯（SLOT_GAP = SPACING.sp2 = 8）', () => {
 
 test('槽位宽度表注入 CSS 变量（CSS 侧只写 var(--cvl-slot-*)，不写魔法数字）', () => {
   const vars = canvasSlotCssVars();
-  for (const name of ['--cvl-slot-mention', '--cvl-slot-model', '--cvl-slot-ratio',
+  /* --cvl-slot-config / --cvl-vslot-config 是 2026-09-28 批 CY-⑬ 加的：
+     比例 / 清晰度 / 数量三颗小药丸收成一颗「生成配置」触发器之后，需要一个新槽位，
+     宽度必须同样来自这张表（不许在 CSS 里写魔法数字）。 */
+  for (const name of ['--cvl-slot-mention', '--cvl-slot-model', '--cvl-slot-config', '--cvl-slot-ratio',
     '--cvl-slot-resolution', '--cvl-slot-count', '--cvl-slot-duration', '--cvl-slot-label',
-    '--cvl-slot-gap', '--cvl-vslot-model', '--cvl-vslot-resolution', '--cvl-vslot-ratio',
+    '--cvl-slot-gap', '--cvl-vslot-model', '--cvl-vslot-config', '--cvl-vslot-resolution', '--cvl-vslot-ratio',
     '--cvl-vslot-duration', '--cvl-vslot-label']) {
     assert.ok(vars[name], `必须注入 ${name}`);
     assert.match(vars[name], /^\d+px$/, `${name} 必须是固定像素值`);
@@ -85,22 +88,33 @@ test('参数控件槽位：必须是 flex-grow:0 + flex-shrink:0（固定，不�
 });
 
 test('每个控件类型按**类型**定宽（不是按位置），宽度全部来自 --cvl-slot-*', () => {
-  /* 模型 / 比例 / 清晰度 / 张数 / 时长 各自命中自己的槽位变量 */
+  /* ═══ 2026-09-28 批 CY-⑬：这张表的**键换了** ═══════════════════════════════════════════════════════
+     原来靠 `aria-label="图片比例" / "清晰度" / "生成数量" / "时长"` 这些**单行小药丸**来匹配。
+     那三颗参数药丸连同视频框那 4 个原生 `<select>` 已经被合并进「生成配置」触发器
+     （用户原话：「什么尺寸，清晰度，数量这些都是可以放在同一个**生成配置**里面去呀」）
+     ⇒ 按 aria-label 匹配的 5 行里有 5 行再也匹配不到元素。
+     换成 `data-canvas-config-trigger`（触发器上的**语义标记**）——
+     这也更贴规则本意：**宽度由控件类型决定，与它在第几位、文案多长都无关**。
+     合并掉的那三项不是"没有宽度"了：它们在「生成配置」面板里，宽度由面板栅格给
+     （`.ec-canvas-config-count-row button` 锁 32px 点击区档，见下面另一条）。 */
   const cases = [
-    ['生图模型', '--cvl-slot-model'],
-    ['文案模型', '--cvl-slot-model'],
-    ['图片比例', '--cvl-slot-ratio'],
-    ['画幅', '--cvl-slot-ratio'],
-    ['清晰度', '--cvl-slot-resolution'],
-    ['生成数量', '--cvl-slot-count'],
-    ['时长', '--cvl-slot-duration'],
+    ['model', '--cvl-slot-model'],
+    ['config', '--cvl-slot-config'],
+    ['video-model', '--cvl-vslot-model'],
+    ['video-config', '--cvl-vslot-config'],
   ];
-  for (const [aria, variable] of cases) {
-    const re = new RegExp('aria-label="' + aria + '"[\\s\\S]{0,120}?' + variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    /* 规则块形式：selector:has(> button[aria-label="X"]) { flex: 0 0 var(--cvl-slot-Y) } */
-    const ruleRe = new RegExp(':has\\(> button\\[aria-label="' + aria + '"\\]\\)[\\s\\S]{0,200}?' + variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    assert.ok(ruleRe.test(stripped) || re.test(stripped), aria + ' 必须用 ' + variable + ' 定宽');
+  for (const [surface, variable] of cases) {
+    const escaped = variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const ruleRe = new RegExp(':has\\(> \\[data-canvas-config-trigger="' + surface + '"\\]\\)[\\s\\S]{0,240}?' + escaped);
+    assert.ok(ruleRe.test(stripped), surface + ' 必须用 ' + variable + ' 定宽');
   }
+  /* 套图「生成配置」多包了一层 .ec-canvas-suite-settings-control，所以槽位规则挂在**外层**那一格上 */
+  assert.match(stripped,
+    /\.ec-canvas-suite-controls > \.ec-canvas-suite-settings-in-row \{[^}]*flex:\s*0\s+0\s+var\(--cvl-slot-model/,
+    'suite-settings 必须用 --cvl-slot-model 定宽');
+  /* 合并进面板的那三项：点击区仍锁 32px 档（用户 2026-09-17 定的下限，一条没松） */
+  assert.match(stripped, /\.ec-canvas-config-count-row button \{[^}]*var\(--cvl-control-compact, 32px\)/,
+    '生成数量 / 时长 那一排的按钮必须仍是 32px 档');
 });
 
 test('禁止用 :last-child 定宽（宽度不能取决于位置，否则换位次就变形）', () => {
@@ -158,23 +172,38 @@ test('槽位间距用 --cvl-slot-gap（固定 8px），不用硬编码小数', (
 
 test('四个生成框的参数控件都落在同一套槽位规则内（不是各写一份）', () => {
   /* 图片/文案框用 .ec-canvas-parameter-item；套图用 .ec-canvas-suite-control；
-     视频用 .ec-canvas-video-controls > label —— 三者都必须有固定槽位规则 */
+     视频用 .ec-canvas-video-controls 下的语义标记 —— 三者都必须有固定槽位规则 */
   assert.ok(stripped.includes('.ec-canvas-parameter-item {'), '图片/文案框槽位规则');
   assert.ok(stripped.includes('.ec-canvas-suite-control {'), '套图框槽位规则');
-  assert.ok(/\.ec-canvas-video-controls > label:nth-of-type\(2\)/.test(stripped), '视频框槽位规则');
-  /* 视频框的固定 basis：nth-of-type(2..6) 全部 flex: 0 0 var(--cvl-vslot-*) */
-  for (const n of [2, 3, 4, 5, 6]) {
-    const re = new RegExp('\\.ec-canvas-video-controls > label:nth-of-type\\(' + n + '\\) \\{[^}]*flex:\\s*0\\s+0\\s+var\\(--cvl-vslot-');
-    assert.match(stripped, re, '视频框第 ' + n + ' 个槽位必须固定宽度');
+  assert.ok(/\.ec-canvas-video-controls > \.ec-canvas-parameter-item:has\(/.test(stripped), '视频框槽位规则');
+  /* 视频框的固定 basis：两颗触发器全部 flex: 0 0 var(--cvl-vslot-*)。
+     ⚠️ 批 CY-⑬ 之前这里查的是 `> label:nth-of-type(2..6)`。视频模型/清晰度/画幅/时长
+     四个原生 `<select>` 收成一颗「生成配置」之后，<label> 只剩 3 个（引用/技能/声音），
+     那张表会**整体错位**（技能被当成视频模型分到 112px、声音被当成清晰度分到 62px）。
+     ⇒ 键换成 data-canvas-config-trigger：宽度按**控件类型**给，不按位次给。 */
+  for (const [surface, variable] of [['video-model', '--cvl-vslot-model'], ['video-config', '--cvl-vslot-config']]) {
+    const re = new RegExp('\\.ec-canvas-video-controls > \\.ec-canvas-parameter-item:has\\(> \\[data-canvas-config-trigger="' + surface + '"\\]\\) \\{[^}]*flex:\\s*0\\s+0\\s+var\\(' + variable);
+    assert.match(stripped, re, '视频框 ' + surface + ' 槽位必须固定宽度');
   }
 });
 
-test('视频模型 select 锁 width:100%（原生控件不许被文字撑宽）', () => {
-  const m = lastRule(main, /\.ec-canvas-video-controls > label:nth-of-type\(2\) > select \{([\s\S]*?)\}/g);
-  assert.ok(m, '必须有视频模型 select 规则');
-  assert.match(m[1], /width:\s*100%/);
-  assert.match(m[1], /min-width:\s*0/);
-  assert.match(m[1], /text-overflow:\s*clip/, '不许省略号');
+test('视频框两颗触发器：width:100% + min-width:0 + 不许省略号（文字不许撑宽按钮）', () => {
+  /* 批 CY-⑬ 之前这条查的是「视频模型 select 锁 width:100%」——
+     原生 `<select>` 是**唯一**会自己撑宽的元素（它按内容算宽度），所以要单独锁。
+     换成站内触发器之后撑宽的风险原样存在（`inline-flex` 默认 max-content），
+     判据保留：触发器必须被槽位锁住，字太长只在槽内**纯裁切**。 */
+  const rule = allRuleText(main, /\.ec-canvas-parameter-item > \.ec-canvas-config-trigger,\s*\n\s*\.ec-canvas-suite-settings-control > \.ec-canvas-config-trigger \{([\s\S]*?)\}/g);
+  assert.ok(rule.trim(), '必须有触发器的锁宽规则');
+  assert.match(rule, /height:\s*40px/, '触发器高度固定（不随内容）');
+  assert.ok(!/text-overflow/.test(rule), '触发器不许写 text-overflow（用户：不要省略号）');
+  const base = allRuleText(main, /\.ec-canvas-config-trigger \{([\s\S]*?)\}/g);
+  assert.match(base, /width:\s*100%/, '触发器必须 100% 撑满槽位（宽度由槽位决定）');
+  assert.match(base, /min-width:\s*0/, '触发器必须 min-width:0（才能在槽内收缩）');
+  assert.match(base, /overflow:\s*hidden/, '必须 overflow:hidden（纯裁切）');
+  assert.match(base, /white-space:\s*nowrap/, '必须 nowrap（不换行）');
+  /* 视频框那一档更矮（32px，与同行其它控件同基线），仍不许内容参与定宽 */
+  const video = allRuleText(main, /\.ec-canvas-video-controls > \.ec-canvas-parameter-item > \.ec-canvas-config-trigger \{([\s\S]*?)\}/g);
+  assert.match(video, /height:\s*var\(--cvl-control-compact, 32px\)/, '视频框触发器与同行控件同高');
 });
 
 test('参数行不参与收缩（flex-shrink:0）；放不下**换行**，不再靠底栏裁切', () => {
