@@ -11735,3 +11735,71 @@ precommit → **323 条 e2e 断言全绿 + 38 个 BLOCKING 门禁全绿**。部�
 各命中；站点与工作台页 200、/health 200、pm2 online。
 ⇒ **两个会话并发部署时不需要重试部署**：先查对方的 release 是否已包含自己的提交
 （`git merge-base --is-ancestor`），包含就只做复验 —— 省一次 25 分钟。
+
+## 2026-09-28 批 DC 续-6 —— 「代写这一篇的文案」（文案与图分开生成、共享上下文）
+
+用户原话（逐字）：「文案这块怎么办呢，我们文案要另外生成吗，统一一起生成的话，会不会更适配呢？
+还有就是，我们生成的文案能不能实现他们的那种风格呢，我们要避免文案千篇一律，但是也要成功模仿他们的风格，该怎么做会比较好呢」
+→ 处置：「可以，那你做吧」。
+
+**为什么文案要单独一次生成（不是拼进出图那一跳）** —— 用户问的是「统一一起生成会不会更适配」，
+实测口径是**不一起更适配**，理由有三条，都不是偏好：
+
+1. 出图那一跳的产物是**像素**，它的 prompt 里没有一个字能变成标题；把标题硬塞进去只会挤占
+   图像描述的 token，标题反而变差。
+2. 一次调用同时出「图 + 文案」，用户改标题就得整单重来（一次要重付图的钱）。分开之后
+   「再来一版文案」只花文案那 0.5 积分 —— 这是**计费形态**决定的，不是架构洁癖。
+3. 出图 20~40 秒、文案 3~5 秒，绑在一起等于让快的那半等慢的那半。
+
+⇒ 但「一篇」的一致性不能丢：所以是**分开生成、共享上下文** —— 主题意象、已选风格档、
+   这一篇已经产出的标题都会传进文案那一跳（`buildCopyPrompt` 收这些，而不是重读一遍图）。
+
+**文案风格怎么「像他们」又不千篇一律**（这是本批真正的难点，不是接一个接口）——
+`server/conceptCopywriting.mjs` 把风格做成**可测的骨架**，不靠「让模型自由发挥」：
+
+- `TITLE_PATTERNS` 6 条**实测**的标题句式，每条配一个真例子（如「把偏爱，攥在掌心」），
+  模仿的是 Aura 那一类「小动作 + 抽象名词」的结构，不是它的词。
+- `BODY_SKELETON` 三段式 + `GILDED_WORDS`（金词，只许在这类文案里出现的词）+
+  `FORBIDDEN_IN_COPY`（一票否决的词：促销腔/空话）。
+- **反千篇一律的四道闸**（这四道是本批的核心资产，门禁逐条钉住）：
+  1) `rotatePatterns(attempt)` —— 第 n 次重写换句式，不许原地再来一遍；
+  2) `cjkBigrams` + `titleSimilarity` + `needsRewrite(title, recent, 0.55)` —— 跟
+     `concept_copy_log` 里这个账号**最近**的标题比，中文二元组相似度过 0.55 就判重写；
+  3) `extractImageryTokens` / `imageryCoverage` —— 文案必须用上用户自己选的意象
+     （这里踩过坑：「道具与场景」是**标签词**不是意象，混进去会把「海边木平台与白墙」
+     粘成一个没法用的 token，所以有 `IMAGERY_LABEL_WORDS` 黑名单 + 连词拆分）；
+  4) `disciplineCheck` —— 越过 `FORBIDDEN_IN_COPY` 就在**服务端**判不合格，
+     一次同序重试（换句式再试），仍不过就如实报错，**不放水**。
+
+**计费**：`ec_concept_copy` = 500 units（0.5 积分）/ 成本如实记 ¥0.03，走
+`canvasOneShotBilling.execute`（hold → work → settle，抛错即退，actionId 幂等含 attempt）。
+label：`概念方案 · 代写发布文案（标题 + 正文 + 标签）`。`concept_copy_log` 落库 + `idx_concept_copy_owner`。
+
+**门禁**：`test/concept-copywriting-0928.test.mjs` 6 条（骨架 / 重写判据 / 意象 / 纪律 / 解析 / 提示词）。
+⚠️ 这一批里我自己的两条门禁写错过两次，都是门禁自己抓到的：
+`parseCopyJson('').null ?? null` 的取值形态，以及一对**其实不含任何相同二元组**的相似度样本。
+⇒ 判据必须**自证**（从函数读出来的事实），不能写「看起来像」的断言。
+
+**验证与部署**：隔离树 `.worktrees/dc7-verify --detach 47ff857f` + `mklink /J node_modules` →
+precommit **构建 exit 0 + 323 条 e2e 断言全绿 + 38 个 BLOCKING 门禁全绿**；
+`pwsh -NoProfile -File scripts/deploy-production.ps1 -SkipPublicChecks`（Windows PowerShell 5.1
+解不了 UTF-8 参数，5.1 会把脚本解析坏）→ `Deployed 47ff857f to https://shuimg.cn/`，
+release `20260928-181701-47ff857f`。
+
+⚠️ 复验时 `current` 已经是 **`20260928-183536-a3de9110`** —— 并发会话在我之后又发了一次，
+`git merge-base --is-ancestor 47ff857f a3de9110` **成立** ⇒ 我的提交就在线上那个 release 里，
+按批 DC 续-5 的结论只做复验、不重复部署。
+
+**生产复验**（全部 SSH 自服务器）：线上 `assets` 里 `ec_concept_copy` / `media-run-copy` /
+`代写这一篇的文案` 三个标记都命中；`server/conceptCopywriting.mjs` 在（14314B）、
+`index.mjs` 有路由、`catalog.mjs` 有 SKU；`works.db` 里 **`concept_copy_log` 表已建、行数 0**
+（= 没有人点过，**真实上游花费 0**，符合用户「不消耗我的上游 token」的要求）；
+`POST /api/concept/copywriting` 未登录 → **401 AUTH_SESSION_REQUIRED**（路由活着且锁正确）；
+站点 200 / 工作台深链 200 / `/health` 200 / pm2 online。
+
+**清理**：`rmdir`（junction）→ `git worktree remove -f` → 目录删除。⚠️ `Remove-Item` 在
+Windows PowerShell 5.1 上删这个 junction 抛 `NullReferenceException`，`cmd` 的 `rmdir` 才干净；
+删完必须确认**父树的 `node_modules` 还在**（309 项、vite 在），否则会连带删掉真依赖。
+
+**本批唯一的欠账（诚实记下）**：`scripts/media-workbench-e2e.mjs` 的**端到端场景**没加 ——
+共享树里那个文件正处于另一个会话的未提交改动中（批 CY-⑪），不去踩。等它提交后再补场景。
