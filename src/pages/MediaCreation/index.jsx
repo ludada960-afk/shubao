@@ -1454,13 +1454,22 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
   useEffect(() => {
     const launch = state.creationLaunch;
     if (!launch) return;
-    if (launch.kind === 'work-remix') {
+    /* ═══ 2026-09-28 批 CY-⑨（CV-2 第 2 步）：**画布节点 → 子页面工作台** ══════════════════════════
+       画布那边按用户拍板把入口放在**节点上**（「在完整工作台里编辑」，docs/design/89 §5 第 2 步），
+       发出的 launch 是 `kind: 'canvas-node-edit'`，载荷与 work-remix **同一个形状**
+       （skillId / panelValues / prompt / title）⇒ 这里**不新写一段落地逻辑**，只换一句提示语
+       （让用户知道"这次是从画布那个节点来的"）。素材不带：CV-2 第 2 步的原文就是
+       「打开对应 skill 子页面，**参数带过去**」。 */
+    if (launch.kind === 'work-remix' || launch.kind === 'canvas-node-edit') {
       const target = launch.skillId ? getImageSkill(launch.skillId) : null;
       if (!target) { backToHub(); dispatch({ type: 'SET_CREATION_LAUNCH', launch: null }); return; }
       const seed = { ...(launch.panelValues || {}) };
       if (launch.prompt) seed[planPreviewTargetKey(target)] = launch.prompt;
-      carryHintRef.current = '已带出「' + (launch.title || '这条记录') + '」的素材与配置，'
-        + '确认后点「立即生成」——这一次会重新计费；生成结果是新的一条记录，不会覆盖原来那条';
+      carryHintRef.current = launch.kind === 'canvas-node-edit'
+        ? '已从画布节点「' + (launch.title || target.name) + '」把参数与提示词带过来，'
+          + '确认后点「立即生成」——这一次会重新计费；生成结果是新的一条记录'
+        : '已带出「' + (launch.title || '这条记录') + '」的素材与配置，'
+          + '确认后点「立即生成」——这一次会重新计费；生成结果是新的一条记录，不会覆盖原来那条';
       openSkill(target.id, seed);
       dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
       return;

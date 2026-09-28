@@ -690,6 +690,14 @@
 .ec-canvas-skill-popover button strong { color: #20242a; font-size: 12px; font-weight: 700; }
 .ec-canvas-skill-popover button small { color: #8a93a0; font-size: 11px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ec-canvas-skill-popover button:last-child { border-style: dashed; color: #64748b; font-size: 11px; font-weight: 600; padding: 6px; }
+/* ═══ 2026-09-28 批 CY-⑨（CV-2 第 2 步）：技能弹层里那行「在完整工作台里编辑」══════════════════════
+   与上面几条技能行同宽，但内容是"文字 + 去别处的箭头" ⇒ **横排**（上一条 button 规则是 grid 竖排，
+   图标会被挤到第二行）。用更高的选择器优先级覆盖，不用 !important（本仓不许）。 */
+.ec-canvas-skill-popover button.ec-canvas-skill-workbench {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 7px 10px; color: #4b5563; font-size: 11px; font-weight: 600;
+}
+.ec-canvas-skill-popover button.ec-canvas-skill-workbench:hover { color: #111827; background: var(--sb-surface-tint-strong); }
 .ec-canvas-ratio-popover { width: 274px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .ec-canvas-ratio-popover button { min-height: 66px; display: grid; place-items: center; align-content: center; gap: 5px; border-radius: 12px; font-size: 11px; }
 .ec-canvas-ratio-shape { display: block; width: 22px; height: 22px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 4px; }

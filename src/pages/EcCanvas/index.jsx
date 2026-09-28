@@ -65,6 +65,7 @@ import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
 import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
 import { createPlanLaunchGraph, isPlanLaunch } from './canvasPlanLaunch.js';
+import { canvasNodeSeedValues, canvasWorkbenchTargetOf } from './canvasWorkbenchBridge.js';
 import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
 import { canvasMediaAssetRefs, createCanvasSnapshot, createFreshCanvasSession, importProjectAssetToCanvas, normalizePendingProjectAssetImports, restoreCanvasMediaPlayback, restoreCanvasSnapshot } from './canvasSessionModel.js';
 import { collectCanvasProjectAssetRefs } from './canvasAssetReferenceModel.js';
@@ -1187,8 +1188,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       const composer = addCanvasComposerRef.current?.(kind, body ? { prompt: body } : {});
       if (!composer?.id) { showToast('新建节点失败，请重试', 'error'); return; }
       const applied = applyCanvasSkill({ prompt: body, skill: skill.slug || skill.name, skillBody: body });
+      /* 批 CY-⑨（CV-2）：把**子页面坐标**一并记在节点上 —— 「在完整工作台里编辑」靠它才找得到那一页；
+         只记技能名的话，将来改了名字就再也回不去了（名字匹配只是给更早的节点兜底）。 */
       setNodes(previous => previous.map(node => node.id === composer.id
-        ? { ...node, ...applied, skillLabel: applied.skillLabel || skill.name }
+        ? { ...node, ...applied, skillLabel: applied.skillLabel || skill.name, subpageSkillId: skill.id || '', subpageDomain: target.domain === 'video' ? 'video' : 'image' }
         : node));
       showToast(`已按「${skill.name}」新建节点，可以直接改参数生成`, 'success');
       return;
@@ -1196,7 +1199,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     if (!target?.nodeId) return;
     setNodes(previous => previous.map(node => node.id === target.nodeId ? (() => {
       const next = applyCanvasSkill({ prompt: node.prompt || '', skill: skill.slug || skill.name, skillBody: body });
-      return { ...node, ...next, skillLabel: next.skillLabel || skill.name };
+      /* 同 CV-2：换技能时**一并换掉子页面坐标**（否则节点会继续指向旧技能的那一页）。 */
+      return { ...node, ...next, skillLabel: next.skillLabel || skill.name, subpageSkillId: skill.id || '', subpageDomain: target.domain === 'video' ? 'video' : 'image' };
     })() : node));
     if (body) showToast('技能已应用，提示词可继续修改', 'success');
   }, [applyCanvasSkill, skillLibraryTarget, showToast]);
@@ -5751,6 +5755,35 @@ const handlePointerUp = useCallback((e) => {
     dispatch({ type: 'SET_CREATION_LAUNCH', launch });
     dispatch({ type: 'NAVIGATE', page: 'image-creation' });
   };
+  /* ═══ 2026-09-28 批 CY-⑨（CV-2 第 2 步）：**节点 → 子页面工作台**（docs/design/89 §5 第 2 步）════
+     用户已拍板入口位置＝节点上（§7 第 3 条）。走的是与「做同款 / 回到生成它的工作台」**同一条**
+     `creationLaunch` 通道：只发一个 launch，落地逻辑全在 MediaCreation 里（那里已有 work-remix 那一段，
+     本批只是让它也认 `canvas-node-edit` 这个 kind）——不另写一套还原。
+     ⚠️ 只带**这条技能真的声明的字段**（canvasNodeSeedValues 逐条核对），提示词由子页面按
+        planPreviewTargetKey 决定写进哪个字段；**不自动生成**（钱只发生在按报价确认之后）。
+     ⚠️ 解析不出子页面坐标（含视频技能）⇒ `onOpenWorkbench` 传 null ⇒ 那颗按钮根本不渲染，
+        见 canvasWorkbenchBridge.js 顶部。 */
+  const openNodeInWorkbench = useCallback(node => {
+    const target = canvasWorkbenchTargetOf(node);
+    if (!target) return;
+    dispatch({
+      type: 'SET_CREATION_LAUNCH',
+      launch: {
+        kind: 'canvas-node-edit',
+        skillId: target.skillId,
+        panelValues: canvasNodeSeedValues(node, target.skill),
+        prompt: String(node?.prompt || ''),
+        title: String(node?.skillLabel || target.skill.name || '画布节点'),
+      },
+    });
+    dispatch({ type: 'NAVIGATE', page: 'image-creation' });
+  }, [dispatch]);
+  /* 当前选中的节点能不能"去完整工作台" —— **在这里算一次**，往下只传 null 或一个函数：
+     子组件据此决定渲不渲染那颗按钮（单一真相，不让每个 composer 各判一次）。 */
+  const selectedWorkbenchOpen = useMemo(
+    () => (canvasWorkbenchTargetOf(selectedNode) ? () => openNodeInWorkbench(selectedNode) : null),
+    [selectedNode, openNodeInWorkbench],
+  );
   /* 9-15 用户批注：从左侧「+」把资产库素材放进画布时提示「素材已到期或待清理」——
      后端保留清扫会把用户自己的素材标记为 attention，界面却在导入前用本地快照直接拦截。
      修复：登录态下以服务端为准（reuse 校验）；若素材被保留策略标记为待清理，
@@ -7322,6 +7355,7 @@ const handlePointerUp = useCallback((e) => {
               onToggleSource={(source, options) => toggleComposerSource(selectedNode.id, source, 'reference', options)}
               onGenerate={() => handleImageComposerGenerate(selectedNode)}
               onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'image')}
+              onOpenWorkbench={selectedWorkbenchOpen}
             />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'text-composer' && <CanvasTextGenerationComposer
               node={selectedNode}
@@ -7365,6 +7399,7 @@ const handlePointerUp = useCallback((e) => {
                   旧方案由组件侧压进 previousSuitePlans 保留可对比，并把 planConfirmed 复位。 */
                onRegenerateSuitePlan={() => handleSuiteComposerGenerate({ ...selectedNode, suiteStep: undefined, planConfirmed: false })}
                onOpenSkillLibrary={() => openSkillLibrary(selectedNode.id, 'image')}
+               onOpenWorkbench={selectedWorkbenchOpen}
              />}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'video-composer' && <CanvasVideoComposer
               node={selectedNode}

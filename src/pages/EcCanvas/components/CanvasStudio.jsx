@@ -723,7 +723,7 @@ const CanvasPromptField = forwardRef(function CanvasPromptField({ maxLength = IM
 
 /* 9-13 用户批注：四个生成框要**共用同一个技能入口**（点开同一套技能，最后一项进「技能管理」弹窗）。
    所以把「技能按钮 + 技能弹层」抽成一个组件，图片 / 文案 / 视频 / 套图四处都用它，不再各写一套。 */
-function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null, domain = 'image' }) {
+function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null, onOpenWorkbench = null, domain = 'image' }) {
   const open = activeSurface.startsWith('parameter:') ? activeSurface.slice('parameter:'.length) : '';
   /* 9-17（图6）：面板走 portal 脱离裁剪上下文；锚点口径仍是「水平居中于按钮正上方」 */
   const [skillAnchorRef, skillAnchor] = useCanvasPopoverAnchor(open === 'skill' ? 'skill' : '');
@@ -736,12 +736,20 @@ function CanvasSkillControl({ node, onChange, activeSurface = '', onSurfaceChang
         <strong>{skill.name}</strong><small>{skill.skillPrompt}</small>
       </button>)}
       {onOpenSkillLibrary && <button type="button" className="ec-canvas-skill-more" onClick={() => { onSurfaceChange?.(closeCanvasComposerSurface()); onOpenSkillLibrary(domain); }}>更多技能…<ChevronDown size={11} style={{ transform: 'rotate(90deg)' }} /></button>}
+      {/* ═══ 2026-09-28 批 CY-⑨（CV-2 第 2 步）：**节点 → 子页面工作台** ══════════════════════════════
+          用户已拍板入口位置＝**节点上**（docs/design/89 §7 第 3 条：竞品都是节点级、顶栏只留模板广场）。
+          为什么放在「技能」这一格里：它表达的正是"这条技能 → 去它的完整工作台里继续编辑"，
+          与「更多技能…/清除技能」同属这一格 ⇒ 不需要在参数行或顶栏再造一个新入口
+          （用户历史上反复点过名：「一个页面只能有一个主入口」）。
+          ⚠️ `onOpenWorkbench` 为 null ⇒ **不渲染**：解析不出子页面坐标的节点、以及视频技能都落在这一类
+             （视频侧还没接 `creationLaunch` 落地链路 —— 见 canvasWorkbenchBridge.js 顶部那段）。 */}
+      {onOpenWorkbench && <button type="button" className="ec-canvas-skill-workbench" onClick={() => { onSurfaceChange?.(closeCanvasComposerSurface()); onOpenWorkbench(); }}>在完整工作台里编辑<ArrowUpRight size={11} /></button>}
       {node?.skill && <button type="button" onClick={() => { onChange?.({ skill: null, skillLabel: null }); onSurfaceChange?.(closeCanvasComposerSurface()); }}>清除技能</button>}
     </CanvasPopoverPortal>
   </div>;
 }
 
-function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_OPTIONS, includeCount = true, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null }) {
+function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_OPTIONS, includeCount = true, activeSurface = '', onSurfaceChange, onOpenSkillLibrary = null, onOpenWorkbench = null }) {
   const rootRef = useRef(null);
   useEffect(() => {
     if (!activeSurface?.startsWith('parameter:')) return undefined;
@@ -802,7 +810,7 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
     {/* 9-11 用户批注: skill 选项进生成器 (对标流影AI) —— 技能 = P2 五套内置技能,
         选择即把技能提示词预填进 prompt (空 prompt 才填, 不覆盖已写内容), 用户可改可清除。
         9-13: 抽成 CanvasSkillControl, 与视频/套图框共用同一个入口。 */}
-    <CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" />
+    <CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} onOpenWorkbench={onOpenWorkbench} domain="image" />
   </div>;
 }
 
@@ -868,7 +876,7 @@ function suiteConfiguration(node = {}) {
   };
 }
 
-function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChange, availableSources = [], mentionSources = [], onToggleSource, promptFieldRef = null, onOpenSkillLibrary = null }) {
+function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChange, availableSources = [], mentionSources = [], onToggleSource, promptFieldRef = null, onOpenSkillLibrary = null, onOpenWorkbench = null }) {
   const rootRef = useRef(null);
   const configuration = suiteConfiguration(node);
   const adjustedPanels = deriveEffectiveSmartOverrides(configuration);
@@ -963,7 +971,7 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
     </div>)}
     {/* 技能：位置与首页一致（Home/EcMode.jsx DEFAULT_BUTTONS 第 4 位 = skills）—— 不再丢到最下面 */}
     <div className="ec-canvas-suite-control ec-canvas-suite-skill-control" key="skill">
-      <CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="image" />
+      <CanvasSkillControl node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} onOpenWorkbench={onOpenWorkbench} domain="image" />
     </div>
     {/* ═══ 2026-09-27 批 CU：「生成设置」（= 模型 · 清晰度）**从底栏拿上来**，放回这一行的末尾 ═══════
         用户原话（逐字）：「然后**模型的选择和生成配置的那些按钮，你看是不是应该拿上来呢**？」
@@ -1279,7 +1287,7 @@ function ComposerPreview({ node, source, label = '图片生成', selection, onSe
   </div>;
 }
 
-export function CanvasImageComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null }) {
+export function CanvasImageComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null, onOpenWorkbench = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const source = sources[0];
@@ -1321,7 +1329,7 @@ export function CanvasImageComposer({ node, position,  sources = [], mentionSour
       />
       <div className="ec-canvas-composer-footer">
         <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
-        <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
+        <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} onOpenWorkbench={onOpenWorkbench} />
         {/* 9-18（P0）说明：本行容器 .ec-canvas-composer-footer 是**复合工具条**（@ 引用 + 参数控件 + CTA），
             不属于「弹窗底部操作区」，故其 CTA 保留画布侧既有契约类 shubao-gen-cta
             （test/canvas-composer-points-and-skill-0913 要求四个生成框共用同一枚 CTA），
@@ -1355,7 +1363,7 @@ export function CanvasTextGenerationComposer({ node, position,  sources = [], me
     <CanvasPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={TEXT_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述你想生成的画面；看板中的文字会作为画面文字要求" onChange={value => onChange?.({ prompt: value })} />
     <div className="ec-canvas-composer-footer">
       <ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} />
-      <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} />
+      <CanvasParameterControls node={node} onChange={onChange} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} onOpenWorkbench={onOpenWorkbench} />
       <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || (!String(node.prompt || '').trim() && !String(node.text || '').trim() && !sources.length)} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Sparkles size={15} />生成<span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span></>}</button>
     </div>
 
@@ -1479,7 +1487,7 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
   </section>;
 }
 
-export function CanvasEcommerceComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null, onRegenerateSuitePlan = null }) {
+export function CanvasEcommerceComposer({ node, position,  sources = [], mentionSources = [], availableSources = [], loading = false, activeSurface = '', onSurfaceChange, onChange, onAddSources, onRemoveSource, onToggleSource, onGenerate, onOpenSkillLibrary = null, onRegenerateSuitePlan = null, onOpenWorkbench = null }) {
   const promptFieldRef = useRef(null);
   if (!node) return null;
   const directions = Array.isArray(node.directions) ? node.directions : [];
@@ -1539,9 +1547,10 @@ export function CanvasEcommerceComposer({ node, position,  sources = [], mention
       availableSources={availableSources}
       mentionSources={mentionSources}
       onToggleSource={onToggleSource}
-      promptFieldRef={promptFieldRef}
-      onOpenSkillLibrary={onOpenSkillLibrary}
-    />
+        promptFieldRef={promptFieldRef}
+        onOpenSkillLibrary={onOpenSkillLibrary}
+        onOpenWorkbench={onOpenWorkbench}
+      />
     <div className="ec-canvas-composer-footer">
       {node.error ? <div className="ec-canvas-composer-error" role="alert">
         <span>{node.error}</span>

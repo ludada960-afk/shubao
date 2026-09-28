@@ -93,7 +93,16 @@ test('④ 回到生成它的工作台：判据是纯函数，落点复用站内�
   assert.match(canvas, /const remixWorkInWorkbench = work => \{[\s\S]{0,220}SET_CREATION_LAUNCH[\s\S]{0,120}NAVIGATE', page: 'image-creation'/,
     '画布工作区只负责发 launch + 跳转');
   const page = read('src/pages/MediaCreation/index.jsx');
-  assert.match(page, /if \(launch\.kind === 'work-remix'\) \{[\s\S]{0,600}openSkill\(target\.id, seed\)/,
-    '落地在子页面这一处（与首页「做同款」同一段代码）');
+  /* ═══ 2026-09-28 批 CY-⑨（CV-2 第 2 步）：入口从"一种 kind"变成"两种 kind"，**判据意图没变** ══════
+     用户拍板「画布↔子页面的入口位置，可以，你做吧」（docs/design/89 §7 第 3 条：入口放在**节点上**）
+     ⇒ 画布节点也走**这同一段**落地（新 kind `canvas-node-edit`，载荷形状与 work-remix 一致：
+       skillId / panelValues / prompt / title）。所以这里放宽成"两种 kind 都认"——
+     守的仍然是"**落地只有这一处**，不许各写一套还原"（本批只多认一种 kind，没有多写一套）。
+     ⚠️ **剥注释后再比**（本仓规矩）：这一段的解释性注释本身会把窗口撑爆（第一版就是这么红的）。
+     ⚠️ 窗口 600 → **900**：这一段现在要处理两种 kind + 两种提示语（实测剥注释后 `if` 到 `openSkill`
+        的距离 = **682** 字符），600 会因为"代码变长"而不是"实现变样"判红。 */
+  const pageCode = page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(pageCode, /if \(launch\.kind === 'work-remix' \|\| launch\.kind === 'canvas-node-edit'\) \{[\s\S]{0,900}openSkill\(target\.id, seed\)/,
+    '落地在子页面这一处（与首页「做同款」同一段代码；CV-2 之后同时服务画布节点）');
   assert.match(page, /生成结果是新的一条记录，不会覆盖原来那条/, '提示语要说清"不覆盖"（用户原话）');
 });
