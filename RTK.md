@@ -11696,3 +11696,42 @@ section.mt-8「产品卖点与设计风格」
   与部署仓 `dist` **逐字相同**。CY-⑩ 的部署见本批末尾那一行。
 - ⚠️ 部署期间线上还被另一条线推进过两次（`3f5e3c2d` / `c62c896c` / `869dac5e` / `897bbdec`）——
   共享分支上的常规并发；我每次部署都先查远端锁（`fuser /tmp/.shubao-deploy-v2.lock`）再发。
+
+## 2026-09-28 批 DC 续-5 —— 概念工作台开放「模型选择」（用户点名 image2.5）
+
+用户原话（逐字）：「只有 nano 吗，那现在最火的不是 image2.5 吗，**我不能用上吗，我们现在有支持吗**」。
+
+**事实核对先行**：GPT Image 2.5 **早就接通了** —— 9-13 批上线：上游模型名
+`gpt-image-2.5-sunburst-*` / `gpt-image-2.5-flare-*`（server/index.mjs 映射表）、
+计费 SKU `ec_image25_sunburst/flare_*`（1.5/1.5/2 积分，成本 0.0715/0.0975/0.1235，毛利 76~82%）、
+账目标签齐全。目录里可选的一共 **8 档**（GPT Image 2 / Nano Banana 2 / Nano Banana Pro /
+2.5 Sunburst / 2.5 Flare / MDKJ Super / Gemini 3 图像 / Midjourney）—— "只有 nano"是误解。
+
+**改动**：`image.concept_set` 加回 `modelField()`（那份唯一的目录摊开的字段）：
+- 默认仍 `image2`（通用主力 + 全场最便宜 + 出图记录最长）；
+- 选 2.5 时 CTA 积分自动变（skillPointsEstimate 读 settings.imageModel，与计费同源）；
+- 分辨率随模型夹取（clarityField 的 optionsFrom → Midjourney 只有 1K/2K）；
+- **一篇 N 张仍同一个模型不放开** —— 锁模型的本意是"混模型颗粒不统一"，不是"用户不能选"。
+- ⚠️ 主题意象必须保持**第一个 select**：e2e 的自动配齐拿的就是"第一个 select"，把模型选择
+  排到它前面会把 e2e 的选题逻辑打歪（字段顺序 = DOM 顺序）。
+
+**门禁抓到的真冲突（值得记）**：`image-model-selection-0921` ① 是一条**白名单门禁** ——
+"模型选择只出现在知渔有这一格的页面上（逐字段实采为据，不是全站铺一个下拉）"，把 `ours`
+钉死在 `['image.copy', 'image.try_on']`。加概念工作台当场判红。
+处置：这不是放宽 —— 白名单的本意是"别把下拉铺到 108 页"，用户**点名**要这一页属于**改口径**，
+白名单加一项并写明用户原话。门禁与事实同步 = 白名单条目 + 理由，而不是删门禁。
+
+**验证**：`npm run test` 全量（共享树被并发 WIP 弄红，照既定流程走隔离树）：
+`.worktrees/dc6-verify --detach 897bbdec` + cherry-pick 白名单修复 + `SHUBO_E2E_PORT=4223`
+precommit → **323 条 e2e 断言全绿 + 38 个 BLOCKING 门禁全绿**。部署 `Deployed 897bbdec…`
+（隔离树），线上入口与构建逐字一致、`模型选择`/`image2-5-sunburst` 命中线上 chunk。
+
+**部署结果的实况（比预想曲折，值得记）**：我的部署在"远程锁"那一步失败 ——
+**并发会话正在同时部署**（锁被他们拿走；脚本按设计拒绝无围栏的回滚，生产没有被碰出半成品态）。
+而他们的发版 `3b58db3d`（CV-2 第二步，16:55）是从**共享树 HEAD** 构建的 —— 那时我的
+`897bbdec` + `b2bd8f2f` 已经在树里 ⇒ **他们的 release 把我的模型选择一起带上了线**。
+生产复验：release `20260928-165517-3b58db3d`；概念 chunk `index-1dbQsbv6.js`
+（含 `概念视觉方案`/`image.concept_set`）里 `GPT Image 2.5 Sunburst`/`模型选择`/`image2-5-sunburst`
+各命中；站点与工作台页 200、/health 200、pm2 online。
+⇒ **两个会话并发部署时不需要重试部署**：先查对方的 release 是否已包含自己的提交
+（`git merge-base --is-ancestor`），包含就只做复验 —— 省一次 25 分钟。
