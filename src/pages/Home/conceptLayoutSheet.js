@@ -22,8 +22,13 @@
 import { CONCEPT_COMPOSE_FAMILIES, CONCEPT_LAYOUT_FAMILIES } from '../../skills/imageSkills.js';
 import { LAYOUT_FAMILY_NONE, pieceLayoutFamilyHolds } from '../../skills/skillRun.js';
 
-/* 单格 = 本账号签名 3:4（与工作台「比例」默认档 3:4 同源） */
-export const LAYOUT_CELL = Object.freeze({ width: 1080, height: 1350 });
+/* 单格 = **1080×1440（3:4）** —— 2026-09-28 按实测改的（用户问"他们的尺寸是什么样"，把 402 张
+   原图全量量了一遍）：**402 张全部 1080 宽**，其中 393 张是 1080×1440（正好 3:4，另 23 张在
+   ±7px 内属平台取整）、**9 张 1080×1920（9:16，那几张实况/视频帧）**；没有横版、没有方图。
+   ⚠️ 这一格原来是 1080×1350（4:5），注释却写着"3:4" —— 与他的实测签名不符：
+      cover 填充会把 3:4 的生成图上下各裁掉一截，整张拼版也变成 4:5（信息流里还会再被裁）。
+      现在生成图（3:4）填进格子里**一像素都不用裁**。 */
+export const LAYOUT_CELL = Object.freeze({ width: 1080, height: 1440 });
 /* 宫格之间留一条白缝（实测那种"杂志内页"的格子不是贴死的） */
 const GRID_GAP = 18;
 /* 底片条：外框、齿孔条高度、格与格之间的缝

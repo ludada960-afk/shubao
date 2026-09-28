@@ -296,9 +296,15 @@ test('④ 单格按 cover 填（不拉伸），拼版那条链只走既有端点
      ⚠️ 竖图那一种两种算法**数值会撞上**（都得到"宽全用、高 1250"），区别在**取源图的哪一块**：
      cover 只取中间 1250 高那一条，拉伸是把 2000 高整条压进 1250。所以自证要用横图那一种。 */
   const stretched = { width: 2000, height: Math.round(2000 * (LAYOUT_CELL.height / LAYOUT_CELL.width)) };
-  assert.equal(stretched.height, 2500);
+  assert.equal(stretched.height, Math.round(2000 * (LAYOUT_CELL.height / LAYOUT_CELL.width)),
+    '自证前提：格子改高（1080×1440）后这个数要跟着走（现在是 ' + stretched.height + '）');
   assert.notEqual(stretched.height, wide.height, '自证：拉伸方案的裁剪矩形与 cover 不同 ⇒ 上面那条测的是真 cover');
   assert.ok(wide.left > 0, '横图裁掉左右时，取的是**中间**那一块（不是靠左贴边）');
+  /* ⚠️ 2026-09-28 格子改成 1080×1440（实测他的签名）之后新增的一条：
+     **3:4 的生成图填进 3:4 的格子，一像素都不该裁** —— 这正是这次改格子的全部意义。 */
+  const generated = coverSourceRect(1080, 1440, LAYOUT_CELL.width, LAYOUT_CELL.height);
+  assert.deepEqual(generated, { left: 0, top: 0, width: 1080, height: 1440 },
+    '3:4 源图填进 3:4 的格子不许裁（裁了就说明格子比例与签名不符）');
 
   /* 下载文件名认得出是哪一篇（与"下载第一张"同一口径） */
   const fileName = layoutSheetFileName({ title: '概念视觉方案', family: '底片条', count: 4 });
