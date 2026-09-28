@@ -70,6 +70,16 @@ test('③ 那一行的几何：跨两列 + 居中（知渔那颗父层就是 jus
   /* 间距不另写：字段网格自己的行距就是它（批 BF 定的"站内一致优先于照抄竞品的具体数字"） */
   assert.match(style, /\.media-workbench-fields \{ display: grid;[^}]*gap: 18px 13px; \}/,
     '与上面内容的间距用字段网格自己的行距（18px，与知渔那 19.84 同档）');
+
+  /* ═══ 批 CY-⑦：按钮本体的**最小宽 180**（知渔那颗写的是 `min-w-[180px]`）═══════════════════════
+     实测知渔（.qa/cy5-quantv-style.mjs）：`h-9 min-w-[180px] px-5 rounded-lg` —— 内容宽 + 最小宽 180，
+     它实测 272 宽是内容撑出来的。我们原来只有 `width: auto`：文案短时（例如四字 + 价钱）会比知渔那颗
+     瘦一圈，同一个组件在两页上两个体型。⇒ 补 min-width；⚠️ **宽度仍必须是内容驱动**（不许写死宽度）。 */
+  const paid = (style.match(/\.media-workbench-paid \{[^}]*\}/) || [''])[0];
+  assert.ok(paid, '.media-workbench-paid 必须有样式');
+  assert.match(paid, /min-width: 180px;/, '最小宽 180（与知渔 min-w-[180px] 同值）');
+  assert.match(paid, /width: auto;/, '宽度仍是内容驱动（不许改写成固定宽度）');
+  assert.match(paid, /min-height: 45px;/, '高度 45（与知渔 h-9 同档）');
 });
 
 test('④ 视频侧不受影响：那边没有 anchor 声明的付费动作 ⇒ 这条规则不会在那儿冒出新按钮', () => {
