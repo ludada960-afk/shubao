@@ -317,7 +317,19 @@ export const USER_PRIORITY_CLAUSE =
 /* ── ② 文案组装：把用户填的字段填进该 skill 自己的 brief 模板 ──
    brief 写在声明里（{{key}} 占位），所以新增 skill 仍然只需要加声明。 */
 export function buildSkillBrief(skill, values = {}) {
-  const template = text(skill && skill.brief);
+  /* 批 CY-㉓：**可选段**语法 `{{?key}}……{{/key}}`。
+     批 CY-㉓ 之前只有裸 `{{key}}`：占位符被替换成空串时，它前面那句标签会**留下来**
+     （「商品信息：。」这种半截话喂给模型）。清理逻辑能压掉空标点、压不掉空标签。
+     ⇒ 新语法让整段**连标签一起消失**：字段没填就当这段不存在。
+
+     为什么现在才加：批 CY-㉓ 要把三个「从来没进过 brief」的用户输入框接进去
+     （styleBrief / styleNote / focus）。它们都是**可选**的（用户不填就没有），
+     用裸占位符接上去，空填时就会在提示词里多出三段「风格要求：」的空话 ——
+     那是用一个新洞换掉旧洞。可选段就是为了让「接进去」这件事没有副作用。 */
+  const template = text(skill && skill.brief).replace(
+    /\{\{\?(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g,
+    (_match, key, body) => (text(values[key]) ? body : ''),
+  );
   const filled = template.replace(/\{\{(\w+)\}\}/g, (_match, key) => text(values[key]));
   /* 未填的可选项会留下空档，压掉多余空白与空标点，避免把「主题：」这种半截话喂给模型 */
   const cleaned = filled

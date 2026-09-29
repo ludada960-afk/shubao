@@ -621,7 +621,14 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'warm' },
     summary: '主图、场景图、卖点图成套交付', pipeline: 'ecommerceSuite', availability: 'ready',
     visual: 'free',
-    brief: '围绕商品生成一套电商图。商品信息：{{productParams}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合{{platform}}的图片规范与目标市场的审美习惯。',
+    /* 批 CY-㉓：接上 `styleFields()` 给的那几格。
+       事故经过（这次是我自己的疏漏，被用户一句「风格选择还有什么意义」问出来的）：
+       这条 brief 从来**没有**读过 style/styleNote/styleBrief ——
+       而界面上「产品卖点与设计风格」整组控件都在（爆款风格/参考·自定义/AI推荐 三个档
+       + 两个文字框）。用户选完、写完、点生成、扣了钱，**模型一个字都没收到**。
+       批 DC 续-8 恢复那个输入框时，我只对齐了**外观**，没查它的值去了哪。
+       ⇒ 三段全部用**可选段**接上：没填就整段消失（否则空标签会变成「风格要求：」喂给模型）。 */
+    brief: '围绕商品生成一套电商图。商品信息：{{productParams}}。目标市场：{{market}}；画面内文案语言：{{language}}。要求：先确保商品本身的结构、颜色、材质与文字被完整保留，再谈场景与氛围；符合{{platform}}的图片规范与目标市场的审美习惯。{{?style}}风格取向：{{style}}。{{/style}}{{?styleBrief}}风格要求：{{styleBrief}}。{{/styleBrief}}{{?styleNote}}设计要求：{{styleNote}}。{{/styleNote}}',
     /* 字段顺序 = 竞品实测顺序：上传图片 → 目标市场 → 目标平台 → 文案语言 →
        产品卖点与设计风格。分组名也照他们的区块名。 */
     fields: [
@@ -710,7 +717,10 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'accent' },
     summary: '图文并排的模块图，把卖点讲清楚', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
-    brief: '做一套 A+ 内容模块图。商品与卖点：{{productParams}}。设计风格：{{style}}。目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
+    /* 批 CY-㉓：`styleBrief`（AI推荐风格选择）与 `styleNote`（设计要求）两个文字框
+       一直没有进这条 brief —— 界面上有、用户能写、内容到了提交那一刻被丢掉。
+       两者都是可选，用**可选段**接：没填整段消失。 */
+    brief: '做一套 A+ 内容模块图。商品与卖点：{{productParams}}。设计风格：{{style}}。{{?styleBrief}}风格要求：{{styleBrief}}。{{/styleBrief}}{{?styleNote}}设计要求：{{styleNote}}。{{/styleNote}}目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：横向构图，图文并排（左图右文或上图下文），信息层级清楚、留出安全的文字区；画面内的文字必须逐字准确，不得臆造文案、参数、认证标识或 logo；商品本身的结构、颜色、材质与包装文字必须完整保留。',
     /* 字段顺序与措辞照竞品 A+ 页实测：上传图片 → 目标市场 → 目标平台 → 输出语言 →
        产品卖点与设计风格（核心卖点 + 爆款风格）。 */
     fields: [
@@ -819,7 +829,11 @@ export const IMAGE_SKILLS = [
     cover: { template: 'poster-style', accent: 'warm' },
     summary: '首屏、卖点、成分、参数，逐屏出图', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'poster',
-    brief: '做一套电商详情页的模块图。商品与卖点：{{productParams}}。风格取向：{{style}}。目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。',
+    /* 批 CY-㉓：同 aplus —— `styleBrief` / `styleNote` 两个文字框一直没有进这条 brief。
+       ⚠️ 详情图的默认档是 9:16（imageSkills.js:861 记着「保留固定竖版 9:16，不给自适应」，
+          依据是 `ecommercePlanModel.js:67 defaultRatio:'9:16'` 与 brief 里写明的竖版长图），
+          **本批不动那个默认档** —— 那是另一个话题，用户 9-29 单独判过。 */
+    brief: '做一套电商详情页的模块图。商品与卖点：{{productParams}}。风格取向：{{style}}。{{?styleBrief}}风格要求：{{styleBrief}}。{{/styleBrief}}{{?styleNote}}设计要求：{{styleNote}}。{{/styleNote}}目标市场：{{market}}；目标平台：{{platform}}；画面内文案语言：{{language}}。要求：竖版长图构图，信息层级清楚（标题 → 主图 → 说明），阅读顺序自然；画面内文字逐字准确、不臆造；商品的结构、颜色、材质与包装文字必须完整保留。',
     /* 字段顺序与措辞照竞品详情图页实测：上传图片 → 目标市场 → 目标平台 → 输出语言 →
        产品卖点与设计风格（核心卖点 + 爆款风格）。 */
     fields: [
@@ -1006,7 +1020,9 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'soft' },
     summary: '在原图上贴满手绘贴纸与便签', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '保持照片的主体、构图与背景**完全不动**，把它改造成"贴纸现实"拼贴：在画面上叠一层像实体贴纸、纸片剪贴与胶带便签的元素，位置略带错位与重叠，像手工剪贴簿；再混入手绘涂鸦（图标、箭头、下划线）。贴纸边缘要有真实投影。',
+    /* 批 CY-㉓：`notes`（便签内容，如「NEW / 限时 / 主推款」）从来没有进过这条 brief ——
+       用户写了想让贴纸上出现这些字，模型压根不知道。 */
+    brief: '保持照片的主体、构图与背景**完全不动**，把它改造成"贴纸现实"拼贴：在画面上叠一层像实体贴纸、纸片剪贴与胶带便签的元素，位置略带错位与重叠，像手工剪贴簿；再混入手绘涂鸦（图标、箭头、下划线）。贴纸边缘要有真实投影。{{?notes}}便签上写这些字：{{notes}}。{{/notes}}',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传要改造的照片' },
       { key: 'notes', label: '便签内容', kind: 'textarea', rows: 2, placeholder: '例如：NEW / 限时 / 主推款' },
@@ -1360,7 +1376,10 @@ export const IMAGE_SKILLS = [
     cover: { template: 'case-3up', accent: 'soft' },
     summary: '同款不同配色，整齐排开', pipeline: 'visualCreation', availability: 'ready',
     visual: 'free',
-    brief: '做一张 SKU 多色系列图：同一款{{product}}的不同配色有序排列——{{colors}}。要求：排列整齐、间距一致，光影与质感完全一致，**只允许颜色不同**，结构与包装文字必须一致，背景干净；画面内不出现臆造的文字与价格。',
+    /* 批 CY-㉓：`layout`（排列：一字排开 / 两行网格 / 环形）是 **required: true** ——
+       用户必须选一个才能提交，而这条 brief 从来没读过它 ⇒ 用户选了「两行网格」，
+       模型收到的仍然是那句笼统的「有序排列」。**五种必填控件全丢，这是最后一处。** */
+    brief: '做一张 SKU 多色系列图：同一款{{product}}的不同配色有序排列——{{colors}}。排列方式：{{layout}}。要求：排列整齐、间距一致，光影与质感完全一致，**只允许颜色不同**，结构与包装文字必须一致，背景干净；画面内不出现臆造的文字与价格。',
     fields: [
       { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 1, role: 'product', slotLabel: '上传商品图' },
       { key: 'product', label: '商品名', kind: 'text', required: true },
@@ -1776,7 +1795,11 @@ export const IMAGE_SKILLS = [
     cover: { template: 'before-after', accent: 'neutral' },
     summary: '把普通效果图提到商业出图水准', pipeline: 'visualCreation', availability: 'needs_ref',
     visual: 'free',
-    brief: '提升这张效果图的画面质感，不改变任何结构、家具与机位。要求：修正材质反射与粗糙度，让木纹、石材、金属、织物各自可辨；补足环境光遮蔽与柔和阴影，降低塑料感与噪点，提亮暗部但不死黑，整体色温统一、画面干净通透，达到商业出图水准。',
+    /* 批 CY-㉓：`focus`（后期指令）是 **required: true** —— 用户**必须**填才能提交，
+       而它从来没有进过这条 brief ⇒ 用户被强制要求写一段文字，写完被丢掉。
+       这是本批四种里最严重的一种：其余三个至少不逼你填。
+       这里用**裸占位符**而不是可选段：它本来就必填，标签「后期指令：」留着是对的。 */
+    brief: '提升这张效果图的画面质感，不改变任何结构、家具与机位。后期指令：{{focus}}。要求：修正材质反射与粗糙度，让木纹、石材、金属、织物各自可辨；补足环境光遮蔽与柔和阴影，降低塑料感与噪点，提亮暗部但不死黑，整体色温统一、画面干净通透，达到商业出图水准。',
     fields: [
       { key: 'assets', label: '上传图片', kind: 'upload', required: true, maxImages: 1, role: 'reference', slotLabel: '上传效果图' },
       /* 批 O-⑥：知渔「效果图质感提升」的第二格是**后期指令**（multiText 必填）—— 按他们改 */
