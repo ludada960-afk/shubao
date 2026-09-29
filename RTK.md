@@ -1886,8 +1886,6 @@ click 事件永远不会触发**。用户看到的就是「有素材、能点开
   源站 `/` 200；pm2 online；release = `20260916-031257-e9656624`。
 
 
-
-
 15. **并发度越高，「改完立刻提交」越不是风格问题，而是正确性问题。**
    实证（键盘可达线第 65–80 轮，同一轮内）：**4 次工作区改动被并发线 reset 抹掉** ——
    NoteModal 16 处、ContentResultWorkspace、Modals.jsx、以及已删除的 Navbar.jsx 被从 HEAD 恢复回磁盘。
@@ -2688,10 +2686,6 @@ GitHub 搜 "interior/architecture AI prompt" 最高只有 **8★**（coldboxer00
   我再一条一条对（每条对应 skill 的字段、上传位、示例形态）。
 
 
-
-
-
-
 ## 2026-09-17 批次三十：全量技能扫描 + 媒体页之间跳转的真 bug（26 场景 **137 条断言**）
 
 ### 抓到的真 bug：两个总页面之间跳转，页面会停在 Hub 且地址栏说反话
@@ -2733,7 +2727,6 @@ CTA 解禁 → 点生成 → 校验请求体 → 确认结果落到工作台。�
 - `npm run precommit`：构建 exit 0 + BLOCKING 门禁全绿。
 - 两个 Hub 的截图逐张看过：图片 Hub 只列图片技能、视频 Hub 只列视频技能（没有互相串），
   分类分组与"需参考素材"角标正常；没有封面的卡是**在等用户自己的案例**（口径不变）。
-
 
 
 ---
@@ -13211,3 +13204,78 @@ hover / 选中 / 任务在跑**三处逐值相同**（早前选中格是中性�
 线上 CSS 里三态格子 `gradient=0` 且都是 `background-color:var(--sb-surface-tint-strong)`，
 三态磁贴各 1 个 135deg 遮罩且都是 `box-shadow:none`，`0 5px 12px var(--sb-brand-a18)` 全文件 **0 次**。
 **本轮零真实上游调用、未产生任何扣费。**
+## 批 CY-⑲：无限画布「素材要完整展示 + 互不遮挡」（2026-09-28）
+
+### 起因
+
+朋友再次反馈**画布遮挡还在**。用户 2026-09-28 原话：
+
+> 「用户无论生成什么东西或者上传什么东西进来到画布里面。他都应该所有的素材全部能够
+> 完整的展示出来，并且互相之间是不会有遮挡，不会有覆盖的情况。然后用户的视窗是他自己
+> 拖动或者用鼠标滚轮缩放大小去决定的……你展示素材的区域太小了。你现在画布的大部分面积
+> 并没有展示出来内容呀。导致截断了他当前视角下的内容」
+
+上一批（CY-⑭）修的是「框按请求比例画」⇒「按真实比例画」。**这次证明那条不够**：
+框对了，但**框和框之间仍然互相压**。于是先做调研、再逐条对代码。
+
+### 调研结论（tldraw / Excalidraw / React Flow / ComfyUI 源码，非博客）
+
+| 维度 | 行业口径 | 证据 |
+|---|---|---|
+| 框 vs 素材 | **框跟着素材走**：`h = w / (naturalW/naturalH)`，图片与视频同一条 | ComfyUI `fitDimensionsToNodeWidth`：`calculatedHeight = Math.max(nodeWidth / intrinsicAspectRatio, minHeight)` |
+| 框的上限 | 要有（长图不能撑爆一屏） | Excalidraw `maxHeight = Math.min(minHeight, floor(height*0.5)/zoom)` |
+| 落位间隙 | **按屏幕像素**表达，除以缩放 | Excalidraw `gridPadding = 50 / this.state.zoom.value` |
+| 新节点落位 | 视口中心/落点 + 边缘夹取，**不做**全自由空间搜索 | tldraw `getViewportPageBounds().center`；四家全仓 grep `findFreeSpace` 零命中 |
+| 初始缩放 | 100% **或** fit，二选一，不许是手挑的常数 | Excalidraw `DEFAULT_ZOOM = {value:1}`；ComfyUI `fitToBounds({zoom: 0.75})` |
+| **视口外的内容** | **只「没画出来」，绝不能「从状态里消失」** | React Flow `translateExtent` 默认 `[[-∞,-∞],[+∞,+∞]]`；Excalidraw `Renderer.ts` 把出视口元素移进 `removed` **绘制集合**，状态原封不动 |
+
+最后一行**推翻了「stage 边缘裁切是 bug」这个说法** —— 那是无限画布模型的固有属性。
+所以**没有**去加视口剔除、也**没有**去改 stage 裁剪；门禁反而钉死「不许加剔除」，
+免得下一个人看到用户抱怨「看不到」就加个 viewport filter，那会把素材**真的删掉**。
+
+### 找到并修掉的 4 个可证缺陷
+
+1. **占位漏了 footer（遮挡的几何根因）**
+   `.ec-canvas-media-node` 的实际高度 = `.ec-canvas-media-frame`（= `node.h`）**+ 下面的
+   `<footer>`**（名称 + 比例/尺寸，padding 6/7 + 两行 12px/10px ≈ 34px）。
+   两处避让（`findCanvasBlankPlacement`、新增的批量落位）都只按 `node.h` 算
+   ⇒ **每个带 footer 的节点都多出 34px 压到下一个**。这就是「互相遮挡」。
+
+2. **整批上传只检查了第一个**
+   `createUploadedImageNodes` 是按 `x + i*(width+gap)` **一字排开整批**的，
+   而落位只按**一个 200×200 的框**找空白 ⇒ 第 2、3、4 张的位置**从没被检查过**，必压已有节点。
+
+3. **视频按写死的 320×240 找位置**
+   真实比例 9:16 的框高是 **569**，找位置时按 240 算 ⇒ 差出来的 **329px** 正好压在下面那个节点上。
+
+4. **间隙是世界坐标，不是屏幕像素**
+   `gap: 28` 直接进世界坐标：低缩放时只剩几个屏幕像素（看着就是重叠），高缩放时一大片空白。
+
+另外把 `handleMediaNaturalSize` 的框高公式接上上限（9:16 长图 427px 会把下面一整排顶没）。
+
+### 改了什么
+
+- **新** `src/pages/EcCanvas/canvasMediaFitModel.js`
+  `canvasMediaFrameHeight`（框高随素材 + 上限）/ `screenGapToWorld`（屏幕间隙换算）/
+  `canvasNodeFootprint`（占位含 footer）/ `findCanvasBatchPlacement`（整批不重叠）。
+- `index.jsx`：图片/视频上传改用**整批**落位；新增 `canvasUploadFootprintSizes`
+  —— 它**必须和建节点那段用同一个公式**，否则又变成「按 A 找位、按 B 画框」。
+- `canvasInlineEditorModel.js`：`findCanvasBlankPlacement` 的占位加上 footer。
+- `test/canvas-media-fit-no-overlap-0929.test.mjs`：**12 条**门禁。
+- `test/canvas-media-fit-0929.test.mjs:122`：CY-⑭ 那条原本钉死**裸公式**
+  `Math.round(width*h/w)`，与新上限冲突 ⇒ 改成断言走 `canvasMediaFrameHeight`
+  （它的另外 4 条断言「宽度沿用用户拖出来的值 / ratio 改写真实比例 / 尺寸落库 / 页脚显示」原样保留）。
+
+### 验证
+
+全量 `npm test` **4383 条 / 4373 通过 / 10 跳过 / 0 失败** ✅
+构建 exit 0 ✅ + BLOCKING 门禁全绿 ✅
+
+### 没做的（以及为什么）
+
+- **没做全自由空间搜索**。调研证明 tldraw/Excalidraw/ComfyUI/React Flow **四家都没有**，
+  固定间隙 + 视口中心才是行业口径。我们原来的 `findCanvasBlankPlacement` 已经是**比行业更严**的版本，
+  保留它、把它修对，而不是重写成「行业惯例」。
+- **没改 stage 裁剪、没加视口剔除**。见上，裁切是模型固有属性，加剔除才是真 bug。
+- **没把初始缩放改成 fit**。63~75% 若是 fit 的产物是正常的（ComfyUI 就写死 0.75 填充系数）；
+  本仓初始是 `{x:80, y:40, scale:1}` = 100%，本来就合规。

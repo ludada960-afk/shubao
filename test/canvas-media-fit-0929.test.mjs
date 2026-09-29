@@ -119,7 +119,10 @@ test('真实比例优先于"节点自己声明的比例"，且高度按比例重
   const page = stripComments(canvasPage);
   const handler = page.slice(page.indexOf('const handleMediaNaturalSize'), page.indexOf('const handleImageNaturalSize ='));
   assert.match(handler, /const width = Math\.max\(1, Number\(node\.w\)/, '宽度必须沿用用户已经拖出来的值');
-  assert.match(handler, /Math\.round\(width \* measuredHeight \/ measuredWidth\)/, '高度按真实比例重算');
+  /* 批 CY-⑲：这里原来是裸的 `Math.round(width * measuredHeight / measuredWidth)`，
+     一张 9:16 长图按 240 宽推出来是 427px，会把下面一整排节点顶没。
+     改走 canvasMediaFrameHeight（同一公式 + 上限），见 canvas-media-fit-no-overlap-0929。 */
+  assert.match(handler, /const height = canvasMediaFrameHeight\(width, measuredWidth, measuredHeight\);/, '高度按真实比例重算，且走带上限的公式');
   assert.match(handler, /ratio: exact/, 'ratio 必须被改写成真实比例');
   assert.match(handler, /naturalWidth: measuredWidth,/, '真实尺寸要落库（右侧面板与拖角锁定都读它）');
   assert.match(handler, /size: `\$\{measuredWidth\}×\$\{measuredHeight\}`/, '像素尺寸要显示在节点页脚');

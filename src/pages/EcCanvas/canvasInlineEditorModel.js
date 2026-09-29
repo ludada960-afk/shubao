@@ -53,6 +53,23 @@ function rectsOverlap(a, b, gap = 0) {
     && a.y + a.h + gap > b.y;
 }
 
+/* 批 CY-⑲：占位必须算上 footer。
+   `.ec-canvas-media-node` 的高度 = `.ec-canvas-media-frame`（= node.h）+ 下面的
+   `<footer>`（名称 + 比例/尺寸，padding 6px 8px 7px + 两行 12px/10px 文字 ≈ 34px）。
+   以前这里直接用 node.h 做避让 ⇒ 每个带 footer 的节点都比避让框高出 34px，
+   正好压在下一个节点身上 —— 用户说的「互相之间会有遮挡、会有覆盖」。
+   showMeta === false 的节点不渲染 footer，才不该加这 34px。 */
+const NODE_FOOTER_HEIGHT = 34;
+
+function nodeFootprint(node) {
+  return {
+    x: Number(node.x) || 0,
+    y: Number(node.y) || 0,
+    w: Math.max(1, Number(node.w) || 1),
+    h: Math.max(1, Number(node.h) || 1) + (node.showMeta === false ? 0 : NODE_FOOTER_HEIGHT),
+  };
+}
+
 export function findCanvasBlankPlacement({
   width,
   height,
@@ -80,7 +97,7 @@ export function findCanvasBlankPlacement({
   });
   const occupied = nodes
     .filter(node => node && node.hidden !== true)
-    .map(node => ({ x: Number(node.x) || 0, y: Number(node.y) || 0, w: Number(node.w) || 1, h: Number(node.h) || 1 }));
+    .map(nodeFootprint);
   const available = candidate => !occupied.some(rect => rectsOverlap({ ...candidate, w, h }, rect, gap));
   const candidates = [];
   const addCandidate = (candidate, { keepInViewport = false } = {}) => {

@@ -79,7 +79,7 @@ import ResponsiveImage from '../../components/ResponsiveImage.jsx';
 import { canvasDraftKey, loadCanvasDraft, saveCanvasDraft } from './canvasDraftRepository.js';
 import { applyCanvasGroupAction, applyMultiSelectionAction, CANVAS_CREATION_OPTIONS, canvasGroupFrames, canvasSelectionGroupState, expandCanvasDragSelection, expandCanvasGroupDragIds, expandCanvasLayerGroup, getCanvasFocusIds, isCanvasConnectionVisible, pickCanvasLayerAtPoint, replaceCanvasNodeWithLayerResult, selectedCanvasBounds } from './canvasInteractionModel.js';
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes,
-  resolveSourceStackPlacement, getCanvasComposerPresentation, layoutCanvasGeneratedResults, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill, exactMediaRatio } from './canvasStudioModel.js';
+  resolveSourceStackPlacement, getCanvasComposerPresentation, layoutCanvasGeneratedResults, mediaRatioFor, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill, exactMediaRatio } from './canvasStudioModel.js';
 import { canvasSurfacesToDismiss } from './canvasSurfaceDismiss.js';
 import { exportDialogCopy } from './exportCopyModel.js';
 import { ADAPTIVE_RATIO, resolveProtocolRatio } from './canvasAdaptiveRatio.js';
@@ -115,6 +115,7 @@ const GRAPH_RUN_KINDS = {
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { applyCanvasSuitePlanToDirection, buildCanvasSuitePlan } from './canvasSuitePlanModel.js';
 import { findCanvasBlankPlacement } from './canvasInlineEditorModel.js';
+import { CANVAS_MEDIA_GAP_SCREEN, canvasMediaFrameHeight, findCanvasBatchPlacement } from './canvasMediaFitModel.js';
 import { canvasImageResultGeometry, materializeCanvasLayers } from './canvasLayerMaterialization.js';
 import { readCanvasTextRecognitionCache, writeCanvasTextRecognitionCache } from './canvasTextRecognitionModel.js';
 import { reduceSegmentationProgress } from './canvasSegmentationModel.js';
@@ -329,6 +330,29 @@ const GAP = 28;
 function createCanvasGenerationRunId() {
   const uuid = globalThis.crypto?.randomUUID?.();
   return uuid || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * 一批待上传素材的**占位**尺寸（用来整批找不重叠的落位）。
+ *
+ * 必须和 createUploadedImageNodes / createUploadedVideoNodes 里算 `w`/`h` 的
+ * 那段**用同一个公式**，否则又会出现「按 A 找位置、按 B 画框」的错位 ——
+ * 那正是批 CY-⑲ 之前 9:16 视频压在下面节点身上的原因。
+ *
+ * `ratioKey` 让图片（`ratio`）和视频（`aspectRatio`）走同一个函数。
+ * 上传节点的 `showMeta: false` ⇒ 不渲染 footer，占位高度就是框高。
+ */
+function canvasUploadFootprintSizes(assets, width, _unusedGap, ratioKey = 'ratio', fallbackRatio = 1) {
+  return (assets || [])
+    .filter(asset => asset?.url || asset?.stableUrl)
+    .map(asset => {
+      const ratio = ratioValue(mediaRatioFor({
+        ratio: asset?.[ratioKey],
+        width: asset?.width,
+        height: asset?.height,
+      }), fallbackRatio);
+      return { w: width, h: Math.max(1, Math.round(width / (ratio || fallbackRatio))) };
+    });
 }
 
 function normalizeLayerItems(layers, nodeId) {
@@ -2771,7 +2795,11 @@ const handlePointerUp = useCallback((e) => {
       if (!MEDIA_FIT_KINDS.has(node.kind)) return node;
       if (node.naturalWidth === measuredWidth && node.naturalHeight === measuredHeight) return node;
       const width = Math.max(1, Number(node.w) || 240);
-      const height = Math.max(1, Math.round(width * measuredHeight / measuredWidth));
+      /* 批 CY-⑲：`node.h` 是**图片本体**的高度（`.ec-canvas-media-frame`），
+         footer 在它下面另外渲染。所以这里算出来的 height 必须夹上限 ——
+         一张 9:16 的长图按 240 宽推出来是 427px，再加 footer 会把下面一整排节点顶没。
+         上限口径同 Excalidraw「不超过视口高度一半」的意图（CANVAS_MEDIA_MAX_HEIGHT）。 */
+      const height = canvasMediaFrameHeight(width, measuredWidth, measuredHeight);
       const exact = exactMediaRatio(measuredWidth, measuredHeight) || `${measuredWidth}:${measuredHeight}`;
       /* 高度已经在正确形状上就别白渲染一次（onLoad 每次 src 变化都会再触发） */
       if (Math.abs((Number(node.h) || 0) - height) < 1 && node.ratio === exact) return node;
@@ -5614,15 +5642,21 @@ const handlePointerUp = useCallback((e) => {
       const baseY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
       /* 4c183cd4 续命 画布拖拽bug修复: 多次上传曾落在同一固定坐标, 完全重叠,
          上层节点盖住下层节点, 导致"上传第二个素材后拖不动" (下层节点无法被点选/拖动).
-         改用 findCanvasBlankPlacement 在已有节点旁找空白位置错开排放. */
-      const blank = findCanvasBlankPlacement({
-        width: 200,
-        height: 200,
+         改用 findCanvasBlankPlacement 在已有节点旁找空白位置错开排放.
+
+         批 CY-⑲ 再修一层：那个修复**只对第一个节点找过位置** ——
+         createUploadedImageNodes 是按 `x + i*(width+gap)` 一字排开整批的，
+         而 findCanvasBlankPlacement 只按一个 200×200 的框找空白 ⇒
+         第 2、3、4 张的位置**从没被检查过**，必压已有节点。
+         2026-09-28 用户原话：「互相之间是不会有遮挡，不会有覆盖的情况」
+         ⇒ 改成按**整批外接矩形**一次性找位置（canvasMediaFitModel）。 */
+      const blank = findCanvasBatchPlacement({
+        sizes: canvasUploadFootprintSizes(assets, 240, 38),
         viewport,
         bounds: { width: bounds?.width || 1200, height: bounds?.height || 800 },
         nodes,
         preferred: { x: baseX, y: baseY },
-        gap: 28,
+        gapScreen: CANVAS_MEDIA_GAP_SCREEN,
       }) || { x: baseX, y: baseY };
       const uploadedNodes = createUploadedImageNodes({ assets, x: blank.x, y: blank.y, now: uploadStartedAt, namer: canvasShotNamerRef.current })
         .map(node => ({ ...node, status: 'uploading', localPreviewUrl: node.url }));
@@ -5720,15 +5754,16 @@ const handlePointerUp = useCallback((e) => {
       const bounds = containerRef.current?.getBoundingClientRect();
       const baseX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const baseY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
-      /* 4c183cd4 续命 画布拖拽bug修复: 与图片上传一致, 用空白位置错开, 避免节点堆叠遮挡. */
-      const blank = findCanvasBlankPlacement({
-        width: 320,
-        height: 240,
+      /* 4c183cd4 续命 画布拖拽bug修复: 与图片上传一致, 用空白位置错开, 避免节点堆叠遮挡.
+         批 CY-⑲：和图片一样，原先只检查了整批里的第一个（且用 320×240 这个写死的框，
+         视频真实比例是 9:16 时框高 569 —— 差出来 329px 正好压在下面那个节点身上）。 */
+      const blank = findCanvasBatchPlacement({
+        sizes: canvasUploadFootprintSizes(imported.assets, 320, 42, 'aspectRatio', 16 / 9),
         viewport,
         bounds: { width: bounds?.width || 1200, height: bounds?.height || 800 },
         nodes,
         preferred: { x: baseX, y: baseY },
-        gap: 28,
+        gapScreen: CANVAS_MEDIA_GAP_SCREEN,
       }) || { x: baseX, y: baseY };
       const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: blank.x, y: blank.y, now: uploadStartedAt, namer: canvasShotNamerRef.current });
       draftReadyRef.current = true;
