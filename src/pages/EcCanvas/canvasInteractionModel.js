@@ -247,12 +247,42 @@ export function getContextPanelPosition({ node = {}, viewport = {}, bounds = {},
   };
 }
 
+/**
+ * 选中工具条的定位。
+ *
+ * ⚠️⚠️ 批 CY-㉔ 修：这里原来有一处**单位不对称**，是用户 2026-09-28 报的
+ * 「工具条左边被裁掉一截」（自己账号实测，截图 zoom=39%）的真正根因。
+ *
+ * 背景（先说清楚坐标系，否则这段注释没人看得懂）：
+ *   · 工具条渲染在**内容层**里 —— 那个 div 带 `transform: scale(s)`，
+ *     而工具条自己带 `transform: … scale(var(--canvas-overlay-scale))`，
+ *     那个变量 = `1/s`（index.jsx 在内容层上内联注入）⇒ **两级缩放互相抵消**，
+ *     工具条在屏幕上恒定大小（这是设计意图：缩放画布时工具条不该跟着变大变小）。
+ *   · 所以工具条的**屏幕宽度就是它的 CSS 宽度**（`offsetWidth` / `getBoundingClientRect().width`
+ *     在这里**相等**，两者都不是 bug）。
+ *   · 但 `left/top` 是**世界坐标**（内容层被 scale 之后的世界坐标系）。
+ *
+ * 于是：`width`/`height` 是**屏幕像素**，而 `visibleLeft/visibleRight` 是**世界坐标**。
+ * 算它在世界里占多宽，必须 `width / scale`。
+ *
+ * 原来的代码：**高度除了、宽度没除**
+ *     centeredX  = … toolbarWidth / 2 …   ← toolbarWidth 是屏幕像素，直接当世界坐标用了
+ *     belowBottom = … toolbarHeight / scale … ← 高度是对的，除了
+ * ⇒ 缩放越小错得越离谱：39% 时工具条真实占 1230 屏幕像素 = 3154 世界单位，
+ *   而 clamp 只当它占 1230 ⇒ 少算了 1924 ⇒ 左边有 ~375 屏幕像素甩到视口外，
+ *   **再被内容层的 `overflow: clip` 一刀切掉** —— 就是截图里「图层」被削掉半截。
+ *   100% 缩放时 `/scale` 恰好等于 1，所以**这个 bug 在 100% 下完全看不出来**，
+ *   这正是它一直没被发现、而用户说「应该是非常普遍的 bug」的原因。
+ */
 export function getCanvasToolbarPosition({ node = {}, viewport = {}, bounds = {}, width = 520, height = 50 } = {}) {
   const scale = Math.max(0.01, finite(viewport.scale, 1));
   const viewportWidth = finite(bounds.width, 1440);
   const viewportHeight = finite(bounds.height, 900);
   const gutter = 12 / scale;
-  const toolbarWidth = Math.min(Math.max(180, finite(width, 520)), Math.max(180, viewportWidth / scale - gutter * 2));
+  /* 屏幕像素 → 世界坐标（与下面 toolbarHeight 的处理保持同一口径）。
+     CSS 上限是 `max-width: min(820px, 86vw)`，这里一并兜住，免得算出比视口还宽的位置。 */
+  const screenWidth = Math.min(Math.max(180, finite(width, 520)), 820, Math.max(180, viewportWidth * 0.86));
+  const toolbarWidth = Math.min(screenWidth / scale, Math.max(180, viewportWidth / scale - gutter * 2));
   const toolbarHeight = Math.max(36, finite(height, 50));
   const visibleLeft = -finite(viewport.x) / scale + gutter;
   const visibleTop = -finite(viewport.y) / scale + gutter;

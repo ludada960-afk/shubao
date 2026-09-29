@@ -215,12 +215,24 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
   const introGateRef = usePanelIntroGate('object-toolbar');
   const toolbarRef = useRef(null);
   /* 用实测渲染宽度定位: 估算宽度偏小时 clamp 会把工具栏推出屏幕右缘,
-     表现为"工具栏歪掉、不吸附居中" (用户 9-04 反馈)。测量后二次渲染收敛。 */
+     表现为"工具栏歪掉、不吸附居中" (用户 9-04 反馈)。测量后二次渲染收敛。
+
+     ═══ 批 CY-㉔ 的一处**自我更正**（记下来免得下一个人跟着我错的方向走）═══════
+     我第一反应是这里 `getBoundingClientRect().width` 量错了单位（以为拿到的是
+     被祖先 scale 乘过的屏幕像素），于是改成了 `offsetWidth`。**那是错的** ——
+     工具条自己带 `scale(var(--canvas-overlay-scale))` = `scale(1/s)`，
+     与祖先的 `scale(s)` **两级抵消**，所以 `getBoundingClientRect().width` 与
+     `offsetWidth` 在这里**数值相等**，改与不改一个样。
+
+     真正的 bug 在 `getCanvasToolbarPosition`（canvasInteractionModel.js:250）：
+     那里**高度除了 scale、宽度没除**。详见那里的注释。
+     这里保留 `offsetWidth` 只是因为它不依赖 transform 语义、意图更直白，
+     并**不**是这次修复的功劳。 */
   const [measuredWidth, setMeasuredWidth] = useState(0);
   useLayoutEffect(() => {
     const el = toolbarRef.current;
     if (!el) return undefined;
-    const width = Math.round(el.getBoundingClientRect().width);
+    const width = Math.round(el.offsetWidth);
     if (width > 0 && width !== measuredWidth) setMeasuredWidth(width);
     return undefined;
   }, [actions, measuredWidth, videoDelivery]);
@@ -229,8 +241,16 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
   const delivery = videoDelivery && typeof videoDelivery.onSend === 'function' && videoDelivery.enabled !== false
     ? videoDelivery
     : null;
+  /* 批 CY-㉔：估算式也一起修。原来按 `label.length * 13` 一刀切，
+     可中文标签在 12px 字号下**一个字就接近 13px 宽**（不是「一个字符 13px」那么简单，
+     拉丁字母只有 ~7px）。于是中文按钮被**系统性低估**约 10px/个 ——
+     首帧（实测宽度回来之前）就偏窄，位置也就跟着偏。
+     ⇒ 改成按字符实际宽度累加（中日韩全角 13、其余 7.5），宁可估大不估小。
+     useLayoutEffect 会在首帧绘制前把精确值补上，所以这个估算只负责「别在第一眼就错」。 */
+  const labelWidth = label => [...String(label || '')]
+    .reduce((sum, ch) => sum + (/[\u2E80-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]/.test(ch) ? 13 : 7.5), 0);
   const estimatedWidth = measuredWidth || Math.min(820, 18 + actions.reduce((width, action) => (
-    width + (isCompactCanvasToolbarAction(action.id) ? 38 : Math.max(72, action.label.length * 13 + 30))
+    width + (isCompactCanvasToolbarAction(action.id) ? 38 : Math.max(72, labelWidth(action.label) + 42))
   ), 0) + (delivery ? 116 : 0));
   return <div
     ref={element => {
