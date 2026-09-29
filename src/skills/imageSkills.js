@@ -2227,8 +2227,7 @@ export const IMAGE_SKILLS = [
            ② 更重要的是**只有一份真相**：面板里要渲染的就是 fields 里那几条，按 key 取回即可，
               复制一份的话改比例选项就会漏改一处，而漏的那一处会静默不生效。 */
         modelKey: 'imageModel',
-        specKeys: ['ratio', 'clarity'],
-        hint: '模型与画面规格收在这里，点开改；下面清单里的手法不受影响' },
+        specKeys: ['ratio', 'clarity'] },
     ],
     cases: [], history: true,
   },

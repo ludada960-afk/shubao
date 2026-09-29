@@ -95,3 +95,21 @@
    ⇒ 两件事各修一处：z 用 `--sb-z-dropdown`（60,000,000，比 sticky 高一档，比 modal 低）；
      x 由下面的 `sidebarInset()` 让开。**两条都要** —— 只让 x 会在窄屏（侧栏变矮/变底栏）时又被压住。 */
 .visual-config-panel[data-portal-host="workbench"] { z-index: var(--sb-z-dropdown); }
+
+/* ═══ 2026-09-29 批 DC 续-14：面板**内容要留出内边距**（用户 2026-09-29 逐字）══════════════════════════
+     「为什么张开的面板**灰色部分的周边间距那么窄**啊，很难看啊。」
+   根因：`.visual-config-panel-body { padding: 0 }`（首页那一档）——
+     首页把内边距放在**内层 section** 上（`.visual-panel-section { padding: 0 20px }` + 首尾 `24px`；
+     紧凑档 `0 16px` + `16px`，见 VisualCreationMode.css:269-273 / 318-321）。
+     而子页面这一版**没有 section**，直接把 `ModelOptionRows` 铺在 body 里
+     ⇒ 那一列灰色行**左右贴边、上下也贴着**，看着就是"一列没装框的灰块"。
+   ⇒ 这里**逐值照抄首页那一档**（20/24，紧凑 16），不新造一档间距 ——
+     同一类浮层用同一档内边距，是本仓"站内一致优先于自己发挥"的一条。
+   ⚠️ 作用域限定 `[data-portal-host="workbench"]`：**不许改共享的 `.visual-config-panel-body`** ——
+     首页那边靠 section 承担内边距，把共享那条改了会把首页面板的内边距撑成两倍。 */
+.visual-config-panel[data-portal-host="workbench"] .visual-config-panel-body { padding: 24px 20px; }
+.visual-config-panel[data-portal-host="workbench"][data-density="compact"] .visual-config-panel-body { padding: 16px; }
+/* 行与行之间也补一档呼吸：`.sb-opt-list` 原本只有 `--sb-space-2`（8px），一列八行时偏挤。 */
+.visual-config-panel[data-portal-host="workbench"] .sb-opt-list { gap: 10px; }
+/* 规格面板里比例 / 清晰度两格之间要有分隔，否则两段药丸会连成一片看不出是两个字段。 */
+.visual-config-panel[data-portal-host="workbench"] .media-field + .media-field { margin-top: 18px; }

@@ -93,6 +93,54 @@ test('③ 共用一份实现：子页面与首页走同一个组件 + 同一份�
   assert.match(renderer, /specNodes=\{specDecls\.map\(decl => \(\s*<FieldRenderer/,
     '规格面板里的药丸要由 FieldRenderer 递归渲染原来那一份声明（不另写一套控件）');
   assert.match(renderer, /modelNode=\{modelDecl\s*\? <ModelOptionRows/, '模型面板复用同一个 ModelOptionRows');
+  /* ⚠️ 2026-09-29 批 DC 续-14：面板内容**必须有内边距**（用户 2026-09-29 逐字：
+       「为什么张开的面板**灰色部分的周边间距那么窄**啊，很难看啊。」）
+     根因：`.visual-config-panel-body { padding: 0 }`（首页那一档，首页把内边距放在**内层 section** 上），
+     而子页面这版没有 section、直接把 `ModelOptionRows` 铺在 body 里 ⇒ 那一列灰块**左右贴边**。
+     ⇒ 逐值照抄首页那一档（`.visual-panel-section`：0 20px + 首尾 24px；紧凑 0 16px + 16px）。
+     ⚠️ 作用域必须限定 `[data-portal-host="workbench"]`：改共享那条会把首页面板的内边距撑成两倍。 */
+  const ctCss = code('src/components/media/ConfigTriggers.css');
+  assert.match(ctCss, /\.visual-config-panel\[data-portal-host="workbench"\] \.visual-config-panel-body \{ padding: 24px 20px; \}/,
+    '面板内容要留出内边距（逐值照抄首页 .visual-panel-section 那一档）');
+  assert.match(ctCss, /\[data-portal-host="workbench"\]\[data-density="compact"\] \.visual-config-panel-body \{ padding: 16px; \}/,
+    '紧凑档也要有内边距 —— 八行模型列表在多数屏幕上都会落到紧凑档');
+  assert.doesNotMatch(ctCss, /^\s*\.visual-config-panel-body \{[^}]*padding/m,
+    '不许改共享的 .visual-config-panel-body（首页那边靠 section 承担内边距，改了会撑成两倍）');
+  /* 面板里不许再出现我自己加的"教学/操作说明"（用户 2026-09-29 明确要求删掉）。
+     ⚠️ 判据要用**剥掉注释**的那份：我在上面那段注释里**如实引了被删掉的那句原文**（说明为什么删），
+     不剥就会把「说明」当成「代码」—— 这个坑本批已经踩到第三次。 */
+  const compCode = code('src/components/media/ConfigTriggers.jsx');
+  assert.doesNotMatch(compCode, /改完点面板外面收起/, '面板里那句操作说明要删（用户 2026-09-29：「这句不要有啊，删掉」）');
+  assert.doesNotMatch(compCode, /coverLabels/, '那个只为渲染说明而存在的 prop 要一起删掉（不留半截）');
+  const skills = code('src/skills/imageSkills.js');
+  assert.doesNotMatch(skills, /模型与画面规格收在这里/, '触发器下面那句说明要删（同上，用户点名的那句）');
+  /* ⚠️ 2026-09-29 批 DC 续-14：面板**顶到视口上沿**（用户逐字：「如果会有适配上面互相截断等问题，
+     你就把面板**居最上面**，这样应该就不会和其他的部分打架了」）。
+     改前是"按可用空间决定向上/向下开"（搬自首页）—— 那是**首页**那套：首页两颗按钮在页面**底部**，
+     向上开正好落在空白区；子页面这两颗在**左栏中部**，向上开就压在大标题与输入框上（实测截图）。
+     ⇒ 一律 top = 顶栏下沿 + 12，横向仍跟着触发按钮并夹住。 */
+  assert.match(comp, /const top = Math\.max\(12, barBottom \+ 12\);/,
+    '面板要顶到上沿（顶栏之下留一档），不按可用空间上下翻转');
+  assert.match(comp, /document\.querySelector\('\.app-topbar'\)/, '要量顶栏下沿，不能贴视口顶（会被顶栏压住）');
+  assert.doesNotMatch(comp, /openAbove/, '不许再按"向上还是向下"翻转（那是首页那套，子页面不适用）');
+  /* 点外面 / ESC 要自己关掉（用户同一句里提的：「用户点击其他的东西，面板就要自己关掉」）。 */
+  assert.match(comp, /document\.addEventListener\('mousedown', onDown, true\)/, '点外面要收起');
+  assert.match(comp, /event\.key === 'Escape'/, 'ESC 也要能收起');
+  /* 面板**内容**的内边距（用户：「灰色部分的周边间距那么窄」）。 */
+  const ctCss2 = code('src/components/media/ConfigTriggers.css');
+  assert.match(ctCss2, /\.visual-config-panel\[data-portal-host="workbench"\] \.visual-config-panel-body \{ padding: 24px 20px; \}/,
+    '面板内容要留出内边距（逐值照抄首页 .visual-panel-section 那一档）');
+  assert.match(ctCss2, /\[data-portal-host="workbench"\]\[data-density="compact"\] \.visual-config-panel-body \{ padding: 16px; \}/,
+    '紧凑档也要有内边距 —— 八行模型列表在多数屏幕上都会落到紧凑档');
+  assert.doesNotMatch(ctCss2, /^\s*\.visual-config-panel-body \{[^}]*padding/m,
+    '不许改共享的 .visual-config-panel-body（首页那边靠 section 承担内边距，改了会撑成两倍）');
+  /* LOGO 的落地阴影不许再有方向性大偏移（用户：「右边和下面有个黑色的阴影…很大很明显像一整块」）。 */
+  const shellCss = code('src/styles/app-shell.css');
+  const mark = shellCss.slice(shellCss.indexOf('.topbar-brand-mark {'));
+  assert.doesNotMatch(mark.slice(0, mark.indexOf('}')), /box-shadow:\s*3px\s+6px\s+18px/,
+    'LOGO 不许再有 3px/6px/18px 的偏移投影（它糊成一整块，用户 2026-09-29 明确要求优化）');
+  assert.match(shellCss, /box-shadow:\s*0 2px 8px rgba\(160, 130, 220, 0\.22\)/,
+    'LOGO 改成正下方的柔和落地影（保留一点品牌紫，去掉方向性大偏移）');
 });
 
 test('④ 浮层不许被左侧导航栏压住：z 高于 sticky，且 x 让开侧栏右缘', () => {

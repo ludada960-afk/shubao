@@ -611,7 +611,6 @@ function control(kind, field, value, onChange, disabled, assets, allFields, allV
         specSummaries={specDecls.map(labelOf).filter(Boolean)}
         values={table}
         disabled={disabled}
-        coverLabels={(field.covers || []).map(key => (byKey(key) || {}).label).filter(Boolean)}
         onChange={onChange}
       />
     );

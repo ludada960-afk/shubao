@@ -37,27 +37,40 @@ function sidebarInset() {
   return Math.max(12, Math.round(rect.right) + 12);
 }
 
-/** 浮层坐标：贴着触发按钮开，高度取「该侧可用空间」封顶（**不越界、绝不被截断**）。
- *  ⚠️ 这套算法搬自首页的 `getVisualPanelPosition`（那里是 9-11 与 2026-09-16 两轮用户批注调出来的），
- *    唯一的新增是 `leftInset` —— 首页那边 `left` 只夹到 16，在有侧栏的页面上会被压住（就是用户说的那个）。 */
+/** 浮层坐标：**顶到视口上沿**，横向跟着触发按钮，高度按可用空间封顶。
+ *
+ *  ⚠️ 2026-09-29 批 DC 续-14（用户 2026-09-29 逐字）：
+ *    「子页面的模型和规格的面板应该**尽量跟首页的样式和间距和 UI 等等保持一致**，
+ *      如果会有适配上面**互相截断**等问题，你就把面板**居最上面**，
+ *      这样应该就不会和其他的部分打架了。」
+ *
+ *  改前是"按可用空间决定向上还是向下开"（搬自首页 `getVisualPanelPosition`）。
+ *  那是**首页**那套：首页的两颗按钮在页面**底部**，向上开正好落在空白区。
+ *  子页面这两颗在**左栏中部**，向上开就压在大标题、说明文字、输入框上（实测截图就是这样）。
+ *  ⇒ 改成**一律顶到上沿**（顶栏之下留一档），横向仍跟着触发按钮并夹住：
+ *     这样面板永远落在"最上面那条空白带"里，不与页面正文打架；
+ *     代价是不再"贴着按钮下沿"，但换来的是**任何滚动位置、任何触发器位置都不打架**。
+ *  ⚠️ 视觉规格/内边距与首页同源那部分**没动**（`ConfigTriggers.css` 复用 `.visual-config-*`），
+ *     这次只改**开在哪**。
+ */
 function panelPosition(button, desiredHeight) {
   const rect = button.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const leftInset = sidebarInset();
   const width = Math.min(420, Math.max(240, viewportWidth - leftInset - 16));
-  const gap = 10;
-  const availableAbove = Math.max(0, rect.top - gap - 16);
-  const availableBelow = Math.max(0, viewportHeight - rect.bottom - gap - 16);
-  const openAbove = viewportWidth <= 640 || availableAbove >= availableBelow;
-  const availableSpace = openAbove ? availableAbove : availableBelow;
-  const maxHeight = Math.min(Math.round(viewportHeight * 0.92), Math.max(availableSpace || desiredHeight, 160));
+  /* 顶栏之下留 12px；顶栏本身是 fixed 高约 64px，所以从 64 起算，不是从 0。
+     量不到顶栏就退回 12 —— 那时面板会贴着视口顶，仍然不与正文打架。 */
+  const bar = document.querySelector('.app-topbar');
+  const barBottom = bar ? Math.round(bar.getBoundingClientRect().bottom) : 0;
+  const top = Math.max(12, barBottom + 12);
+  const maxHeight = Math.min(Math.round(viewportHeight * 0.92) - top, Math.max(desiredHeight, 160));
   return {
     left: Math.max(leftInset, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 16)),
-    top: openAbove ? undefined : Math.max(12, rect.bottom + gap),
-    bottom: openAbove ? Math.max(12, viewportHeight - rect.top + gap) : undefined,
+    top,
+    bottom: undefined,
     width,
-    maxHeight,
+    maxHeight: Math.max(160, maxHeight),
     anchorX: rect.left + rect.width / 2,
   };
 }
@@ -84,10 +97,13 @@ export default function ConfigTriggers({
   values = {},
   disabled = false,
   onChange,
-  /** 这一格收起了哪些字段 —— 传的是**用户看得懂的标签**，不是字段 key。
-   *  ⚠️ 第一版直接渲染 `covers`（那是 imageModel / ratio / clarity），
-   *  等于把内部标识符摆到用户脸上 —— 本仓铁律：页面上不许出现只对开发者有意义的字符串。 */
-  coverLabels = [],
+  /* ⚠️ 2026-09-29 批 DC 续-14：`coverLabels` 这个 prop **删掉了**。
+     它本来渲染的是「改完点面板外面收起。」—— 用户 2026-09-29 逐字要求删掉同一类的
+     下面那句「模型与画面规格收在这里，点开改；下面清单里的手法不受影响」：
+       「这句不要有啊，删掉」。
+     两句都是我自己加的**教学/操作说明**，不是用户要的信息 ——
+     点开面板、点外面收起，本来就是浮层的既有行为，写出来只是占地方。
+     ⇒ 一次把两句都删干净，不留"改了一句留一句"。 */
 }) {
   const [open, setOpen] = useState(null);        // null | 'model' | 'specs'
   const [pos, setPos] = useState(null);
@@ -157,7 +173,6 @@ export default function ConfigTriggers({
       <div className="visual-config-panel-body">
         {open === 'model' && modelNode}
         {open === 'specs' && specNodes}
-        {coverLabels.length > 0 && <small className="media-field-hint">改完点面板外面收起。</small>}
       </div>
     </div>
   ) : null;
