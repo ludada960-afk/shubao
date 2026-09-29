@@ -13611,3 +13611,14 @@ onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
 线上（只读）：release `20260929-161109-08c481cf`、`pm2 shubao-production` online、`/health` 200；
 线上 CSS 里 `.app-sidebar-tile` 的 `background-origin` = **`border-box`**。
 **本轮零真实上游调用、未产生任何扣费。**
+
+### 批 CY-㉑ 部署记录
+
+- 提交：`351acd75`（cherry-pick 落在侧栏批 DC 续-13 之上，无冲突）
+- 部署 release `20260929-163002-351acd75` → `/var/www/shubao/current`
+- 部署前又撞上别的会话持有 flock 锁 ⇒ 照旧**没有抢**，等它释放才发
+- 服务器侧复验（只读）：
+  - `/health` 200 `{"ok":true,"ready":true,...}`，pm2 pid 823695
+  - `readlink current` → `/var/www/shubao/releases/20260929-163002-351acd75`（与提交号一致）
+  - 产物里 `canvas-node-edit` 命中（新交接通道已上线）
+  - 产物里 `node-action-bar` = 0 命中（死链的样式与组件都没了）
