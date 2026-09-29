@@ -36,23 +36,21 @@ test('J-④ 「同样的那种规划」= 复用 .app-sidebar-cell，不是另做
 });
 
 test('J-④ 真进度条与导航格的 hover 充能条同源（同一门设计语言）', () => {
-  /* ⚠️ 2026-09-29 批 DC 续-8：这里原来按 `indexOf('.app-sidebar-cell::after')` **位置切片**。
-     改前那条充能条是 4px 高、贴格底；批 DC 续-8 把它改成"与磁贴同宽、紧贴磁贴下方"（3px），
-     于是这条断言已经不再描述同一件事。⇒ 两条真进度条仍然共用**过渡曲线**（设计语言），
-     但**高度/位置不再要求相同**：装饰条贴磁贴，真进度条贴格底 —— 它们量纲不同，本就不该同高。
-     改用 `rule()` 按选择器逐字取规则，避免"改一处选择器、另一条断言静默取到空串"。 */
+  /* ⚠️ 2026-09-29 批 DC 续-12：这一条又简化回来了 ——
+     续-8 曾经把装饰条改成「与磁贴同宽、紧贴磁贴下方、3px」，续-12 已**全部做回原样**
+     （贴格底、通栏、4px）。用户 2026-09-29 第五次指出：条不该贴在磁贴底下，
+     那样它紧贴渐变方块、边缘对不上，读成「渐变层下面还有一个纯紫色的图层」。
+     ⇒ 所以这条断言重新变回最初的形状：**两条进度条同源**（4px / 贴格底 / 同一条 width 过渡曲线）。
+     另：原来按 `indexOf` **位置切片**，改一处选择器会让另一条断言静默取到空串，
+     改用 `rule()` 按选择器逐字取（这个教训留着）。 */
   const cellBar = rule('.app-sidebar-cell::after');
-  /* 写死宽度的是 hover / is-active 两条变体（基础那条是 `width: 0` = 未充能），
-     所以这一条要把变体一起取，只看基础规则会误判。 */
-  const cellBarAll = css.slice(css.indexOf('.app-sidebar-cell::after'), css.indexOf('.app-sidebar-tile {'));
   const taskBar = rule('.app-sidebar-task-bar');
   assert.match(cellBar, /width \.7s cubic-bezier\(\.4,0,\.2,1\)/, '导航格过渡按 docs/design/54 §1');
   assert.match(taskBar, /width \.7s cubic-bezier\(\.4,0,\.2,1\)/, '任务格过渡必须同一条曲线');
-  assert.match(taskBar, /height:\s*4px/, '真进度条 4px（它贴格底，是这一列的基线）');
+  assert.match(cellBar, /height:\s*4px/, '装饰充能条 4px（与真进度条同源，docs/design/83 实测值）');
+  assert.match(taskBar, /height:\s*4px/, '真进度条也 4px');
+  assert.match(cellBar, /bottom:\s*0/, '装饰条贴格底（在文字下面，用户 2026-09-29 明确要求的）');
   assert.match(taskBar, /bottom:\s*0/, '真进度条钉在格底');
-  assert.match(cellBar, /height:\s*3px/,
-    '装饰充能条 3px —— 它现在贴在 38px 磁贴正下方，4px 在那个尺度上占 10.5%（留影AI 是 56px 配 4px，只占 7%）');
-  assert.match(cellBarAll, /width: var\(--sb-app-tile\)/, '装饰条与磁贴同宽（通栏就是"第二层紫"）');
   assert.match(css, /\.app-sidebar-task\.has-progress::after \{ display: none; \}/,
     '有真进度时要把装饰性的 hover 条藏掉，两条不许同时出现');
 });

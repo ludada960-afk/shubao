@@ -316,32 +316,47 @@ test('⑬ 侧栏：**两层必须同尺寸**（用户 2026-09-29 第四次纠正
        上一批只撤掉了「格底那条淡紫渐变」就宣布修好了，**漏了这条**。
      ⇒ 判据锁三件事：① 宽度必须与磁贴同一个变量；② 位置必须由磁贴算出来（不是 bottom:0 贴格底）；
         ③ 磁贴自己也必须用那个变量（否则两边各写一份尺寸，加一起又会错位）。 */
-  /* ⚠️ 切片要**连 hover / is-active 两条变体一起取**：基础那条是 `width: 0`（未充能），
-     写死宽度的恰恰是后两条。只切基础规则会误判成"没改成同宽"。 */
+  /* ⚠️ 2026-09-29 批 DC 续-12：充能条**做回原来的位置**（用户 2026-09-29 第五次指出）═════════════
+     用户原话：「另外你下面这个充能条应该**做回去原来的样式**，之前是像这样**在文字下面的**啊，
+       然后**不能溢出这个框**。」（同一张图上还写着「我觉得你依然是**渐变层下面有一个纯紫色的图层**，
+       边缘没有拉齐啊，感觉是没覆盖到。」）
+
+     ⚠️⚠️ 逐元素审计证实了后一句：**那层"纯紫"就是这条充能条本身** ——
+       续-9 我把它从"贴格底通栏"挪到了"磁贴正下方、同宽"，
+       于是它紧贴圆角 12px 的渐变方块、直边 2px 圆角 ⇒ 边缘对不上 ⇒
+       **读成"渐变下面又垫了一层紫"**。
+       我扫遍整格所有元素与伪元素，紫色形状当时只剩三个：磁贴渐变、这条、标签文字。
+       ⇒ 前五轮我一次都没做过这个"逐元素列出所有紫色形状"的审计，
+          一直在凭印象改 —— 这次是量出来的。
+
+     判据：① 位置必须是 `bottom: 0` + `left: 0`（贴格底、在文字下面）；
+          ② 宽度必须是 `100%`（通栏），**不许**与磁贴同宽（同宽就贴到磁贴底下了）；
+          ③ 不许有 `top:` —— 有 top 意味着它在磁贴下面那一行；
+          ④ 不许再有 `translateX` 居中（那会让充能变成"从中间对称张开"）。 */
   const bar = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell::after'), SIDEBAR.indexOf('.app-sidebar-tile {'));
-  assert.match(bar, /width: var\(--sb-app-tile\)/, '充能条必须与磁贴**同宽**（不是通栏 100%）');
-  assert.doesNotMatch(bar, /width: 100%/, '充能条不许再通栏 —— 那正是"下面还有一层紫"的来源');
-  assert.match(bar, /top: calc\(var\(--sb-app-tile-top\) \+ var\(--sb-app-tile\) \+ 2px\)/,
-    '充能条必须**紧贴磁贴正下方**，位置由磁贴尺寸算出（不是 bottom:0 贴格底）');
-  assert.doesNotMatch(bar, /bottom: 0/, '不许再贴格底（与磁贴之间隔着文字行，两块紫就分家了）');
-  /* ⚠️ 批 DC 续-9：左缘必须**钉死在磁贴左缘**，不许用 `left:50% + translateX(-50%)` ——
-     那会让左缘随宽度一起动，动画变成"从中心对称张开"，把"充能"（左侧钉死、向右推进）整个抹掉。
-     用户 2026-09-29 当面指出：「你怎么把导航栏下面的这条脉冲条变成中间往两边张开了呀。」
-     判据：必须有 `calc(50% - 磁贴/2)`，且**不许**再有 translateX。 */
-  assert.match(bar, /left: calc\(50% - var\(--sb-app-tile\) \/ 2\);/,
-    '充能条左缘钉在磁贴左缘（满宽时与磁贴左右对齐，动画期间只向右长）');
-  assert.doesNotMatch(bar, /translateX\(-50%\)/, '不许再用 translateX 居中 —— 那样 width 过渡会变成"从中间对称张开"');
+  assert.match(bar, /bottom: 0;/, '充能条贴格底（在文字下面，照 liuyingai 实测，也是原本的样式）');
+  assert.match(bar, /left: 0;/, '充能条从左缘起（left:0，充能时向右推进）');
+  assert.doesNotMatch(bar, /top:/, '不许再有 top —— 那样它就跑到磁贴下面那一行，正是"渐变下面一层紫"的来源');
+  assert.match(bar, /width: 100%/, '悬停时通栏充满（docs/design/83：整条从左往右充满）');
+  assert.doesNotMatch(bar, /width: var\(--sb-app-tile\)/, '不许再与磁贴同宽 —— 同宽就贴在磁贴正下方了');
+  assert.doesNotMatch(bar, /translateX\(-50%\)/, '不许用 translateX 居中 —— 那样 width 过渡会变成"从中间对称张开"（用户 2026-09-29 明确否定过）');
+  assert.match(bar, /height: 4px/, '充能条 4px 高（docs/design/54 / 83 实测值）');
+  assert.match(bar, /transition: width \.7s cubic-bezier\(\.4,0,\.2,1\)/, '靠 width 过渡、左缘钉死（实测不是 transform / scaleX）');
+  /* 「不能溢出这个框」：通栏的条要靠格子的 overflow:hidden + 圆角裁住，否则两端支出到格外。 */
+  assert.match(resting, /overflow: hidden;/, '格子必须 overflow:hidden —— 充能条通栏，靠它裁成与格子同圆角（用户：「不能溢出这个框」）');
+  assert.match(resting, /border-radius: 14px/, '格子圆角 14px（条被裁成同一个圆角）');
+  /* 磁贴尺寸仍走那一个变量（续-8 起；窄屏也只覆盖它一处）。 */
   const tile = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-tile {'), SIDEBAR.indexOf('.app-sidebar-label {'));
-  assert.match(tile, /width: var\(--sb-app-tile\)/, '磁贴自己必须走同一个变量（两边各写一份尺寸，加起来就会错位）');
+  assert.match(tile, /width: var\(--sb-app-tile\)/, '磁贴走那个尺寸变量（两边各写一份尺寸，加起来会错位）');
   assert.match(tile, /height: var\(--sb-app-tile\)/, '磁贴高度同理');
+  /* ⚠️ `--sb-app-tile-top`（磁贴到格顶的距离）在续-12 已删：条做回贴格底之后就没有调用方了。
+     留着它 = 留一个改了不起的死配置。 */
+  assert.doesNotMatch(sidebarCode, /--sb-app-tile-top/, '没有调用方的变量要删干净（条已不依赖磁贴位置）');
   /* 那条"左侧 3px 指示条"是 `left:-8px` + 格子的 overflow:hidden ⇒ **从来没被渲染过**。
      留着它，后天有人为了修光晕溢出把 overflow 去掉，它会突然冒出来变成三重指示。
      ⚠️ 必须**剥掉注释再判** —— 我在注释里如实写下了它的选择器（为什么删），
      而这正是本批已经踩过一次的坑：源码级判据不剥注释，就会把"说明"当成"代码"。 */
   assert.doesNotMatch(sidebarCode, /\.app-sidebar-cell\.is-active::before/, '那条从未被渲染的左侧指示条不许复活');
-  /* 窄屏那一档必须跟着一起收，否则条会停在老位置和磁贴脱开。 */
-  assert.match(SIDEBAR, /@media \(max-width: 900px\)[\s\S]*?--sb-app-tile-top: 7px;/,
-    '窄屏要一起收磁贴到格顶的距离（改前条是通栏所以没这个依赖，改成紧贴就必须跟）');
 });
 
 test('⑭ 预览步也要说清"确认后会出几张"（否则整页没有一处写着张数）', () => {
