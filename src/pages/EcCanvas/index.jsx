@@ -8137,6 +8137,12 @@ const handlePointerUp = useCallback((e) => {
               case 'add-image': sourceUploadRef.current?.click?.(); break;
               case 'add-video': videoUploadRef.current?.click?.(); break;
               case 'add-audio': audioUploadRef.current?.click?.(); break;
+              /* 批 CY-⑳：`from-asset-library`（菜单里的「从资产库选择」）原来**没有 case**，
+                 落进 `default: break` ⇒ 用户点它**什么都不发生**，而且没有任何提示。
+                 同一动作在别处已有四处实现（`onPickFromLibrary` / 欢迎区按钮 /
+                 actionId 'asset-library' / 素材库面板），全都是 `setAssetPickerOpen(true)`。
+                 ⇒ 同一个动作不该有两种实现，这里接上既有那一个。 */
+              case 'from-asset-library': setAssetPickerOpen(true); break;
               case 'add-application':
                 /* 空壳应用节点已下架 (用户 9-04 反馈) */
                 showToast('请先选中要处理的素材', 'info');
@@ -8238,9 +8244,18 @@ const handlePointerUp = useCallback((e) => {
         <CanvasTaskLogPanel
           tasks={canvasTaskLogEntries}
           onClose={() => setTaskLogOpen(false)}
-          onRetry={(task) => console.info('[task] 重试', task.id)}
+          /* 批 CY-⑳：原来这里是 `console.info('[task] 重试', task.id)` ——
+             「重试」是面板上真实渲染的按钮（只有 failed 行才有），用户点了**什么都不发生**，
+             连一句提示都没有。而重试的真链路一直都在：就是该节点自己的
+             `handleWorkflowGenerate`（画布上每个生成框点「生成」走的就是它）。
+             ⇒ 接上真链路；节点已经不在（比如被删了）就说清楚，而不是静默失败。 */
+          onRetry={(task) => {
+            const node = nodes.find(item => item.id === task?.id);
+            if (!node) { showToast('这个任务对应的节点已经不在画布上了', 'info'); return; }
+            if (promptLoading) { showToast('有任务正在生成，请稍候', 'info'); return; }
+            void handleWorkflowGenerate(node);
+          }}
           onDismiss={(task) => setDismissedTaskIds(prev => new Set([...prev, task.id]))}
-          onRefund={(task) => console.info('[task] 退款', task.id)}
         />
       )}
 

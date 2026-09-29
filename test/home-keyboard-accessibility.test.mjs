@@ -16,12 +16,17 @@ import { readFileSync } from 'node:fs';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 /* 用户实测点名的区域内文件（含历史遗留表单） */
+/* 批 CY-⑳ 移出 `EcPlatformPicker.jsx`：它与 `EcExpertPanel.jsx` 整条链都**没有任何引用**
+   （全仓只有 EcExpertPanel 自己 import 它，而 EcExpertPanel 也只被自己引用），
+   两个文件已删除。留着路径会让本测试在 read() 时直接抛错。
+   ⚠️ 顺带记一笔：EcPlatformPicker 声明过一个 `1.5K` 分辨率，而全站权威档位只有
+   1K/2K/4K（imageModelCatalog.imageModelResolutions）—— 这种「只有死代码里才有的档位」
+   正是它必须删掉的理由：留着会让人以为 1.5K 是可用档。 */
 const FILES = [
   'src/pages/Home/XhsContentMode.jsx',
   'src/pages/Home/EcLegacyForm.jsx',
   'src/pages/Home/EcSkuPanel.jsx',
   'src/pages/Home/EcRefImages.jsx',
-  'src/pages/Home/EcPlatformPicker.jsx',
   'src/pages/Home/ec/DesignDirection.jsx',
   'src/pages/Home/ec/DesignDirectionView.jsx',
 ];

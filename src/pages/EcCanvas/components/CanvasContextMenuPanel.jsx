@@ -538,7 +538,10 @@ const TASK_TYPE_FILTERS = [
 const TASK_STATUS_LABEL = { waiting: '等待中', queued: '排队中', processing: '进行中', transferring: '传输中', completed: '已完成', failed: '失败', refunding: '退款中', refunded: '已退款' };
 const TASK_STATUS_ORDER = ['processing', 'queued', 'waiting', 'transferring', 'failed', 'refunding', 'refunded', 'completed'];
 
-export function CanvasTaskLogPanel({ tasks = [], onClose, onRetry, onDismiss, onRefund }) {
+/* 批 CY-⑳：签名里原来有 `onRefund`，但整个组件**从来没渲染过任何退款按钮**
+   （每行只有「重试」和「清除」），而调用处还传了一个 `console.info` 进来 ——
+   一个永远不会被调用的 prop，纯粹误导下一个人以为这里存在退款流程。删掉。 */
+export function CanvasTaskLogPanel({ tasks = [], onClose, onRetry, onDismiss }) {
   const ref = useRef(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');

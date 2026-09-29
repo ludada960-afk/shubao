@@ -13295,3 +13295,81 @@ hover / 选中 / 任务在跑**三处逐值相同**（早前选中格是中性�
   - releases 目录 = 3（CY-⑮ 的静态产物治理仍然生效）
 - ⚠️ 压缩后函数名会被 mangle，所以**不能**用 `grep findCanvasBatchPlacement` 判断上线与否
   （会误报成「没上线」）。要 grep 就 grep **不会被 mangle 的对象属性名**（`gapScreen`）或**数字字面量**。
+
+## 批 CY-⑳：界面上能点、点了没反应的入口（2026-09-28）
+
+### 起因
+
+朋友在忙，晚点才验证画布。这批先做他之前反馈过、但一直没动的其余问题。
+
+用户 2026-09-28 关于「要全面思考这类逻辑」的原话：
+
+> 「这种情况他应该不是一个孤立的情况，可能还有很多其他的情况也是类似的问题。
+> 所以我只是举了一个例子，你自己要全面的思考这些逻辑。」
+
+⇒ 这一批的主题不是某一个控件，而是**一类缺陷**：界面上有个真实可点的按钮/菜单项，
+**点了什么都不会发生，且没有任何提示**。用户不会看到报错，只会以为「功能坏了」或「我点错了」。
+
+### 修掉的 3 个
+
+1. **画布空白处右键菜单的「从资产库选择」是个空菜单项**
+   `CANVAS_RIGHT_CLICK_ACTIONS` 里声明了 `from-asset-library`，
+   而 `index.jsx` 那个 `switch (actionId)` **没有对应的 case** ⇒ 落进 `default: break`。
+   同一动作在别处已有四处实现（`onPickFromLibrary` / 欢迎区按钮 / `actionId 'asset-library'` /
+   素材库面板），全都是 `setAssetPickerOpen(true)` ⇒ 接上既有那一个，不新开第五种实现。
+
+2. **任务日志的「重试」是 `console.info`**
+   面板上「重试」是**真实渲染**的按钮（只有 failed 行有），用户点了**什么都不发生**。
+   而重试的真链路一直都在：就是该节点自己的 `handleWorkflowGenerate`（画布上每个生成框点「生成」
+   走的就是它）⇒ 接上。两个失败分支也说人话：节点已不在画布上 / 已有任务在生成中。
+
+3. **`onRefund` 是一个永远不会被调用的 prop**
+   `CanvasTaskLogPanel` 签名里有 `onRefund`，但组件里**从没渲染过任何退款按钮**
+   （每行只有「重试」「清除」），而调用处还传了个 `console.info` 进来。
+   ⇒ 一个纯粹误导人的 prop，删掉（组件签名 + 调用处一起）。
+
+### 删掉的 1 条死链
+
+`EcExpertPanel.jsx` + `EcPlatformPicker.jsx`（共 241 行）**整条链没有任何引用**：
+全仓只有 `EcExpertPanel` 自己 import `EcPlatformPicker`，而 `EcExpertPanel` 也只被自己引用
+（它自己第 31 行注释说「供 EcMode 通过 EcExpertPanel.SectionRefs 调用」—— 逐条 grep 过，
+`SectionRefs`/`SectionPlatform` 全仓只出现在这个文件里，**那句注释是假的**）。
+
+**必须删的理由不是「死代码难看」，而是它里面有一颗雷**：
+`EcPlatformPicker.jsx:22` 声明了一个 `1.5K` 分辨率档，
+而全站权威档位只有 **1K/2K/4K**（`imageModelCatalog.imageModelResolutions`，
+Midjourney 再窄一档只有 1K/2K）。留着这个文件，会让人以为 1.5K 是可用档。
+
+连带处理：
+- `test/home-keyboard-accessibility.test.mjs` 的扫描清单要同步移除该路径（否则 `read()` 直接抛错）
+- `docs/design/token-ratchet-baseline.json` 删掉对应那一行
+  ⚠️ **没有**跑 `node scripts/design-ratchet.mjs --update` 重刷基线 ——
+  那样会把**另外 29 个文件**（别的会话正在改的）的基线一起下调，
+  万一谁有在途改动要新增硬编码色值，会被我的基线卡住。只删自己那一行。
+
+### 自查后决定**不改**的两项
+
+- **首页「电商」自称**：全仓扫出 16 处，逐一看过，**全部是内容类型标签**，
+  作用是区分「电商套图 / 小红书图文 / Plog 图文」三种作品类型（`RecoveryShelf` 的
+  `KIND_LABELS` 最典型），**不是产品自称**。用户在 9 月已经专门确认过
+  「导出整套图片」「电商图片交付」那类措辞要改，这批不在那个范围内 ⇒ 不动。
+
+- **`CanvasNodeActionBar`（163 行死 UI）**：`setNodeActionBar` 全仓只被赋成 `null`
+  ⇒ `{nodeActionBar && …}` 永不渲染。**确认是死的，但故意不删**：
+  它的 25 条 CSS 在 `src/styles/canvas-supervisor.css`，那是别的会话正在改的共享样式表，
+  删组件要连带删样式，冲突风险高于收益。⇒ 用门禁把「它确实是死的」钉住，
+  一旦有人开始给它赋真值，门禁会失败并提醒他同步处理。
+
+### 门禁
+
+`test/canvas-dead-entry-points-0929.test.mjs` —— **9 条**，其中第 ① 条是这批的核心：
+**`CANVAS_RIGHT_CLICK_ACTIONS` 里声明的每一项都必须在那个 switch 里有 case**。
+以后再往菜单里加一项却忘了接处理函数，门禁立刻红。
+
+（写这条门禁时自己踩了两个坑，都已修：`require` 在 ESM 里不可用；
+以及断言 `doesNotMatch(/onRefund/)` 匹配到了**我自己写的解释性注释**里的那个词 ——
+现在这类断言一律先剥注释再匹配。）
+
+### 验证
+
+全量 `npm test` **4392 条 / 4382 通过 / 10 跳过 / 0 失败** ✅
