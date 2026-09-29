@@ -13454,3 +13454,17 @@ Midjourney 再窄一档只有 1K/2K）。留着这个文件，会让人以为 1.
 （无 `top`、无 `translateX`），格子 `border-radius:14px + overflow:hidden`，
 `sb-app-tile-top` 出现 **0 次**，磁贴 135deg 遮罩三处齐，`0 5px 12px a18` 全文件 **0 次**。
 **本轮零真实上游调用、未产生任何扣费。**
+
+### 批 CY-⑳ 部署记录
+
+- 提交：`3993692e`（三处空入口 + 删死链）、`ba2932ee`（比例镜像门禁）
+- 部署 release `20260929-154059-ba2932ee` → `/var/www/shubao/current`
+- ⚠️ 部署前撞上**别的会话正在部署**（锁被 `flock` 持有，owner token 是 `07b75c8b-…`，
+  即侧栏那批）⇒ 按规矩**没有抢锁**，等它释放（等了约 3 分钟）才发。
+- 服务器侧复验（只读）：
+  - `/health` 200 `{"ok":true,"ready":true,...}`，pm2 pid 810347
+  - `readlink current` → `/var/www/shubao/releases/20260929-154059-ba2932ee`（与提交号一致）
+  - 产物里 `from-asset-library` 存在（新 case 已上线）
+  - 产物里 `onRefund` = 0 命中（死 prop 已清）
+  - 产物里 `"1.5K"` = 0 命中（假档位已随死链一起消失）
+- 全量 `npm test` **4396 条 / 4386 通过 / 10 跳过 / 0 失败** ✅
