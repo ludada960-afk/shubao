@@ -151,6 +151,14 @@ test('⑨ 比例 + 分辨率同一行（span: half），比例标签换成纯数
         默认档仍然是 3:4（加选项 ≠ 改默认）。 */
   assert.deepEqual(ratio.options.map(o => o.label), ['自适应', '1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9'],
     '半宽放不下「3:4 竖版海报」这种长标签（知渔的纯数字写法，实采见 imageSkills 的注释）；最前面那一档是批 CY-⑭ 加的「自适应」');
+  /* ⚠️ 2026-09-29 真机复核（我自己看渲染截图）后补：8 个选项会被 FieldRenderer 的默认折叠
+     收成「6 颗 + 一颗『更多』」，**9:16 与 16:9 看不见**。用户早就批过这种折叠。
+     判据用 FieldRenderer 的那条真实规则算，不手抄 6：
+       collapsible = options.length > maxVisible + 1  ⇒  只有 8 > maxVisible + 1 才折叠。 */
+  const ratioMax = Number(ratio.maxVisible ?? 6);
+  assert.ok(!(ratio.options.length > ratioMax + 1),
+    '比例这一栏不许折成「更多」—— ' + (ratio.options.length - ratioMax - 1) + ' 档会被藏起来，用户选不到');
+  assert.equal(ratio.maxVisible, 8, '显式写死 8：判据写"折叠上限必须覆盖全部选项"，来源仍是这一栏自己的选项数');
   assert.equal(clarity.options.length, 3, '清晰度还是三档');
   /* 半列只有 ~212px，而药丸列最小宽 140px ⇒ 不收窄就是"每行一颗、7 行" */
   assert.match(SHELL_CSS, /data-span="half"\] \.media-field-segmented \{\s*grid-template-columns: repeat\(auto-fill, minmax\(min\(64px, 100%\), 1fr\)\)/,

@@ -382,6 +382,20 @@
 .media-workbench-fields > .media-field[data-span="half"] .media-field-segmented {
   grid-template-columns: repeat(auto-fill, minmax(min(64px, 100%), 1fr));
 }
+/* ═══ 2026-09-28 批 DC 续-7：字段可以**声明**"我要几列"（`data-columns`）════════════════════
+   真机截图抓到的：默认列宽 minmax(min(140px,100%),1fr) 在 386px 的内容列里是 **2 列**，
+   于是「本篇张数」那三档排成 2+1 —— 第三颗孤零零占一行、右侧留一个洞，
+   而这一栏的语义恰恰是"三选一"，读起来就不像三选一。
+   修法走声明而不是写死：字段说几列就是几列（`repeat(N, minmax(0,1fr))`），
+   没声明的字段**一个字不变** —— 平台/语言那些长标签档位仍然按 140px 自适应。
+   ⚠️ `minmax(0,1fr)` 而不是 `1fr`：默认的 `min-width: auto` 会让长标签把轨道撑破。
+   ⚠️ 一档一条规则、不写 `repeat(var(--x), …)`：`repeat()` 的**个数**必须是字面整数，
+      规范不允许在那个位置做 `var()` 替换（各家引擎行为也不一致）—— 写在一起看着聪明，跑起来是坑。 */
+.media-field-segmented[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.media-field-segmented[data-columns="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.media-field-segmented[data-columns="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.media-field-segmented[data-columns="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.media-field-segmented[data-columns="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 /* 一键解析：付费前置动作（0.2 积分）。价格写在按钮上，别让人猜；
    它是"帮我把字段填好"的动作，不是生成动作 —— 所以用次级按钮的视觉重量。 */
 /* ⚠️ 2026-09-19 用户批注（框 12.4%,25.4% → 38.2%,32.2%）：

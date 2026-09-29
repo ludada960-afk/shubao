@@ -324,7 +324,17 @@ function SegmentedControl({ field, value, onChange, disabled }) {
   const mustShowAll = !collapsible || expanded || selectedIndex >= limit;
   const shown = mustShowAll ? options : options.slice(0, limit);
   return (
-    <span className={'media-field-segmented' + (multiple ? ' is-multiple' : '')} role="group" aria-label={field.label}>
+    <span
+      className={'media-field-segmented' + (multiple ? ' is-multiple' : '')}
+      role="group"
+      aria-label={field.label}
+      /* ⚠️ 2026-09-28 批 DC 续-7：`columns` 是**声明侧**给的轨道数，不是页面里手写的样式。
+         为什么需要它：默认列宽是 `minmax(min(140px,100%),1fr)`，在 386px 的内容列里是 **2 列** ——
+         「本篇张数」那三档于是排成 2+1，第三颗孤零零占一行、右侧留一个洞（真机截图抓到的）。
+         这一栏是"三选一"，就该读成**一行三颗**。写死成 3 列会波及所有分段字段，
+         所以走声明：字段说"我要 3 列"，这里只把数字透出去，样式仍由 CSS 那一层给。 */
+      data-columns={Number(field.columns) > 0 ? Number(field.columns) : undefined}
+    >
       {shown.map(option => (
         <button
           key={option.value}

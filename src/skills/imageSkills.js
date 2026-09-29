@@ -2065,6 +2065,10 @@ export const IMAGE_SKILLS = [
          ⚠️ label 必须 ≤6 字（test/concept-set-workbench-0925 ① 守着）→「本篇张数」正好 4 个。 */
       { key: 'shotPreset', label: '本篇张数', kind: 'segmented', group: '本篇方案',
         default: CONCEPT_DEFAULT_PRESET,
+        /* ⚠️ 2026-09-28 批 DC 续-7（真机截图后补）：这一栏是**三选一**，就该读成一行三颗。
+           不声明的话默认列宽 minmax(min(140px,100%),1fr) 在 386px 的内容列里是 2 列 ⇒ 排成 2+1，
+           第三颗孤零零占一行、右侧留一个洞。写 `columns: 3` 让 FieldRenderer 透出 data-columns。 */
+        columns: 3,
         options: CONCEPT_SHOT_PRESETS().map(item => ({ value: item.value, label: `${item.label} ${item.count} 张`, hint: item.hint })),
         hint: '按张计价。选完自动勾好对应的手法，下面清单里可以再增删' },
       { key: 'theme', label: '主题意象', kind: 'select', required: true, group: '本篇方案',
@@ -2130,7 +2134,14 @@ export const IMAGE_SKILLS = [
            比例标签同时换成 **RATIO_BARE**（纯「1:1 / 2:3 / …」）：半宽放不下 7 个长标签
            （「3:4 竖版海报」7 个字 × 7 档），而知渔的「平面转建筑效果图 / 建筑九宫格分镜」
            实测就是这种纯数字写法（imageSkills.js RATIO_BARE 上方的注释记着这次实采）。 */
-      { ...ratioField(RATIO_BARE), default: '3:4', span: 'half' },
+      /* ⚠️ `maxVisible: 8` 是**真机截图后**加的：ratioField() 会给所有图片技能在前面插一档
+         「自适应」（批 R），所以这一栏是 8 个选项；FieldRenderer 的默认折叠上限是 6
+         （`options.length > limit + 1` 才折叠）⇒ 8 > 7 ⇒ 折成「6 颗 + 一颗『更多』」，
+         **9:16 与 16:9 被藏起来了**。用户早就批过这种折叠
+         （「更多，如果只有一个的话，那你为什么一定要有这个更多呢」），
+         而这一栏的语义恰恰是"从比例里选一个"—— 藏两档就是让用户看不见可选项。
+         现在标签已经换成纯数字（半宽放得下），一屏 4 行与原来一样高，没有代价。 */
+      { ...ratioField(RATIO_BARE), default: '3:4', span: 'half', maxVisible: 8 },
       { ...clarityField(), span: 'half' },
     ],
     cases: [], history: true,
