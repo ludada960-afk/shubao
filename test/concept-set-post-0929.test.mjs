@@ -253,6 +253,24 @@ test('⑬ 清单**插在指定分组之后**，而那个组名必须真的存在
   assert.match(PAGE, /skill\.modulesAfterGroup/, '页面要读这个声明');
 });
 
+test('⑭ 清单有逐行控件时必须**单列** —— 类名与 CSS 要一起在（批 DC 续-16）', () => {
+  /* ⚠️ 这一条是补一条**已经漏掉过**的：单列那条 CSS（`grid-template-columns: 1fr`）
+     当时写了，可 JSX 上忘了挂 `is-person` ⇒ 规则是**死的**。
+     而它**看不出来**：左栏 386px 本来就小于 480px 的两列阈值，
+     `auto-fit minmax(min(240px,100%),1fr)` 照样给一列，页面完全正常；
+     要等左栏变宽（CSS 注释里量到过 570px）才会炸成两列、把行撑破。
+     ⇒ 这类"开关类名"必须在门禁里核对 CSS 与 JSX **两头都在**。 */
+  const shell = read('src/components/media/WorkbenchShell.jsx');
+  assert.match(shell, /\(section\.personField \? ' is-person' : ''\)/,
+    '清单 section 上必须挂 is-person（单列规则的开关）');
+  const shellCss = read('src/components/media/WorkbenchShell.css');
+  assert.match(shellCss, /\.media-workbench-checklist\.is-person \.media-workbench-checklist-items \{ grid-template-columns: 1fr; \}/,
+    '单列规则要在，且选择器与那个类名对得上');
+  /* 行内那颗下拉的宽度：原生 <select> 在 flex 父级里 + width:100% 会塌成两个字宽 */
+  assert.match(shellCss, /media-workbench-checklist-person select\.media-field-control \{[\s\S]*?width: auto;[\s\S]*?min-width: 112px;/,
+    '行内下拉必须 width:auto + min-width（否则「空镜」被截成「空」）');
+});
+
 test('⑫ 结果区与页签的控件不再"小一号"（用户批注图1-③）', () => {
   const pills = read('src/pages/MediaCreation/MediaCreation.css');
   assert.match(pills, /min-height: 32px;\s*padding: 0 15px;\s*font-size: 12\.576px;\s*font-weight: 700;/,

@@ -201,7 +201,14 @@ export default function WorkbenchShell({
       ? section.items.filter(item => item.checked !== false).length
       : section.items.length;
     return (
-      <section className={'media-workbench-group media-workbench-checklist' + (selectable ? ' is-selectable' : '')} key={section.key || section.title}>
+      /* ⚠️ `is-person` 是**单列**那条规则的开关（`grid-template-columns: 1fr`）。
+         漏了它这条 CSS 就是**死的** —— 而当前左栏 386px 本来就 < 480px 的两列阈值，
+         `auto-fit minmax(min(240px,100%),1fr)` 照样给一列，**看起来完全正常**，
+         要到左栏变宽（CSS 注释里量到过 570px）才会炸成两列、行被撑破。
+         ⇒ 类名与 CSS 一起改，且下面 ⑬ 那条门禁守着它。 */
+      <section className={'media-workbench-group media-workbench-checklist'
+        + (selectable ? ' is-selectable' : '')
+        + (section.personField ? ' is-person' : '')} key={section.key || section.title}>
         <h3 className="media-workbench-group-title">
           {section.title}
           {/* 2026-09-28 批 DC 续-7：**先把"这一篇几张"写出来**，再说"勾了几个"。
