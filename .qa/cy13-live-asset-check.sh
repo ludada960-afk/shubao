@@ -7,16 +7,11 @@
 #
 # ⚠️ 两个踩过的坑，写在这里免得下一个人再踩：
 #   ① **不要在整个 assets 目录里 grep**。本次部署日志里有一条
-#      `Remote locked step passed: Old static release cleanup failed` —— 旧 release 的静态产物
-#      没被清掉，`current/assets` 下堆了 **6193 个 js**（正常一个 release 只有 30 来个）。
-#      在整个目录里 grep `ec-canvas-count-popover` 会命中 206 个**旧版本**的 chunk，
-#      看起来像"我的删除没上线"，其实是量错了地方。
-#   ② **不要只在 index.html 引用的那个 bundle 里 grep**。画布是懒加载 chunk，
-#      触发器的类名在 `index-*.js`（canvas chunk）里，不在 `index-<hash>.js`（入口 bundle）里，
-#      只查入口会得到 js=0 的假阴性。
-# ⇒ 正确姿势：先按**部署时刻的 mtime** 筛出本次写入的文件，再在这些文件里查。
-#
-# 用法：scp 本文件到服务器，sh 跑一遍。用完可以删。
+#      ⚠️ 2026-09-29 批 CY-⑮ 更正：`Remote locked step passed: Old static release
+#      cleanup failed` 是**成功**日志 —— 那个步骤的 FailureMessage 本身就是它的失败文案。
+#      旧 release 清理一直是好的。真正的原因是**上游**：`deploy-production.ps1` 正路径
+#      `tar xzf` 覆盖解包前不删 `dist/`，累加物被 `cp -a` 复制进每一个 release
+#      （所以每个 release 目录自己就有 6000+ 个 js，不是"旧 release 没清干净"）。
 set -e
 cd /var/www/shubao/current
 echo "release: $(pwd)"

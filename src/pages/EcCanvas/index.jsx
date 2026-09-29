@@ -900,6 +900,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         case 'textInspectorNodeId': setTextInspectorNodeId(null); break;
         case 'editingTextNodeId': setEditingTextNodeId(null); break;
         case 'nodeActionBar': setNodeActionBar(null); break;
+        /* 批 CY-⑮：登记册 canvasSurfaceDismiss 里有 connectionDraft，
+           而这个 switch 原来**没有**它的 case ⇒ 它只靠另一个手写 Esc 处理器兜着，
+           正是那个模块当初要消灭的「两套关闭逻辑互相打架」。补上，职责就不重叠了。 */
+        case 'connectionDraft': setConnectionDraft(null); break;
         default: break;
       }
     }
@@ -4101,7 +4105,9 @@ const handlePointerUp = useCallback((e) => {
         mode: longDetail ? 'long-detail' : single ? 'single' : 'images',
         fileCount: longDetail ? 1 : exportNodes.length,
         format: exportFormat,
-        productName: result.product_name || '商品',
+        /* 批 CY-⑮：兜底名去掉「商品」—— 通用画布（不是电商套图）导出时，
+           另存为窗口里默认填的也是「商品.png」，那是电商口径泄漏到通用路径上。 */
+        productName: result.product_name || '',
         /* 批 CY-⑭：保存对话框的**建议文件名**同样走命名规则 —— 这一处以前直接用 `node.name`,
        于是「另存为」窗口里默认填的就是那串 64 位 sha。 */
     filename: single ? safeDeliveryName(deliveryNameFor(exportNodes[0], 0, 1), exportFormat) : undefined,
@@ -4178,7 +4184,7 @@ const handlePointerUp = useCallback((e) => {
         deliveryItems = [{
           id: composedLongExportRef.current.id,
           url: composedLongExportRef.current.url,
-          name: `${result.product_name || '商品'}-详情长图`,
+          name: result.product_name ? `${result.product_name}-详情长图` : '详情长图',
           format: exportFormat,
         }];
       }
@@ -4723,6 +4729,22 @@ const handlePointerUp = useCallback((e) => {
     });
     setConnectionPicker(previous => previous?.sourceNodeId === nodeId ? null : previous);
     setConnectionDraft(previous => previous?.sourceNodeId === nodeId ? null : previous);
+    /* 批 CY-⑮：删节点要把**所有**以这个节点为锚的浮层收干净。
+       以前只有键盘路径的 handleDelete 做了这件事，右键 / 工具条这条路径没做 ⇒
+       最毒的是 focusedEditor：`selectionPanelsVisible = !focusedEditor && …`，
+       一个陈旧值会让对象工具条 / 右栏 / 文字工具条 / 多选工具条**整局都不出现**，
+       用户只看到「删完节点画布上什么都没有」，没有任何提示。
+       ⚠️ 这里刻意只清状态、不走 canvasSurfaceDismiss 那一层：
+          「点空白」是**关掉所有**浮层，而「删掉它所锚的那个面板」是**只关这一个**，
+          两者语义不同，混用会引入新错。
+       判据按各自存的形状取：有的存 id、有的存整个 node、有的存 { node, position }。 */
+    setFocusedEditor(previous => (previous?.nodeId === nodeId || previous?.id === nodeId || previous === nodeId) ? null : previous);
+    setTextInspectorNodeId(previous => previous === nodeId ? null : previous);
+    setEditingTextNodeId(previous => previous === nodeId ? null : previous);
+    setImageInfoNode(previous => (previous?.id === nodeId || previous === nodeId) ? null : previous);
+    setDirectionDraft(previous => (previous?.nodeId === nodeId || previous?.id === nodeId || previous === nodeId) ? null : previous);
+    setContextMenu(previous => (previous?.node?.id === nodeId) ? null : previous);
+    setWatermarkPreview(previous => (previous?.nodeId === nodeId || previous === nodeId) ? null : previous);
   }, []);
 
   /* ═══ 批 CY-⑭：把「自适应」翻译成**协议比例**再发出去 ═════════════════════════════════════
@@ -8114,7 +8136,12 @@ const handlePointerUp = useCallback((e) => {
             }
           }}
           onUpload={() => sourceUploadRef.current?.click?.()}
-          onPickFromLibrary={() => { setActiveFilter && setActiveFilter('资产库'); }}
+          /* 批 CY-⑮：原来这里是 `setActiveFilter && setActiveFilter('资产库')`。
+     `activeFilter` 是**顶栏那排图层筛选 chip**（取值只有 ['全部', ...ASSET_GROUPS]），
+     '资产库' 不在里面 ⇒ visibleNodes 过滤成空 ⇒ **点一下整张画布的节点全部消失**，
+     而资产库并没有被打开（setActiveFilter 是个永远为真的函数，那句 && 是摆设）。
+     ⇒ 正确目标是**打开资产库选择器**。 */
+        onPickFromLibrary={() => setAssetPickerOpen(true)}
           /* 2026-09-28 批 CX（CV-1）：「按技能开始」→ 打开技能库（与首页/视频页同一个 modal），
              选中后由 handleSkillLibraryPick 的 create 分支建出带这条技能的节点。 */
           onStartFromSkill={() => { setAddNodePanel(null); openSkillLibraryForNew('image'); }}

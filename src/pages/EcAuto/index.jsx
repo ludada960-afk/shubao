@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkle, CaretRight, Download, ArrowsClockwise, Lightning } from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
-import { proxyImg, autoGenerate } from '../../services/api';
+import { proxyImg, autoGenerate, saveWork } from '../../services/api';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
@@ -185,6 +185,24 @@ export default function EcAutoPage() {
       if (!finalResult) throw new Error('任务尚未完成或没有稳定图片，请稍后继续生成');
       setResults(finalResult);
       setInProgressPreview({});
+      /* 批 CY-⑮：这一页以前**完全不调 saveWork**（`rg saveWork src/pages/EcAuto` 零命中），
+         所以「一键出图」出来的作品**不进「我的作品」**——刷新一下就没了。
+         同一个产品里两条等价产图路径：MediaCreation 与 EcStudio 都会存，只有这里不存。
+         ⚠️ saveWork 失败时**返回 null 不抛**（services/api.js:1826），所以必须自己判返回值、
+            明确告诉用户，否则就是"看起来成功了、其实没存"。
+         这里用本页已有的 setError 通道（不新造状态），且只在**真的没存住**时才提示。 */
+      try {
+        const saved = await saveWork({
+          ...finalResult,
+          _ecResult: true,
+          _saveKey: 'eca-' + Date.now(),
+          at: new Date().toLocaleDateString('zh-CN'),
+        }, state.phone);
+        if (!saved) setError('图片已生成，但没能存进「我的作品」—— 请先下载保存，别刷新这一页');
+      } catch (saveError) {
+        setError('图片已生成，但没能存进「我的作品」—— 请先下载保存，别刷新这一页');
+        if (import.meta.env?.DEV) console.warn('[ec-auto] saveWork 失败', saveError);
+      }
       fetchCredits(state.phone);
       setGenState('done');
       dispatch({ type: 'CLOSE_RESULT' });

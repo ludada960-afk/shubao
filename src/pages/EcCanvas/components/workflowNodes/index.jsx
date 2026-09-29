@@ -204,8 +204,12 @@ export function CompactProcessNodeCard({ title, description, sourceImage, status
   </CanvasNodeShell>;
 }
 
-export function CanvasWorkflowNode({ node, sourceNode, actions, selected = false, onActionSelect, onClose, onRetry, smartRemixProps = {}, layerProps = {}, compactProps = {}, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp }) {
-  return <ModularCanvasWorkflowNode
+export function CanvasWorkflowNode({ node, sourceNode, actions, selected = false, onActionSelect, onClose, onRetry, smartRemixProps = {}, layerProps = {}, compactProps = {}, onPointerDown, onContextMenu, onPortPointerDown, onPortPointerUp, canDerive }) {
+  /* 批 CY-⑮：`canDerive` 以前**收了不传**。下游 `modular/CanvasWorkflowNode` 取默认值 false，
+     `showOutput` 恒为 false ⇒ `CanvasNodeShell` 的**输出端口**永远不渲染。
+     后果：智能分层 / 精简流程这类工作流节点只有输入口、**没有输出口** ⇒
+     「图片 → 应用 → 视频 → 音频」这条端口串联在物理上做不出来（模块头写明的设计目标）。 */
+  return <ModularCanvasWorkflowNode canDerive={canDerive}
     node={node}
     sourceNode={sourceNode}
     actions={actions}

@@ -26,7 +26,7 @@ import {
 
 import { useApp } from '../../store/AppContext';
 import { proxyImg, uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../services/api';
-import { IMAGE_MODELS } from '../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, imageModelResolutions } from '../../services/imageModelCatalog.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
@@ -38,6 +38,7 @@ import GenSettingsPanel from './ec/GenSettingsPanel.jsx';
    现统一走 resolvePanelWidth（480 标准档 + 窄屏兜底），并接受 PANEL_WIDTH_TABLE 的审计。 */
 import { resolvePanelWidth } from './ec/panelVisualLanguage.js';
 import { IMAGE_RATIOS, imagePixelLabel } from '../../services/imageSizeCatalog.js';
+import { downloadFileName } from './mediaHistoryModel.js';
 /* 批 CY-⑭：首页图片侧的「自适应」解析器与画布**共用同一份实现**（用户要求的是全局口径，
    不是"每个页面各写一遍"）。 */
 import { resolveProtocolRatio } from '../EcCanvas/canvasAdaptiveRatio.js';
@@ -209,7 +210,7 @@ function VisualRecipePanel({ selectedSkill, skillControl, updateSkillControl, pa
    所以：分辨率 + 尺寸 + 数量**同一个面板一屏铺开**（照竞品那个『分辨率 / 图片尺寸』面板的形态：
    一行档位、点一下就好），不要再让用户为了一次生成点开三个面板。
    ⚠️ 分辨率仍走 GenSettingsPanel 的权威选项（跟模型能力绑定，1K/2K/4K 白名单不在本文件里另写）。 */
-function VisualSpecsPanel({ selectedSkill, ratio, resolution, onRatioChange, onResolutionChange, busy }) {
+function VisualSpecsPanel({ selectedSkill, ratio, resolution, imageModel, onRatioChange, onResolutionChange, busy }) {
   /* ═══ 批 J-⑪：画面尺寸给满六档（用户批注 #7-4 / #8 / #9）══════════════════════════════════
      用户原话：「他们会有**很多很多个尺寸的规格**可以给人选的，为什么你没有呢？
      **你只有这四个吗？**还有你为什么做的这么丑呢？」
@@ -219,8 +220,23 @@ function VisualSpecsPanel({ selectedSkill, ratio, resolution, onRatioChange, onR
           门禁 image-size-catalog-parity 第 ② 条逐个跑过 resolveGenerationSize，
           确认六档全都真的照做、没有任何一档会被静默回落）。
            技能自己的顺序只决定**默认值**（visualSkillDefaultRatio 取 ratios[0]，行为不变）。 */
-  const options = VISUAL_RATIO_OPTIONS.filter(option => IMAGE_RATIOS.includes(option.id));
-  const RES = [{ key: '1K', hint: '试方向' }, { key: '2K', hint: '推荐' }, { key: '4K', hint: '看细节' }];
+  /* ⚠️ 批 CY-⑮ 修 P0-②：原来这里是 `.filter(option => IMAGE_RATIOS.includes(option.id))` ——
+     那是「只给能生成的档位」的旧判据，而「自适应」是**选项不是尺寸**（它不进 IMAGE_RATIOS，
+     选中后由 resolveProtocolRatio 现算出具体比例再发）。两种语义混在一个过滤器里，
+     结果是**首页图片面板根本看不到这一档** —— 上一批白接了。
+     ⇒ 带 adaptive 标记的选项一律放行，其余仍按「能生成」过滤（那条规矩一个字没松）。 */
+  const options = VISUAL_RATIO_OPTIONS.filter(option => option.adaptive || IMAGE_RATIOS.includes(option.id));
+  /* 批 CY-⑮：分辨率**跟模型能力走**（原来这里是写死的三档）。
+     审计原话（可证伪）：选了 Midjourney（上游只有 1K/2K）之后，这里仍能点 4K ⇒
+     请求带 resolution:'4K' → 服务端 modelCatalog.mjs:159 **静默降级成 2K**，
+     而按钮上的积分是按 4K 算的（imageModelCatalog 的 ec_mj_4k 回落 ec_mj_2k）。
+     这就是 skillRun 注释里点名要消灭的那一类：「看着是 A、跑的是 B」。
+     同一能力 GenSettingsPanel 已经做了（GenSettingsPanel.jsx:89-90
+     `resolutionChoices = RESOLUTIONS.filter(r => availableResolutions.includes(r.key))`），
+     这里手写一遍时漏了这层过滤 —— 现在**接同一个真源**，不另立一份。 */
+  const availableResolutions = imageModelResolutions(imageModel);
+  const RES = [{ key: '1K', hint: '试方向' }, { key: '2K', hint: '推荐' }, { key: '4K', hint: '看细节' }]
+    .filter(item => availableResolutions.includes(item.key));
   return (
     <div className="visual-subpanel">
       <div className="visual-panel-section">
@@ -250,11 +266,11 @@ function VisualSpecsPanel({ selectedSkill, ratio, resolution, onRatioChange, onR
                 onClick={() => !busy && onRatioChange(option.id)}
                 disabled={busy}
                 aria-pressed={selected}
-                aria-label={option.id + ' ' + imagePixelLabel(resolution, option.id)}
+                aria-label={option.adaptive ? option.id : option.id + ' ' + imagePixelLabel(resolution, option.id)}
               >
                 <span className="visual-ratio-shape-wrap"><VisualRatioShape ratio={option.id} /></span>
                 <strong>{option.id}</strong>
-                <small>{imagePixelLabel(resolution, option.id)}</small>
+                <small>{option.adaptive ? '按提示词与参考图自动' : imagePixelLabel(resolution, option.id)}</small>
               </button>
             );
           })}
@@ -925,7 +941,13 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
             面板是它的直接延伸，再来一行大字只是噪声。aria-label 仍然带着标题，读屏不受影响。 */}
         <div className="visual-config-panel-body">
           {activeConfigPanel === 'recipe' && <VisualRecipePanel selectedSkill={selectedSkill} skillControl={skillControl} updateSkillControl={updateSkillControl} panelValues={panelValues} updatePanelValue={updatePanelValue} busy={busy} />}
-          {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} resolution={resolution} onRatioChange={setRatio} onResolutionChange={setResolution} busy={busy} />}
+          {activeConfigPanel === 'specs' && <VisualSpecsPanel selectedSkill={selectedSkill} ratio={ratio} resolution={resolution} imageModel={imageModel} onRatioChange={setRatio} onResolutionChange={next => {
+              /* 批 CY-⑮：模型换了以后，当前分辨率可能已经不在新模型的档位里
+                 （例如 4K → 切到 Midjourney）。夹回它支持的那一档，
+                 否则界面上一个都不选中、用户以为坏了。 */
+              const supported = imageModelResolutions(imageModel);
+              setResolution(supported.includes(next) ? next : (supported.includes('2K') ? '2K' : supported[0]));
+            }} busy={busy} />}
           {/* 模型面板：只留模型选择（清晰度已经挪进「画面规格」——用户要的是"打开就能看到
               分辨率和尺寸"，把它留在模型面板里等于逼用户点两次） */}
           {/* ⚠️ openModelList：用户批注 #3-①「点击这个按钮之后就应该是默认往下拉选模型呀」——
@@ -1183,7 +1205,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
                 <footer>
                   <span>图片 {index + 1}</span>
                   {slot.url && (
-                    <a href={slot.url} download={`shubao-${run.id}-${index + 1}.png`} title="下载图片">
+                    <a href={slot.url} download={downloadFileName({ title: selectedSkill?.title, fallback: '作品', url: slot.url, index, count: run.slots.length })} title="下载图片">
                       <MdDownload /><span>下载</span>
                     </a>
                   )}

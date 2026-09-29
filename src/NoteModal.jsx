@@ -499,7 +499,7 @@ export default function NoteModal({ item, onClose, textRegen, onDownload, onItem
                           e.stopPropagation();
                           const a = document.createElement('a');
                           a.href = url;
-                          a.download = `${item.product_name}-${style}.png`;
+                          a.download = `${item.product_name || '图片'}-${style}.png`;
                           a.click();
                         }} style={{
                           fontSize: 'var(--sb-text-2xs, 10px)', color: 'var(--sb-state-selected-ink)', cursor: 'pointer',

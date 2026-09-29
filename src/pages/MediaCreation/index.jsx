@@ -302,7 +302,7 @@ function RunPanel({ run, skillName, onRetry, onDownload, busy, fuseActions = [],
       )}
       {finished && done.length > 0 && (
         <div className="media-run-actions">
-          <a className="media-run-download" href={done[0].url} target="_blank" rel="noreferrer" download><Download size={14} />下载第一张</a>
+          <a className="media-run-download" href={done[0].url} target="_blank" rel="noreferrer" download={downloadFileName({ title: skillName, fallback: '作品', url: done[0].url, index: 0, count: 1 })}><Download size={14} />下载第一张</a>
           <button type="button" className="media-run-again" onClick={onDownload}><Sparkles size={14} />重新生成一组</button>
         </div>
       )}

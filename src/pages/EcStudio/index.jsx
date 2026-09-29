@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Sparkle, Package, Gear, Download, MagicWand } from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
 import { proxyImg, generateEcommerce, generateEcommercePreview, autoRecognizeEcommerce, stitchLongImage, saveWork, regenerateImage } from '../../services/api';
+import { downloadFileName } from '../Home/mediaHistoryModel.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { EC_CATS, EC_PLATFORM_DIMS, EC_DETAIL_SLICES, EC_SKU_FIELDS } from '../../constants/data';
 import { IMAGES } from '../../constants/images';
@@ -367,16 +368,32 @@ export default function EcStudioPage() {
       setInProgressPreview({});
       setGenProgress('');
       setStitchUrl(null);
-      saveWork({
-        ...finalResult,
-        _ecResult: true,
-        _saveKey: 'ec-' + Date.now(),
-        product_name: name,
-        category: product.category,
-        platform,
-        at: new Date().toLocaleDateString('zh-CN'),
-        images: d.images || {},
-      }, state.phone, { signal: generationController.signal });
+      /* 批 CY-⑮：保存作品这一步以前是 **fire-and-forget**（没 await、没 catch、返回值丢弃）。
+         后果有两个，用户都看不到：
+           ① saveWork 失败时**返回 null 而不抛**（services/api.js:1826）⇒ 图已经出了、
+              界面写着「生成完成」，但「我的作品」里没有，**一句提示都没有**；
+           ② 它带着 generationController.signal —— 用户点一下「继续生成」就会 abort，
+              而 abort 之后 api.js:1801 的二次检查直接 return null ⇒ 这一次也白存。
+         ⇒ 改成 await + catch + **用本页已有的提示通道告诉用户**。
+         ⚠️ 这里刻意用 `setErr`（本页唯一已渲染的提示通道，:522）而不是新造一个 setNotice ——
+            我第一版顺手写了 setNotice，而**这个文件里根本没有 setNotice**，
+            那就是同一个「用了没声明的标识符」的坑，差点又踩一次（见 jsx-undefined-identifiers-0929）。 */
+      try {
+        const saved = await saveWork({
+          ...finalResult,
+          _ecResult: true,
+          _saveKey: 'ec-' + Date.now(),
+          product_name: name,
+          category: product.category,
+          platform,
+          at: new Date().toLocaleDateString('zh-CN'),
+          images: d.images || {},
+        }, state.phone);
+        if (!saved) setErr('图片已完成，但没能存进「我的作品」—— 请先下载保存，别刷新这一页');
+      } catch (saveError) {
+        setErr('图片已完成，但没能存进「我的作品」—— 请先下载保存，别刷新这一页');
+        if (import.meta.env?.DEV) console.warn('[ec-studio] saveWork 失败', saveError);
+      }
       if (!isGenerationCurrent(generationToken)) return;
       fetchCredits(state.phone);
     } catch (e) {
@@ -1254,7 +1271,11 @@ export default function EcStudioPage() {
                 {stitchUrl && (
                   <a
                     href={proxyImg(stitchUrl)}
-                    download
+                    /* 批 CY-⑮：原来这里是**裸 download**。`stitchLongImage` 走的是
+                       generated-assets（URL 最后一段就是 64 位 sha256，且该路由不设
+                       Content-Disposition）⇒ 浏览器直接拿它当文件名，用户下载到的是
+                       一串乱码。改走共用的 downloadFileName。 */
+                    download={downloadFileName({ title: results?.product_name || '长图', url: stitchUrl, index: 0, count: 1 })}
                     target="_blank"
                     rel="noreferrer"
                     style={{

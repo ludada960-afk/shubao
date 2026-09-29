@@ -11966,7 +11966,11 @@ P0 回归（扫描式）/ 四个框一个没漏。
 2. **量产物要量对地方（我连着量错两次）**：
    ① 第一次在整个 `assets/` 目录里 grep，命中 206 个 js 里都有 `ec-canvas-count-popover` ——
       看着像"我的删除没上线"。实际是部署日志里那条 `Old static release cleanup failed`：
-      旧 release 的静态产物没清掉，`current/assets` 下堆了 **6193 个 js**（正常 30 来个），
+      ⚠️ **2026-09-29 批 CY-⑮ 更正**：这一句**当时是错的**——不是"旧 release 没被清掉"，
+     而是**每个 release 各自都有 6000+ 个 js**。真正的原因在 `deploy-production.ps1:641`：
+     正路径是 `tar xzf` **覆盖解包、从不先删 `dist/`**，而 `$RemoteDir/dist` 本身是历次构建的累加物
+     （本地 vite 每次 emptyOutDir 是干净的，服务器上是 tar 叠加），再被 `cp -a dist/.` 整份复制进每个 release。
+     反证：同文件的**回滚路径有 `rm -rf dist`，正路径没有**。详见批 CY-⑮。
       命中的是**旧版本 chunk**。
    ② 第二次只查 `index.html` 引用的那个入口 bundle，`data-canvas-config-trigger` 又是 0 ——
       画布是**懒加载 chunk**，类名在 `index-<另一个hash>.js` 里。
@@ -11974,7 +11978,11 @@ P0 回归（扫描式）/ 四个框一个没漏。
    这两条已经写进 `.qa/cy13-live-asset-check.sh` 的文件头注释里。
 
 ⚠️ **顺手发现的一条运维问题（如实报，不在本批擅自处理）**：
-`Old static release cleanup failed` —— 部署脚本清理旧静态产物那一步**一直在失败**，
+⚠️ **2026-09-29 批 CY-⑮ 更正**：这里我当时**读错了日志**。那行的形状是
+     `Remote locked step passed: <FailureMessage>`，而那个步骤的 `FailureMessage` 文本
+     **本身就是"Old static release cleanup failed"** —— 也就是说**成功时打的也是这一句**
+     （`Invoke-LockedRemote` 只在 exit 0 时打 "passed"；真失败会 throw，走 catch 打另一行 Warning）。
+     所以**清理一直是好的**（按 mtime 保留最新 3 个 release），问题在它上游的暂存目录。
 `current/assets` 里堆了 6193 个 js（正常一个 release 三十来个）。磁盘会一直涨，而且
 "在目录里 grep"这种复验方式会被它污染（见上）。这不是本批引入的，但建议单独排一批处理。
 
@@ -12328,5 +12336,112 @@ remove_bg）—— 那是"这一页不给用户选尺寸"的产品决定，不�
 `current/assets` 下有 **6255 个 js**。逐个查「电商图片.zip」的命中文件，mtime 从
 **41 分钟前一直到 19 天前（27246 分钟）**，200+ 个历史 chunk 全部躺在同一个目录里。
 这不是推测，是这次复验直接数出来的 —— 也是它两次误导我的原因。
-`Old static release cleanup failed` 这一条**一直在失败**，建议单独排一批处理
+⚠️ **批 CY-⑮ 更正**：这一条我当时也读错了——它**不是失败日志，是成功日志**（步骤名=失败文案）。
+     真正的根因是正路径 `tar xzf` 覆盖解包前不删 `dist/`，累加物再被 `cp -a` 复制进每个 release。
+     已在批 CY-⑮ 修掉（正路径解包前 `rm -rf dist` + 清理步骤文案去歧义）并清了服务器上的存量。
 （磁盘会一直涨，而且会污染任何"在目录里 grep"的复验方式）。
+
+## 2026-09-29 批 CY-⑮ —— 补齐 CY-⑭ 欠下的四件 + 全站逻辑审计；**含一条我自己诊断错的更正**
+
+用户：「那你继续做」。CY-⑭ 我在交接文档里列了四件欠账，这一批按「能立刻收掉的 → 需要审计的」做完。
+
+### 〇 先更正一条**我说错的**诊断（比新修的 bug 更重要）
+
+CY-⑭ 我在 RTK、交接文档、两个复验脚本里都写了：
+> 「`Old static release cleanup failed` 这一条**一直在失败**」
+
+**读错了。** 那行是**成功**日志：部署脚本把这个步骤的 `FailureMessage` 传成了
+"Old static release cleanup failed"，而 `Invoke-LockedRemote` **成功时打的也是同一个字符串**
+（只在 exit 0 时打 "passed"；真失败会 throw，走 catch 打另一行 Warning）。
+⇒ 旧 release 清理**一直是好的**。踩坑的原因是**成功文案长成了失败的样子**。
+
+**真正的原因在它上游**（服务器实测确认）：
+`deploy-production.ps1:641` 正路径是 `tar xzf <archive>` —— **覆盖解包、从不先删 `dist/`**，
+而 `$RemoteDir/dist` 本身是历次构建的累加物（本地 vite 每次 `emptyOutDir` 是干净的，
+服务器上是 `tar` 叠加），再被 `cp -a dist/.` **整份**复制进每一个 release。
+
+证据（批 CY-⑮ 亲自量的）：
+
+| 位置 | js 数量 | 时间跨度 |
+| --- | --- | --- |
+| `/home/ubuntu/shubao/dist/assets` | **6286**（905M） | 2026-09-10 → 09-29 |
+| release `…015727-2f52a81a` | 6224 | — |
+| release `…040641-38e58015` | 6255 | — |
+| release `…043415-a40a194a` | 6286 | — |
+
+**逐次递增 = 每次都全量复制**。反证也很有力：**回滚路径有 `rm -rf dist`，正路径没有**
+（同一个文件 :708 vs :641）。
+
+修法一行（解包前 `rm -rf dist`）+ 把那个自相矛盾的成功文案改掉。
+回滚不受影响：`:635` 的备份在 `:641` **之前**就把 dist 快照走了。
+存量已清：905M 暂存 + 2 个陈旧 release，磁盘 25% → 22%；
+`works.db` / `generated-assets` / `deploy-backups` 逐项确认未动，站点全程 200。
+
+⚠️ 顺带一提：RTK 在 2026-09-26 就记过这件事（「发布目录里 JS 有 5293 个文件…修法一行：解包前
+`rm -rf dist`」），当时标的是「没动：那是共享的发布脚本」。**记了三天没人做**，而且我今天
+先把原因读错了一遍才查对 —— 记下来不等于做了。
+
+### 一 全站下载文件名（CY-⑭ 只收了画布那一处）
+
+前提事实（逐个查实）：每张生成图的 URL 是 `/api/generated-assets/<64位sha256>.png`
+（`saveWorkToAssets.js:36` 的正则 + `server/index.mjs:659` 的路由），
+而**该路由不设 `Content-Disposition`** ⇒ `<a download>` 不带值时，浏览器拿 URL 末段当文件名。
+
+本批收掉 5 处：
+
+| 位置 | 改前 | 改后 |
+| --- | --- | --- |
+| `MediaCreation/index.jsx:305`「下载第一张」 | **裸 `download`** ⇒ 落盘是 sha | `downloadFileName({ title: skillName, … })` |
+| `EcStudio/index.jsx:1257`「下载长图」 | **裸 `download`** ⇒ 落盘是 sha | `downloadFileName({ title: product_name \|\| '长图', … })` |
+| `VisualCreationMode.jsx:1186` | `shubao-visual-<uuid>-1.png`（**内部 id 漏给用户**） | 技能名 |
+| `EcCanvas/index.jsx` 两处交付兜底 | `'商品'`（通用画布也自称商品） | `''` / `'详情长图'` |
+| `NoteModal.jsx:502` | **连兜底都没有** ⇒ `undefined-白底图.png` | 补兜底 |
+
+### 二 全站逻辑审计（用户：「该串联的功能却没有进行串联」）
+
+两个 Explore 子代理分头扫画布与首页/工作台/技能子页，逐条给「怎么知道它是坏的」。
+本批**修了审计里最要命的 8 条**，其中 **2 条是我自己在 CY-⑭ 引入的**：
+
+| 级别 | 问题 | 后果 |
+| --- | --- | --- |
+| **P0（我引入的）** | `VisualCreationMode.jsx:1186` 用了 `downloadFileName` / `skillName`，**两者在这个文件里都不存在** | 首页图片**一生成成功就整页白屏**。vite build 不查未定义标识符 ⇒ 能过构建、过全部单测、过 38 个门禁 |
+| **P0（我引入的）** | 上一批加进 `VISUAL_RATIO_OPTIONS` 的「自适应」，被**它下面那行 filter 吃掉**（`.filter(o => IMAGE_RATIOS.includes(o.id))`） | 首页图片面板**根本看不到这一档** —— 白接。下游半条链已铺好，上游被过滤掉了 |
+| P0 | 画布「从资产库选择」写的是 `setActiveFilter('资产库')`，而 `activeFilter` 取值只有 `['全部', ...ASSET_GROUPS]` | 点一下**整张画布节点全消失**，资产库也没开 |
+| P0 | 首页图片的分辨率写死三档，不跟模型能力走 | 选 Midjourney（只有 1K/2K）后仍能点 4K ⇒ 服务端静默降级 2K，**积分却按 4K 算** =「钱按 A 收、活按 B 干」 |
+| P1 | `EcStudio` 的 `saveWork` 是 fire-and-forget，且带 `generationController.signal` | ①失败**返回 null 不抛** ⇒ 图出了、界面说"生成完成"、作品没存、**一句提示都没有**；②用户点「继续生成」就把它 abort 掉 |
+| P1 | `EcAuto` **根本不调 `saveWork`** | 这一页出的图**刷新就没了** |
+| P1 | `removeCanvasNode`（右键/工具条路径）只清 2 个浮层，键盘路径 `handleDelete` 清 6 个 | 陈旧 `focusedEditor` 让 `selectionPanelsVisible` 恒假 ⇒ 对象工具条/右栏/文字工具条**整局消失**，用户只看到空白 |
+| P1 | `workflowNodes/index.jsx` 的 wrapper 收下 `canDerive` 却不往下传 | `showOutput` 恒 false ⇒ 工作流节点**没有输出口** ⇒「图片→应用→视频→音频」这条端口串联物理上做不出来 |
+
+### 三 审计里**我核过之后决定不修**的（避免"修"出一个用户不想要的东西）
+
+- **视频「生成同期声音」开关不可达** —— 审计列为 P0，但查 `TOOLBAR_ITEMS` 上方的批注发现
+  是 **2026-09-16 用户自己要求撤下**的：「默认就是视频会生成声音的呀，为什么我们自己要做一个
+  生成声音这样子的东西呢」。⇒ 那不是 bug，是**刻意的产品决定**，不该"修"回去。
+- **EcAuto「去精修工坊微调」是空手跳转** —— 确认属实，但补齐它需要设计 EcStudio 的接收协议
+  （传什么、接在哪、失败怎么退），属于新功能而不是修 bug，**留给下一批**。
+
+### 四 新增门禁 4 个（20 条断言）
+
+`jsx-undefined-identifiers-0929` / `download-filenames-0929` /
+`logic-wiring-audit-0929` / `deploy-static-artifact-growth-0929`。
+
+⚠️ 第一条门禁的判据**换过两次，两次都是判据自己先错**，如实记：
+- 第 1 版「全文件解析哪些标识符声明过」：默认导入（`import Foo from`）没解析出来
+  ⇒ 把 `CanvasNodeActionBar` / `GenSettingsPanel` 全误报成"用了没 import"；
+- 第 2 版「三条 import 规则」：多行 import 块里夹注释时 `[^}]*` 提前截断
+  ⇒ 又把 `CanvasMinimap` / `SaveStatusIndicator` 等全误报。
+
+**两次都是误报，而误报的代价是"下一个人不再相信这条门禁"** —— 一条会误报的静态检查不如没有。
+第 3 版改成**不做全文件解析**：只对一张显式清单逐个查「这个文件用了它吗？用了的话 import 了吗」，
+零误报，代价是**如实承认它覆盖不到随手拼错的名字**（那属于类型检查的范畴，而本仓是 JS）。
+自证用例保留：判据必须对故意写坏的样本判红。
+
+同理「剥注释」也踩了：在这个门禁里 `strip` 会在 `workflowNodes/index.jsx` **吞掉 8.3KB**
+（某处块注释定界符配对到了很靠后），把目标函数整个吃掉 ⇒ 那一条改成读原文。
+
+### 验证
+
+隔离树 `.worktrees/cy15`（= HEAD + 只有本批的 diff）：
+`npm test` **4342 条 / pass 4332 / fail 0 / skipped 10**；
+`npm run precommit` ✅ 构建 exit 0 + 323 条 e2e 全绿 + 38 个 BLOCKING 门禁全绿 + 260 条门禁 0 失败。
