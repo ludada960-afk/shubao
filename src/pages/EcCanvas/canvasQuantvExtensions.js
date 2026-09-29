@@ -574,8 +574,24 @@ export function isApplicationNode(node = {}) {
   return APPLICATION_NODE_KINDS.includes(node.actionId) || APPLICATION_NODE_KINDS.includes(node.kind) || node.kind === 'application';
 }
 
-/* ═══════ 16. 估算节点积分消耗 (Quantv §10.3 节点底部 ✦ 预计 X.XX 积分) ═══════ */
+/* ═══════ 16. 估算节点积分消耗 (Quantv §10.3 节点底部 ✗ 预计 X.XX 积分) ═══════ */
+/* ═══ 批 CY-㉒ 修：这张表与 `canvasBillingModel.ACTIONS` 有 6 个键同名，数值却差了 5~10 倍 ══
+   后果不是"估高一点无所谓"，而是**同一个功能在两个界面报两个价**：
+     · 点动作前看到的价格  来自 ACTIONS（计费表）—— 这才是真会扣的钱
+     · 右面板「预计消耗」     来自本表
+     · 整链运行「预计积分」   来自本表（buildRunPlan 的 costOf）
+   用户看到的与被扣的相差 10 倍 —— 正是他反复报的「看着是 A、跑的是 B」。
 
+   哪个数是真的？我 SSH 上生产读了 `server/billing/catalog.mjs` 的线上单价：
+     ec_image_2k=1000 units, ec_image_4k=2000, ec_remove_bg=500,
+     ec_smart_layer=3000, ec_reverse_prompt=200, ec_canvas_ocr=200  ⇒ 1 积分 = 1000 units
+   代入计费表全部对得上 ⇒ **计费表是对的，这张表是错的**。
+   同名的 6 个键已按计费表改正（含两条"展示价含前置识别"的口径：
+     remove-bg 0.7 = 识别 0.2 + 抠图 0.5；layer-edit 3.2 = 识别 0.2 + 分层 3.0）。
+
+   ⚠️ 下面这些**按节点 kind** 给的档（output / video / audio / application-* / *-composer）
+      是 Quantv §10.3 的产品定价，不走服务端 sku，所以与服务端 catalog **没有对应关系** ——
+      那是两类东西，别拿它们去和 catalog 比。门禁只对「与计费表同名的键」要求一致。 */
 export const NODE_COST_ESTIMATES = Object.freeze({
   text: 0,
   image: 0,           // 上传免费
@@ -587,13 +603,16 @@ export const NODE_COST_ESTIMATES = Object.freeze({
   'application-1click-video': 40,
   'application-tts': 8,
   'application-caption': 5,
-  'smart-remix': 10,
-  'layer-workbench': 12,
-  'remove-bg': 4,
-  extend: 6,
-  inpaint: 8,
-  translate: 5,
-  upscale: 6,
+  /* ↓↓ 以下 6 个与 canvasBillingModel.ACTIONS 同名 —— 数值必须与计费表逐值一致 ↓↓ */
+  'smart-remix': 1,
+  'remove-bg': 0.7,
+  extend: 1,
+  inpaint: 1,
+  translate: 1,
+  upscale: 1,
+  /* ↑↑ 同名区结束 ↑↑ —— 改动请连同 test/node-cost-tables-0929.test.mjs 一起看 */
+  /* ⚠️ `layer-workbench` 与计费表的 `layer-edit` **是两个不同的键**（不在同名区）——
+     它按节点 kind 计价，没有对应 sku，所以**不能**照抄 3.2，那是猜的。保持原值。 */
   'image-composer': 10,
   'text-composer': 5,
   'video-composer': 32,
