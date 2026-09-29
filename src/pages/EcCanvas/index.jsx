@@ -7450,13 +7450,39 @@ const handlePointerUp = useCallback((e) => {
           <div style={{
             '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale),
             position: 'absolute',
-            /* 下面三个值是一组：**内容层的左/上偏移与尺寸必须同时按 scale 换算**，
-               否则内容层盖不满视口，裁剪窗又会退化成"世界坐标里的一块固定区域"。 */
-            left: `calc(${-viewport.x}px / ${Math.max(0.1, viewport.scale)})`,
-            top: `calc(${-viewport.y}px / ${Math.max(0.1, viewport.scale)})`,
-            width: `calc((100% + ${40 + Math.abs(viewport.x)}px) / ${Math.max(0.1, viewport.scale)})`,
-            height: `calc((100% + ${40 + Math.abs(viewport.y)}px) / ${Math.max(0.1, viewport.scale)})`,
-            transform: `scale(${viewport.scale})`,
+            /* ═══ 批 CY-㉖ 修我自己引入的**坐标系错误**（用户上线后立刻报「越改越不对劲」）═══
+
+               症状（三条，同一个根因）：
+                 ① 「滚轮缩放时整个画布朝左上方/右上方挪动，完全没有放大缩小」
+                 ② 「素材上面的功能栏没有跟它连在一起」
+                 ③ 「小地图显示视界窗在素材的左边」
+               根因：批 CY-㉕ 我把平移从 transform 挪到了 left，**两处都写错了**：
+                 第一次写成 `left: calc(-vx / s)`（符号反），
+                 第二次改成 `calc(+vx / s)`（没错符号，但**多除了一个 scale**：
+                 left 是 CSS px，不该跟着缩放除）。
+               探针实测（CY-㉖）：nodeScreenX 897.5，而按正确公式应为 789.2，**误差 108.3px**；
+               且实测 `innerLeftCss = 381.662` 恰好等于 `vx/s`，而正确的是 `vx` 本身。
+
+               全仓口径（三处独立代码可证，都是 **屏幕 = 世界×缩放 + 平移**）：
+                 ① 批 CY-㉕ 之前的内容层：transform: translate(+vx, +vy) scale(s)
+                 ② canvasInteractionModel.js: visibleLeft = -vx / s
+                 ③ 小地图视口框：toMapX(-viewport.x / safeScale)
+
+               ⇒ 这次**把平移放回 transform**（符号只出现在这一处，和 ① 完全一样，
+               不再由我手算符号），left 只负责留白：
+                 屏幕 = left + 世界×缩放 + 平移
+                        = -(M + |vx|) + 世界×s + vx
+               left 取 -(M+|vx|)、宽取 (stageW + 2M + 2|vx|)/s 之后：
+                 左边缘 = -(M+|vx|) + vx <= -M        （任何 vx 都盖住左缘）
+                 右边缘 = stageW + M + vx + |vx| >= stageW + M
+               M 是屏幕像素留白；|vx| 那项让平移后两侧都盖得住。
+               ⚠️ 教训：改坐标系前先 grep「谁还依赖这个口径」（这次是靠 visibleLeft
+               与小地图才发现符号反了）；平移尽量只写在一处，别拆到 left 里手算。 */
+            left: `${-(400 + Math.abs(viewport.x))}px`,
+            top: `${-(400 + Math.abs(viewport.y))}px`,
+            width: `calc((100% + ${800 + 2 * Math.abs(viewport.x)}px) / ${Math.max(0.1, viewport.scale)})`,
+            height: `calc((100% + ${800 + 2 * Math.abs(viewport.y)}px) / ${Math.max(0.1, viewport.scale)})`,
+            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
             transformOrigin: '0 0',
             willChange: 'transform',
           }}>

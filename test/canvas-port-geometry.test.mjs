@@ -14,14 +14,13 @@ test('Canvas derives port geometry from node rectangles without viewport-bound D
   assert.doesNotMatch(canvasSource, /new ResizeObserver\(measure\)/);
   assert.match(canvasSource, /requestAnimationFrame\(flushDragFrame\)/);
   assert.match(canvasSource, /cancelAnimationFrame\(dragFrameRef\.current\)/);
-  /* 批 CY-㉕：这一条原本钉死内容层用 `transform: translate(vx,vy) scale(s)`。
-     那个写法本身**就是病灶** —— 裁切盒与变换同一个 div，裁切窗被钉死在世界坐标的
-     一块固定区域里，缩小画布时可见世界范围不随缩放变大、更右边的素材永远看不见。
-     现在内容层是 `transform: scale(s)` + 按 scale 换算的 left/top（平移不再重复计算），
-     而这条断言真正想守的是「**存在一个被变换的内容层，且连线层在它里面**」，
-     所以改成守这个不变量，而不是守某一种写法。详见 canvas-viewport-clip-0929。 */
-  assert.match(canvasSource, /transform: `scale\(\$\{viewport\.scale\}\)`[\s\S]*?<ConnectionLines connections=\{connections\}/,
-    '必须存在一个被 scale 的内容层，且 ConnectionLines 在它里面（连线才能跟着画布一起变换）');
+  /* 批 CY-㉕ 把裁切盒与变换盒分开（治「可见世界范围不随缩放变大」）；
+     批 CY-㉖ 又把平移**放回 transform**（治「我把 left 的符号与缩放都算错了」）。
+     两次改完，最终形态 = 「视口层只裁剪 + 内容层 translate+scale 且留足余量」。
+     这条断言真正要守的始终是「**存在一个被变换的内容层，且连线层在它里面**」，
+     所以只守这个不变量，不钉某一种 left 的写法。详见 canvas-viewport-clip-0929。 */
+  assert.match(canvasSource, /transform: `translate\(\$\{viewport\.x\}px, \$\{viewport\.y\}px\) scale\(\$\{viewport\.scale\}\)`[\s\S]*?<ConnectionLines connections=\{connections\}/,
+    '必须存在一个被平移+缩放的内容层，且 ConnectionLines 在它里面（连线才能跟着画布一起变换）');
   assert.doesNotMatch(canvasSource, /function ConnectionLines\(\{[^}]*viewport/);
   assert.match(canvasSource, /<StudioImageNode[\s\S]*?onDoubleClick=\{node => openImagePreview/);
   assert.match(canvasSource, /<StudioSourceNode[\s\S]*?onDoubleClick=\{preview => openImagePreview/);
