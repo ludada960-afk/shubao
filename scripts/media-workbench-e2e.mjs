@@ -1500,48 +1500,53 @@ try {
     return el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
   });
   check(parseButton.includes('一键解析风格') && parseButton.includes('0.2 积分'), '解析按钮上写着它要多少钱（扣费动作不许让人猜）', parseButton);
-  /* ═══ 2026-09-28 批 CY-⑥：芯片下面那颗**整颗按钮**（用户批注图3「照抄知渔」）═══════════════════
-     用户原话（逐字）：「你看一下**人家 AI 推荐风格**，它这里是有个按钮的。他点击这个按钮才会生成结果
-     在这里啊。他这个按钮其实就跟右上角那个 AI 推荐应该是同一个按钮的。」
-     知渔实测（.qa/cy5-quantv-style.mjs，登录台只读采）：三档芯片下面一颗 **272×45**、**居中**的整颗按钮
-     （h-9=45 / min-w-[180px] / rounded-lg / 父层 justify-content: center）。
-     我们这边同构：`.media-workbench-field-action` 里一颗 `button.media-workbench-paid`，
-     落在**这一档的内容框**（AI推荐档 = 「设计风格要求」textarea）**下面**。
-     ⚠️ 这里**只量不点** —— 它是付费动作（0.2 积分），点一下真扣钱；点击链路仍由上面那颗行内小胶囊覆盖。 */
+  /* ═══ 2026-09-29 批 DC 续-16：整颗按钮的**位置又变了**（用户当面第二次改口径）════════════════════
+     批 CY-⑥ 的原话是「他这个按钮其实就跟右上角那个 AI 推荐应该是同一个按钮的」—— 位置无所谓。
+     但 2026-09-29 同一位用户逐字改了形状：
+       「这个输入框平时它是一个**被锁死的状态**，然后这个一键解析的按钮**出现在它的表面上**。」
+     ⇒ 判据从「框下面那颗」改成「**浮在框表面上、且居中**」：
+       空值 ⇒ 框是只读的、按钮在框**表面**正中间、框**下面**那颗不重复出现。
+     ⚠️ 这里**只量不点** —— 它是付费动作（0.2 积分），点一下真扣钱；
+        点击链路仍由上面那颗行内小胶囊覆盖。 */
   const bigAction = await page.evaluate(() => {
+    /* 锁住时按钮在 `.media-field-gate` 里；解锁后回到 `.media-workbench-field-action`。
+       两种形态都要能量，所以取"那颗 media-workbench-paid"，再报它现在**在哪**。 */
+    const gate = document.querySelector('.media-field-gate');
     const wrap = document.querySelector('.media-workbench-field-action');
-    const btn = wrap?.querySelector('button.media-workbench-paid');
-    if (!wrap || !btn) return null;
-    /* ⚠️ 2026-09-29 批 DC 续-8：结论框的 placeholder 从「点上面的「AI 推荐」后…」改成
-       「点上面的「一键解析风格」…」（原句只在框被隐藏时才成立，而那一版已经推翻了）。
-       这里**按字段定位、不认文案** —— 认文案的话改一次措辞就断一次判据。 */
     const box = document.querySelector('textarea[id="field-styleBrief"]');
-    const wr = wrap.getBoundingClientRect(), br = btn.getBoundingClientRect();
+    const onSurface = Boolean(gate);
+    const btn = (onSurface ? gate : wrap)?.querySelector('button.media-workbench-paid');
+    if (!btn) return null;
+    const host = onSurface ? gate : wrap;
+    const hr = host.getBoundingClientRect(), br = btn.getBoundingClientRect();
     return {
+      onSurface,
+      readOnly: box ? box.readOnly : null,
       text: (btn.textContent || '').replace(/\s+/g, ' ').trim(),
       h: Math.round(br.height),
-      centerOff: Math.round((br.left + br.width / 2) - (wr.left + wr.width / 2)),
+      centerOff: Math.round((br.left + br.width / 2) - (hr.left + hr.width / 2)),
+      centerOffY: Math.round((br.top + br.height / 2) - (hr.top + hr.height / 2)),
       btnTop: Math.round(br.top),
       fieldBottom: box ? Math.round(box.getBoundingClientRect().bottom) : null,
+      boxTop: box ? Math.round(box.getBoundingClientRect().top) : null,
+      duplicateBelow: !onSurface && Boolean(wrap),
     };
   });
-  check(Boolean(bigAction), '设计风格那一格有那颗**整颗按钮**（照知渔：芯片下面那颗）', bigAction ? bigAction.text : '没渲染');
+  check(Boolean(bigAction), '设计风格那一格有那颗**整颗按钮**（锁住时浮在框表面上）', bigAction ? bigAction.text : '没渲染');
   check(bigAction && /一键解析风格/.test(bigAction.text) && /0\.2 积分/.test(bigAction.text),
     '这颗的价钱也写在按钮上（两处同一个价，不许出现第二个数）', bigAction?.text || '');
-  check(bigAction && bigAction.centerOff >= -1 && bigAction.centerOff <= 1,
-    '那颗按钮**相对字段列居中**（知渔实测父层就是 justify-content: center）', String(bigAction?.centerOff));
-  check(bigAction && bigAction.h === 45, '高度 45（与知渔 h-9 同档）', String(bigAction?.h));
-  /* ═══ 2026-09-29 批 DC 续-8：**这一条的口径又变回来了**（推翻批 CY-⑪，原话逐字）════════════════════
-     批 CY-⑪（2026-09-28）据用户当时那句「它不应该是一个提示词输入框」把判据改成"空态下没有框"。
-     两天后同一位用户当面改回（逐字）：
-       「你看他们的做法是这里会有一个相应的**提示词输入框的一个背景**。然后中间再去放这个一键生成的这个按钮……
-         **用户可以随时去改这个你生成出来的文字。你现在的情况就做的是不对的，就是你把这个文字输入框给拿掉了。**」
-     ⇒ 判据恢复成"框一直在、按钮在框下面"（这正是 a3de9110 之前的原断言）。
-     ⚠️ 顺带记一条支撑证据：竞品自己的 DOM（docs/design/data/quantv-image-builtin-pages.json:46）
-       里那个具名结论框在分析之前就渲染，按钮在它下面。 */
-  check(bigAction && bigAction.fieldBottom != null && bigAction.btnTop > bigAction.fieldBottom,
-    '它落在「设计风格要求」框**下面** —— 点之前框就在、结果框在上按钮在下（与知渔同构）',
-    JSON.stringify({ 框底: bigAction?.fieldBottom, 按钮顶: bigAction?.btnTop }));
+  check(bigAction && bigAction.onSurface === true,
+    '空值时按钮**浮在框表面上**（用户 2026-09-29 原话：「出现在它的表面上」）', String(bigAction?.onSurface));
+  check(bigAction && bigAction.readOnly === true,
+    '空值时那个框是**只读**的（不许用户随便往里打字）', String(bigAction?.readOnly));
+  check(bigAction && Math.abs(bigAction.centerOff) <= 1 && Math.abs(bigAction.centerOffY) <= 1,
+    '按钮在框**正中间**（用户原话：「中间再去放这个一键生成的这个按钮」）',
+    JSON.stringify({ 横: bigAction?.centerOff, 纵: bigAction?.centerOffY }));
+  check(bigAction && bigAction.btnTop >= bigAction.boxTop && bigAction.btnTop < bigAction.fieldBottom,
+    '按钮确实**盖在这个框的范围之内**（不是框外面另放一颗）',
+    JSON.stringify({ 框顶: bigAction?.boxTop, 按钮顶: bigAction?.btnTop, 框底: bigAction?.fieldBottom }));
+  check(bigAction && bigAction.duplicateBelow === false,
+    '锁住时框**下面**那颗不许重复出现（两个入口会让人以为要点两次）', String(bigAction?.duplicateBelow));
   /* 没上传就点：就地提醒，不发任何请求（更不扣费） */
   const recognizeBefore = calls.recognize.length;
   await page.click(ANALYZE_SELECTOR);

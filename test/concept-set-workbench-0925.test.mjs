@@ -27,7 +27,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { getImageSkill, IMAGE_SKILL_CATEGORIES, FIELD_KINDS, SKILL_COMPLEXITIES, IMAGE_PIPELINES } from '../src/skills/imageSkills.js';
-import { buildSkillBrief, buildSkillRequest, initialSkillValues, skillGenerationSettings, skillPointsEstimate } from '../src/skills/skillRun.js';
+import { buildSkillBrief, buildSkillRequest, initialSkillValues, skillGenerationSettings, skillPointsEstimate, skillShotMix } from '../src/skills/skillRun.js';
+import { readFileSync } from 'node:fs';
+/** 读源码（剥掉注释，避免"断言的字符串出现在我自己的解释里"那种空判）。 */
+const read = rel => readFileSync(new URL('../' + rel, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 import { SKILL_SOURCES, SOURCE_KINDS } from '../src/skills/skillSources.js';
 import { QUANTV_IMAGE_COUNTERPARTS } from '../src/skills/quantvImageParity.js';
 import { COVER_TEMPLATES, COVER_ACCENTS } from '../src/skills/coverTemplates.js';
@@ -75,7 +78,13 @@ test('② 账号级签名写死在 brief 里（用户不必每次手粘）', () 
   const filled = buildSkillBrief(skill, initialSkillValues(skill));
   assert.match(filled, /不出现任何品牌标识、包装文字或水印/);
   assert.match(filled, /不出现正脸、不直视镜头/);
-  assert.match(filled, /画面里不出现任何人物（空镜或纯静物）/, '默认档要真的拼进提示词（界面显示什么就跑什么）');
+  /* ⚠️ 2026-09-29 批 DC 续-16：`person` 不再是**字段**（逐张了），所以
+     `initialSkillValues` 里没有它，`{{person}}` 拼出来是空串。
+     ⇒ 这一条改成验**逐张**那条链：给一份 shotPerson，提示词里必须真的带上那一档。
+     原来的「默认档要真的拼进提示词」守的是"全篇一档"，而那正是用户推翻掉的东西。 */
+  assert.doesNotMatch(filled, /人物形态：；/, '没有逐张人物形态时那一段是空的（由下面那条补上真实判据）');
+  const oneShot = buildSkillBrief(skill, { ...initialSkillValues(skill), person: '人物只出现手或手臂，头部与其余身体全部出画' });
+  assert.match(oneShot, /人物形态：人物只出现手或手臂/, 'brief 拼装认 {{person}}（逐张那一档要真的进提示词）');
 });
 
 test('③ 色板与概念同源：每个主题意象的 value 都带实测色簇 hex', () => {
@@ -172,30 +181,57 @@ test('⑨ 人物形态七档：默认 = 实测最高频那一档，且**不做�
      ⚠️ 2026-09-28 批 DC 续-3 加第七档「画中画」（脸只以画面里的照片/杂志页/广告牌出现）：
         它是"有人在场但不露脸"的**第三种解法**（前两种是身体局部与墨镜），
         与版式层的「宝丽来画中画」同源。 */
+  /* ═══ 2026-09-29 批 DC 续-16：`person` **不再是字段**，改成清单里逐张一档 ═══════════════════════
+     用户 2026-09-29 逐字：「那是不是它出来的所有内容都会包含这些人物形态……**那出来的作品岂不都
+     千篇一律了？**」—— 改前这条守的正是相反的东西（`kind:'segmented'` + `required` 的全篇一档）。
+     实测：39 篇多图笔记里 **34 篇（87.2%）篇内混用**人物形态，
+     剩下 5 篇统一的**全部是 100% 空镜的纯静物篇** —— 没有任何一篇是"每张同一种"。
+     ⇒ 七档本身一个字没改（还是那七档、还是那个顺序），改的是**它住在哪**：
+        住在每一行清单里，由 `shotMix` 权重自动分配、用户可逐行改。 */
   const field = skill.fields.find(f => f.key === 'person');
-  assert.ok(field, '缺「人物形态」这一格');
-  assert.equal(field.kind, 'segmented', '各档是并列可选，用既有的药丸控件（不新造控件风格）');
-  assert.equal(field.required, true, '它是每篇的必选项（不选就不知道该不该出人）');
-  assert.equal(field.options.length, 7, '实测归纳出来的七档，实际 ' + field.options.length);
-  const labels = field.options.map(option => option.label);
-  assert.deepEqual(labels, ['空镜', '手或手臂', '躯干与腿', '下半脸', '戴墨镜', '背影或侧脸', '画中画'],
-    '七档与实测归纳的顺序/命名要一致（顺序=频次从高到低；画中画是最后加的那一档）');
-  assert.equal(new Set(field.options.map(option => option.value)).size, 7, '各档的值不许重复');
-  for (const option of field.options) {
-    assert.ok(String(option.label).length <= 6, '档位名要短（门禁 ① 要求 ≤6 字）：' + option.label);
-    assert.ok(option.value.length >= 12, '每一档的 value 都要是能执行的整句（模型靠它知道人怎么出现）：' + option.value);
-    /* 「不出现正脸」是**整篇纪律**里的硬约束（实测 1/402），所以各档 value 里出现"正脸"只能在
-       这条禁令的语境里（`不出现正脸` / `未正对镜头`），不许出现"可以露正脸"这类档位。 */
-    assert.doesNotMatch(option.value, /(可以|允许|要)(出现)?正脸|正面脸/, '正脸档不许有 —— 实测只有 1/402（0.2%），那是意外不是手法');
+  assert.equal(field, undefined,
+    '「人物形态」不许再是 `fields` 里的一格 —— 一进 fields 就被 groupFields 排成全篇共用的控件');
+  assert.equal(skill.modulesPerson, true, '要声明 modulesPerson（清单每行加那颗下拉）');
+  assert.ok(skill.shotMix && skill.shotMix.person, '要声明 shotMix.person 的实测权重');
+  assert.equal(skill.modulesSeries, true, '连拍那颗药丸仍然在（批 DC 续-15）');
+
+  /* 七档的**内容**校验改到 `shotMix` 的键上（选项文案仍取 CONCEPT_PERSON_OPTIONS 那一个真源）。 */
+  const PAGE = read('src/pages/MediaCreation/index.jsx');
+  assert.match(PAGE, /options: CONCEPT_PERSON_OPTIONS\(\)/, '行内那颗下拉的选项仍取那一个真源，不复制一份档位文案');
+  const mixKeys = Object.keys(skill.shotMix.person);
+  const personOptions = (PAGE.match(/CONCEPT_PERSON_OPTIONS\(\)/g) || []).length;
+  assert.ok(personOptions >= 1, '页面确实用了 CONCEPT_PERSON_OPTIONS');
+  /* 权重和 = 那一档的实测占比；合计 97.1（侧脸 0.5 + 正脸 0.2 我们不做那两档） */
+  const total = Object.values(skill.shotMix.person).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(total - 97.1) < 0.05, '权重合计应约等于 97.1%（= 100 减去我们不做的侧脸 0.5 与正脸 0.2），实测 ' + total);
+  assert.equal(mixKeys.length, 7, '七档都要有实测权重，实际 ' + mixKeys.length);
+  assert.equal(new Set(mixKeys).size, 7, '各档的权重键不许重复');
+  const EMPTY = '画面里不出现任何人物（空镜或纯静物）';
+  assert.equal(skill.shotMix.person[EMPTY], 51.2, '空镜 = 206/402 = 51.2%（实测最高频那一档）');
+  for (const [value, weight] of Object.entries(skill.shotMix.person)) {
+    assert.ok(weight > 0 && weight < 60, '权重必须落在实测占比上，不许凭感觉写：' + value + ' = ' + weight);
+    assert.ok(value.length >= 12, '每一档的 value 都要是能执行的整句（模型靠它知道人怎么出现）：' + value);
+    assert.doesNotMatch(value, /(可以|允许|要)(出现)?正脸|正面脸/, '正脸档不许有 —— 实测只有 1/402（0.2%），那是意外不是手法');
   }
-  const seed = initialSkillValues(skill);
-  assert.equal(seed.person, field.options[0].value, '默认档必须是实测最高频那一档（列表第一档 = 空镜 206/402）');
-  const filled = buildSkillBrief(skill, seed);
-  assert.match(filled, /人物形态：画面里不出现任何人物/, '默认档必须真的进提示词');
-  /* 自证：把默认档换成一个不存在的值时，上面那条"默认进提示词"的判据必须抓到 */
-  let caught = false;
-  try { assert.match(buildSkillBrief(skill, { person: '' }), /人物形态：画面里不出现任何人物/); } catch { caught = true; }
-  assert.equal(caught, true, '人物形态为空时没被判红 ⇒ 上面那条测的不是它');
+  /* 逐张分配：必须确定性、必须按权重、必须逐张不同（这是本条门禁真正要守的东西）。 */
+  const names = skill.modules.map(m => m.name);
+  for (const n of [4, 6, 10]) {
+    const first = skillShotMix(skill, names.slice(0, n));
+    const again = skillShotMix(skill, names.slice(0, n));
+    assert.deepEqual(first, again, 'N=' + n + '：同样的输入必须给逐字相同的结果（历史还原/断线补跑靠它）');
+    assert.equal(first.length, n, 'N=' + n + '：要分出 ' + n + ' 档');
+    assert.ok(first.every(row => row.person), 'N=' + n + '：每一行都要分到一档，不许有空串');
+    assert.ok(new Set(first.map(row => row.person)).size >= 3,
+      'N=' + n + '：至少要出现 3 种不同形态（实测 87.2% 的篇是混用的）');
+  }
+  /* 逐张真的进了提示词（brief 认 {{person}}，而它按第几张取）。
+     ⚠️ 用 4 张而不是 3 张：N=3 时按实测权重正确分配出来是「空镜 躯干 空镜」，
+     只有两种 —— 断言"三张各不相同"会把**正确的**分配判红。要判的是"不是全篇一档"。 */
+  const perShot = skillShotMix(skill, names.slice(0, 4));
+  const prompts = perShot.map(row => buildSkillBrief(skill, { ...initialSkillValues(skill), person: row.person }));
+  assert.ok(prompts.every(p => /人物形态：/.test(p)), '每一张都要真的带上「人物形态：」');
+  assert.ok(new Set(prompts).size >= 2,
+    '逐张分配必须产出**不止一种**形态（全篇一档就是用户说的"千篇一律"）：' + perShot.map(r => r.person.slice(0, 6)).join(' / '));
 });
 
 test('⑩ 模型选择：8 档来自目录、默认 GPT Image 2，价格随模型走、分辨率随模型夹取（0928 开放）', () => {

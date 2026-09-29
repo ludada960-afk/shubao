@@ -170,6 +170,136 @@ export default function WorkbenchShell({
   /* 分组与「档内容块末尾那颗整颗按钮」都先算好（原来 groupFields 是在 JSX 里现算的）。 */
   const groups = groupFields(fields, groupTitle);
   const bigActions = bigActionAfter(groups, paidActions);
+  /* ═══ 2026-09-29 批 DC 续-16：清单块可以**声明自己排在哪个分组之后** ═══════════════════════════
+     原来 `sections` 一律排在**所有**字段组之后（硬编码）。概念视觉方案那一页的「版式族」是
+     四张长卡片，清单被压在它们底下 —— 用户滚到版式族与提交条之间就说「你的连拍组去哪了呢」。
+     ⇒ 声明 `afterGroup: '本篇方案'` 的清单改在那个组后面就地渲染；没声明的**行为一个字不变**
+     （A+ 那条 16 模块清单等仍然排在最后）。 */
+  const anchored = new Map();
+  const orphanSections = [];
+  for (const section of sections) {
+    if (!section) continue;
+    if (!section.afterGroup) { orphanSections.push(section); continue; }
+    /* ⚠️ `afterGroup` 写了一个**不存在的组名**时不能把这一块弄丢 ——
+       声明写错（改名、组被挪了）不该让整块清单凭空消失、CTA 一直灰着。
+       取不到就退回"排在最后"那条老路（= 批 DC 续-16 之前的行为）。 */
+    if (groups.some(group => group.name === section.afterGroup)) anchored.set(section.afterGroup, renderSection(section));
+    else orphanSections.push(section);
+  }
+  /* 清单块渲染器。两个调用点共用同一份实现 —— 抽出来是为了让"插在组后"与"排在最后"
+     **逐字同款**，避免以后改一份忘一份（那正是 0917 端到端踩过的循环依赖/漏改坑）。 */
+  function renderSection(section) {
+    /* ═══ 可勾选的清单块（2026-09-19 批 I-9，用户批注 #10 / #3-2）═══════════════════════
+       用户原话：「这些按钮都是不能点击的，完全是死按钮……你连按钮都没法交互，
+         那背后的生成逻辑肯定也是没打通的呀，要彻底的打通逻辑呀。」
+       以及：「选中多少个模块就是多少张，并且对应他自己的模块主题不是吗，
+         为什么要自己写多少张的数量呢？」
+       ⚠️ 只有调用方**显式声明 selectable** 才渲染成可勾选 ——
+          其余清单块（历史上那些真的只读的）行为一个字不变。 */
+    const selectable = section.selectable === true;
+    const checkedCount = selectable
+      ? section.items.filter(item => item.checked !== false).length
+      : section.items.length;
+    return (
+      <section className={'media-workbench-group media-workbench-checklist' + (selectable ? ' is-selectable' : '')} key={section.key || section.title}>
+        <h3 className="media-workbench-group-title">
+          {section.title}
+          {/* 2026-09-28 批 DC 续-7：**先把"这一篇几张"写出来**，再说"勾了几个"。
+              用户 2026-09-28 当面问的原话：「**你这个工作台里面并没有给我张数呀**。
+              我根本就不知道你产出的到底是多少张？」—— 原来这里只有「已选 6/10」，
+              而那个 10 是清单**上限**，不是这一篇的张数（页面上再没有第二个数字）。 */}
+          <span className="media-workbench-checklist-count">
+            {selectable ? `这一篇 ${checkedCount} 张 · 已选 ${checkedCount}/${section.items.length}` : `已选 ${checkedCount}/${section.items.length}`}
+          </span>
+        </h3>
+        {section.note && <p className="media-workbench-group-note">{section.note}</p>}
+        {/* 逐行那颗下拉是什么，整块**说一次**（批 DC 续-16）。
+            逐行各写一遍标签是纯噪声 —— 六行六个「人物形态」竖着排下来比控件本身还抢眼。 */}
+        {section.personField && (
+          <p className="media-workbench-checklist-colhead">右侧：这一张的人物形态（按实测分布自动分配，可逐张改）</p>
+        )}
+        <ul className="media-workbench-checklist-items">
+          {section.items.map(item => {
+            const on = item.checked !== false;
+            if (!selectable) {
+              return (
+                <li key={item.name}>
+                  <span className="media-workbench-checklist-check" aria-hidden="true">✓</span>
+                  <span className="media-workbench-checklist-copy">
+                    <strong>{item.name}</strong>
+                    {item.hint && <small>{item.hint}</small>}
+                  </span>
+                </li>
+              );
+            }
+            return (
+              <li key={item.name}>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  className={'media-workbench-checklist-toggle' + (on ? ' is-on' : '')}
+                  onClick={() => section.onToggle?.(item.name)}
+                >
+                  <span className="media-workbench-checklist-check" aria-hidden="true">{on ? '✓' : ''}</span>
+                  <span className="media-workbench-checklist-copy">
+                    <strong>{item.name}</strong>
+                    {item.hint && <small>{item.hint}</small>}
+                  </span>
+                </button>
+                {/* ═══ 2026-09-29 批 DC 续-15：这一行额外的「连拍」标记 ════════════════════════
+                    用户 2026-09-29 选定（逐字）：「改成清单里逐张勾『进连拍』」。
+                    旧做法是一栏「前 2 张 / 前 3 张」按**位置**取清单最前面的 N 张 ——
+                    ① 必然占用封面（第 1 项就是概念静物）；
+                    ② 依据不成立（重算实测：76% 的篇封面根本不在连拍簇里，簇多是中段连着）。
+                    ⚠️ 与上面那颗勾选**分开**是必须的：勾 = 这一篇出不出这张；
+                       连拍 = 这张和哪几张同机位。点它不会改张数、也不会改价钱。
+                    ⚠️ 本身没被勾进这一篇的那行置灰：清单里没有的那张不可能出现在组里。 */}
+                {section.series && (
+                  <button
+                    type="button"
+                    className={'media-workbench-checklist-series'
+                      + (section.seriesNames?.includes(item.name) ? ' is-on' : '')}
+                    aria-pressed={section.seriesNames?.includes(item.name) || false}
+                    disabled={!on}
+                    title={on ? (section.seriesHint || '') : '先把这一张勾进这一篇，才能标它进连拍组'}
+                    onClick={() => section.onToggleSeries?.(item.name)}
+                  >
+                    连拍
+                  </button>
+                )}
+                {/* ═══ 2026-09-29 批 DC 续-16：**这一行自己的「人物形态」** ═════════════════════════
+                    用户 2026-09-29 逐字：「那是不是它出来的所有内容都会包含这些人物形态……
+                    **那出来的作品岂不都千篇一律了？**」—— 实测 39 篇多图笔记里 **34 篇（87.2%）
+                    篇内混用**人物形态，所以逐张给、而不是全篇一档（依据与算法见 skillRun.skillShotMix）。
+                    ⚠️ 值默认是**按实测分布自动分配**的（`skill.shotMix`），用户可以逐行改；
+                       覆盖存在 `values.shotOverrides`（按**名字**存，改张数不错位）。
+                    ⚠️ 控件**走 FieldRenderer**（不在这里手写 `<select>`）——
+                       仓库铁律「字段一律经 FieldRenderer 渲染，页面里不许再手写控件」。
+                    ⚠️⚠️ **只在勾进行的那几行渲染**：没勾进行本来就不在这一篇里，没有"它的人物形态"。
+                       早先给未勾选的行也渲染了控件，`value` 是空串 → 原生 `<select>` 落到**第一档
+                       （空镜）** —— 于是 10 行里有 4 行未勾选的行看上去"也是空镜"，
+                       读起来就是"这一篇九张空镜"，与实际（勾 6 张、其中 3 张空镜）完全不符。
+                       现在未勾选的行只有名称 + 那颗置灰的「连拍」。 */}
+                {section.personField && on && (
+                  <div className="media-workbench-checklist-person">
+                    <FieldRenderer
+                      field={section.personField}
+                      value={item.person || ''}
+                      values={values}
+                      allFields={fields}
+                      disabled={disabled}
+                      onChange={next => section.onPersonChange?.(item.name, next)}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    );
+  }
   return (
     <section className={`media-workbench${embedded ? ' is-embedded-flow' : ''}`}>
       {embedded ? (
@@ -252,7 +382,8 @@ export default function WorkbenchShell({
             </div>
           )}
             {groups.map((group, index) => (
-            <section className="media-workbench-group" key={group.name || 'default'}>
+            <React.Fragment key={group.name || 'default'}>
+            <section className="media-workbench-group">
               {/* ⚠️ 批 O-⑫：标题行在**第一组**即使没有组名也要渲染 ——
                   教学示例入口与一键解析都落在这里；若挂在 group.name 条件里，
                   第一条技能（如「中文海报」的第一个分组没有组名）就会**两颗按钮都不出现**。
@@ -328,6 +459,19 @@ export default function WorkbenchShell({
                     </span>
                   );
                   const bigAction = bigActions.get(field.key);
+                  /* ═══ 2026-09-29 批 DC 续-16：**锁住态的按钮浮在框表面上**，不在框下面 ════════════════
+                     用户 2026-09-29 逐字：「这个输入框平时它是一个被锁死的状态，然后这个一键解析的
+                     按钮**出现在它的表面上**。」
+                     ⚠️ 判据仍然是**同一个**「值是不是空」（与 FieldRenderer 里那份逐字一致）：
+                       锁 ⇒ 表面有按钮、下面**不**再重复一颗；解锁 ⇒ 表面没了、下面那颗回来。
+                     ⚠️ `gatedByAction` 里那个 key 是**真在用的**，不是装饰：它必须与这颗按钮的
+                       `action.key` 对上，才允许把按钮搬到表面。对不上就退回"框下面"那条老路 ——
+                       宁可不浮起来，也不要把**别的**动作浮到用户以为能解锁的框上。
+                     ⚠️ 传下去的是**同一个 action 对象**，不是复制一份 ——
+                        点表面那颗和点下面那颗是同一次调用、同一个价钱，只可能扣一次。 */
+                  const gateMatches = Boolean(field.gatedByAction) && bigAction && bigAction.key === field.gatedByAction;
+                  const gatedEmpty = gateMatches && !String(values[field.key] ?? '').trim();
+                  const showBigBelow = Boolean(bigAction) && !gatedEmpty;
                   return (
                     /* ═══ 批 CY-⑥：字段本身 + （分段档位字段才有的）**档内容块末尾那颗整颗按钮** ═══════
                        它是一行独立的网格项（跨两列、居中），落在"这一档的内容框"下面 —— 与知渔同构：
@@ -343,8 +487,9 @@ export default function WorkbenchShell({
                         onChange={onFieldChange}
                         disabled={disabled}
                         labelOverride={anchored.length > 0 ? label : null}
+                        surfaceAction={gatedEmpty ? bigAction : null}
                       />
-                      {bigAction && (
+                      {showBigBelow && (
                         <div className="media-workbench-field-action">
                           <button
                             type="button"
@@ -363,89 +508,19 @@ export default function WorkbenchShell({
               </div>
               {/* 带 anchor 的动作已经渲染进字段行（见上面的 media-field-inline-actions） */}
             </section>
+            {/* ═══ 2026-09-29 批 DC 续-16：清单可以**插在指定分组之后**（`section.afterGroup`）══════════
+               用户 2026-09-29 逐字（对着概念视觉方案那页截图）：
+                 「然后**你的连拍组去哪了呢？你是还没做进来吗？**」
+               —— 它没丢，是被埋在下面了：`sections.map` 原来**硬编码在所有字段组之后**，
+               而那一页的「版式族」是四张长卡片，清单（连拍药丸在里面）排在它们底下，
+               滚过去才看得见。截图停在版式族与提交条之间，自然就"找不到"。
+               ⇒ 声明 `afterGroup: '本篇方案'` 就落在主题意象下面、构图方向上面。
+               ⚠️ 40px 分隔线由既有的 `.media-workbench-group + .media-workbench-group` 自动给上，
+                  不用另写（清单 section 本来就带那个类名）。 */}
+            {anchored.get(group.name) || null}
+            </React.Fragment>
           ))}
-          {sections.map(section => {
-            /* ═══ 可勾选的清单块（2026-09-19 批 I-9，用户批注 #10 / #3-2）═══════════════════════
-               用户原话：「这些按钮都是不能点击的，完全是死按钮……你连按钮都没法交互，
-                 那背后的生成逻辑肯定也是没打通的呀，要彻底的打通逻辑呀。」
-               以及：「选中多少个模块就是多少张，并且对应他自己的模块主题不是吗，
-                 为什么要自己写多少张的数量呢？」
-               ⚠️ 只有调用方**显式声明 selectable** 才渲染成可勾选 ——
-                  其余清单块（历史上那些真的只读的）行为一个字不变。 */
-            const selectable = section.selectable === true;
-            const checkedCount = selectable
-              ? section.items.filter(item => item.checked !== false).length
-              : section.items.length;
-            return (
-              <section className={'media-workbench-group media-workbench-checklist' + (selectable ? ' is-selectable' : '')} key={section.key || section.title}>
-                <h3 className="media-workbench-group-title">
-                  {section.title}
-                  {/* 2026-09-28 批 DC 续-7：**先把"这一篇几张"写出来**，再说"勾了几个"。
-                      用户 2026-09-28 当面问的原话：「**你这个工作台里面并没有给我张数呀**。
-                      我根本就不知道你产出的到底是多少张？」—— 原来这里只有「已选 6/10」，
-                      而那个 10 是清单**上限**，不是这一篇的张数（页面上再没有第二个数字）。 */}
-                  <span className="media-workbench-checklist-count">
-                    {selectable ? `这一篇 ${checkedCount} 张 · 已选 ${checkedCount}/${section.items.length}` : `已选 ${checkedCount}/${section.items.length}`}
-                  </span>
-                </h3>
-                {section.note && <p className="media-workbench-group-note">{section.note}</p>}
-                <ul className="media-workbench-checklist-items">
-                  {section.items.map(item => {
-                    const on = item.checked !== false;
-                    if (!selectable) {
-                      return (
-                        <li key={item.name}>
-                          <span className="media-workbench-checklist-check" aria-hidden="true">✓</span>
-                          <span className="media-workbench-checklist-copy">
-                            <strong>{item.name}</strong>
-                            {item.hint && <small>{item.hint}</small>}
-                          </span>
-                        </li>
-                      );
-                    }
-                    return (
-                      <li key={item.name}>
-                        <button
-                          type="button"
-                          role="checkbox"
-                          aria-checked={on}
-                          className={'media-workbench-checklist-toggle' + (on ? ' is-on' : '')}
-                          onClick={() => section.onToggle?.(item.name)}
-                        >
-                          <span className="media-workbench-checklist-check" aria-hidden="true">{on ? '✓' : ''}</span>
-                          <span className="media-workbench-checklist-copy">
-                            <strong>{item.name}</strong>
-                            {item.hint && <small>{item.hint}</small>}
-                          </span>
-                        </button>
-                        {/* ═══ 2026-09-29 批 DC 续-15：这一行额外的「连拍」标记 ════════════════════════
-                            用户 2026-09-29 选定（逐字）：「改成清单里逐张勾『进连拍』」。
-                            旧做法是一栏「前 2 张 / 前 3 张」按**位置**取清单最前面的 N 张 ——
-                            ① 必然占用封面（第 1 项就是概念静物）；
-                            ② 依据不成立（重算实测：76% 的篇封面根本不在连拍簇里，簇多是中段连着）。
-                            ⚠️ 与上面那颗勾选**分开**是必须的：勾 = 这一篇出不出这张；
-                               连拍 = 这张和哪几张同机位。点它不会改张数、也不会改价钱。
-                            ⚠️ 本身没被勾进这一篇的那行置灰：清单里没有的那张不可能出现在组里。 */}
-                        {section.series && (
-                          <button
-                            type="button"
-                            className={'media-workbench-checklist-series'
-                              + (section.seriesNames?.includes(item.name) ? ' is-on' : '')}
-                            aria-pressed={section.seriesNames?.includes(item.name) || false}
-                            disabled={!on}
-                            title={on ? (section.seriesHint || '') : '先把这一张勾进这一篇，才能标它进连拍组'}
-                            onClick={() => section.onToggleSeries?.(item.name)}
-                          >
-                            连拍
-                          </button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
+          {orphanSections.map(renderSection)}
           {/* ═══ 2026-09-19 批 K-E：主按钮**整栏宽 + 价格写在按钮里面**（照竞品形态）═══════════
               60 号文档实测：竞品主按钮 510.1×54.5（= 整栏宽），文案两行「立即生成视频 / 预计 12.00 积分」。
               我们原来把积分**并排在按钮外面**，按钮只剩 458（实测），比规格窄 52px。
@@ -565,7 +640,7 @@ export default function WorkbenchShell({
 
 /* 字段走统一渲染器（同目录 FieldRenderer）；这里单独包一层只是为了少一次 import 往返。 */
 import FieldRenderer from './FieldRenderer.jsx';
-function FieldSlot({ field, value, onChange, disabled, values, labelOverride = null, allFields = [] }) {
+function FieldSlot({ field, value, onChange, disabled, values, labelOverride = null, allFields = [], surfaceAction = null }) {
   /* `allFields` 透传：`kind:'config'` 那一格要按 key 取回被它收起的**声明**（values 里只有取值）。 */
-  return <FieldRenderer field={field} value={value} values={values} allFields={allFields} disabled={disabled} labelOverride={labelOverride} onChange={next => onChange(field.key, next)} />;
+  return <FieldRenderer field={field} value={value} values={values} allFields={allFields} disabled={disabled} labelOverride={labelOverride} surfaceAction={surfaceAction} onChange={next => onChange(field.key, next)} />;
 }

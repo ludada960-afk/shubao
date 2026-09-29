@@ -33,13 +33,24 @@ const VJSX = read('src/components/media/VideoWorkbench.jsx');
 const VDECL = read('src/skills/videoWorkbenches.js');
 
 test('① 层级不倒挂：区块总标题必须比每一个可操作区**轻**', () => {
-  const groupTitle = SHELL.slice(SHELL.indexOf('.media-workbench-group-title {'), SHELL.indexOf('}', SHELL.indexOf('.media-workbench-group-title {')));
-  const fieldLabel = SHELL.slice(SHELL.indexOf('.media-field-label {'), SHELL.indexOf('}', SHELL.indexOf('.media-field-label {')));
-  assert.ok(groupTitle && fieldLabel, '自证：两条规则都找得到');
+  /* ⚠️⚠️ 2026-09-29 批 DC 续-16：这里原来用 `indexOf('.media-field-label {')` 定位，
+     批 DC 续-16 加了一条**后代选择器** `.media-workbench-checklist-person .media-field-label {`
+     （把行内那颗下拉的标签藏给读屏），而那个字符串**包含** `.media-field-label {` ——
+     于是 indexOf 先命中它，量到的是那条没有 font-size 的规则，判据变成空转。
+     ⚠️ 这是同一个坑的第三次（0925 那条、0917 那条、这条）：**按选择器子串定位 CSS 规则**，
+       一旦有人加一条更长的选择器就会静默取错那条。⇒ 改成**行首锚定**的精确匹配。 */
+  const rule = selector => {
+    const at = SHELL.search(new RegExp('^' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{', 'm'));
+    assert.ok(at >= 0, '自证：规则 ' + selector + ' 找得到');
+    return SHELL.slice(SHELL.indexOf('{', at), SHELL.indexOf('}', at));
+  };
+  const groupTitle = rule('.media-workbench-group-title');
+  const fieldLabel = rule('.media-field-label');
   const gSize = num(groupTitle, 'font-size');
   const fSize = num(fieldLabel, 'font-size');
   const gWeight = Number((groupTitle.match(/font-weight:\s*(\d+)/) || [])[1]);
   const fWeight = Number((fieldLabel.match(/font-weight:\s*(\d+)/) || [])[1]);
+  assert.ok(fSize != null && gSize != null, '两条规则都要真的量得到 font-size');
   assert.ok(fSize > gSize, `字段标签必须比区块总标题**大**（操作区是主角）：实得 ${fSize} vs ${gSize}`);
   assert.ok(gWeight < 800, `区块总标题不许再是 800 —— 那是批 BL 的旧结论，已被 2026-09-29 的口径推翻。实得 ${gWeight}`);
   assert.ok(fWeight >= gWeight, '字段标签字重不低于区块总标题（操作区是主角）');

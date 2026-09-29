@@ -410,21 +410,56 @@ function CardsControl({ field, value, onChange, disabled }) {
 
 /* 多行文本 + 「放大」：放大框要有自己的开合状态，所以单独成一个组件
    （control() 是普通函数，不能在它里面用 useState —— 那是 hooks 规则，会整页崩）。 */
-function TextareaControl({ field, value, onChange, disabled, assets }) {
+function TextareaControl({ field, value, onChange, disabled, assets, surfaceAction = null }) {
   const [expanded, setExpanded] = useState(false);
   const id = 'field-' + field.key;
-  const common = { id, disabled, 'aria-label': field.label };
+  /* ═══ 2026-09-29 批 DC 续-16：**「锁住态」的 AI 结论框**══════════════════════════════════════
+     用户 2026-09-29 逐字：
+       「这个地方的确得有一个输入框，但是这个输入框它不能是让用户能够随便在这里输入的。
+        他这个地方是要让用户点击这个一键解析的这个按钮之后，这个输入框才会被解锁出来，
+        然后内容会自动生成在里面。这个输入框平时它是一个被锁死的状态，然后这个一键解析的按钮
+        出现在它的表面上。」「不然你现在这个情况，这个AI推荐和自定义要求，他们岂不就同样的逻辑了？」
+
+     ⚠️ **锁不锁完全由「值是不是空」推导**（`gated` 那一行），刻意**不另开一个 state**：
+       这样用户把内容删光 → 自动回锁、退出页面 → 不留痕，两件事都是免费的副产品，
+       不用各写一段同步逻辑（而同步逻辑正是这类"两处状态"最容易漏的地方）。
+     ⚠️ 锁住时**连 PromptMetaRow 一起不渲染**（@引用素材 / 放大 / 字数）：
+       一个空的只读框上，这三个控件无事可做 —— 本仓铁律是不许留死控件。
+     ⚠️ 按钮由 WorkbenchShell 沿 FieldSlot 传进来（`surfaceAction`），不在这里造第二个入口：
+       同一个 action 对象、同一次调用、同一个价钱，点哪颗都只扣一次。 */
+  const text0 = value ?? '';
+  /* ⚠️ `&& surfaceAction` 这一项是**故意的安全阀**：锁住态的唯一出口就是那颗浮在表面上的按钮。
+     万一声明里的 `gatedByAction` 与实际挂上来的 action 对不上（改名/漏传），
+     这里就**不锁** —— 退回"常驻可编辑"，而不是把用户关进一个打不开的框里。
+     宁可少一个交互，也不能给一个没有出口的只读框。 */
+  const gated = Boolean(field.gatedByAction) && Boolean(surfaceAction) && !String(text0).trim();
+  const common = { id, disabled: disabled && !gated, 'aria-label': field.label, readOnly: gated };
   return (
-    <span className="media-field-textarea">
+    <span className={'media-field-textarea' + (gated ? ' is-gated' : '')}>
       <textarea
         {...common}
         className="media-field-control"
         rows={field.rows || 3}
         maxLength={field.maxLength || 2000}
-        placeholder={field.placeholder || ''}
-        value={value ?? ''}
+        placeholder={gated ? (field.gatedPlaceholder || '') : (field.placeholder || '')}
+        value={text0}
         onChange={event => onChange(event.target.value)}
       />
+      {/* 锁住态：付费动作**浮在框的表面上**（`inset:0` + 居中），不是框下面那一行。
+          点击热区就是这一整块，所以外面那层不用 pointer-events 技巧。 */}
+      {gated && surfaceAction && (
+        <span className="media-field-gate">
+          <button
+            type="button"
+            className={'media-workbench-paid' + (surfaceAction.busy ? ' is-busy' : '')}
+            disabled={disabled || surfaceAction.busy || surfaceAction.disabled}
+            onClick={() => surfaceAction.onRun?.()}
+          >
+            <span>{surfaceAction.busy ? (surfaceAction.busyLabel || '处理中…') : surfaceAction.label}</span>
+            {surfaceAction.points != null && <em>{surfaceAction.points} 积分</em>}
+          </button>
+        </span>
+      )}
       {/* ═══ 2026-09-27 批 CP：**「放大」从框里搬到框下面那一行**（用户原话，逐字）══════════════════
           「我右边这个放大按钮，我觉得其实不能放在提示词框里面。图片生成那边好像也是放的位置在这个
           位置，但我觉得这个位置是不对的。你其实也可以把它考虑放到提示词框的下面。就是你把 @ 和放大
@@ -432,15 +467,17 @@ function TextareaControl({ field, value, onChange, disabled, assets }) {
           没有的，如果你这边要做的话，那边是不是也可以考虑做呢？」
           ⇒ 与视频侧**共用同一个组件**（PromptMetaRow）：@ / 放大 / 字数一行，图片侧从"没有 @"到有。
           原位置（框内右上角绝对定位）会压住首行文字（用户实测指出），这条同时把它解掉。 */}
-      <PromptMetaRow
-        label={field.label}
-        value={value ?? ''}
-        maxLength={field.maxLength || 2000}
-        assets={assets}
-        disabled={disabled}
-        onInsert={next => onChange(next)}
-        onExpand={field.expandable === false ? undefined : () => setExpanded(true)}
-      />
+      {!gated && (
+        <PromptMetaRow
+          label={field.label}
+          value={text0}
+          maxLength={field.maxLength || 2000}
+          assets={assets}
+          disabled={disabled}
+          onInsert={next => onChange(next)}
+          onExpand={field.expandable === false ? undefined : () => setExpanded(true)}
+        />
+      )}
       {expanded && createPortal(
         <div
           className="media-field-expand-modal"
@@ -555,7 +592,7 @@ function resolveFieldOptions(field, values) {
    漏传时 `allFields` 在这个函数作用域里是未声明的名字，esbuild 只查语法查不出来，
    运行期直接 ReferenceError → 整页落错误边界（第一版就是这么炸的：
    端到端里 `.media-workbench-submit` 20s 超时、页面显示「页面出了点问题」）。 */
-function control(kind, field, value, onChange, disabled, assets, allFields, allValues) {
+function control(kind, field, value, onChange, disabled, assets, allFields, allValues, surfaceAction) {
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
   /* ═══ 2026-09-29 批 DC 续-8：**`kind: 'config'`** —— 把一组生成设置收成两颗触发器 ════════════════
@@ -662,7 +699,7 @@ function control(kind, field, value, onChange, disabled, assets, allFields, allV
       </span>
     );
   }
-  if (kind === 'textarea') return <TextareaControl field={field} value={value} onChange={onChange} disabled={disabled} assets={assets} />;
+  if (kind === 'textarea') return <TextareaControl field={field} value={value} onChange={onChange} disabled={disabled} assets={assets} surfaceAction={surfaceAction} />;
   if (kind === 'counts') {
     return <CountsControl field={field} value={value} onChange={onChange} disabled={disabled} />;
   }
@@ -704,7 +741,7 @@ function control(kind, field, value, onChange, disabled, assets, allFields, allV
    ⚠️ 为什么需要它：`kind: 'config'` 那一格只按 **key** 引用被它收起的几格（不嵌副本 ——
    嵌副本会造成"同一个 key 声明两次"，且改选项会漏改一处、漏改的那处**静默不生效**）。
    而 `values` 是**取值表**（key → 值），里面没有声明本身，所以取回声明要另给一份。 */
-export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null, labelOverride = null, allFields = [] }) {
+export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null, labelOverride = null, allFields = [], surfaceAction = null }) {
   const kind = field.kind || 'text';
   /* 选项可能随别的字段变（optionsFrom，见上）——控件拿到的是**过滤后**的那一份 */
   const renderField = field.optionsFrom ? { ...field, options: resolveFieldOptions(field, values) } : field;
@@ -768,7 +805,7 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
         </span>
       ))}
       {/* 批 CP：把"这条技能里已经上传的素材"传给控件 —— 提示词框下面那一行的 @ 用它列素材 */}
-      {control(kind, renderField, value, onChange, disabled || locked, uploadedAssets, allFields, values)}
+      {control(kind, renderField, value, onChange, disabled || locked, uploadedAssets, allFields, values, surfaceAction)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
       {/* 锁住时的那句说明（disabledHint）：说清"为什么现在选不了、想选要先改哪一格" */}
       {locked && field.disabledHint ? <small className="media-field-hint is-locked">{field.disabledHint}</small> : null}

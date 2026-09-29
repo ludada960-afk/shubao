@@ -30,6 +30,7 @@ import {
   skillPointsEstimate,
   skillSeriesClause,
   skillShotValues,
+  skillShotMix,
   skillValuesForShot,
 } from '../src/skills/skillRun.js';
 import {
@@ -50,15 +51,22 @@ const PAGE = read('src/pages/MediaCreation/index.jsx');
 /* 勾了 N 种手法之后的生效值 —— 与页面同一条链：勾选数注入 count、勾中的定义注入 shots。
    ⚠️ 这段"页面做的事"在测试里必须显式写出来（它就是判据的一部分，不是摆样子）。
    ⚠️ 2026-09-29 批 DC 续-15：现在还要带上 `shotNames`（与 `shots` 同序）——
-      连拍组改成**按名字**标之后，skillValuesForShot 靠它知道"第 i 张叫什么"。 */
+      连拍组改成**按名字**标之后，skillValuesForShot 靠它知道"第 i 张叫什么"。
+   ⚠️ 2026-09-29 批 DC 续-16：还要带上 `shotPerson`（与 `shots` 同序）——
+      人物形态改成**逐张**之后，`person` 不再是字段，`initialSkillValues` 里也没有它；
+      页面是拿 `skillShotMix`（实测权重自动分配 + 用户覆盖）算出这一条数组的。
+      这里照页面那条链原样复现，否则测的是"没填人物形态"的空壳。 */
 function valuesWithShots(names = []) {
   const picked = skill.modules.filter(module => names.includes(module.name));
   const shots = skillShotValues(skill, picked);
+  const shotNames = picked.map(module => module.name);
   return {
     ...initialSkillValues(skill),
     count: picked.length,
     shots,
-    shotNames: picked.map(module => module.name),
+    shotNames,
+    shotPerson: skillShotMix(skill, shotNames).map(row => row.person),
+    shotOverrides: {},
     seriesNames: [],
   };
 }
@@ -95,11 +103,21 @@ test('① 勾 3 种手法 → 发 3 张请求，且每一张只带自己那一�
     }
   }
   assert.equal(new Set(prompts).size, 3, '三张的提示词必须各不相同（否则就是同一张画三遍）');
-  /* 整篇共用同一份方向：主题意象 / 人物形态 / 比例在三张里是一样的 */
+  /* ═══ 2026-09-29 批 DC 续-16：**人物形态从"整篇共用"改成"逐张"** ══════════════════════════════
+     用户 2026-09-29 逐字：「那是不是它出来的所有内容都会包含这些人物形态……**那出来的作品岂不都
+     千篇一律了？**」—— 改前这条断言守的正是**相反**的东西（"三张都必须共用同一份人物形态"）。
+     实测：39 篇多图笔记里 34 篇（87.2%）篇内混用人物形态，全篇一档是错的。
+     ⇒ 主题意象仍然整篇共用（它是母体，本来就是篇级的）；人物形态必须**逐张不同**。 */
   for (const prompt of prompts) {
-    assert.ok(prompt.includes(values.theme), '三张都必须共用同一份主题意象');
-    assert.ok(prompt.includes(values.person), '三张都必须共用同一份人物形态');
+    assert.ok(prompt.includes(values.theme), '三张都必须共用同一份主题意象（母体是篇级的）');
   }
+  const personsInPrompt = prompts.map(prompt => /人物形态：([^；]*)；/.exec(prompt)?.[1] || '');
+  assert.ok(personsInPrompt.every(Boolean), '三张都要真的带上「人物形态：」这一句');
+  /* ⚠️ 判据是「**不是全篇一档**」，不是「三张两两不同」：
+     N=3 时按实测权重（空镜 51.2%）正确分配出来就是「空镜 躯干 空镜」—— 两张空镜是对的，
+     硬要求"三张各不相同"会把**正确的**分配判红。三张全同才是用户说的"千篇一律"。 */
+  assert.ok(new Set(personsInPrompt).size >= 2,
+    '三张不许是同一个形态（全篇一档 = 千篇一律，实测 87.2% 的篇是混用的）：' + personsInPrompt.join(' / '));
   assert.equal(skillGenerationSettings(skill, values).ratio, '3:4', '三张的比例仍是本账号签名 3:4');
 
   /* ── 自证：不收窄（整份 shots 下发）时，三张的提示词会变成同一份 —— 证明上面测的就是"逐张" ── */
@@ -234,28 +252,48 @@ test('⑤ 构图方向：默认居中/无方向、每张都带同一句，且"�
   }
   assert.doesNotMatch(field.options.map(option => option.label).join(' '), /镜像/,
     '「镜像成对」不许有 —— 实测 0 组可确证（4 组弱候选、23 组目视怀疑里 16 组被原图否定）');
-  /* 每一张都要带同一句方向（一篇里 N 张共用这一档，所以 N 张的提示词里都要出现它） */
-  const values = valuesWithShots(['概念静物', '平铺集合', '材质静物']);
+  /* 每一张都要带同一句方向（一篇里 N 张共用这一档，所以 N 张的提示词里都要出现它）。
+     ⚠️ 这三张的**人物形态要全都是有人物的** —— 否则「空镜 ⇒ 方向夹回居中」那条规则
+        （批 DC 续-16 挪过来的）会把方向夹掉，这里就测不到"方向确实带上了"。 */
+  const HAND = '人物只出现手或手臂，头部与其余身体全部出画';
+  const values = { ...valuesWithShots(['概念静物', '平铺集合', '材质静物']), shotPerson: [HAND, HAND, HAND] };
   const moved = { ...values, direction: field.options[1].value };
   for (const index of [0, 1, 2]) {
     assert.ok(buildSkillRequest(skill, skillValuesForShot(moved, index), { runId: 'r', slotIndex: index })
       .prompt.includes(field.options[1].value), '第 ' + (index + 1) + ' 张没有带上构图方向');
   }
-  /* 锁定：人物形态是「空镜」时这一格锁住（控件禁用 + 值夹回默认档） */
-  assert.equal(skillFieldLocked(field, values), true, '空镜时方向应当锁住');
-  const byHand = { ...values, person: skill.fields.find(item => item.key === 'person').options[1].value };
-  assert.equal(skillFieldLocked(field, byHand), false, '有人物在场（手或手臂）时必须能选方向');
-  const clamped = reconcileFieldValues(skill.fields, { ...values, direction: field.options[2].value });
-  assert.equal(clamped.direction, field.options[0].value,
-    '锁住时要把值夹回默认档 —— 否则就是"界面锁着、提示词却带着旧方向"');
-  const kept = reconcileFieldValues(skill.fields, { ...byHand, direction: field.options[2].value });
-  assert.equal(kept.direction, field.options[2].value, '没锁的时候不许乱夹（用户选的右→左要保住）');
-  /* ── 自证：把 lock 判据换成一个不相干的字段，上面那条夹取应当立刻失效 ───────────── */
-  const bogus = { ...field, disabledWhen: { key: 'theme', equals: '不存在的档' } };
-  assert.equal(skillFieldLocked(bogus, values), false, '锁判据换成不相干的字段后仍判"锁住" ⇒ 上面测的不是它');
-  assert.equal(reconcileFieldValues([bogus], { ...values, direction: field.options[2].value }).direction,
-    field.options[2].value, '没锁时不该被夹（证明夹取真的由 disabledWhen 驱动）');
-  /* 渲染器必须问同一份判据（否则禁用与否会和取值对不上） */
+  /* ═══ 2026-09-29 批 DC 续-16：「空镜 ⇒ 居中」这条规则**换了地方** ══════════════════════════════
+     改前它挂在**字段**上（`disabledWhen: {key:'person'}`，控件禁用 + 值夹回默认档）。
+     人物形态逐张化之后「这一篇的人物形态」不存在了，那条字段级判据**接不上** ——
+     留着就是一条永不触发的死规则（界面不锁、提示词照旧带着方向）。
+     ⇒ 现在由 `skillValuesForShot` **逐张**判：这一张是空镜就把方向换成「居中/无方向」。
+     实测口径：静物本就没有横向引导（63.7%~86.1% 的图无方向）。 */
+  assert.equal(field.disabledWhen, undefined,
+    '字段上的 disabledWhen 必须删掉 —— person 已逐张化，这条判据永远不会再触发，留着是死规则');
+  const emptyShot = '画面里不出现任何人物（空镜或纯静物）';
+  const withPerson = { ...moved, shotPerson: [emptyShot, '人物只出现手或手臂，头部与其余身体全部出画', emptyShot] };
+  const r0 = skillValuesForShot(withPerson, 0);
+  const r1 = skillValuesForShot(withPerson, 1);
+  const r2 = skillValuesForShot(withPerson, 2);
+  assert.equal(r0.direction, field.options[0].value, '空镜那一张：方向必须夹回「居中/无方向」');
+  assert.equal(r2.direction, field.options[0].value, '空镜那一张：方向必须夹回「居中/无方向」');
+  assert.equal(r1.direction, field.options[1].value, '有人物在场的那一张：用户选的方向要保住');
+  /* ── 自证：把那张的人物形态换成有人物的，三张就都保留用户选的方向 ───────────── */
+  const noEmpty = { ...moved, shotPerson: ['人物只出现手或手臂，头部与其余身体全部出画'] };
+  assert.equal(skillValuesForShot(noEmpty, 0).direction, field.options[1].value,
+    '三张都有人物时不该有任何夹取（证明上面那两条确实是"空镜"这条在起作用）');
+  /* 没给逐张人物形态时（老数据 / 手工构造的请求）退回全篇那一档，逐字不变 */
+  assert.equal(skillValuesForShot({ ...moved, person: '人物只出现手或手臂，头部与其余身体全部出画' }, 0).direction,
+    field.options[1].value, '没有 shotPerson 时按全篇人物形态判，不得凭空夹取');
+  /* ── 自证：把逐张人物形态换成"全是有人物"，上面那条夹取应当立刻失效 ───────────── */
+  const noEmptyAtAll = { ...moved, shotPerson: ['人物只出现手或手臂，头部与其余身体全部出画', emptyShot] };
+  assert.equal(skillValuesForShot(noEmptyAtAll, 0).direction, field.options[1].value,
+    '有人物的那张不该被夹（证明上面两条确实是"空镜"这条在起作用）');
+  /* 逐张那一栏仍然不再是字段级的锁 —— 但 skillFieldLocked 这套机制**别的字段还在用**，
+     渲染器必须继续问同一份判据（否则别处的禁用会与取值对不上）。 */
+  const stillLockedElsewhere = [{ key: 'x', disabledWhen: { key: 'theme', equals: 'T' } }];
+  assert.equal(skillFieldLocked(stillLockedElsewhere[0], { theme: 'T' }), true,
+    'skillFieldLocked 本身没坏（概念视觉方案不用了，别的字段还在用）');
   assert.match(read('src/components/media/FieldRenderer.jsx'), /skillFieldLocked\(field, values\)/,
     '渲染器要问 skillRun 那一份锁判据（不许自己写一遍）');
   assert.match(read('src/components/media/FieldRenderer.jsx'), /field\.disabledHint/,
@@ -379,7 +417,14 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
   assert.equal(skillSeriesClause({}, '概念静物'), '', '没有 seriesNames 时不注入（老数据不带这个键也不能炸）');
 
   /* 占位符必须登记（否则 media-skill-run 那条"brief 里的占位符对得上"会红） */
-  assert.deepEqual(skill.injectedBriefKeys, ['shots', 'series'], '两个运行期注入的占位符都要登记');
+  /* ⚠️ 2026-09-29 批 DC 续-16：第三个是 `person` —— 它也**不再是字段**了（改成逐张），
+     brief 里的 `{{person}}` 由 `skillValuesForShot` 按第几张注入。
+     少登记一个的后果很具体：`media-skill-run-0917` ② 会报
+     「brief 用了不存在的字段：image.concept_set -> person」—— 它是对的。 */
+  assert.deepEqual(skill.injectedBriefKeys, ['shots', 'series', 'person'],
+    '三个运行期注入的占位符都要登记（shots / series / person）');
+  assert.equal(skill.fields.some(f => f.key === 'person'), false,
+    'person 必须已经不在 fields 里了（否则那条"brief 里的占位符要对得上字段"判据就自相矛盾）');
 
   /* 页面接线：三处都要在 —— ① 把勾选变成 shotNames/seriesNames；② 清单那行渲染出标记；
      ③ 逐张下发走同一个注入点。少一处就是"界面标了、请求里没有"。 */

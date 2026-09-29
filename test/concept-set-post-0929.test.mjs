@@ -23,6 +23,7 @@ import {
   skillGenerationSettings,
   skillInitialModuleOff,
   skillPointsEstimate,
+  skillShotMix,
 } from '../src/skills/skillRun.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -89,10 +90,20 @@ test('④ 主按钮写清单价与总额：`6 张 × 2 + 文案 0.5 = 12.5 积�
 });
 
 test('⑤ 文案与图**同源**：同一份 brief 的摘要，请求体里没有任何图片地址', () => {
-  const request = buildSkillCopyRequest(skill, { ...seed, shots: modules.slice(0, 6).map(m => m.value) });
+  /* ⚠️ 2026-09-29 批 DC 续-16：人物形态**逐张**之后没有"这一篇的人物形态"了。
+     文案是**篇级**的那一跳，它拿到的是这一篇出现**最多**的那一档（众数）。 */
+  const shotNames6 = modules.slice(0, 6).map(m => m.name);
+  const shotPerson6 = skillShotMix(skill, shotNames6).map(row => row.person);
+  const request = buildSkillCopyRequest(skill, {
+    ...seed, shots: modules.slice(0, 6).map(m => m.value), shotNames: shotNames6, shotPerson: shotPerson6,
+  });
   assert.ok(request.theme, '母体必须带（服务端要它）');
   assert.equal(request.shots.length, 6, '带的是这一篇那 6 种手法');
-  assert.equal(request.person, seed.person, '人物形态同一份');
+  const tally = {};
+  for (const p of shotPerson6) tally[p] = (tally[p] || 0) + 1;
+  const modal = Object.keys(tally).sort((a, b) => tally[b] - tally[a] || shotPerson6.indexOf(a) - shotPerson6.indexOf(b))[0];
+  assert.equal(request.person, modal, '文案那一跳带的是这一篇的**众数**人物形态（篇级概括，不是逐张）');
+  assert.ok(request.person, '人物形态不能整段丢掉（那会让文案失去"这篇有没有人"的信号）');
   /* ⚠️ 这是本批最关键的一条判据：文案**不许看图**。
      一旦请求体里出现任何图片地址，模型就会退化成"图片说明"
      （"这是一张木桌上的白瓷器"）—— 那是最烂的小红书文案。
@@ -211,6 +222,35 @@ test('⑪ 版式族卡片只讲这一族长什么样，内部分析搬到结果�
   assert.doesNotMatch(code, /（实测他 85% 的图都是单图）/);
   assert.doesNotMatch(code, /（他的第二大族）/);
   assert.doesNotMatch(code, /第二大族/, '声明源正文里不许还留着竞品内部分析的口吻');
+});
+
+test('⑬ 清单**插在指定分组之后**，而那个组名必须真的存在（批 DC 续-16）', () => {
+  /* 用户 2026-09-29 逐字：「然后**你的连拍组去哪了呢？你是还没做进来吗？**」
+     它没丢 —— `sections.map` 原来硬编码在**所有字段组之后**，而这一页的「版式族」是
+     四张长卡片，连拍药丸被压在底下，滚过去才看得见。 */
+  assert.equal(skill.modulesAfterGroup, '本篇方案', '声明了清单插在哪个组之后');
+  /* ⚠️ 这一条才是真判据：组名写错的后果是**静默**的 ——
+     WorkbenchShell 按组名去 map 里取，取不到就整块不渲染（第一版还把它从末尾列表里
+     也过滤掉了），清单凭空消失、moduleGate 永远不满足、CTA 一直灰着。
+     端到端当场抓到：「image.aplus：配齐之后 CTA 仍然是禁用」。 */
+  const groupNames = new Set(skill.fields.map(field => field.group || ''));
+  assert.ok(groupNames.has(skill.modulesAfterGroup),
+    'afterGroup 指向的分组必须真的存在，否则清单会整块丢掉。实有分组：' + [...groupNames].join(' / '));
+  assert.equal(skill.fields.filter(field => field.group === skill.modulesAfterGroup).length > 0, true,
+    '「本篇方案」组里必须还有字段（清单一插进去，空组会看不见它）');
+
+  /* WorkbenchShell：取不到组名时要**退回末尾**，而不是把这一块弄丢。 */
+  const shell = read('src/components/media/WorkbenchShell.jsx');
+  assert.match(shell, /if \(groups\.some\(group => group\.name === section\.afterGroup\)\) anchored\.set/,
+    '只有组名对得上才插进去');
+  assert.match(shell, /else orphanSections\.push\(section\)/,
+    '组名对不上要退回"排在最后"（声明写错不该让整块清单消失）');
+  assert.match(shell, /\{orphanSections\.map\(renderSection\)\}/, '退回的那几块仍然要渲染');
+  /* 页面侧：绝不能在这里写死默认值 —— 只有技能自己声明了才带上 afterGroup。 */
+  assert.match(PAGE, /\.\.\.\(skill\.modulesAfterGroup \? \{ afterGroup: String\(skill\.modulesAfterGroup\) \} : \{\}\)/,
+    'afterGroup 只能由技能声明；写死默认值会让没有那个组名的技能（A+/详情图）丢掉清单');
+  /* 页面确实用了 modulesAfterGroup */
+  assert.match(PAGE, /skill\.modulesAfterGroup/, '页面要读这个声明');
 });
 
 test('⑫ 结果区与页签的控件不再"小一号"（用户批注图1-③）', () => {

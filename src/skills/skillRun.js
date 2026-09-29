@@ -173,6 +173,11 @@ function moduleNameOf(module) {
   return text(module && module.name);
 }
 
+/* 「居中/无方向」那一档的**逐字值**。空镜的行要夹回它 —— 见 skillValuesForShot。
+   ⚠️ 这是 `CONCEPT_DIRECTION_OPTIONS()[0].value` 的副本：skillRun 不 import imageSkills
+   （那边 import 本文件，反向依赖会成环，而 esbuild 不查循环依赖、只在运行期炸）。 */
+const DIRECTION_CENTERED = '画面不做方向引导（主体居中、左右留白平衡）';
+
 export function skillShotValues(skill, selectedModules = []) {
   const modules = Array.isArray(skill && skill.modules) ? skill.modules : [];
   const picked = new Set((Array.isArray(selectedModules) ? selectedModules : []).map(moduleNameOf));
@@ -181,17 +186,134 @@ export function skillShotValues(skill, selectedModules = []) {
   return modules.filter(module => picked.has(moduleNameOf(module))).map(module => text(module.value)).filter(Boolean);
 }
 
+/* ═══ 2026-09-29 批 DC 续-16：**逐张的人物形态**（这一篇不再十张一个样）════════════════════════════
+   用户 2026-09-29 逐字：
+     「我不太明白你为什么图片的张数你要把它限定死呢？……**那是不是它出来的所有内容都会包含这些
+       人物形态，构图方向，版式组等等的选好的选项呢？那出来的作品岂不都千篇一律了？**
+       这个问题你没有深度思考过吗？你没有去看竞争对手的账号，他们怎么做吗？」
+
+   **他是对的，而且旧实现比他说的还死**：改前的 brief 模板原文就是
+   「整篇纪律，每一张都遵守：人物形态：{{person}}；构图方向：{{direction}}」——
+   十张就是十张**一模一样**的人物形态。
+
+   实测依据（402 张逐张标注，`.tmp/xhs/aura-deep-2026-09-27/classify.cjs` 的 M 表；
+   文档 `docs/research/2026-09-27-aura-deep-dive.md:113` 明确「人物形态按**图片顺序**给出」）：
+     · **39 篇多图笔记里 34 篇篇内混用 = 87.2%**；
+     · 剩下 5 篇统一的，**全部是 100% 空镜的纯静物篇**（n21/n37/n38/n39/n40）——
+       也就是说**没有任何一篇是"每张都同一种人物形态"**；
+     · 逐张分布：空镜 51.2% / 躯干与腿 18.4% / 只有手 16.4% / 下半脸 4.2% /
+       戴墨镜 3.2% / 背影 2.0% / 画中画 1.7%（完全没有头 86.3%）。
+   ⚠️ 反过来，**构图方向篇内基本不变**（只有 3/41 篇同时出现左→右与右→左），
+     所以方向**不做逐张化**，仍然是全篇一档 —— 逐张化它反而是在造实测里不存在的形态。
+
+   分配算法：**最大余额法**（largest remainder）按权重把 N 个名额分给各档，再**交错**排开。
+   交错是必要的：不交错的话 6 张会排成「空镜 空镜 空镜 躯干 手 下半脸」，
+   前三行一模一样，用户看着像坏了。
+   ⚠️ 尾部**仍可能出现相邻重复**，而且这是**应该的**：6 张只分到 4 个档位时，
+   数学上必然有两张挨着。真实语料里也一样（n24 是 `手,手,身,身,身,空,空,空,空,身,手,手`）。
+   门禁只钉「分布对得上 + 确定」，**不钉"零重复"** —— 那是个做不到的断言。
+   ⚠️ **必须确定性**：同样的 N 永远给同样的结果 —— 历史还原、断线补跑、门禁都靠它。 */
+
+/** 按权重把 count 个名额分给各档（最大余额法），返回 { 档位: 个数 }。
+ *  权重是**百分比**（来自实测），不要求加起来正好 100 —— 会按总和归一。 */
+function allocateByWeight(weights, count) {
+  const entries = Object.entries(weights || {})
+    .map(([key, value]) => [key, Number(value)])
+    .filter(([, weight]) => Number.isFinite(weight) && weight > 0);
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+  const out = new Map();
+  if (!entries.length || count <= 0 || total <= 0) return out;
+  const remainders = [];
+  let assigned = 0;
+  for (const [key, weight] of entries) {
+    const exact = (weight / total) * count;
+    const floor = Math.floor(exact);
+    out.set(key, floor);
+    assigned += floor;
+    remainders.push([key, exact - floor]);
+  }
+  /* 余下的名额按小数部分从大到小补齐；同小数时按声明顺序（稳定，不引入随机）。 */
+  remainders.sort((a, b) => b[1] - a[1]);
+  for (let i = 0; assigned < count && remainders.length; i += 1, assigned += 1) {
+    const key = remainders[i % remainders.length][0];
+    out.set(key, (out.get(key) || 0) + 1);
+  }
+  return out;
+}
+
+/** 把「档位 → 个数」摊成一条**相邻不重复**的序列。
+ *  做法：按个数从多到少轮流发牌（每轮每个还有剩余的档各发一张），
+ *  于是高频档天然被均匀撒开，不会连着排。
+ *  ⚠️ 总数必须在循环**外面**算一次：循环里 `bucket.left` 会被减掉，
+ *     拿它现求和当终止条件会越减越小、提前退出 —— 第一版就栽在这，
+ *     表现为「N=6 时第 5、6 张分不到任何形态（空串）」且相邻出现重复。 */
+function spreadAcross(counts) {
+  const buckets = [...counts.entries()]
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([key, n]) => ({ key, left: n }));
+  const total = buckets.reduce((sum, b) => sum + b.left, 0);
+  const out = [];
+  let guard = 0;
+  while (out.length < total && guard < total + buckets.length + 1) {
+    guard += 1;
+    for (const bucket of buckets) {
+      if (bucket.left <= 0) continue;
+      out.push(bucket.key);
+      bucket.left -= 1;
+    }
+  }
+  return out;
+}
+
+/** 这一篇每一张的**自动分配**人物形态。与 `names` 同序同长。
+ *  没有 `shotMix` 声明的技能返回空数组 —— 别的技能一个字都不受影响。 */
+export function skillShotMix(skill, names = []) {
+  const mix = skill && skill.shotMix;
+  if (!mix || typeof mix !== 'object') return [];
+  const list = (Array.isArray(names) ? names : []).map(text).filter(Boolean);
+  if (!list.length) return [];
+  const pool = spreadAcross(allocateByWeight(mix.person, list.length));
+  return list.map((name, index) => ({ name, person: pool[index] || '' }));
+}
+
+/** 名字 → 生效的人物形态：**用户覆盖优先于自动分配**。
+ *  ⚠️ 覆盖按**名字**存而不是按行号（`values.shotOverrides`）—— 改「本篇张数」时
+ *     用户已经调过的那几行不会错位。 */
+export function skillShotPerson(values, name, fallback = '') {
+  const overrides = values && values.shotOverrides;
+  const own = overrides && typeof overrides === 'object' ? overrides[name] : null;
+  const picked = own && typeof own === 'object' ? text(own.person) : '';
+  return picked || text(fallback);
+}
+
 /* 第 i 张的取值。0/1 种时没有可收窄的（提示词照原样），所以直接把原值还回去 —— 这样
    "只勾一种"跑出来的请求与改前逐字相同（老参数、老历史还原都不会变味）。
    ⚠️ `series`（同机位连拍）**也要逐张给** —— 见 skillSeriesClause。
    ⚠️ 判断「第 i 张在不在连拍组里」必须按**名字**判，所以取值里带了 `shotNames`
-   （与 `shots` 同序）：页面上每一张对应的名字，由页面按勾选顺序给出。 */
+   （与 `shots` 同序）：页面上每一张对应的名字，由页面按勾选顺序给出。
+   ⚠️ 2026-09-29 批 DC 续-16：`person`（人物形态）**也是逐张的**。取值走
+     `values.shotPerson`（页面按 `shotNames` 算好的一条同序数组：自动分配 + 用户覆盖），
+     拿不到就退回全篇的 `values.person`（老数据 / 手工构造的请求逐字不变）。 */
 export function skillValuesForShot(values = {}, index = 0) {
   const shots = (Array.isArray(values && values.shots) ? values.shots : []).map(text).filter(Boolean);
   const names = Array.isArray(values && values.shotNames) ? values.shotNames.map(text) : [];
   const at = Math.min(Math.max(Number(index) || 0, 0), Math.max(0, shots.length - 1));
   const scoped = shots.length < 2 ? values : { ...values, shots: [shots[at]] };
-  return { ...scoped, series: skillSeriesClause(values, names[at]) };
+  /* ⚠️ 这一段必须写在 `return` 上、**放到上面那个三元之外**：
+     只有 1 张时 `scoped === values`，如果把逐张的活放进三元的另一支，单张的篇会静默失效。 */
+  const perShotPerson = Array.isArray(values && values.shotPerson) ? values.shotPerson.map(text) : [];
+  const person = perShotPerson[at] || text(values && values.person);
+  /* ═══ 空镜 ⇒ 方向夹回「居中/无方向」═════════════════════════════════════════════════════
+     改前这条规则挂在**字段**上（`direction.disabledWhen = {key:'person'}`），
+     而 `person` 现在逐张了 —— 字段级判据接不上，**这条规则会直接断掉**。
+     挪到这里逐张判：这一张是空镜就没有横向引导可言（实测 63.7%~86.1% 的图无方向）。
+     ⚠️ 只在 `direction` 真的存在时夹，别给别的技能凭空造一个键。 */
+  const isEmptyShot = person === '画面里不出现任何人物（空镜或纯静物）';
+  const direction = isEmptyShot && values && values.direction
+    ? (text(values.directionDefault) || DIRECTION_CENTERED)
+    : text(values && values.direction);
+  return { ...scoped, ...(person ? { person } : {}), ...(direction ? { direction } : {}), series: skillSeriesClause(values, names[at]) };
 }
 
 /* ═══ 同机位连拍（"这一篇里哪几张是同一次拍摄连按的"）══════════════════════════════════════════════
@@ -559,7 +681,12 @@ export function buildSkillCopyRequest(skill, values = {}, { attempt = 0 } = {}) 
   return {
     theme: text(effective.theme),
     shots,
-    person: text(effective.person),
+    /* ⚠️ 2026-09-29 批 DC 续-16：人物形态**逐张**之后没有"这一篇的人物形态"了，
+       而文案是**篇级**的那一跳（一份标题 + 一段正文 + 话题标签），它需要一个人物形态的概括。
+       ⇒ 取 `shotPerson` 里的**众数**（这一篇出现最多的那一档）—— 那正是"这篇大致是什么调"；
+       逐张各发各的，文案接不住也不该接。
+       退化顺序：全篇 `person`（老数据 / 手工构造的请求）→ `shotPerson` 众数 → 空串。 */
+    person: text(effective.person) || modalOf((Array.isArray(effective.shotPerson) ? effective.shotPerson : []).map(text)),
     notes: text(effective.notes),
     product: text(effective.product),
     /* 随篇首发 = batch:0；「再来一版」= 1,2…（幂等键不能撞，见 conceptCopyActionId）。 */
@@ -569,6 +696,27 @@ export function buildSkillCopyRequest(skill, values = {}, { attempt = 0 } = {}) 
     imageUrl: '',
     referenceImages: [],
   };
+}
+
+/** 众数：出现最多且非空的那一个。同数时取**第一次出现**的 —— 确定，不引入随机。 */
+function modalOf(list) {
+  const counts = new Map();
+  for (const item of list) {
+    if (!item) continue;
+    if (!counts.has(item)) counts.set(item, { n: 0, first: counts.size });
+    counts.get(item).n += 1;
+  }
+  let best = '';
+  let bestN = 0;
+  let bestFirst = Infinity;
+  for (const [key, { n, first }] of counts) {
+    if (n > bestN || (n === bestN && first < bestFirst)) {
+      best = key;
+      bestN = n;
+      bestFirst = first;
+    }
+  }
+  return best;
 }
 
 /** 技能声明了规模预设时的那一格（`shotPreset`）。**只有这一格**能改清单的勾选规模 ——

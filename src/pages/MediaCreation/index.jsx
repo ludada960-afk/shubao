@@ -49,7 +49,7 @@ import {
 } from '../Home/conceptLayoutSheet.js';
 /* 批 CD：存到我的资产（自动建/复用「生成作品」项目 + 注册 + 入库，幂等） */
 import { saveGeneratedUrlsToAssets } from '../Home/saveWorkToAssets.js';
-import { getImageSkill } from '../../skills/imageSkills.js';
+import { getImageSkill, CONCEPT_PERSON_OPTIONS } from '../../skills/imageSkills.js';
 /* 批 BP-3：首页案例区「做同款」→ 落到哪条技能 + 预填什么，判断收在那一个纯函数模块里 */
 import { remixSeedValuesOf, remixSkillIdOf } from '../Home/galleryRemixTarget.js';
 /* 批 Q-⑨：app 页要在左栏只显示一个「参数配置」组头 —— 判据来自对照表本身 */
@@ -80,6 +80,8 @@ import {
   skillPieceMark,
   skillRunKind,
   skillShotValues,
+  skillShotMix,
+  skillShotPerson,
   skillValuesForShot,
   skillVideoMode,
   skillGenerationSettings,
@@ -705,6 +707,22 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       return next;
     });
   }, []);
+  /* ═══ 2026-09-29 批 DC 续-16：**逐张的人物形态**（推翻"全篇一档"）═════════════════════════════
+     用户 2026-09-29 逐字：「那是不是它出来的所有内容都会包含这些人物形态，构图方向，版式组等等的
+     选好的选项呢？**那出来的作品岂不都千篇一律了？**」
+     实测：39 篇多图笔记里 **34 篇（87.2%）篇内混用**人物形态（详见 imageSkills 的 `shotMix`）。
+     ⇒ 每一行按实测分布**自动分配**一档，用户可以逐行改；覆盖按**名字**存（改张数不错位）。 */
+  const [shotOverrides, setShotOverrides] = useState(() => ({}));
+  useEffect(() => { setShotOverrides({}); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setShotPerson = useCallback((name, value) => {
+    setShotOverrides(previous => ({ ...previous, [name]: { ...(previous[name] || {}), person: value } }));
+  }, []);
+  /* 自动分配（`skillShotMix` 是纯函数、确定性）叠上用户覆盖 —— 与提示词那条链用的是同一份口径。 */
+  const shotMix = useMemo(() => skillShotMix(skill, selectedModules.map(module => module.name)), [skill, selectedModules]);
+  const shotPerson = useMemo(
+    () => shotMix.map(row => skillShotPerson({ shotOverrides }, row.name, row.person)),
+    [shotMix, shotOverrides],
+  );
   /* 勾了 0 个不是"没得选"，是一个**明确的未完成状态**：按钮禁用 + 说明缺什么。
      与其它必填项走同一条路（validation.missing），用户看到的是一句人话而不是灰按钮。 */
   /* ⚠️ 2026-09-27 批 DC：这句话可以让技能自己声明（`modulesGate`）—— 概念的清单是"手法"、
@@ -742,13 +760,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        才能判这一张在不在连拍组里（组是按**名字**标的，不是按位置）。 */
     const shotNames = selectedModules.map(module => module.name);
     const merged = shots.length
-      ? { ...baseValues, shots, shotNames, seriesNames: effectiveSeriesNames }
-      : { ...baseValues, seriesNames: effectiveSeriesNames };
+      ? { ...baseValues, shots, shotNames, seriesNames: effectiveSeriesNames, shotPerson, shotOverrides }
+      : { ...baseValues, seriesNames: effectiveSeriesNames, shotPerson, shotOverrides };
     /* ⚠️ 批 DC（M2）：下发前再夹一次（声明里 `disabledWhen` 锁住的字段回到它自己的默认档）。
        面板里改字段时已经夹过（onFieldChange 的那条链），这一行管的是**带进来的旧值**那条路 ——
        历史还原 / 做同款 / 断线补跑，免得出现"界面锁着、请求里还带着旧方向"。 */
     return reconcileFieldValues(skill?.fields, merged);
-  }, [skill, baseValues, selectedModules, effectiveSeriesNames]);
+  }, [skill, baseValues, selectedModules, effectiveSeriesNames, shotPerson, shotOverrides]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
   const gateHint = useMemo(() => {
     if (moduleGate) return moduleGate;
@@ -1019,7 +1037,16 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
          —— 所以那句说明也跟着改成"勾几个出几张"，不再说"全都交、不能改价"。 */
       note: String(skill.modulesNote || '').trim() || '勾几个出几张，价钱跟着勾选走（每张的单价与右下角那颗按钮同源）。',
       selectable: true,
-      items: skillModules.map(module => ({ ...module, checked: !moduleOff.has(module.name) })),
+      items: skillModules.map((module, position) => ({
+        ...module,
+        checked: !moduleOff.has(module.name),
+        /* 逐张的人物形态：与 `shotPerson` **同序**（都按 selectedModules 的顺序）。
+           `position` 是清单里的下标 —— 它与 shotPerson 的下标一致，因为两者都由
+           `skillModules`（= selectedModules 去掉被关掉的）同一个数组 map 出来。
+           ⚠️ **没勾进行的那几行给空串**：它们不在这一篇里，没有"属于它的人物形态"。
+             给了值（或让 `<select>` 落到第一档）都会让 10 行看起来"九张都是空镜"。 */
+        ...(skill.modulesPerson ? { person: moduleOff.has(module.name) ? '' : (shotPerson[position] || '') } : {}),
+      })),
       /* 勾选开关：只剩"点一下切换"这一件事 —— "最后一个不许取消"的禁令随默认值一起删掉了
          （现在的默认是"一个都不勾"，那条禁令只会让用户点了没反应）。 */
       onToggle: name => setModuleOff(previous => {
@@ -1040,8 +1067,33 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onToggleSeries: toggleSeries,
         seriesHint: '标了的那几张共享「机位/景别/光线全不变、只换实体」；至少标 2 张才生效',
       } : {}),
+      /* ═══ 2026-09-29 批 DC 续-16：**清单上移**（用户「你的连拍组去哪了呢」）═════════════════════
+         原来 `sections` 一律排在所有字段组之后，那一页的「版式族」是四张长卡片，
+         清单（连拍药丸在里面）被压在底下，滚过去才看得见。
+         ⇒ 声明插在「本篇方案」之后：主题意象 → **清单** → 构图方向 → 生成设置。
+         ⚠️⚠️ **只能由技能自己声明，绝不能在这里写死默认值**：
+         第一版写了 `skill.modulesAfterGroup || '本篇方案'`，而 A+ / 详情图那一组根本没有
+         叫「本篇方案」的分组 —— WorkbenchShell 按组名去 map 里取，取不到就**整块不渲染**
+         （它们本来还会被 `!section.afterGroup` 那个过滤排除掉），于是清单凭空消失、
+         moduleGate 永远不满足、CTA 一直灰着。端到端当场抓到：
+         「image.aplus：配齐之后 CTA 仍然是禁用」。 */
+      ...(skill.modulesAfterGroup ? { afterGroup: String(skill.modulesAfterGroup) } : {}),
+      /* ═══ 逐张的人物形态（批 DC 续-16）══════════════════════════════════════════════════════
+         声明式：`modulesPerson: true` 的技能，清单每一行多一颗人物形态下拉。
+         ⚠️ 控件描述是**这里现拼的一份**（`kind:'select'` + 七档选项），不是从 `fields` 里取的 ——
+            因为 `person` 已经**不在** `fields` 里了（它逐张，不该在全篇字段区出现第二份）。
+            选项仍取 `CONCEPT_PERSON_OPTIONS()` 那一个真源，不复制档位文案。
+         ⚠️ 每一行的默认值来自 `shotPerson`（实测分布自动分配 + 用户覆盖），所以用户
+            看得见"这一篇不是十张一个样"，也改得动其中任何一张。 */
+      ...(skill.modulesPerson ? {
+        personField: {
+          key: 'person', label: '人物形态', kind: 'select',
+          options: CONCEPT_PERSON_OPTIONS(),
+        },
+        onPersonChange: setShotPerson,
+      } : {}),
     }];
-  }, [skill, skillModules, moduleOff, effectiveSeriesNames, toggleSeries]);
+  }, [skill, skillModules, moduleOff, effectiveSeriesNames, toggleSeries, shotPerson, setShotPerson]);
 
   /* ── 一键解析（付费前置动作，0.2 积分）──────────────────────────────────────
      照竞品做法：先上传商品图 → 点「一键解析」→ 字段自动填好 → 用户改细节 → 再生成。

@@ -157,7 +157,11 @@ test('CP-① 那一行两个板块共用一份（图片侧从此也有 @ / 放�
   const field = read('src/components/media/FieldRenderer.jsx');
   assert.match(field, /<PromptMetaRow/, '图片侧（多行字段）要用它');
   assert.match(field, /const uploadedAssets = Object\.values\(values \|\| \{\}\)/, '图片侧的素材来源＝这条技能里已上传的字段值');
-  assert.match(field, /disabled=\{disabled\} assets=\{assets\} \/>/, '素材要一路传到 TextareaControl');
+  /* ⚠️ 2026-09-29 批 DC 续-16：TextareaControl 多收了一个 `surfaceAction`
+     （锁住态时浮在框表面那颗付费动作，见 FieldRenderer 的 gated 判据）。
+     这条断言守的是"素材一路传到 TextareaControl"，所以**只盯 assets 那一段**，
+     不要再锚死到 ` />` —— 加任何一个 prop 都会把它判红，而那不是它要守的东西。 */
+  assert.match(field, /disabled=\{disabled\} assets=\{assets\}/, '素材要一路传到 TextareaControl');
   assert.doesNotMatch(field, /className="media-field-expand"/, '图片侧框内那颗旧的放大按钮要退役（会压住首行文字）');
   const video = read('src/components/media/VideoWorkbench.jsx');
   assert.match(video, /<PromptMetaRow/, '视频侧也用它（不许两套）');

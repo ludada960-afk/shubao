@@ -291,9 +291,15 @@
      不写死列数（写死 2 列在窄栏里会把两行小字挤成四行）。 */
 .media-workbench-checklist-items {
   display: grid;
+  /* ⚠️ 2026-09-29 批 DC 续-16：加了**逐行的人物形态**之后必须**单列**。
+     原来 `auto-fit + minmax(min(240px,100%),1fr)` 在 570 宽的左栏里给**两列**，
+     而一行现在要装：勾选框 + 手法名 + 「连拍」药丸 + 人物形态下拉 ——
+     240px 那一条根本放不下，`.copy strong` 会被挤成两行。
+     ⇒ 逐行有控件的清单（`is-person`）走单列；没控件的清单保持原来的自适应两列。 */
   grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 2px 12px; margin: 0; padding: 0; list-style: none;
 }
+.media-workbench-checklist.is-person .media-workbench-checklist-items { grid-template-columns: 1fr; }
 .media-workbench-checklist-items li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; }
 .media-workbench-checklist-check { flex: 0 0 auto; font-size: 12.576px; font-weight: 500; color: var(--sb-brand-600); line-height: 1.5; }
 /* ═══ 可勾选那一档（2026-09-19 批 I-9，用户批注 #10）═══════════════════════════════════════
@@ -305,6 +311,13 @@
 .media-workbench-checklist.is-selectable .media-workbench-checklist-items li { padding: 0; }
 .media-workbench-checklist-toggle {
   width: 100%;
+  /* ⚠️ 2026-09-29 批 DC 续-16：补 `flex: 1 1 auto; min-width: 0`。
+     这一行现在是 flex 容器里的**第一个**子元素（后面还跟着「连拍」药丸与人物形态下拉），
+     而它只有 `width: 100%`、**没有 flex 声明** —— 作为 flex item，`width` 只是建议值，
+     加两颗兄弟控件之后它会把整行撑破（`min-width: auto` 还会拒绝收缩）。
+     `min-width: 0` 是关键：没有它，长文字的 `.copy` 不会缩、整行照样溢出。 */
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 44px;
   display: flex;
   align-items: flex-start;
@@ -380,6 +393,43 @@
 .media-workbench-checklist-copy { display: grid; gap: 1px; min-width: 0; }
 .media-workbench-checklist-copy strong { font-size: 13.624px; font-weight: 500; color: var(--sb-ink-1); }
 .media-workbench-checklist-copy small { font-size: 13px; line-height: 1.5; color: var(--sb-ink-3); }
+/* ═══ 2026-09-29 批 DC 续-16：**每一行自己的「人物形态」** ═══════════════════════════════════════
+   为什么它长在清单行里、而不是像原来那样当一个全篇的下拉：
+   实测 39 篇多图笔记里 **34 篇（87.2%）篇内混用**人物形态
+   （`.tmp/xhs/aura-deep-2026-09-27/classify.cjs`；剩下的 5 篇统一的都是 100% 空镜纯静物篇）。
+   一个全篇一档的下拉 = 十张一模一样，那正是用户说的「千篇一律」。
+
+   ⚠️⚠️ `width: auto` 是**必须的**，不是随手写的：`.media-field-control` 基线是 `width: 100%`，
+     而这里的父级 `.media-workbench-checklist-person` 是 `flex: 0 1 auto`（宽度由内容定）
+     —— `width:100%` 于是反过来依赖父级、父级又依赖它，两边都不给数，
+     原生 `<select>` 就塌成**只够显示两个半字**的宽度（截图里「空镜」被截成「空」）。
+     `min-width: 112px` = 最长一档「背影或侧脸」5 字 ×12px + 左右内边距 36px。
+   ⚠️ 逐行那个可见标签**去掉**了（`.media-field-label` 隐藏，只留给读屏）：
+     六行各写一遍「人物形态」是纯噪声，而且与「着重号只给可操作区、不给重复标题」那条口径相反。
+     改由整块**上面一行**说明一次（`.media-workbench-checklist-colhead`）。 */
+.media-workbench-checklist-person { flex: 0 0 auto; align-self: flex-start; }
+.media-workbench-checklist-person .media-field { gap: 0; }
+.media-workbench-checklist-person .media-field-label {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+.media-workbench-checklist-person select.media-field-control {
+  width: auto;
+  min-width: 112px;
+  min-height: 32px;
+  padding: 4px 26px 4px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  border-radius: var(--sb-radius-pill);
+}
+.media-workbench-checklist-colhead {
+  margin: 0;
+  text-align: right;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--sb-ink-3);
+}
 .media-workbench-back {
   justify-self: start;
   padding: 4px 10px;
@@ -660,6 +710,29 @@ textarea.media-field-control { min-height: 150px; padding: 15px; border-radius: 
 .media-field-expand:hover:not(:disabled) { background: var(--sb-surface-tint-strong); color: var(--sb-ink-1); border-color: var(--sb-border-strong); }
 .media-field-expand:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 .media-field-expand:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ═══ 2026-09-29 批 DC 续-16：**锁住态的 AI 结论框** ═══════════════════════════════════════════════
+   用户 2026-09-29 逐字：「这个输入框平时它是一个被锁死的状态，然后这个一键解析的这个按钮
+   **出现在它的表面上**。」
+   ⚠️ 做法照抄上面 `.media-field-expand` 那条**同一套 overlay 手法**（父级 `position:relative`
+      + 子级 `position:absolute`），不新造第五种浮层写法 —— 那条 CSS 本身是批 CP 之后的 dead code，
+      这里借的是它的**定位配方**，不是它的类名。
+   ⚠️ 锁住时**整面覆盖**（`inset:0`）而不是右上角一颗：这一格此刻是"一个等待被解锁的槽"，
+      按钮是它唯一的入口，居中才读得出"点这里开始分析"。
+   ⚠️ 覆盖层不吃事件的地方**一个都没有**：按钮是它唯一的子元素，整块都是热区。 */
+.media-field-textarea.is-gated > .media-field-control {
+  /* 锁住时那一行 @/放大/字数不渲染了，所以这条 padding-right 补偿在这里没有意义 ——
+     去掉它，按钮才会真正居中（留 88px 的话按钮会偏左，看着不像"在框中间"）。 */
+  padding-right: 15px;
+  cursor: default;
+}
+.media-field-gate {
+  position: absolute; inset: 0; z-index: 2;
+  display: grid; place-items: center;
+  border-radius: 14px;                 /* 与 textarea.media-field-control 的圆角一致 */
+  background: var(--sb-surface-tint);
+}
+.media-field-gate .media-workbench-paid { box-shadow: var(--sb-shadow-1); }
 /* 放大编辑框：居中一个够大的编辑面，内容长了在里面滚 */
 .media-field-expand-modal {
   position: fixed; inset: 0; z-index: 1200;
