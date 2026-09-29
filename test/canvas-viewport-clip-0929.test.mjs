@@ -55,32 +55,40 @@ test('① 视口层存在：overflow:clip 且**自身没有 transform**（裁剪
   );
 });
 
-test('② 内容层的 left 只负责留白，平移**只写在 transform 里一处**', () => {
-  /* 批 CY-㉖ 的教训：批 CY-㉕ 我把平移从 transform 挪到 left，**符号和缩放都写错了**
-     （先写成 -vx/s，符号反；改成 +vx/s 之后又多除了一个 scale —— left 是 CSS px，
-     不该跟着缩放除）。用户上线后立刻报「越改越不对劲」。
-     ⇒ 平移**只允许出现在 transform 这一处**，left 只准是负的留白。
-     符号就永远只有一处写错的机会。 */
+test('② 内容层的原点必须恒为 0（左上），平移**只写在 transform 一处**', () => {
+  /* ⚠️ 这一条改过三次，每次都是我自己写错：
+       CY-㉕ 符号写反（-vx/s）
+       CY-㉖ 多除了一个 scale（+vx/s；left 是 CSS px，不该跟缩放除）
+       CY-㉗ 把 left 当"留白"写 `-(400+|vx|)` ⇒ **整体位移**
+     三次都在同一处：内容层到底怎么摆。
+
+     核心不变式：**内容层的原点必须就是世界原点**。
+     `left` 是屏幕坐标偏移 —— 一旦不为 0，「世界 x=0 出现在屏幕哪」就变了；
+     而落位算法（按视口中心反算世界坐标）和小地图（toMapX(-vx/s)）
+     都按「世界 x=0 在屏幕 vx」推算 ⇒ 三者立刻对不上：
+       · 素材明明落在画布中间，渲染位置却被整体挪到左上角（CY-㉗ 用户实测）
+       · 小地图的视口框与实际视野分离（同一次上报）
+     ⇒ left/top **必须恒为 0**；要让内容层"够大"只能靠 width/height。 */
   assert.ok(page.includes('transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`'),
     '平移必须写在 transform 里，且是 +vx（与 visibleLeft=-vx/s、小地图 toMapX(-vx/s) 同一口径）');
-  assert.ok(page.includes('left: `${-(400 + Math.abs(viewport.x))}px`'),
-    '内容层 left 只能是**负的留白**（-(400 + |vx|)），不许再出现 viewport.x 的正负号运算');
+  const innerBlock = page.slice(page.indexOf('left: 0,'), page.indexOf('willChange'));
+  assert.match(innerBlock, /left: 0,/, '内容层 left 必须恒为 0');
+  assert.match(innerBlock, /top: 0,/, '内容层 top 必须恒为 0');
+  assert.doesNotMatch(page, /left: `\$\{/,
+    '内容层 left 不得是任何模板字符串/算式 —— 那会把内容整体挪走（批 CY-㉗ 的事故）');
   assert.doesNotMatch(page, /left: `calc\(/,
-    'left 不得再写成 calc(.../scale) —— 那是批 CY-㉕ 的错误形态（多除了一个 scale）');
-  assert.doesNotMatch(page, /left: `\$\{viewport\.x\}/,
-    'left 里不许直接用 +viewport.x（那会让平移被算两遍）');
+    'left 不得写成 calc(.../scale) —— 批 CY-㉕ 的错误形态（多除了一个 scale）');
 });
 
-test('④ 尺寸余量必须含 |viewport.x| / |viewport.y|（省了就是「往一边拖，那侧的素材又不见了」）', () => {
-  /* 推导（平移放回 transform 之后）：
-       屏幕 = left + 世界×缩放 + 平移，left = -(M + |vx|)
-       左边缘 = -(M+|vx|) + vx <= -M                    （任何 vx 都盖住左缘）
-       右边缘 = -(M+|vx|) + W×s + vx，需要 >= stageW + M
-              ⇒ W >= (stageW + 2M + |vx| - vx) / s；取 W = (stageW + 2M + 2|vx|) / s 恒成立。
+test('④ 内容层必须够大以盖住视口，靠**尺寸**而不是偏移（省了就是「往一边拖，那侧素材又不见」）', () => {
+  /* 推导（left 恒为 0、平移只在 transform）：
+       屏幕 = 世界×s + vx
+       内容层局部 x ∈ [0, W] ⇒ 屏幕 ∈ [vx, vx + W×s]
+       要盖住整个视口 [0, stageW] ⇒ vx + W×s >= stageW ⇒ W >= (stageW - vx) / s
+     vx 为负时要向左多铺 |vx|；两边合起来 W = (stageW + 2|vx|) / s 恒成立。
      |vx| 那项不能省：省了就是「往一边拖多一点，那侧的素材又不见了」。 */
-  assert.match(page, /800 \+ 2 \* Math\.abs\(viewport\.x\)/, '宽度余量必须跟着横向平移量长（2M + 2|vx|）');
-  assert.match(page, /800 \+ 2 \* Math\.abs\(viewport\.y\)/, '高度余量必须跟着纵向平移量长');
-  assert.match(page, /400 \+ Math\.abs\(viewport\.x\)/, 'left 留白也必须含 |vx|');
+  assert.match(page, /2 \* Math\.abs\(viewport\.x\)/, '宽度余量必须跟着横向平移量长（2|vx|）');
+  assert.match(page, /2 \* Math\.abs\(viewport\.y\)/, '高度余量必须跟着纵向平移量长');
 });
 
 test('⑤ HUD 仍在视口层**之外**（stage 装着底部操作栏/缩放条/小地图/左工具栏，不能被裁）', () => {

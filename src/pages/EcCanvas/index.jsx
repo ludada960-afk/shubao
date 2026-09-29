@@ -7478,10 +7478,35 @@ const handlePointerUp = useCallback((e) => {
                M 是屏幕像素留白；|vx| 那项让平移后两侧都盖得住。
                ⚠️ 教训：改坐标系前先 grep「谁还依赖这个口径」（这次是靠 visibleLeft
                与小地图才发现符号反了）；平移尽量只写在一处，别拆到 left 里手算。 */
-            left: `${-(400 + Math.abs(viewport.x))}px`,
-            top: `${-(400 + Math.abs(viewport.y))}px`,
-            width: `calc((100% + ${800 + 2 * Math.abs(viewport.x)}px) / ${Math.max(0.1, viewport.scale)})`,
-            height: `calc((100% + ${800 + 2 * Math.abs(viewport.y)}px) / ${Math.max(0.1, viewport.scale)})`,
+            /* ═══ 批 CY-㉗ 修我自己引入的**整体位移**（用户：「为什么上传会在左上方啊，没有居中吗」）═══
+
+               事故经过（这已经是同一处连续第三次被我自己改坏了，如实记）：
+                 · CY-㉕ 把平移从 transform 挪到 left，符号写反      → 用户报「越改越不对劲」
+                 · CY-㉖ 符号改对，但又多除了一个 scale             → 同一批症状
+                 · CY-㉖ 修好后又加了 `left: -(400 + |vx|)` 当"留白"
+                   ⇒ **`left` 是屏幕坐标偏移，它把整个画布内容一起挪走了**
+                   用户这次上传的素材世界坐标 x=739、画布宽 2000（该出现在屏幕 ~819），
+                   实际出现在屏幕 ~330 —— 正好差了我加的那个 480px 留白。
+                   **素材其实落在画布中间，是渲染位置被整体挪到左上角。**
+
+               ⚠️ 为什么探针没抓到：CY-㉖ 那个探针只量「同一个节点在缩放前后相对位置
+               对不对」（口径一致 ⇒ 0.0px 通过），**没有量「它相对画布中心在不在该在的
+               位置」** —— 探针设计有漏洞，于是这个整体位移从它眼皮底下过去了。
+
+               ⇒ 正确写法（也是 tldraw / Konva 的写法）：
+                   · 内容层的**原点必须就是世界原点**（left/top 恒为 0），
+                     否则「世界 x=0 在屏幕哪」就变了，落位算法（按视口中心算世界坐标）
+                     算出来的世界坐标与渲染位置就对不上；
+                   · 要让内容层「够大、能盖住视口」，靠的是**尺寸**（width/height），
+                     不是靠偏移；
+                   · 视口层负责裁剪，内容层不需要自己裁。
+               尺寸推导：内容层局部坐标 x 渲染到屏幕 = x*s + vx，
+               要盖住屏幕 [0, stageW] ⇒ 局部宽 W 需 vx + W*s >= stageW
+               ⇒ W = (stageW + |vx|) / s；取 2 倍余量保证任何平移都盖得住。 */
+            left: 0,
+            top: 0,
+            width: `calc((100% + ${2 * Math.abs(viewport.x)}px) / ${Math.max(0.1, viewport.scale)})`,
+            height: `calc((100% + ${2 * Math.abs(viewport.y)}px) / ${Math.max(0.1, viewport.scale)})`,
             transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
             transformOrigin: '0 0',
             willChange: 'transform',
