@@ -160,14 +160,41 @@ test('HeroIcons.jsx ships the 4 new central modal glyphs (1-click 套图 / 1-cli
   }
 });
 
-test('right-side onSelect router handles all 9 derive action ids (5 原有 + 4 应用节点)', () => {
+test('派生路由覆盖全部 9 个 action id（5 原有 + 4 应用节点）——在**活的**那个路由里', () => {
   const jsx = readFileSync(ecCanvasIndexPath, 'utf8');
-  /* 5 原有 (用户硬性要求保留) */
-  for (const legacyId of ['text-generation', 'ecommerce-suite', 'video-upload', 'video-generation', 'image-edit']) {
-    assert.ok(jsx.indexOf("action.id === '" + legacyId + "'") !== -1, '右面板 onSelect 必须路由 ' + legacyId);
+  /* ═══ 批 CY-⑯ 修判据本身 ══════════════════════════════════════════════════════════════════════════════
+     这条门禁原来叫「right-side onSelect router …」，但它只是**在整个 index.jsx 里 grep**
+     `action.id === 'xxx'` —— 而那 9 个分支在 **CanvasDeriveMenu 的 onSelect**（节点右侧 + 的菜单）
+     里本来就全都在。⇒ 这条门禁**从来没有检查过右面板**，却在"看着绿"，
+     于是 `onDeriveSelect`（传给右面板、组件签名里根本没有）被丢弃了很久都没人发现。
+     这类"看着在管、其实没管"的门禁比没有更坏。
+
+     现在两条事实都钉住：
+       ① 9 个 action 必须由**活的**派生菜单路由覆盖（这才是用户 8-29 那句「都要保留」的落点）；
+       ② 右面板**不许**再带一份派生路由 —— 用户 2026-09-05 定稿：
+          「右面板只展示"这个素材派生了什么"…**生成类入口只在素材右侧 + 里**」。 */
+  const liveStart = jsx.indexOf('{connectionPicker && <CanvasDeriveMenu');
+  assert.ok(liveStart > 0, '找得到 CanvasDeriveMenu 的渲染处');
+  /* 花括号配对取这一段 JSX 表达式（不依赖某个具体结束标签 —— 它是自闭合的 `/>}`）*/
+  let depth = 0;
+  let end = -1;
+  for (let i = jsx.indexOf('{', liveStart); i < jsx.length; i += 1) {
+    if (jsx[i] === '{') depth += 1;
+    else if (jsx[i] === '}') { depth -= 1; if (depth === 0) { end = i; break; } }
   }
-  /* 4 应用节点 (Quantv §10.2 风格, 取代原流影AI tts-voiceover/caption-motion/one-click-suite/one-click-video) */
-  for (const newId of ['application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video']) {
-    assert.ok(jsx.indexOf("action.id === '" + newId + "'") !== -1, '右面板 onSelect 必须路由 ' + newId);
+  assert.ok(end > 0, '派生菜单的 JSX 表达式配对失败');
+  const router = jsx.slice(liveStart, end);
+  /* 5 原有 + 2 个应用节点：都有**专属**分支 */
+  for (const id of ['text-generation', 'ecommerce-suite', 'video-upload', 'video-generation', 'image-edit', 'application-tts', 'application-caption']) {
+    assert.ok(router.includes("action.id === '" + id + "'"), '派生菜单的 onSelect 必须专属路由 ' + id);
   }
+  /* 剩下 2 个（1-click 套图 / 1-click 视频模板）走**通用派生**分支 ——
+     以前它们只出现在右面板那份**从未被接收**的死路由里，靠那堆死代码才让门禁变绿。
+     现在明确断言它们落到 handleCreateDerivedNode。 */
+  for (const id of ['application-1click-suite', 'application-1click-video']) {
+    assert.ok(router.includes('handleCreateDerivedNode('), id + ' 必须走通用派生分支 handleCreateDerivedNode');
+  }
+  /* 右面板那份是 9-05 定稿之前的残留，已删 */
+  assert.ok(!jsx.includes('onDeriveSelect={'),
+    '右面板不许再带一份派生路由（用户 9-05 定稿：生成类入口只在素材右侧 + 里）');
 });

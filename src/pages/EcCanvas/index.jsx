@@ -6426,15 +6426,34 @@ const handlePointerUp = useCallback((e) => {
   }, [connections, nodes, selectedNode]);
   /* 右面板"派生链累计消耗": 母节点 + 全部子节点的直录消耗求和
      (用户 9-05 反馈: 展示母节点和它派生链的整体积分消耗) */
-  const chainCostTotal = useMemo(() => {
-    if (!selectedNode) return 0;
-    const direct = node => Number(node?.billingCost ?? node?.cost ?? node?.estimatedCost ?? 0);
-    let total = direct(selectedNode);
-    for (const child of selectedDerivedChildren) {
-      total += direct(nodes.find(node => node.id === child.id));
+  /* ═══ 批 CY-⑯ 修：这个数字以前**结构上恒为 0** ════════════════════════════════════════════════════════
+     改前读的是 `node.billingCost ?? node.cost ?? node.estimatedCost`，
+     而**画布里没有任何一处写这三个字段**（全仓只有这两处读、零处写）——
+     于是界面上长期挂着一个「派生链累计消耗 0.0」，看起来像"这条链不花钱"。
+     现在两层：
+       ① 计算：优先用**真实记账值**（哪个节点上真有就用什么，将来服务端回填了自动生效），
+          没有就退回仓库里**已经存在**的成本表 estimateNodeCost
+          （canvasQuantvExtensions.NODE_COST_ESTIMATES，21 档），不是新造一张；
+       ② 文案：那张表是**估算**不是账本。把它标成「消耗」又是"看着是 A、跑的是 B"，
+          用户会以为那就是实际扣的钱 ⇒ 面板按 exact 分别写「累计消耗」/「预计消耗」。 */
+  const chainCost = useMemo(() => {
+    if (!selectedNode) return { total: 0, exact: true };
+    const measure = node => {
+      const recorded = node?.billingCost ?? node?.cost ?? node?.estimatedCost;
+      if (Number.isFinite(Number(recorded))) return { value: Number(recorded), exact: true };
+      return { value: estimateNodeCost(node || {}), exact: false };
+    };
+    const chain = [selectedNode, ...selectedDerivedChildren.map(child => nodes.find(node => node.id === child.id))];
+    let total = 0;
+    let exact = true;
+    for (const node of chain) {
+      const one = measure(node);
+      total += one.value;
+      if (!one.exact) exact = false;
     }
-    return total;
+    return { total, exact };
   }, [selectedDerivedChildren, selectedNode, nodes]);
+  const chainCostTotal = chainCost.total;
   /* 4c183cd4 续命 画布深度重构 (用户 8-29 硬性反馈 3): 下面 3 智能按钮差异化 handler
      mode: 'one-click-suite' (1-click 套图, 走 chainService 4 步: 文案->首帧->视频->音轨+字幕)
            'one-click-video' (1-click 视频模板, 同上 4 步 chain)
@@ -7760,19 +7779,14 @@ const handlePointerUp = useCallback((e) => {
               onClose={() => setSelected(null)}
               onPatch={handleRightPanelPatch}
               billingCost={chainCostTotal}
-              onDeriveSelect={action => {
-                const world = { x: selectedNode.x + selectedNode.w + 28, y: selectedNode.y };
-                if (action.id === 'text-generation') handleDerivedTextGeneration(selectedNode.id, world);
-                else if (action.id === 'ecommerce-suite') addCanvasComposer('suite', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'video-upload') videoUploadRef.current?.click();
-                else if (action.id === 'video-generation') addCanvasComposer('video', { ...world, sourceNodeId: selectedNode.id, prompt: resolveDerivedVideoPrompt({ nodes, connections, sourceNodeId: selectedNode.id }) });
-                else if (action.id === 'image-edit') addCanvasComposer('image', { ...world, sourceNodeId: selectedNode.id });
-                else if (action.id === 'application-tts') handleDerivedTtsGeneration(selectedNode.id, world);
-                else if (action.id === 'application-caption') handleDerivedCaptionGeneration(selectedNode.id, world);
-                else if (action.id === 'application-1click-suite') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else if (action.id === 'application-1click-video') handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-                else handleCreateDerivedNode(selectedNode.id, getCanvasAction(action.id) || action, world);
-              }}
+              billingCostIsEstimate={!chainCost.exact}
+              /* 批 CY-⑯：`onDeriveSelect` 整个删掉。
+                 它传给 EcCanvasRightPanel，但那个组件签名里从来没有这个 prop、也没有 ...rest，
+                 所以这十几行派生路由一直被**静默丢弃**（组件照常渲染、不报错）。
+                 但**不要接上它**：EcCanvasRightPanel.jsx:137 的注释写着
+                   「(用户 9-05 定稿: 右面板只展示这个素材派生了什么 … **生成类入口只在素材右侧 + 里**)」，
+                 空态文案也是同一口径。右栏**刻意**没有派生菜单，这段是那次定稿之前的残留。
+                 同样的路由逻辑在 CanvasDeriveMenu 的 onSelect 里完整且是活的 ⇒ 删掉不丢功能。 */
             />}
         </div>
       ) : (

@@ -7,6 +7,7 @@ import { Upload, Sparkle, Package, Gear, Download, MagicWand } from '@phosphor-i
 import { useApp } from '../../store/AppContext';
 import { proxyImg, generateEcommerce, generateEcommercePreview, autoRecognizeEcommerce, stitchLongImage, saveWork, regenerateImage } from '../../services/api';
 import { downloadFileName } from '../Home/mediaHistoryModel.js';
+import { SUITE_PLATFORMS, SUITE_PLATFORM_LABELS } from '../../skills/skillRun.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { EC_CATS, EC_PLATFORM_DIMS, EC_DETAIL_SLICES, EC_SKU_FIELDS } from '../../constants/data';
 import { IMAGES } from '../../constants/images';
@@ -1071,7 +1072,15 @@ export default function EcStudioPage() {
                 <span style={{ fontSize: 'var(--sb-text-md)', color: 'var(--sb-ink-4)' }}>共 {total} 张</span>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                {['淘宝', '京东', '拼多多', '小红书电商', '抖音电商', '亚马逊'].map((p) => {
+                {/* 批 CY-⑯：这里原来写死了 `['淘宝','京东','拼多多','小红书电商','抖音电商','亚马逊']`，
+                    而 skillRun 的 SUITE_PLATFORMS 是 `['淘宝','抖音','小红书','拼多多','京东']`
+                    ⇒ 「小红书电商 / 抖音电商 / 亚马逊」三个值**被静默改写成淘宝**：
+                    用户以为生成了亚马逊站位的图，实际跑的是淘宝规则，**而且照常计费**。
+                    ⇒ 改为直接用那份真源（顺序即展示顺序），并把显示名与协议值分开：
+                       小红书/抖音 展示为「小红书电商/抖音电商」是**文案**，协议值仍是短名。 */}
+                {/* 展示名与协议值分开：协议值一律用 SUITE_PLATFORMS 里的规范短名（发给服务端），
+                    界面上仍显示「小红书电商 / 抖音电商」这种更完整的说法（只是文案）。 */}
+                {SUITE_PLATFORMS.map(p => {
                   const d = dimSize(p, '1:1');
                   return (
                     <span
@@ -1090,7 +1099,7 @@ export default function EcStudioPage() {
                         fontWeight: platform === p ? 600 : 400,
                       }}
                     >
-                      {p} · {d.w}×{d.h}
+                      {SUITE_PLATFORM_LABELS[p] || p} · {d.w}×{d.h}
                     </span>
                   );
                 })}

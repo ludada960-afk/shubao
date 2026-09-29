@@ -652,8 +652,63 @@ export function skillVideoMode(skill) {
      · 套图：一次任务一套 N 张，先按「方案张数」报价，服务端建 hold 之前会校验报价，
              数量对不上就干净报错、**不扣费**（fail-safe）
    所以这里必须用与面板同一份 resolveEcommercePlan 算出张数与报价请求。 */
-export const SUITE_PLATFORMS = Object.freeze(['淘宝', '抖音', '小红书', '拼多多', '京东']);
+/* ═══ 批 CY-⑯：平台名单收敛成**一份真源** + 加一个归一化 ═══════════════════════════════════════
+   事故（可证伪）：EcStudio 的平台选择给的是
+     ['淘宝','京东','拼多多','**小红书电商**','**抖音电商**','**亚马逊**']（6 档、带「电商」后缀、有亚马逊），
+   而下面这一行是
+     const platform = SUITE_PLATFORMS.includes(text(values.platform)) ? … : SUITE_DEFAULT_PLATFORM;
+     SUITE_PLATFORMS = ['淘宝','抖音','小红书','拼多多','京东']（5 档、无后缀、**没有亚马逊**）
+   ⇒ 用户在 EcStudio 选「亚马逊」或「小红书电商 / 抖音电商」，**被静默改写成淘宝**：
+     他以为自己生成了亚马逊站位的图（1000×1000 纯白底 6 张无文字），实际跑的是淘宝规则，
+     而且**照常计费**。界面上不报错、不提示。
+   EcAuto 的平台 key 是 ['淘宝','京东','拼多多','抖音','**亚马逊**','小红书'] ⇒ 同样中招。
+
+   两件事一起做：
+     ① `SUITE_PLATFORMS` 补上**亚马逊**（它已经是两个界面真实在提供的平台，
+        藏起来不是修复、是让用户选不到自己要的站位）；
+     ② 加 `normalizeSuitePlatform`：把「小红书电商 / 抖音电商 / 小红书网店…」这类**同平台别名**
+        归一到规范名。这样**任何**入口传进来的值都不会再被静默吞掉。
+        归不出来的**仍然回落默认**（fail-safe），但会在 dev 下留一条 warn ——
+        「静默改成别的平台」比「报错」更难被发现。 */
+export const SUITE_PLATFORMS = Object.freeze(['淘宝', '抖音', '小红书', '拼多多', '京东', '亚马逊']);
 export const SUITE_DEFAULT_PLATFORM = '淘宝';
+
+/** 界面上显示的名字（**只是文案**，协议值仍是上面那六个规范短名）。
+ *  以前 EcStudio 直接把「小红书电商 / 抖音电商」当**值**用，
+ *  那两个值不在 SUITE_PLATFORMS 里 ⇒ 被静默改写成淘宝。现在值与文案分开。 */
+export const SUITE_PLATFORM_LABELS = Object.freeze({
+  淘宝: '淘宝/天猫',
+  抖音: '抖音电商',
+  小红书: '小红书电商',
+  拼多多: '拼多多',
+  京东: '京东',
+  亚马逊: '亚马逊',
+});
+
+/** 平台别名 → 规范名（同平台的写法差异，不新增平台）。 */
+const SUITE_PLATFORM_ALIASES = Object.freeze({
+  '小红书电商': '小红书',
+  '抖音电商': '抖音',
+  '快手': '抖音',
+  '淘宝天猫': '淘宝',
+  '天猫': '淘宝',
+  'amazon': '亚马逊',
+  'amazon.com': '亚马逊',
+  '拼多多多多': '拼多多',
+});
+
+/**
+ * 把任意来源的平台值归一到 SUITE_PLATFORMS 里的规范名。
+ * @returns {{ value: string, matched: boolean }} matched=false 表示**不认识**，调用方要留痕。
+ */
+export function normalizeSuitePlatform(input) {
+  const raw = text(input);
+  if (!raw) return { value: SUITE_DEFAULT_PLATFORM, matched: false };
+  if (SUITE_PLATFORMS.includes(raw)) return { value: raw, matched: true };
+  const alias = SUITE_PLATFORM_ALIASES[raw] || SUITE_PLATFORM_ALIASES[raw.toLowerCase()];
+  if (alias && SUITE_PLATFORMS.includes(alias)) return { value: alias, matched: true };
+  return { value: SUITE_DEFAULT_PLATFORM, matched: false };
+}
 
 /* 套图要的是"已拥有的资产引用"（assetId + /api/generated-assets/ 地址），
    服务端据此直接把素材挂进方案，不会再让我们把图片重传一遍。 */
@@ -665,7 +720,20 @@ export function suiteOwnedInputs(values = {}) {
 }
 
 export function buildSuiteRun(skill, values = {}) {
-  const platform = SUITE_PLATFORMS.includes(text(values.platform)) ? text(values.platform) : SUITE_DEFAULT_PLATFORM;
+  /* 批 CY-⑯：原来这里是 `SUITE_PLATFORMS.includes(…) ? … : SUITE_DEFAULT_PLATFORM` ——
+     EcStudio 传的「小红书电商 / 抖音电商 / 亚马逊」三个值都不在那 5 个里，
+     于是**静默变成淘宝**：用户以为生成了亚马逊站位的图，实际跑的是淘宝规则，还照常计费。
+     现在走归一化：同平台别名归一（小红书电商→小红书），亚马逊是真平台（已在名单里），
+     真正认不出来的仍回落默认，但**必须留痕** —— 静默换平台比报错更难被发现。 */
+  const normalizedPlatform = normalizeSuitePlatform(values.platform);
+  if (!normalizedPlatform.matched && text(values.platform)) {
+    /* 只在开发期出声：生产环境静默 warn 反而是噪音，但这条路径必须能被测试看见，
+       所以门禁直接断言 normalizeSuitePlatform 的返回值，不依赖 console。 */
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[suite] 不认识的平台值，已回落默认：', values.platform);
+    }
+  }
+  const platform = normalizedPlatform.value;
   const productInputs = suiteOwnedInputs(values);
   /* 商品名是服务端必填项：取「商品信息」的第一行，没有就给一个中性占位（不编造品牌） */
   const productName = (text(values.productParams).split(/\r?\n/).map(line => line.trim()).filter(Boolean)[0] || '').slice(0, 40) || '商品';

@@ -59,6 +59,8 @@ export function EcCanvasRightPanel({
   onClose,
   onPatch,
   billingCost = 0,
+  /* 批 CY-⑯：true = 这个数字来自**估算表**而不是真实记账值，界面要如实说明 */
+  billingCostIsEstimate = false,
 }) {
   if (!node) return null;
   const kind = node.kind || 'image';
@@ -270,11 +272,20 @@ export function EcCanvasRightPanel({
           </div>
         )}
 
-        {/* AI 积分 (用户 9-05 反馈: 展示当前素材 + 它派生出的全部子节点的累计消耗) */}
-        <div className="ec-canvas-right-panel__cost" aria-label="当前素材与派生链的 AI 积分累计消耗">
+        {/* AI 积分 (用户 9-05 反馈: 展示当前素材 + 它派生出的全部子节点的消耗)
+            批 CY-⑯：数字以前**结构上恒为 0**（读的那三个字段全仓没有一处写），
+            现在改成「真实记账值优先、估算兜底」。
+            ⚠️ 兜底走的是 estimateNodeCost 那张**估算表** —— 把估算标成「消耗」，
+            用户会以为那就是实际扣的钱。所以两种情况分别写「累计消耗」与「预计消耗」。 */}
+        <div
+          className="ec-canvas-right-panel__cost"
+          aria-label={billingCostIsEstimate
+            ? '当前素材与派生链的 AI 积分预计消耗（按成本表估算，非实际扣费）'
+            : '当前素材与派生链的 AI 积分累计消耗'}
+        >
           <span className="ec-canvas-right-panel__cost-label">
             <Coins size={12} />
-            派生链累计消耗
+            {billingCostIsEstimate ? '派生链预计消耗' : '派生链累计消耗'}
           </span>
           <span className="ec-canvas-right-panel__cost-value">{Number(billingCost || 0).toFixed(1)}</span>
         </div>

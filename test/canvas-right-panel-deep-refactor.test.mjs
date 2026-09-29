@@ -57,12 +57,37 @@ test('反馈 1: EcCanvas/index.jsx 集成右面板 (跟 CanvasObjectToolbar 一�
   assert.ok(indexSource.includes('selectionPanelsVisible && <EcCanvasRightPanel'), '必须用 selectionPanelsVisible 守卫 (跟 CanvasObjectToolbar 同步)');
 });
 
-test('反馈 1 (2026-08-30 画布总统筹重审): 右面板路由 9 action (5 原有 + 4 应用节点) 跟 CanvasObjectToolbar 共享派生菜单契约', () => {
-  assert.ok(indexSource.includes('onDeriveSelect={action =>'), '必须有 onDeriveSelect 路由');
-  // 5 原有 + 4 应用节点 (取代 tts-voiceover/caption-motion/one-click-suite/one-click-video)
-  for (const id of ['text-generation', 'ecommerce-suite', 'video-generation', 'image-edit', 'application-tts', 'application-caption', 'application-1click-suite', 'application-1click-video']) {
-    assert.ok(indexSource.includes("id === '" + id + "'"), '右面板路由必须覆盖 action id: ' + id);
+test('反馈 1 (2026-08-30 画布总统筹重审): 派生菜单契约由**活的**派生菜单承担，右面板按 9-05 定稿不带路由', () => {
+  /* ═══ 批 CY-⑯：这条门禁原来断言「必须有 onDeriveSelect={action =>」 ═════════════════════════════════════
+     那正是把一份**从未被接收**的路由（EcCanvasRightPanel 的签名里从来没有这个 prop，也没有 ...rest）
+     钉成了"契约"—— 于是它被静默丢弃了很久，门禁还是绿的。
+
+     时间线（决定了谁作数）：
+       2026-08-30  本门禁写下：右面板**应该**有派生路由；
+       2026-09-05  用户定稿：「右面板只展示"这个素材派生了什么"…**生成类入口只在素材右侧 + 里**」
+                   （EcCanvasRightPanel.jsx:137 的注释与空态文案都写着这句）。
+     后者更新、更具体，且是用户本人的决定 ⇒ 以它为准：
+       · 右面板**不再**带派生路由（残留已删）；
+       · 9 个 action 的路由由节点右侧 + 的 CanvasDeriveMenu 承担，门禁去那里查。 */
+  assert.ok(!indexSource.includes('onDeriveSelect={'),
+    '右面板不许再带派生路由（用户 9-05 定稿：生成类入口只在素材右侧 + 里）');
+  const liveStart = indexSource.indexOf('{connectionPicker && <CanvasDeriveMenu');
+  assert.ok(liveStart > 0, '找得到活的派生菜单');
+  let depth = 0;
+  let end = -1;
+  for (let i = indexSource.indexOf('{', liveStart); i < indexSource.length; i += 1) {
+    if (indexSource[i] === '{') depth += 1;
+    else if (indexSource[i] === '}') { depth -= 1; if (depth === 0) { end = i; break; } }
   }
+  assert.ok(end > 0, '派生菜单的 JSX 表达式配对失败');
+  const router = indexSource.slice(liveStart, end);
+  /* 7 个有专属分支；2 个 1-click 走通用 handleCreateDerivedNode
+     （以前这两个 id 只出现在右面板那份**从未被接收**的死路由里，是它让这条门禁"看着在管"）。 */
+  for (const id of ['text-generation', 'ecommerce-suite', 'video-generation', 'image-edit', 'application-tts', 'application-caption']) {
+    assert.ok(router.includes("id === '" + id + "'"), '派生菜单路由必须覆盖 action id: ' + id);
+  }
+  assert.ok(router.includes('handleCreateDerivedNode('),
+    '1-click 套图 / 1-click 视频模板必须落在通用派生分支 handleCreateDerivedNode');
 });
 
 test('反馈 3 (用户 9-04 反馈): 空壳应用节点整体下架, 派生一律走素材端口菜单 (真实执行链路)', () => {
