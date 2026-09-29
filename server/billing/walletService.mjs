@@ -282,6 +282,18 @@ function normalizeHoldInput(input = {}) {
     items,
     metadata,
   };
+  /* ⚠️ 批 CY-⑱ 的一次**自我否决**，记在这里免得下一个人再犯：
+     线上 P0 报的是 `Idempotency conflict for key: canvas-hold:…`，我第一反应是
+     「指纹里混进了每次都会变的 quoteId / expiresAt，把它们踢出指纹就修好了」——
+     改完 **27 条计费门禁立刻红了**，其中 test/billing-wallet.test.mjs:196 写得很清楚：
+         assert.throws(() => service.createHold({ ...holdInput, quoteId: 'different-quote' }),
+                        /idempotency.*conflict/i);
+     **那条守卫是有意的、也是对的**：同一个键配一个**不同的报价**，
+     就不可能是同一次扣费请求 —— 拿旧报价的 hold 去结算一笔按新报价干的活，会少收或多收。
+     ⇒ 指纹保持**原样**（含 quoteId / expiresAt）。真正要修的是**调用方**：
+     画布那条幂等键**没有跟着内容走**（同一个节点改了提示词，键却不变），于是
+     「同键 + 新报价」⇒ 撞守卫。修在画布侧，见 index.jsx 的 requestKey。
+     这个坑记下来：**报 409 先问"是谁没带好上下文"，别急着把守卫放松**。 */
   return {
     ...operationInput,
     totalUnits,
@@ -376,8 +388,16 @@ function holdStatus(totalUnits, settledUnits, releasedUnits) {
 }
 
 function idempotencyConflict(idempotencyKey) {
-  const error = new Error(`Idempotency conflict for key: ${idempotencyKey}`);
+  /* ═══ 批 CY-⑱：这句话会**原样出现在用户界面上** ═══════════════════════════════════════════════════
+     截图里，生成节点上写着一整句 `Idempotency conflict for key: canvas-hold:canvas-5551b7fc`，
+     右下角还弹了一条同样英文的红色 toast。用户看不懂、也不知道该做什么。
+     现在：先说人话，再保留英文技术标记（供日志与既有的 `assert.throws(/idempotency.*conflict/i)` 继续认得）。
+     ⚠️ 修的是**措辞**，不是这个错误的成因 —— 成因在 `normalizeHoldInput` 的指纹（见那里）。 */
+  const error = new Error(
+    `这次扣费与同一次操作的上一次对不上，为避免重复扣费已停下。请稍后再试一次（idempotency conflict: ${idempotencyKey}）`,
+  );
   error.code = 'BILLING_IDEMPOTENCY_CONFLICT';
+  error.idempotencyKey = idempotencyKey;
   return error;
 }
 

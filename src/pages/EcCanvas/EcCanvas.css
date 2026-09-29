@@ -178,7 +178,20 @@
 /* 2026-09-20 删除：这里曾声明 `--ec-canvas-hud-reserve-right: 120px`（HUD 回夹余量）。
    回夹方案被实测推翻（见下方 .ec-canvas-bottom-dock 的说明），该变量**再无引用** ——
    按 D12「死代码也是 bug」删除，不留一个没人用的 token 误导下一个人。 */
-.ec-canvas-stage.has-right-panel { margin-right: calc(var(--canvas-right-panel-width, 480px) + var(--cvl-right-panel-margin, 28px)); }
+/* ═══ 批 CY-⑱：让位量**封顶在视口的 38%** ═════════════════════════════════════════════════════════
+   用户原话：「然后画布的真实显示区域也特别的小，基本上其他地方都会被遮挡，不知道是什么原因造成的。」
+   实测（.qa/cy18-stage-width.mjs，真实 DOM，三档视口各量两遍，改之前）：
+     视口 1920 → 右栏开：stage 75% ／ 1440 → 67% ／ 1280 → 63%
+   让位是**固定** 476px、从不看视口 ⇒ 用户截图那个窗口（不到 1000px）里，画布被压到不足 550px，
+   比面板本身还窄 —— "其他地方被遮挡"就是这个。
+   ⇒ 用 `min(完整让位, 38vw)` 封顶。**宽屏上 min 取的仍是完整那个值、一像素不变**
+     （第一版改成"JS 注入一个变量"的做法反而让宽屏少了 32px：运行时面板渲染宽 448、
+      而纯函数按 480 算，两个数字对不上 —— 那是既有的一处漂移，不该由这一批顺手改掉）。
+   ⚠️ 9-13「面板不盖住画布内容」那条初衷没有作废：只有当"完整让位"会吃掉超过 38% 时才收窄，
+     窄屏下宁可面板盖住画布右侧一小块（画布可以平移），也不能把画布本体压到失去主导。 */
+.ec-canvas-stage.has-right-panel {
+  margin-right: min(calc(var(--canvas-right-panel-width, 480px) + var(--cvl-right-panel-margin, 28px)), 38vw);
+}
 /* 移动端面板是全屏覆盖层，画布本来就看不见 → 不做让位 */
 @media (max-width: 760px) { .ec-canvas-page { --canvas-right-panel-width: 0px; } }
 @media (prefers-reduced-motion: no-preference) { .ec-canvas-stage { transition: margin-right 220ms var(--ec-ease-out, cubic-bezier(.16, 1, .3, 1)); } }

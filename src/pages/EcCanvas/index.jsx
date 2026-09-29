@@ -3167,15 +3167,38 @@ const handlePointerUp = useCallback((e) => {
         if (url && !referenceImages.includes(url)) referenceImages.push(url);
       }
       /* [/canvas-graph-inputs:generate-refs] */
-      const settled = await Promise.allSettled(pendingOutputIndexes.map(index => regenerateCanvasImage({
-        prompt,
-        imageUrl: sourceUrl,
-        referenceImages,
-        ratio: node.inputs?.ratio || source.ratio,
-        resolution: node.inputs?.resolution || source.resolution || '2K',
-        imageModel: node.inputs?.imageModel || source.imageModel || 'image2',
-        requestKey: `${generationRunId}:${index + 1}`,
-      })));
+      const settled = await Promise.allSettled(pendingOutputIndexes.map(index => {
+        const ratio = node.inputs?.ratio || source.ratio;
+        const resolution = node.inputs?.resolution || source.resolution || '2K';
+        const imageModel = node.inputs?.imageModel || source.imageModel || 'image2';
+        return regenerateCanvasImage({
+          prompt,
+          imageUrl: sourceUrl,
+          referenceImages,
+          ratio,
+          resolution,
+          imageModel,
+          /* ═══ 批 CY-⑱ 修线上 P0 的**真正**成因：`Idempotency conflict for key: canvas-hold:…` ══
+             原来这里是 `${generationRunId}:${index+1}`，而 `generationRunId` 是**存在节点上**的
+             （`inputs.generationRunId`，只有改张数时才会被清空）⇒ 用户改完提示词再点生成，
+             键**一模一样**，但报价是**新的一份** ⇒ 服务端的幂等守卫（"同键 + 不同报价 = 不是同一次"
+             这条守卫是对的，见 walletService.normalizeHoldInput 的注释）判定为冲突。
+             用户看到的现象：生成节点上直接写着一句英文、右下角还弹一条英文 toast，**每个节点第二次必中**。
+             ⇒ 键必须**跟着内容走**（与视频那条链 index.jsx:4588 同一口径）：
+               同一份内容重复点 → 键不变 → 服务端 replay、**不重复扣费**；
+               改了提示词/比例/清晰度/模型/参考图 → 键变 → 当作另一次生成、**正常计费**。 */
+          requestKey: [
+            generationRunId,
+            index + 1,
+            prompt,
+            ratio || '',
+            resolution,
+            imageModel,
+            sourceUrl,
+            referenceImages.join(','),
+          ].join('\u0000'),
+        });
+      }));
       const successful = settled.flatMap((result, resultIndex) => result.status === 'fulfilled'
         ? [{ index: pendingOutputIndexes[resultIndex], url: result.value }]
         : []);
@@ -6956,6 +6979,10 @@ const handlePointerUp = useCallback((e) => {
      窄屏 min(480, 视口-32) 且 ≥360），窄屏不再横向溢出。
      浮层避让与画布让位共用同一个值，右侧面板不会再与浮层/节点打架。 */
   const panelWidth = useCanvasPanelWidth();
+  /* ⚠️ 这里传的是 `panelWidth`（面板宽），而 `canvasRightPanelReserved` 的第一个形参是**视口宽** ——
+     两者语义不同，这是既有的一处口径不齐，本批**没有顺手改**（改它会让宽屏白少 32px）。
+     让位的**窄屏封顶**由 CSS 侧的 min(完整让位, 38vw) 负责（见 EcCanvas.css 的 .has-right-panel），
+     那个位置离真实渲染最近、也不会和这里的数字打架。 */
   const rightPanelReservedPx = canvasRightPanelReserved(panelWidth);
   /* ═══ 单一状态驱动 HUD 显隐（2026-09-18 用户批注：打开弹窗时 HUD 不许浮在弹窗上）═══
      用户原话：「为什么我打开工作流模板，你左下角的这个地图会跟着一起进来呢？」

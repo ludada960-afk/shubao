@@ -630,7 +630,24 @@ test('canvas remix variants use one stable run id for retries and distinct reque
   assert.ok(start >= 0 && end > start);
   const generate = page.slice(start, end);
   assert.match(generate, /generationRunId/);
-  assert.match(generate, /requestKey:\s*`\$\{generationRunId\}:\$\{index \+ 1\}`/);
+  /* 2026-09-29 批 CY-⑱：requestKey 从 `runId:index` 扩成
+       [runId, index, prompt, ratio, resolution, imageModel, sourceUrl, references…]
+     —— **原意一条没松、只多了一维**：
+       · 重试同一份内容 → 键不变 → 服务端 replay、不重复扣费（这仍由 generationRunId 保证）；
+       · 同一轮里第 1/2/3 张仍然各拿各的键（index 仍在键里）；
+       · **新增**：改了提示词 / 比例 / 清晰度 / 模型 / 素材 ⇒ 键变。
+     这一维是生产 P0 的真正修法：线上一直报 `Idempotency conflict for key: canvas-hold:…`
+     —— `generationRunId` 存在节点上、只有改张数时才会清空 ⇒ 用户改完提示词，键却一模一样，
+     而报价是**新的一份** ⇒ 撞上服务端那条「同键 + 不同报价 = 不是同一次」的守卫。
+     守卫本身是对的：**放松它会让 27 条计费门禁变红**（本批真的试过，见 RTK 批 CY-⑱）。 */
+  assert.match(generate, /requestKey:\s*\[/,
+    'requestKey 现在是一个数组（把内容一起编进键）');
+  assert.match(generate, /generationRunId,\s*\n\s*index \+ 1,\s*\n\s*prompt,/,
+    '键里必须含 runId / 位次 / 提示词（重试仍 replay、改提示词则算另一次）');
+  assert.match(generate, /ratio \|\| '',\s*\n\s*resolution,\s*\n\s*imageModel,/,
+    '比例 / 清晰度 / 模型同样改变报价，必须进键');
+  assert.match(generate, /sourceUrl,\s*\n\s*referenceImages\.join\(','\),/,
+    '来源图与参考图同样改变报价，必须进键');
   assert.match(generate, /generationRunId:\s*remainingIndexes\.length\s*\?\s*generationRunId\s*:\s*null/);
   assert.match(generate, /Promise\.allSettled/);
   assert.match(generate, /pendingOutputIndexes/);

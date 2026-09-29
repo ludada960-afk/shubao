@@ -274,8 +274,36 @@ export const CANVAS_RIGHT_PANEL_MARGIN_PX = 28;
  * 右侧功能栏占用的整行宽度（面板 + 两侧边距）。
  * 画布让位（.has-right-panel 的 margin-right）与派生浮层避让共用它。
  */
-export function canvasRightPanelReserved(viewportWidth) {
-  return canvasPanelWidth(viewportWidth) + CANVAS_RIGHT_PANEL_MARGIN_PX;
+export const CANVAS_RIGHT_PANEL_MAX_VIEWPORT_RATIO = 0.38;
+
+/**
+ * 右侧功能栏占用的整行宽度（面板 + 两侧边距）。
+ * 画布让位（.has-right-panel 的 margin-right）与派生浮层避让共用它。
+ *
+ * ═══ 批 CY-⑱：让位量**封顶在视口的 38%** ═══════════════════════════════════════════════════════
+ *   用户原话（逐字）：「然后画布的真实显示区域也特别的小，基本上其他地方都会被遮挡，
+ *     不知道是什么原因造成的。」
+ *   实测（.qa/cy18-stage-width.mjs，真实 DOM，三档视口各量两遍）：
+ *     视口 1920 → 右栏开：stage 1444（75%）
+ *     视口 1440 → 右栏开：stage  964（67%）
+ *     视口 1280 → 右栏开：stage  804（63%）
+ *   根因：这里之前是「面板宽 + 28px 固定相加」，**不看视口多宽**。
+ *   面板 448 + 28 = 476 —— 在 1280 的窗口上就是 37%；再窄一点（用户截图那个窗口
+ *   实际不到 1000px）就**过半**，画布被压到比面板还窄，"其他地方被遮挡"就是这个。
+ *   ⇒ 窄屏下宁可面板**盖住**画布右侧一小块（画布可以平移），也不能把画布本体压到失去主导。
+ *   ⚠️ 9-13「面板不盖住画布内容」那条初衷**没有作废**：宽屏下让位量仍是完整的 476px、口径不变；
+ *     只有当"完整让位"会吃掉超过 38% 时才收窄。
+ */
+export function canvasRightPanelReserved(viewportWidth, panelWidthOverride) {
+  const viewport = Number(viewportWidth) || 0;
+  /* ⚠️ 第二个参数是**布局真实用的那个面板宽**。
+     不传就自己按视口推一次 —— 但那会与运行时对不上（实测：布局注入的 var 是 448，
+     这里按 1920 推出来是 480，差 32px）。让位量必须等于「面板真实多宽 + 边距」，
+     所以调用方把**它已经算好的那个面板宽**原样传进来，两个数字从此不可能再漂。 */
+  const panel = Number(panelWidthOverride) > 0 ? Number(panelWidthOverride) : canvasPanelWidth(viewport);
+  const full = panel + CANVAS_RIGHT_PANEL_MARGIN_PX;
+  if (viewport <= 0) return full;
+  return Math.min(full, Math.round(viewport * CANVAS_RIGHT_PANEL_MAX_VIEWPORT_RATIO));
 }
 
 /**
