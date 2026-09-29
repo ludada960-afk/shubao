@@ -222,33 +222,68 @@ test('⑫ 结果区与页签的控件不再"小一号"（用户批注图1-③）
   assert.match(SHELL_CSS, /\.media-workbench-tabs button \{[\s\S]*?font-weight: 700;/, '页签字重 700（它是导航，不是正文说明）');
 });
 
-test('⑬ 左侧导航的紫是**两层嵌套**：格底一层紫底 + 磁贴一层紫渐变（用户 2026-09-29 第二次当面纠正）', () => {
-  /* ⚠️⚠️ 这一条被**推翻过两次**，两次都改反了方向，所以这里把整段口径写清楚：
-     · 批 DC 续-7：用户说「这个里面两层紫色…你怀疑你渐变层的底部有一层多余的紫色的底」
-       ⇒ 我把**静止态**那条品牌色渐变撤掉，当成"多余的紫色底"；
-     · 批 DC 续-8：用户又说「你没有做干净…它这个方块的周边是有一个底层依然是一个紫色的。
-       但是它表面这一层已经是一个紫色的渐变动效了」⇒ 我把 hover/选中底色压成中性 tint-strong。
-     两次都在"**消掉**那层紫"，而用户要的是"**留住**那层紫，只是要和表面那层渐变**嵌套**"。
-     实测（改前真机读计算样式）：hover 时 `cellBgColor = rgba(12,10,9,0.06)` —— 底层一点紫都没有，
-     当然看不见"下面还有一层"。 */
-  const resting = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell {'), SIDEBAR.indexOf('.app-sidebar-cell::after'));
-  assert.match(resting, /background-color: var\(--sb-surface-tint\)/, '静止态：格底是中性色（白底方块 + 紫色图标）');
-  assert.match(resting, /background-image: none;/, '静止态：格底不挂渐变（渐变是 hover 才有的「表面那层」）');
+test('⑬ 侧栏的紫是**三层**，且上面的渐变必须**铺满整格**（用户 2026-09-29 第三次当面纠正）', () => {
+  /* ⚠️⚠️⚠️ 这条被**推翻过三次**，而且每轮都更错一层。这里把三次错法与正确结构一起钉住：
+     · 续-7：看到"两层紫" ⇒ 撤掉静止态那条品牌色渐变，当成"多余的紫色底"；
+     · 续-8：把 hover/选中底色压成中性 tint-strong（底层一点紫都没有）；
+     · 续-9：铺了 a18 紫底 —— **方向对了，却没检查上面那层盖不盖得住**：
+       实测格子 78×80、磁贴 38×38，**渐变只占整格 23%**，底色在左 20 / 右 20 / 上 12 全露出来
+       ⇒ 就是一张紫色渐变方块浮在浅紫底上，两层交界那道边**正是用户从第一轮就在指的东西**。
+     用户第三次一句话点到根因：「上面这层毛玻璃的渐变，它的面积**没有完整覆盖到**下面这层紫色。
+       所以才会导致…渐变紫**它的边缘还有一层的样式**。」
 
-  /* hover / 选中 / 任务在跑：三处**都要**铺同一档紫色底。 */
-  const hover = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell:hover {'), SIDEBAR.indexOf('.app-sidebar-cell:hover .app-sidebar-tile'))
-    .replace(/\/\*[\s\S]*?\*\//g, '');   // 规则块里那条注释**提到**了 background-image，别把它算成声明
-  assert.match(hover, /background-color: var\(--sb-brand-a\d+\);/,
-    'hover：格底要铺一层**紫底**（用户原话「整个方块被紫色包裹…周边有一个底层依然是一个紫色的」）');
-  assert.doesNotMatch(hover, /background-image/, '但底层**不许**用渐变画 —— 渐变留给磁贴那层；混在一起就永远查不清"这格有没有渐变"');
-  assert.match(SIDEBAR, /\.app-sidebar-cell\.is-active \{[^}]*background-color: var\(--sb-brand-a\d+\);/,
-    '选中：与 hover 同一档紫底（改前是中性 tint-strong，选中格一眼就看出缺了底层）');
-  assert.match(SIDEBAR, /\.app-sidebar-task\.is-live \{[^}]*background-color: var\(--sb-brand-a\d+\);/,
-    '任务在跑：同样是两层（磁贴渐变 + 格底紫底），三处必须一致');
+     正确的三层（逐条对着用户原话核）：
+       ① 格底  一层紫 `--sb-brand-a18`（「底层依然是一个紫色的」）
+       ② 格面  135deg 紫渐变**铺满整格 78×80**（「表面这一层…面积要完整覆盖下面那层」）
+       ③ 磁贴  底/描边/发光**全撤**，白图标直接落在紫面上（「里面的样式变成白色」）
+       ④ 文字  白（「周边变成紫色渐变」时里面要读得出来）
+     ⚠️ 判据用"**渐变挂在哪一条规则上**"来钉，而不是"有没有渐变" ——
+        挂错元素（挂磁贴而不是格子）正是前三次错法的共同形态。 */
+  const resting = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell {'), SIDEBAR.indexOf('.app-sidebar-cell::after'));
+  assert.match(resting, /background-color: var\(--sb-surface-tint\)/, '静止态：白底方块 + 紫色图标（用户原话「周边的方块整体是白色」）');
+  assert.match(resting, /background-image: none;/, '静止态：格面不挂渐变');
+
+  /* 三态每一处都要"底色 + 铺满整格的渐变"，且三处**逐值相同**。 */
+  for (const [label, selector] of [
+    ['hover', '.app-sidebar-cell:hover {'],
+    ['选中', '.app-sidebar-cell.is-active {'],
+    ['任务在跑', '.app-sidebar-task.is-live {'],
+  ]) {
+    const at = SIDEBAR.indexOf(selector);
+    assert.ok(at > 0, `自证：${label} 那条规则找得到`);
+    const block = SIDEBAR.slice(at, SIDEBAR.indexOf('}', at));
+    assert.match(block, /background-color: var\(--sb-brand-a\d+\)/, `${label}：底层紫（用户原话「底层依然是一个紫色的」）`);
+    assert.match(block, /background-image: linear-gradient\(135deg, var\(--sb-brand-\d+\), var\(--sb-brand-\d+\)\)/,
+      `${label}：**渐变必须挂在格子上**（铺满整格）—— 挂在磁贴上就是"没有完整覆盖"，那道边就是这么来的`);
+  }
+  /* 三态的磁贴：透明 + 白图标（渐变已经在格子上，磁贴再画一遍就又分家）。 */
+  for (const [label, selector] of [
+    ['hover', '.app-sidebar-cell:hover .app-sidebar-tile {'],
+    ['选中', '.app-sidebar-cell.is-active .app-sidebar-tile {'],
+    ['任务在跑', '.app-sidebar-task.is-live .app-sidebar-tile {'],
+  ]) {
+    const at = SIDEBAR.indexOf(selector);
+    assert.ok(at > 0, `自证：${label} 的磁贴规则找得到`);
+    const block = SIDEBAR.slice(at, SIDEBAR.indexOf('}', at));
+    assert.match(block, /background-image: none;/, `${label}：磁贴不再画自己的面（用户原话「里面的样式变成白色」）`);
+    assert.match(block, /background-color: transparent;/, `${label}：磁贴底也要透明（留白底就还是一块浅色方块）`);
+    assert.match(block, /color: var\(--sb-brand-ink\)/, `${label}：白图标压在紫面上才看得见`);
+  }
+  /* ⚠️ 结构性自证：全文件里那 135deg 品牌渐变必须**一条都不在磁贴规则里** ——
+     只要它还挂在磁贴上，就会重演"渐变只盖住 38×38、底色从四边露出来"。 */
+  const tileBlocks = SIDEBAR.split('.app-sidebar-tile {').slice(1).join('\n').split('}');
+  for (const block of tileBlocks) {
+    assert.doesNotMatch(block.split('\n').slice(0, 3).join('\n'), /linear-gradient\(135deg, var\(--sb-brand-/,
+      '渐变不许挂在磁贴上 —— 它必须铺满整格');
+  }
+  /* 充能条在紫面上，必须是白的（紫压紫等于看不见，动画会消失）。 */
+  const barTint = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell::after'), SIDEBAR.indexOf('.app-sidebar-cell:hover::after'));
+  assert.match(barTint, /linear-gradient\(to right, var\(--sb-brand-ink\)/,
+    '充能条改成白色 —— 它现在压在紫渐变上，紫压紫等于看不见，充能动画会整个消失');
 
   /* 发光收敛，且 hover / 选中 / 任务在跑**三处同一档**。 */
   const shadows = SIDEBAR.match(/box-shadow: 0 \d+px \d+px var\(--sb-brand-a\d+\);/g) || [];
-  assert.ok(shadows.length >= 3, '自证：hover / 选中 / is-live 三处磁贴阴影都找得到，实得 ' + shadows.length);
+  assert.ok(shadows.length >= 3, '自证：hover / 选中 / is-live 三处阴影都找得到，实得 ' + shadows.length);
   assert.equal(new Set(shadows).size, 1, '三处必须同档：' + shadows.join(' | '));
   assert.doesNotMatch(SIDEBAR, /0 8px 18px var\(--sb-brand-a32\)/, '旧那档光晕不许留着');
   const gradients = SIDEBAR.match(/background-image: linear-gradient\(135deg, var\(--sb-brand-\d+\), var\(--sb-brand-\d+\)\);/g) || [];
