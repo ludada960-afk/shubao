@@ -13694,3 +13694,17 @@ ec_smart_layer = 3000       ec_reverse_prompt = 200   ec_canvas_ocr = 200
 ### 验证
 
 全量 `npm test` **4416 条 / 4406 通过 / 10 跳过 / 0 失败** ✅
+
+### 批 CY-㉒ 部署记录
+
+- 提交：`e7393f0c`
+- 部署 release `20260929-170650-e7393f0c` → `/var/www/shubao/current`
+- 服务器侧复验（只读）：
+  - `/health` 200 `{"ok":true,"ready":true,...}`，pm2 pid 833309
+  - `readlink current` → `/var/www/shubao/releases/20260929-170650-e7393f0c`（与提交号一致）
+  - 产物里 `"smart-remix":1` 命中（**改正后的**估算值已上线）
+  - 产物里 `smart-remix:10` = 0 命中（**错误的**旧值已消失）
+- ⚠️ 又记一条 grep 教训：压缩后对象字面量可能带引号（`"smart-remix":1`）也可能不带
+  （`smart-remix:1`）。判断上线与否要**先 `grep -o '.\{0,3\}key.\{0,12\}'` 看一眼真实形态**，
+  再写断言 —— 否则会像这次一样「以为没上线，其实只是没匹配上」。
+- 全量 `npm test` **4416 条 / 4406 通过 / 10 跳过 / 0 失败** ✅
