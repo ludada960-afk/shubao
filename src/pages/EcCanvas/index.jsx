@@ -7416,12 +7416,50 @@ const handlePointerUp = useCallback((e) => {
             </div>
           )}
 
-          {/* 2026-09-20：**裁剪边界从这里开始，不再由 .ec-canvas-stage 承担**。
-              原因：stage 还装着 HUD（底部操作栏 / 缩放条 / 小地图 / 左工具栏），
-              stage 一旦 overflow:clip，窄屏（实测 1024px + 右侧面板打开）会把 HUD 切掉一块；
-              而把 HUD 回夹进 stage 又会造成 −84px 的居中偏移 —— 两个都不对。
-              正确做法：**内容层自己裁，HUD 不裁**（实测 8 组宽度×面板开关：中心偏差 0、探针 9/9 可命中）。 */}
-          <div style={{ '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale), position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'clip', transform: `translate(${viewport.x}px,${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', willChange: 'transform' }}>
+          {/* ═══ 批 CY-㉕：无限画布的「视口层」与「内容层」必须分开 ═══════════════════════
+              2026-09-20 那次把裁剪从 stage 挪到内容层，方向是对的（stage 装着 HUD，不能裁），
+              但**内容层同时又背了 transform**，于是出了用户 2026-09-28 报的问题：
+              「还是一样……现在的画布就这么小的面积有素材而已」。
+
+              实测（本地真浏览器量，2000x1000 窗口）：
+                stage        0..2000
+                contentLayer 局部尺寸 = 2000 x 892 **世界单位**
+                8 个节点里 **2 个被裁**，最左那个 x=24 < 裁剪窗 80，被削掉 56px
+
+              根因：`overflow: clip` 作用在**元素自己的盒子**上，而那个盒子同时被
+              `translate(vx,vy) scale(s)` 变换过 —— 于是**裁切窗口固定在
+              「世界坐标 [0, 2000] × [0, 892]」这一块，与平移无关**。
+              缩小到 29% 时，可见**世界**区域仍然只有 2000 宽（而不是 2000/0.29 = 6896）。
+              ⇒ 排在世界 x > 2000 的素材**永远看不见，而且平移救不回来**。
+              这不是「素材摆得不好」，是无限画布的坐标系被裁错了。
+
+              正确结构（tldraw / Konva / React Flow 都是这一套）：
+                · 视口层：尺寸 = 舞台、**不参与变换**、只负责裁剪
+                   ⇒ 裁切边界永远是屏幕边界，与世界坐标无关；
+                · 内容层：负责缩放，尺寸必须**始终盖住整个视口**。
+              推导：内容层左边缘落在屏幕 -vx 处，要盖到屏幕 stageW，局部宽 W 需
+                    -vx + W*s >= stageW  ⇒  W >= (stageW + vx) / s
+              反向（vx 为负、要向左多铺）同理，两边合起来：
+                    W = (stageW + 40 + |vx|) / s
+              节点世界坐标 x 渲染到屏幕 = (-vx/s + x) * s = x*s - vx
+              —— 与原来「translate+scale」那一版**完全一致**，所以视觉零变化。
+              ⚠️ 那个 40px 是躲浮点缝隙的余量；`|vx|` 那项不能省，
+              省了就是「往右拖一点，最右边的素材又不见了」——
+              这是本批自己算完式子发现的（第一版只写了 +40px）。 */}
+          <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'clip' }}>
+          <div style={{
+            '--canvas-overlay-scale': 1 / Math.max(0.1, viewport.scale),
+            position: 'absolute',
+            /* 下面三个值是一组：**内容层的左/上偏移与尺寸必须同时按 scale 换算**，
+               否则内容层盖不满视口，裁剪窗又会退化成"世界坐标里的一块固定区域"。 */
+            left: `calc(${-viewport.x}px / ${Math.max(0.1, viewport.scale)})`,
+            top: `calc(${-viewport.y}px / ${Math.max(0.1, viewport.scale)})`,
+            width: `calc((100% + ${40 + Math.abs(viewport.x)}px) / ${Math.max(0.1, viewport.scale)})`,
+            height: `calc((100% + ${40 + Math.abs(viewport.y)}px) / ${Math.max(0.1, viewport.scale)})`,
+            transform: `scale(${viewport.scale})`,
+            transformOrigin: '0 0',
+            willChange: 'transform',
+          }}>
             <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
             <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
             {visibleNodes.map(node => {
@@ -7816,6 +7854,9 @@ const handlePointerUp = useCallback((e) => {
               onCancel={() => setFocusedEditor(null)}
               onConfirm={handleFocusedEditorConfirm}
             />
+          </div>
+          {/* 批 CY-㉕：上面这个 `</div>` 收的是**内容层**（平移+缩放）；
+              这一层收的是**视口层**（只裁剪、不变换）。顺序不能反。 */}
           </div>
 
           {marquee && (
