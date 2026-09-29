@@ -418,6 +418,27 @@ export default function WorkbenchShell({
                             {item.hint && <small>{item.hint}</small>}
                           </span>
                         </button>
+                        {/* ═══ 2026-09-29 批 DC 续-15：这一行额外的「连拍」标记 ════════════════════════
+                            用户 2026-09-29 选定（逐字）：「改成清单里逐张勾『进连拍』」。
+                            旧做法是一栏「前 2 张 / 前 3 张」按**位置**取清单最前面的 N 张 ——
+                            ① 必然占用封面（第 1 项就是概念静物）；
+                            ② 依据不成立（重算实测：76% 的篇封面根本不在连拍簇里，簇多是中段连着）。
+                            ⚠️ 与上面那颗勾选**分开**是必须的：勾 = 这一篇出不出这张；
+                               连拍 = 这张和哪几张同机位。点它不会改张数、也不会改价钱。
+                            ⚠️ 本身没被勾进这一篇的那行置灰：清单里没有的那张不可能出现在组里。 */}
+                        {section.series && (
+                          <button
+                            type="button"
+                            className={'media-workbench-checklist-series'
+                              + (section.seriesNames?.includes(item.name) ? ' is-on' : '')}
+                            aria-pressed={section.seriesNames?.includes(item.name) || false}
+                            disabled={!on}
+                            title={on ? (section.seriesHint || '') : '先把这一张勾进这一篇，才能标它进连拍组'}
+                            onClick={() => section.onToggleSeries?.(item.name)}
+                          >
+                            连拍
+                          </button>
+                        )}
                       </li>
                     );
                   })}

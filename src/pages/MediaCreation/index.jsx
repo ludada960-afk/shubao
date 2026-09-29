@@ -682,6 +682,29 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
     () => skillModules.filter(module => !moduleOff.has(module.name)),
     [skillModules, moduleOff],
   );
+  /* ═══ 2026-09-29 批 DC 续-15：**同机位连拍改成在清单里逐张标**（推翻「前 N 张」）═════════════════════
+     旧做法是一栏「不做 / 前 2 张 / 前 3 张」，按**位置**取清单最前面的 N 张。两条问题：
+       ① **必然占用封面** —— 清单第 1 项就是「概念静物」，而 `skillSeriesClause` 的判据
+          `at < count` 意味着 index 0 永远在组里；
+       ② **依据不成立** —— 重算那份实测聚类（74/402 完全复现）：23 个簇里只有 5 个含首图，
+          21 篇里 16 篇（76%）的封面不在连拍簇内，74 张里 54 张（73%）所在簇不含首图，
+          而且簇**不是开头连续段**（n19: 3/4/5/7/10/11）。详见 imageSkills 里那一段注释。
+     ⇒ 现在勾哪几张就是哪几张；封面不会被自动占用，真要放进去是用户自己标的。 */
+  const [seriesNames, setSeriesNames] = useState(() => new Set());
+  useEffect(() => { setSeriesNames(new Set()); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** 标了连拍、但本身没被勾进这一篇的，自动摘掉 —— 清单里没有的那张不可能出现在组里。 */
+  const effectiveSeriesNames = useMemo(() => {
+    const picked = new Set(selectedModules.map(module => module.name));
+    return selectedModules.map(module => module.name).filter(name => seriesNames.has(name) && picked.has(name));
+  }, [selectedModules, seriesNames]);
+  const toggleSeries = useCallback(name => {
+    setSeriesNames(previous => {
+      const next = new Set(previous);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
   /* 勾了 0 个不是"没得选"，是一个**明确的未完成状态**：按钮禁用 + 说明缺什么。
      与其它必填项走同一条路（validation.missing），用户看到的是一句人话而不是灰按钮。 */
   /* ⚠️ 2026-09-27 批 DC：这句话可以让技能自己声明（`modulesGate`）—— 概念的清单是"手法"、
@@ -715,12 +738,17 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         所以注入进它 = 三处同时生效，页面里不必各写一遍。 */
   const effectiveValues = useMemo(() => {
     const shots = skillShotValues(skill, selectedModules);
-    const merged = shots.length ? { ...baseValues, shots } : baseValues;
+    /* `shotNames` 与 `shots` **同序**：skillValuesForShot 靠它知道"第 i 张叫什么"，
+       才能判这一张在不在连拍组里（组是按**名字**标的，不是按位置）。 */
+    const shotNames = selectedModules.map(module => module.name);
+    const merged = shots.length
+      ? { ...baseValues, shots, shotNames, seriesNames: effectiveSeriesNames }
+      : { ...baseValues, seriesNames: effectiveSeriesNames };
     /* ⚠️ 批 DC（M2）：下发前再夹一次（声明里 `disabledWhen` 锁住的字段回到它自己的默认档）。
        面板里改字段时已经夹过（onFieldChange 的那条链），这一行管的是**带进来的旧值**那条路 ——
        历史还原 / 做同款 / 断线补跑，免得出现"界面锁着、请求里还带着旧方向"。 */
     return reconcileFieldValues(skill?.fields, merged);
-  }, [skill, baseValues, selectedModules]);
+  }, [skill, baseValues, selectedModules, effectiveSeriesNames]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
   const gateHint = useMemo(() => {
     if (moduleGate) return moduleGate;
@@ -999,8 +1027,21 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         if (next.has(name)) next.delete(name); else next.add(name);
         return next;
       }),
+      /* ═══ 2026-09-29 批 DC 续-15：清单每一行上多一颗「连拍」标记 ══════════════════════════════════
+         用户 2026-09-29 选定（逐字）：「改成**清单里逐张勾「进连拍」**」。
+         ⚠️ 只有**概念视觉方案**这一条技能要这一列（别的技能的清单是"内容模块"，
+            那里加"连拍"会说错东西）⇒ 由技能自己声明 `modulesSeries: true`。
+         ⚠️ 勾不上的那一行（本身没被勾进这一篇）置灰：清单里没有的那张不可能出现在组里。
+         ⚠️ 组里只有 1 张时**不出**那句话（`skillSeriesClause` 的 count < 2 判据）——
+            界面上也据实写明，别让用户以为标一张就能连拍。 */
+      ...(skill.modulesSeries ? {
+        series: true,
+        seriesNames: effectiveSeriesNames,
+        onToggleSeries: toggleSeries,
+        seriesHint: '标了的那几张共享「机位/景别/光线全不变、只换实体」；至少标 2 张才生效',
+      } : {}),
     }];
-  }, [skill, skillModules, moduleOff]);
+  }, [skill, skillModules, moduleOff, effectiveSeriesNames, toggleSeries]);
 
   /* ── 一键解析（付费前置动作，0.2 积分）──────────────────────────────────────
      照竞品做法：先上传商品图 → 点「一键解析」→ 字段自动填好 → 用户改细节 → 再生成。

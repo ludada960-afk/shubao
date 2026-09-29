@@ -183,36 +183,43 @@ export function skillShotValues(skill, selectedModules = []) {
 
 /* 第 i 张的取值。0/1 种时没有可收窄的（提示词照原样），所以直接把原值还回去 —— 这样
    "只勾一种"跑出来的请求与改前逐字相同（老参数、老历史还原都不会变味）。
-   ⚠️ 2026-09-28 批 DC 续-3：`series`（连拍组）**也要逐张给** —— 见 skillSeriesClause。 */
+   ⚠️ `series`（同机位连拍）**也要逐张给** —— 见 skillSeriesClause。
+   ⚠️ 判断「第 i 张在不在连拍组里」必须按**名字**判，所以取值里带了 `shotNames`
+   （与 `shots` 同序）：页面上每一张对应的名字，由页面按勾选顺序给出。 */
 export function skillValuesForShot(values = {}, index = 0) {
   const shots = (Array.isArray(values && values.shots) ? values.shots : []).map(text).filter(Boolean);
+  const names = Array.isArray(values && values.shotNames) ? values.shotNames.map(text) : [];
   const at = Math.min(Math.max(Number(index) || 0, 0), Math.max(0, shots.length - 1));
   const scoped = shots.length < 2 ? values : { ...values, shots: [shots[at]] };
-  return { ...scoped, series: skillSeriesClause(values, index) };
+  return { ...scoped, series: skillSeriesClause(values, names[at]) };
 }
 
-/* ═══ 2026-09-28 批 DC 续-3：**连拍组**（同一次拍摄的连拍）══════════════════════════════════
-   用户口径（逐字）：「**你有没有我忽略的排版和布局和构图方式呢**」「不能因为我举了几个例子就
-   只照我的例子去做呀」。复核 402 张的原始判定后确认：真正撑起"成套感"的那条实测规律是
-   **篇内"同机位/同版式连着用几张、每张只换实体"**（74/402 = 18.4%，落在 21 篇；报告原话
-   「他的篇级做法是"一个版式/机位连着用几张，每张换道具/换材质/换文案"，而不是"每张都换构图"」）。
-   ⚠️ 这条规律上一版被我用错了地方 —— 我拿它去给**拼版侧**的必选字段当依据（那是"后期把几张
-   拼在一张里"，与"拍摄时同一个机位"是两件事）。这一版把它挪回**出图侧**：用户声明"这一篇有没有
-   连拍组"，有的话，清单里**最靠前的那 2~3 张**共享一条"机位/景别/光线全不变、只换实体"的纪律。
-   ⇒ 它**进提示词**（`{{series}}`），且**只在组内那几张里出现**：组外的张拿不到这句话（空串，
-     被 buildSkillBrief 的清理逻辑吃掉），所以"没做连拍组"的篇与改前逐字相同。 */
-export function skillSeriesCount(value) {
-  const matched = /(\d+)\s*张/.exec(text(value));
-  const count = matched ? Number(matched[1]) : 0;
-  return Number.isFinite(count) && count >= 2 ? Math.min(count, 3) : 0;
-}
+/* ═══ 同机位连拍（"这一篇里哪几张是同一次拍摄连按的"）══════════════════════════════════════════════
+   依据（402 张实测，报告原话）：「他的篇级做法是**一个版式/机位连着用几张，每张换道具/换材质/换文案**，
+   而不是"每张都换构图"」—— 74/402（18.4%）落在 21 篇的同机位簇里。
 
-export function skillSeriesClause(values = {}, index = 0) {
-  const count = skillSeriesCount(values && values.series);
-  if (!count) return '';
-  const at = Number(index) || 0;
-  if (at < 0 || at >= count) return '';
-  return '这一张属于本组的「同机位连拍」（本组共 ' + count + ' 张，是本篇最前面的 ' + count + ' 张）：'
+   ⚠️⚠️ 2026-09-29 批 DC 续-15（用户 2026-09-29 当面指出，推翻批 DC 续-3 的「取最前面 N 张」）：
+     「这个连拍组为什么**一定要前两张三张**呢，这样生成不就**一定会占用到封面第一张图**吗，
+       **我们模仿的那个账号也是这样做的吗？**」
+
+     **重算了那份原始聚类数据，答案是「不是」**：
+       · 23 个簇里只有 **5 个**含首图（n4:1/7/8/10、n15:1/8、n29:1/4/5/6/7/8/10、n31:1/2/3/6/7、n36:1/5）；
+       · **21 篇里 16 篇（76%）的封面根本不在连拍簇里**；按张数算，**74 张里 54 张（73%）**所在簇
+         **不含**首图；
+       · 簇**不是开头连续段**，多是中段连着（n19: 3/4/5/7/10/11、n23: 4/5/9/11、n40: 2/3|4/5）；
+       · 那 5 篇里首图在簇中时，它本身是**拼版页**而不是静物。
+     批 DC 续-3 那行注释「实测里连拍簇**本来就是从第一张开始连着**的」**与数据不符**，已删。
+     ⇒ 现在**由用户在清单里逐张标**，不再按位置猜（用户 2026-09-29 选定）。
+
+   ⇒ 它**进提示词**（`{{series}}`），且**只在被标中的那几张里出现**：组外的张拿不到这句话
+     （空串，被 buildSkillBrief 的清理逻辑吃掉），所以"没标连拍组"的篇与改前逐字相同。
+   ⚠️ 只标了 1 张时**不出这句话** —— 「一组 1 张」不成立（渲染下限那一版就有的判断，这里保留）。 */
+export function skillSeriesClause(values = {}, shotName = '') {
+  const group = (Array.isArray(values && values.seriesNames) ? values.seriesNames : []).map(text).filter(Boolean);
+  const count = group.length;
+  if (count < 2) return '';
+  if (!text(shotName) || !group.includes(text(shotName))) return '';
+  return '这一张属于本组的「同机位连拍」（本组共 ' + count + ' 张：' + group.join('、') + '）：'
     + '本组内**以本条为准** —— 机位、景别、焦段、光线与背景位置完全不变，'
     + '只更换画面里的实体（道具 / 材质 / 动作 / 服装细节），'
     + '让这几张一眼看出是同一次拍摄连着按下来的。';

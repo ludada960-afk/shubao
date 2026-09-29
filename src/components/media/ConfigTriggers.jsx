@@ -122,17 +122,24 @@ export default function ConfigTriggers({
     setOpen(panel);
   };
 
-  /* 滚动 / 缩放时贴着按钮走（浮层是 fixed 的，不跟着动就会飘）。 */
+  /* 打开时算一次坐标，之后**什么都不跟**（这就是「吸附住」）。
+   *
+   * ⚠️ 2026-09-29 批 DC 续-15（用户 2026-09-29 逐字）：
+   *   「你的模型和画面的面板打开之后为什么**没有吸附住**啊，我滑动一下界面就**脱离**了呀。」
+   * 根因是我在 `scroll` 时重新 `measure()`，而 `measure` 会去量顶栏下沿：
+   *   `.app-topbar` 是 `position: sticky`，页面滚过 120px 会加 `.is-compact`（标 30→26），
+   *   **顶栏高度变了** ⇒ `barBottom` 变 ⇒ 面板 top 跟着跳 ⇒ 看起来就是"脱离"。
+   *   （面板是 `position: fixed` 的浮层，滚一下就换位置，用户眼里就是没吸住。）
+   * ⇒ 现在：**只在打开时算一次**。滚动不重算。
+   *   ⚠️ 只保留 `resize` —— 视口尺寸真的变了（转屏、窗口缩放）时，
+   *      之前夹好的 left/maxHeight 会失效，那一次重算是必要的。
+   *      滚动**不**在列：fixed 浮层的坐标系是视口，页面怎么滚它都不该动。 */
   useLayoutEffect(() => { if (open) measure(open); }, [open, measure]);
   useEffect(() => {
     if (!open) return undefined;
-    const onMove = () => measure(open);
-    window.addEventListener('resize', onMove);
-    window.addEventListener('scroll', onMove, true);
-    return () => {
-      window.removeEventListener('resize', onMove);
-      window.removeEventListener('scroll', onMove, true);
-    };
+    const onResize = () => measure(open);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, [open, measure]);
 
   /* 点外面 / ESC 收起。⚠️ 监听用 capture：**面板与触发器都在 React 树里**，

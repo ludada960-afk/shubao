@@ -340,6 +340,39 @@
 }
 .media-workbench-checklist-toggle .media-workbench-checklist-copy strong { color: var(--sb-ink-2); }
 .media-workbench-checklist-toggle.is-on .media-workbench-checklist-copy strong { color: var(--sb-ink-1); }
+/* ═══ 2026-09-29 批 DC 续-15：每行右侧那颗「连拍」小胶囊 ═════════════════════════════════════════════
+   它与左边那颗勾选是**两件事**：勾 = 这一篇出不出这张；连拍 = 这张和哪几张同机位。
+   ⇒ 点它不改张数、不改价钱，也不影响左边那颗勾（所以这里必须是一颗**独立的 button**，
+      塞进那颗勾里会让一次点击同时做两件事 —— 那是账实不符）。
+   ⚠️ 形态照站内既有的行内小胶囊（`--sb-radius-pill` + 10px 字号），
+      不新造尺寸档；触达区补到 32px（比正文高，够点但不会把行撑高）。 */
+.media-workbench-checklist-series {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  min-height: 32px;
+  margin-top: 5px;
+  padding: 0 10px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-3);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.media-workbench-checklist-series:hover:not(:disabled) { background: var(--sb-hover-bg); color: var(--sb-ink-1); }
+.media-workbench-checklist-series:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
+.media-workbench-checklist-series.is-on {
+  border-color: var(--sb-ink-brand);
+  background: var(--sb-ink-brand);
+  color: var(--sb-brand-ink);
+}
+.media-workbench-checklist-series:disabled { opacity: .4; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .media-workbench-checklist-series { transition: none; } }
 @media (prefers-reduced-motion: reduce) {
   .media-workbench-checklist-toggle,
   .media-workbench-checklist-toggle .media-workbench-checklist-check { transition: none; }
