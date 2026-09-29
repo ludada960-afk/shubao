@@ -1120,7 +1120,9 @@ function CanvasSuiteControls({ node, onChange, activeSurface = '', onSurfaceChan
           if (!selected) promptFieldRef.current?.insertMention(sourceImage.label);
         }}
       />
-      <span className="ec-canvas-suite-mention-label">引用</span>
+      {/* 批 CY-㉘：删掉这行「引用」标签（用户 2026-09-30 逐字：
+          「@ 按钮的后面怎么还是有引用两个字？你要把它去掉呀」）。
+          上面那张 `CanvasSuiteSourceStrip` 已经把 @ 钮画出来了，这行是纯重复文案。 */}
     </div>
     {/* 参数行只放**短文案**四字按钮（首页同序）：套图方案 → SKU变体 → 技能 → 商品信息 → 内容规范。
         「生成设置」不在这里 —— 它是「模型·清晰度」，是长文案、允许被裁的那一格，
@@ -1704,7 +1706,12 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
     <CanvasPromptField ref={promptFieldRef} data-canvas-control="true" value={node.prompt || ''} mentions={mentionSources} maxLength={VIDEO_PROMPT_LIMIT} contentEditable={!loading} className={loading ? 'is-disabled' : ''} placeholder="描述主体、动作、镜头、场景和节奏" onChange={value => change({ prompt: value })} />
     <div className="ec-canvas-video-controls" ref={videoControlsRef}>
       {/* 2026-09-17 用户批注：@ 键放到**最前面**（视频模型之前）。 */}
-      <label className="ec-canvas-video-field is-mention"><span>引用</span><ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} /></label>
+      {/* 批 CY-㉘：去掉包裹的「引用」二字（用户 2026-09-30 逐字：
+          「@ 按钮的上面还有个引用，你要把它拿掉」）。
+          `ComposerMention` 内部**只渲染那颗 @ 圆钮**（CanvasStudio.jsx:494 自带
+          `aria-label="引用图片"`，无可见文字）⇒ 这个 <span> 是纯多余的一截，
+          删掉后 @ 钮仍是第一个，位置与 aria 都不变。 */}
+      <label className="ec-canvas-video-field is-mention"><ComposerMention availableSources={availableSources} selectedSources={mentionSources} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onToggleSource={handleToggleSource} /></label>
       {/* ═══ 批 CY-⑬：视频框原来这一行是 **4 个原生 `<select>`**（22px 高、无箭头、系统外观，
           与站内其它三个框完全不是一套语言 —— 盘点见文件上方那张表）。现在换成与图片框**同一套**
           两行摘要触发器：视频模型一颗 + 「生成配置」一颗（清晰度 · 画幅 · 时长）。
@@ -1771,8 +1778,11 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
           修法：把技能放进**同一结构**的 <label> 里（标题「技能」在上、控件在下），
           与其余四项共用同一套 label/select 样式，不再单独排版。 */}
       <label className="ec-canvas-video-field">技能<CanvasSkillControl node={node} onChange={change} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="video" /></label>
-      {/* 声音开关也走同一结构：标题「声音」在上、控件在下（原来是 flex+padding-top 硬顶，容易歪） */}
-      <label className="is-toggle">声音<span className="ec-canvas-video-toggle-control"><input type="checkbox" checked={node.generateAudio !== false} onChange={event => change({ generateAudio: event.target.checked })} /><Volume2 size={14} /></span></label>
+      {/* ═══ 批 CY-㉘：删掉「声音」开关（用户 2026-09-30 逐字：「最右边这个声音你要把它拿掉啊，
+          我们现在首页的视频生成都早就没有这个功能了」）。
+          删的是**开关**，不是能力：`generateAudio` 缺省仍是 true，
+          index.jsx:4613/4647/4749 三处照旧读它（`!== false`）⇒ 不传就出带声成片，
+          行为与改动前默认一致，只是不再给用户一个首页已经取消的选项。 ═══ */}
     </div>
     {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>素材分析与生成前方案</strong><small>{plan.analyzed ? '真实素材分析已完成 · 已结算 1 AI 积分' : '补齐输入后进行真实分析'}</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.risks?.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.risks.map((item, index) => <span key={`${item}-${index}`}>风险：{item}</span>)}</div>}{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready || !plan.analyzed} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
     <div className="ec-canvas-composer-footer">

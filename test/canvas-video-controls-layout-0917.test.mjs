@@ -122,9 +122,21 @@ test('② 宽度固定（2026-09-17 用户批注：槽位宽绝不随文案变�
   assert.match(trigger[1], /white-space:\s*nowrap/);
 });
 
-test('② 声音开关与其余控件同结构同基线（原来是 flex+padding-top 硬顶）', () => {
+test('② 声音开关已按用户要求移除（首页视频生成早已没有这个功能）', () => {
+  /* 批 CY-㉘：用户 2026-09-30 逐字「最右边这个声音你要把它拿掉啊，我们现在首页的
+     视频生成都早就没有这个功能了」。
+     这条门禁原来是**反过来**要求「声音必须存在」的（它是 9-17 那轮排版对齐的产物），
+     现在改成盯住「已移除」，并说明能力本身没删：
+     `generateAudio` 缺省仍是 true，index.jsx:4613/4647/4749 照旧读它（`!== false`），
+     所以不传就出带声成片 —— 删的只是那个首页已取消的开关。 */
   const block = videoControlsBlock();
-  assert.ok(/<label className="is-toggle">声音<span/.test(block), '声音必须也有标题且控件独立成盒');
-  assert.ok(/\.ec-canvas-video-controls > \.is-toggle > \.ec-canvas-video-toggle-control \{[\s\S]*?height: var\(--cvl-control-compact, 32px\)/.test(css),
-    '声音控件盒必须与 select 同高（32）才可能同顶边');
+  assert.doesNotMatch(block, /<label className="is-toggle">声音/, '声音开关必须已从视频框里拿掉');
+  assert.doesNotMatch(block, /generateAudio: event\.target\.checked/,
+    '不得再有把开关状态写回节点的处理器');
+  assert.doesNotMatch(block, /ec-canvas-video-toggle-control/,
+    '声音的控件盒也不该再出现在视频框里');
+  // 能力仍在：字段仍会被读取，且缺省为 true（= 出带声成片）
+  const canvas = readFileSync(new URL('../src/pages/EcCanvas/index.jsx', import.meta.url), 'utf8');
+  assert.match(canvas, /generateAudio: composer\.generateAudio !== false/,
+    '缺省必须仍是有声（!== false），删开关不得改变出片默认');
 });
