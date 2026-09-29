@@ -8,6 +8,7 @@ import { useApp } from '../../store/AppContext';
 import { proxyImg, generateEcommerce, generateEcommercePreview, autoRecognizeEcommerce, stitchLongImage, saveWork, regenerateImage } from '../../services/api';
 import { downloadFileName } from '../Home/mediaHistoryModel.js';
 import { SUITE_PLATFORMS, SUITE_PLATFORM_LABELS } from '../../skills/skillRun.js';
+import { canvasEntryActionsForResults, resultItemsFromImageMap } from '../EcCanvas/sendResultsToCanvas.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { EC_CATS, EC_PLATFORM_DIMS, EC_DETAIL_SLICES, EC_SKU_FIELDS } from '../../constants/data';
 import { IMAGES } from '../../constants/images';
@@ -415,6 +416,21 @@ export default function EcStudioPage() {
         generationAbortRef.current = null;
       }
     }
+  };
+
+  /* ═══ 批 CY-⑰：结果送到画布（这一条路径以前是死胡同）═════════════════════════════════════
+     MediaCreation 每一页都有「送到画布」，而 EcStudio 这条**等价**的产图路径没有：
+     出了图除了下载没有第二个去处。
+     逐字复用那对 store 动作（SET_CREATION_LAUNCH + OPEN_CANVAS），不发明第二条路 ——
+     NAVIGATE 那条 MediaCreation 记录过会被弹回子页面。
+     动作的拼装是纯函数（canvasEntryActionsForResults），门禁直接断言它，不依赖这里。 */
+  const sendAllResultsToCanvas = () => {
+    const actions = canvasEntryActionsForResults(
+      resultItemsFromImageMap(res?.images || {}, { prefix: '精修图' }),
+      { title: name?.trim() || '精修工坊结果' },
+    );
+    if (!actions.length) { setErr('还没有可送到画布的图，先生成一次'); return; }
+    for (const action of actions) dispatch(action);
   };
 
   const startNewProduct = () => {
@@ -1251,6 +1267,18 @@ export default function EcStudioPage() {
                 }}
               >
                 继续生成
+              </button>
+              {/* 批 CY-⑰：这一条产图路径以前是**死胡同** —— 出了图除了下载没有第二个去处，
+                  而功能等价的 MediaCreation 每一页都有「送到画布」。 */}
+              <button
+                onClick={sendAllResultsToCanvas}
+                style={{
+                  padding: '8px 16px', borderRadius: 'var(--sb-radius-md)', border: '1px solid var(--sb-neutral-200)',
+                  background: 'var(--sb-neutral-0)', cursor: 'pointer', fontSize: 'var(--sb-text-md)', fontFamily: 'inherit',
+                  color: 'var(--sb-ink-3)',
+                }}
+              >
+                全部送到画布
               </button>
             </div>
             {/* 拼长图按钮 */}

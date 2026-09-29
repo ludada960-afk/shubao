@@ -7,6 +7,7 @@ import { Sparkle, CaretRight, Download, ArrowsClockwise, Lightning } from '@phos
 import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
 import { proxyImg, autoGenerate, saveWork } from '../../services/api';
+import { canvasEntryActionsForResults, resultItemsFromImageMap } from '../EcCanvas/sendResultsToCanvas.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
@@ -249,6 +250,21 @@ export default function EcAutoPage() {
   };
 
   // 全部下载
+  /* ═══ 批 CY-⑰：结果送到画布（这一条路径以前是死胡同）═════════════════════════════════════
+     EcAuto 的结果区只有「全部下载」+「重新生成」+「去精修工坊微调」——
+     出了图**没有任何一个去处能把它们接回创作流程**（连精修工坊也只是跳到一个空白配置页）。
+     这里补上与 MediaCreation / EcStudio 同一条出口：SET_CREATION_LAUNCH + OPEN_CANVAS。 */
+  const sendAllResultsToCanvas = () => {
+    const actions = canvasEntryActionsForResults(
+      resultItemsFromImageMap(results?.images || {}, { prefix: '一键出图' }),
+      /* ⚠️ 这一页没有 productName state，商品名就是用户填的那段 input（原变量名是 `input`）。
+         写错名字就是又一次"用了没声明的标识符" —— 见 jsx-undefined-identifiers 门禁。 */
+      { title: String(input || '').trim().slice(0, 40) || '一键出图结果' },
+    );
+    if (!actions.length) { setError('还没有可送到画布的图，先生成一次'); return; }
+    for (const action of actions) dispatch(action);
+  };
+
   const downloadAll = () => {
     if (!results?.images) return;
     Object.entries(results.images).forEach(([label, url]) => {
@@ -454,6 +470,18 @@ export default function EcAutoPage() {
                     fontSize: 'var(--sb-text-sm)', cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                   <RotateCcw size={13} /> 重新生成
+                </button>
+                {/* 批 CY-⑰：这一条产图路径以前是**死胡同** —— 出了图除了「全部下载」没有第二个去处，
+                    而功能等价的 MediaCreation / EcStudio 都有「送到画布」。 */}
+                <button onClick={sendAllResultsToCanvas}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '8px 14px', borderRadius: 'var(--sb-radius-md)',
+                    background: 'var(--sb-neutral-0)', color: 'var(--sb-ink-3)',
+                    border: '1px solid var(--sb-neutral-200)',
+                    fontSize: 'var(--sb-text-sm)', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                  全部送到画布
                 </button>
               </div>
             </div>

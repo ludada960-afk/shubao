@@ -12650,3 +12650,63 @@ cp: cannot stat '/home/ubuntu/shubao/dist': No such file or directory
 
 隔离树 `.worktrees/cy16`：`npm test` **4348 条 / pass 4338 / fail 0 / skipped 10**；
 `npm run precommit` ✅ 构建 exit 0 + 323 条 e2e 全绿 + 38 个 BLOCKING 门禁全绿。
+
+## 2026-09-29 批 CY-⑰ —— 节点徽标把「正在跑 / 被跳过 / 被阻塞」全说成「待配置」+ 两条产图路径是**死胡同**
+
+用户：「那继续」。这一批收 CY-⑯ 留下的清单里**用户能直接看见**的两条。
+
+### 一 节点徽标：引擎写的状态，徽标大半不认
+
+徽标的唯一真源是 `CanvasNodeShell:23` → `getStatusMeta` → `normalizeStatus` → `NODE_STATUSES`。
+那张表**只有 7 项**，而引擎真的会写出来的远不止 7 种。全部落在用户眼睛里：
+
+| 状态 | 谁写的 | 改前徽标 | 改后 |
+| --- | --- | --- | --- |
+| `skipped` | `canvasGraphRunController:135`（无执行器且无产物） | **「待配置」** | 「已跳过」 |
+| `processing` / `uploading` / `upload-error` / `generating` | `index.jsx` **13 处** | **「待配置」** | 「生成中」/「上传中」/「上传失败」 |
+| `completed` | `canvasSessionModel:245` | **「待配置」** | 「已完成」 |
+| `done` / `succeeded` / `failed` / `failure` | 终态 awaiter 认它们 | **「待配置」** | 「已完成」/「需要重试」 |
+| `queued` / `pending` / `submitted` / `blocked` | 引擎词表 | **「待配置」** | 「排队中」/「被上游阻塞」 |
+
+最刺眼的是 `skipped`：同一次运行的用户提示条就写着「跳过 N」，
+而节点徽标说「待配置」。而且**重试按钮的条件是 `status === 'error'`**（`CanvasNodeShell:49`），
+于是被跳过的节点**连"重试"都不给**——而重试恰恰是此刻最该有的动作。
+
+**兜底没有拆**：真正不认识的字符串仍然回落 `draft`（「待配置」）。补的是登记，不是把兜底拆掉。
+
+顺带修一个**样式是死的**：`.statusWarning` 在 `CanvasWorkflowNodes.module.css` 里**根本不存在**——
+徽标是用 `styles['status' + tone 首字母大写]` 取类的，`stale`（已失效·需重跑）的 tone 是 `warning`
+⇒ 取到 `undefined` ⇒ 模板拼出 `class="… undefined"`，**既没底色也没字色**。
+写对的那条规则躺在 `workflowNodes.css:13` 的 `.status-stale` 里，命名是短横线、跟取类方式对不上，
+所以从来没生效过。
+
+### 二 出图结果的**死胡同**：三条等价产图路径，只有���条能把结果接回创作流程
+
+- `MediaCreation`（技能子页）：每张结果有「送到画布」（`SET_CREATION_LAUNCH` + `OPEN_CANVAS`）；
+- `EcStudio` 精修工坊：结果区只有「重新生成 / 取消」+ 下载长图；
+- `EcAuto` 一键出图：结果区只有「下载」+「重新生成」+「去精修工坊微调」。
+
+⇒ 后两页出了图，除了下载**没有第二个去处**。补上同一条出口
+（新增 `EcCanvas/sendResultsToCanvas.js`，动作拼装是**纯函数**，门禁直接断言，不依赖这两个页面）。
+
+**为什么不用 `NAVIGATE page:'ec-canvas'`**：`MediaCreation` 踩过并记录在案 ——
+画布会挂载、图也加上了，**但两三秒后被弹回子页面**（`canvasEntryTab` / `galleryItem` 没一起复位）。
+所以逐字复用那对 store 动作，不发明第二条路。
+
+### 三 我自己这一批又差点犯同一个错（第三次，已被门禁抓住）
+
+EcAuto 的第一版我写了 `<Layers size={13}/>`（**那个页面根本没 import Layers**，它用 `@phosphor-icons`）
+和 `productName?.trim()`（**那一页的 state 叫 `input`**）——两个都是"渲染到那一行才炸"。
+EcStudio 那版则把按钮插在了错误的行上、`onClick` 挂到了 `startNewProduct`。
+⇒ `jsx-undefined-identifiers-0929` 那条门禁这批**又救了两次**；本批新门禁里也加了对应反查。
+
+### 四 门禁里我自己写错的两条（如实记）
+
+`canvas-node-status-and-deadend-0929` 第一版有两条判据自己先错：
+① 「每个状态的徽标都不能是待配置」—— `draft` 自己显示「待配置」是对的；
+② 「三条路径都必须出现 `SET_CREATION_LAUNCH` 字面量」—— 后两条走的是**共用纯函数**，
+动作在函数里，页面里当然没有那个字面量。⇒ 判据改成"用到共用拼装器 + 依次 dispatch"。
+
+验证（隔离树 `.worktrees/cy17` = HEAD + 只有本批的 diff）：
+`npm test` **4356 条 / pass 4346 / fail 0 / skipped 10**；
+`npm run precommit` ✅ 构建 exit 0 + 323 条 e2e 全绿 + 38 个 BLOCKING 门禁全绿。

@@ -21,6 +21,13 @@
 .statusNeutral { background: #f3f4f6; color: #6b7280; }
 .statusInfo { background: #eff6ff; color: var(--sb-info-solid-600); }
 .statusSuccess { background: #ecfdf5; color: #047857; }
+/* 批 CY-⑰：**这条以前根本不存在**。NODE_STATUSES 里 `stale` /（现在还有）`skipped` / `blocked`
+   的 tone 都是 'warning'，而 CanvasNodeShell 是用 `styles['status' + tone首字母大写]` 去取类的
+   ⇒ 取到 `styles.statusWarning` = undefined ⇒ 模板里拼出 `class="… undefined"`，
+   **徽标既没有底色也没有字色**（已失效 / 已跳过 / 被阻塞 三种状态全都这样）。
+   本来写对的那条规则躺在 `workflowNodes.css:13` 的 `.status-stale` 里，
+   命名是短横线、跟这里的驼峰取类方式对不上，所以**从来没生效过**。 */
+.statusWarning { background: #fffbeb; color: #b45309; }
 .statusDanger { background: #fef2f2; color: #b91c1c; }
 .iconButton { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #6b7280; cursor: pointer; }
 .iconButton:hover { background: #f3f4f6; color: #111827; }
