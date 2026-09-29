@@ -349,6 +349,17 @@ test('⑬ 侧栏：**两层必须同尺寸**（用户 2026-09-29 第四次纠正
   const tile = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-tile {'), SIDEBAR.indexOf('.app-sidebar-label {'));
   assert.match(tile, /width: var\(--sb-app-tile\)/, '磁贴走那个尺寸变量（两边各写一份尺寸，加起来会错位）');
   assert.match(tile, /height: var\(--sb-app-tile\)/, '磁贴高度同理');
+  /* ★ 2026-09-29 批 DC 续-13：`background-origin` 的**初始值是 `padding-box`**
+     （初始值是 `border-box` 的是 `background-clip` —— 这两条我先前记反了，代价就是下面这条）。
+     磁贴是 `box-sizing: border-box` + 1px 边框 ⇒ 盒子 40×40、padding box 只有 38×38。
+     于是悬停那条紫渐变**只画 38×38**，边框那 1px 环里露出来的是 `background-color:#F4F4F4`（浅灰）——
+     12 倍放大看就是渐变方块四周一圈更浅的边（用户 2026-09-29 第六次指出：
+     「你看不到这里边缘是有个**不重叠的区域**吗」）。
+     ⇒ 必须显式 `background-origin: border-box`：渐变铺满 40×40，再由
+        `background-clip: border-box` + 12px 圆角裁成圆角方块 —— 边缘既没有环、也没有溢出。 */
+  assert.match(tile, /background-origin: border-box;/,
+    '磁贴的渐变必须从 border-box 起画 —— 否则它只覆盖 padding box，边框那 1px 环露浅色底（用户说的"边缘不重叠"）');
+  assert.match(tile, /box-sizing|^\s*width: var\(--sb-app-tile\)/, '自证：磁贴尺寸规则找得到');
   /* ⚠️ `--sb-app-tile-top`（磁贴到格顶的距离）在续-12 已删：条做回贴格底之后就没有调用方了。
      留着它 = 留一个改了不起的死配置。 */
   assert.doesNotMatch(sidebarCode, /--sb-app-tile-top/, '没有调用方的变量要删干净（条已不依赖磁贴位置）');

@@ -218,6 +218,15 @@
      我们用同一档的 --sb-l3-option(#F4F4F4) + --sb-border-default，磁贴从此有"底托"而不是浮在白面上。 */
   background: var(--sb-l3-option);
   border: 1px solid var(--sb-border-default);
+  /* ═══ 2026-09-29 批 DC 续-13：**`background-origin` 的初始值是 `padding-box`**（默认是 border-box 的是
+     `background-clip`，这两条我先前记反了，代价就是这一行）。磁贴是 `box-sizing: border-box` +
+     1px 边框 ⇒ 它的**盒子是 40×40，而 padding box 只有 38×38**。
+     `background-origin: padding-box` 意味着悬停时那条紫渐变**只画 38×38**，
+     边框那 1px 环里露出来的是 `background-color: #F4F4F4`（浅灰）——
+     放大 12 倍看就是渐变方块四周一圈**更浅的边**，「不重叠的区域」。
+     ⇒ 显式改成 `border-box`：渐变铺满整个 40×40，再由 `background-clip: border-box` +
+       12px 圆角裁成圆角方块 ⇒ 边缘没有环、也没有溢出。 */
+  background-origin: border-box;
   /* ⚠️ 批 J-③：**阴影去掉** —— 那颗阴影正是"浮片与文字不在一个维度"的来源。
      现在磁贴与文字坐在格子同一块面上，磁贴只是面上的一小块浅色。 */
   color: var(--sb-brand-600);
