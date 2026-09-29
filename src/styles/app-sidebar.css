@@ -196,10 +196,9 @@
   width: 0;
   height: 3px;
   border-radius: 2px;
-  /* ⚠️ 批 DC 续-10：这条**在紫渐变上面**，所以它自己不能再是紫的 ——
-     紫压紫等于看不见（改前实测：整格变紫之后，那条 brand-400→700 的条几乎与面色同色，
-     充能动画等于消失了）。⇒ 改成**白**色，白压在紫上才有对比，动画也才看得见。 */
-  background-image: linear-gradient(to right, var(--sb-brand-ink), var(--sb-brand-ink));
+  /* 格子已回到中性（批 DC 续-11），这条压在浅底上 ⇒ 恢复品牌紫渐变。
+     ⚠️ 续-10 把它改成白色是因为当时整格是紫的、紫压紫看不见 —— 那条前提已经不存在了。 */
+  background-image: linear-gradient(to right, var(--sb-brand-400), var(--sb-brand-700));
   transition: width .7s cubic-bezier(.4,0,.2,1);
   pointer-events: none;
 }
@@ -268,64 +267,48 @@
 /* 批 BJ：**照实测改回"浅灰一档"**（liuyingai 的卡 hover 只从 rgb(255,255,255) 变成 rgb(245,247,250)，
    对角渐变落在**图标磁贴**上、不在卡底）。批 BI 那版把对角渐变铺在整格上，与实测不符，撤掉。
    （那版是照用户"左上蓝右下紫"的描述做的；现在他要求按实测 1:1，以实测为准。） */
-/* ═══ 2026-09-29 批 DC 续-10：紫渐变必须**铺满整格**（用户第三次当面纠正，也是我唯一一次问到根因）══════
-   用户原话（逐字，完整）：
-     「里面的这个图标样式是紫色，然后**周边的方块整体是白色**。但是鼠标放上去之后，它不是会变成
-       **里面的样式变成白色**，然后**周边变成紫色渐变动效**这样吗？就是当**整个方块被紫色包裹**之后……
-       它这个方块的周边是有一个**底层依然是一个紫色的**。但是它表面这一层已经是一个紫色的**渐变动效**了。
-       也就是说在表面的这层紫色渐变动效**的下面似乎还有一层紫色**。」
-     「上面这层毛玻璃的渐变，它的面积**没有完整覆盖到**下面这层紫色。所以才会导致现在这一层表面的
-       渐变紫，**它的边缘还有一层的样式**。」
+/* ═══ 2026-09-29 批 DC 续-11：样式**做回之前的样子**，只修「两层大小没拉齐」这一件事 ══════════════════════
+   用户 2026-09-29 第四次指出（逐字）：
+     「什么鬼啊？现在鼠标放上去，怎么**连个框都不见了**？你这么做还不如之前的那个样式。
+       我只是让你去解决**紫色底色和他上面的这个遮罩的大小覆盖到底有没有拉齐**？
+       你怎么把**整个按钮都给改了**呀？**你的样式要做回之前的样子。**
+       我们要解决的是**渐变遮罩和紫色底色之间不匹配**的问题呀。」
 
-   ⚠️⚠️⚠️ 我连着三轮都改错了，而且**每轮都更错一层**：
-     · 续-7 看到"两层紫" ⇒ 撤掉静止态那条品牌色渐变，当成"多余的紫色底"；
-     · 续-8 把 hover/选中底色压成中性 tint-strong；
-     · 续-9 铺了 a18 紫底 —— **方向对了，但没检查上面那层盖不盖得住**：
-       实测（3 倍放大截图 + 计算样式）格子 78×80、磁贴 38×38，**渐变只占整格 23%**，
-       底色在左 20 / 右 20 / 上 12 全部露出来 ⇒ 就是一张紫色渐变方块浮在浅紫底上，
-       两层交界那道边**正是用户从第一轮就在指的东西**。用户第三次点出来，一句话就点到了根因。
+   ⚠️⚠️ 续-10 我**越界了**：把渐变从磁贴搬到整格、又把磁贴自己的底/描边/发光全撤掉 ——
+     那是把整个按钮重做了一遍，而用户要的只是"两层对齐"。
+     连着四轮错在同一处，根因是**我一直在改"层次"，而用户从头到尾说的只是"两个矩形要对齐"**。
 
-   ⇒ 正确的三层（这次逐条对着原话核）：
-     ① **格底**：一层紫（`--sb-brand-a18` 纯色）—— 「底层依然是一个紫色的」；
-     ② **格面**：`linear-gradient(135deg, brand-400, brand-700)` **铺满整格 78×80** ——
-        「表面这一层已经是一个紫色的渐变动效」＋「**面积要完整覆盖**下面那层」；
-     ③ **磁贴**：**自己的底与描边全部撤掉**（透明）—— 「**里面的样式变成白色**」。
-        ⚠️ 为什么必须撤：白图标压在紫渐变上才看得见；磁贴若还留着自己的紫渐变，
-           里面就仍然是紫的，而用户说的"里面变成白色"就不成立。
-     ④ **文字**：白（`--sb-brand-ink`）压在紫上，同一条理由。
-   ⚠️ 底层为什么仍是**纯色**而不是渐变：`background-color` 与 `background-image` 是两件事，
-     底层纯色、面色渐变，两层可以分别在计算样式里验出来；底层一旦也写成渐变，
-     "这格有没有渐变"就永远查不清（续-7 查了三轮的原因）。
-   ⚠️ 底层的紫被面色盖住后**只从边缘透出光晕**，读出来的是"厚度"而不是"两层" ——
-     那道让用户连指三轮的硬边，就是这样消掉的。 */
+   ⇒ 这次只做两件事，其余**全部还原**：
+     ① **格子回中性**（`--sb-surface-tint-strong`）—— 整格那层紫**就是**那个"比遮罩大的底"：
+        格子 78×80 vs 遮罩 38×38，差了一倍多，边缘当然露。用户不要的是"不匹配的底"，不是"没有底"。
+     ② **磁贴还原成那颗有边的方块**（浅底 + 描边 → 悬停时描边消失、铺 135deg 紫渐变、白图标）。
+        这样"紫色底色"与"渐变遮罩"**就是同一个 38×38 的圆角矩形**，天生对齐。
+     ③ **磁贴的紫色发光去掉**（`box-shadow: 0 5px 12px var(--sb-brand-a18)`）——
+        它是唯一一处**比遮罩大**的紫色：模糊 12px 铺在 38px 的方块外面，
+        「它的边缘明显还有一层紫色的底」指的就是它。去掉之后，紫色就只有那一块。 */
 .app-sidebar-cell:hover {
-  background-color: var(--sb-brand-a18);
-  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
-  color: var(--sb-brand-ink);
-  box-shadow: 0 4px 14px var(--sb-brand-a18);
+  background-color: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
 }
 .app-sidebar-cell:hover .app-sidebar-tile {
-  /* 磁贴在紫面上**不画任何自己的面**：底、描边、发光全撤掉，白图标直接落在整格的紫渐变上。 */
+  /* 还原：磁贴仍是一颗**看得见的方块**（描边在悬停时消失，是知渔实测的做法），
+     面上是 135deg 紫渐变。⚠️ 去掉紫色发光 —— 它比遮罩大，是"边缘那层紫底"。 */
   border-color: transparent;
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
+  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-brand-ink);
-  transform: scale(1.06);
+  box-shadow: none;
+  transform: scale(1.05);
 }
-.app-sidebar-cell:hover .app-sidebar-label { color: var(--sb-brand-ink); }
+.app-sidebar-cell:hover .app-sidebar-label { color: var(--sb-ink-brand); }
 .app-sidebar-cell:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
-/* 选中态：与 hover **逐值同一套**（底色紫 + 面色紫渐变铺满整格 + 磁贴透明 + 白图标白文字），
-   唯一区别是充能条**常亮**。⚠️ 三态必须完全一致 —— 早前选中格用中性 tint-strong、悬停格用紫色，
-   一眼就能看出"哪一格缺了东西"，那正是被反复指出的那一类。 */
+/* 选中态：与 hover **逐值同一套**（中性格底 + 磁贴 135deg 紫渐变方块 + 紫色文字 + 白色充能条常亮）。
+   ⚠️ 三态必须完全一致 —— 早前选中格用中性 tint-strong、悬停格用整格紫，一眼就能看出"哪一格不一样"。 */
 .app-sidebar-cell.is-active {
-  color: var(--sb-brand-ink);
-  background-color: var(--sb-brand-a18);
-  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
-  box-shadow: 0 4px 14px var(--sb-brand-a18);
+  color: var(--sb-ink-1);
+  background-color: var(--sb-surface-tint-strong);
 }
-.app-sidebar-cell.is-active .app-sidebar-label { color: var(--sb-brand-ink); }
+.app-sidebar-cell.is-active .app-sidebar-label { color: var(--sb-ink-brand); }
 /* ⚠️ 2026-09-29 批 DC 续-8：**删掉 `.app-sidebar-cell.is-active::before`** ——
    那条"左侧 3px 指示条"是 `left: -8px`，而 `.app-sidebar-cell` 有 `overflow: hidden`
    ⇒ 它**从来就没有被渲染过**（一直在盒子的裁切线之外）。留着它有两个坏处：
@@ -334,13 +317,12 @@
         于是选中态变成"左边一条 + 磁贴 + 下面一条"三重指示。
    ⇒ 选中的持久表达只剩两件，都真实可见：**磁贴渐变 + 磁贴下方常亮充能条**（见 ::after）。 */
 .app-sidebar-cell.is-active .app-sidebar-tile {
-  /* 与 hover 的磁贴**逐条相同**：透明底、白图标、不发光（渐变已经铺到整格上了，磁贴再画一遍就又分家）。 */
+  /* 还原：与 hover 的磁贴**逐值相同**（描边消失 + 135deg 紫渐变 + 白图标 + 不发光）。 */
   border-color: transparent;
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
+  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-brand-ink);
-  transform: scale(1.06);
+  box-shadow: none;
+  transform: scale(1.05);
 }
 .app-sidebar-cell.is-active .app-sidebar-label { font-weight: 900; }
 
@@ -410,19 +392,16 @@
 .app-sidebar-task.has-progress::after { display: none; }
 /* 有任务在跑：整格铺紫渐变（与 hover / 选中**逐值同一套**），不看 hover 也知道"在生成"。 */
 .app-sidebar-task.is-live {
-  background-color: var(--sb-brand-a18);
-  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
-  box-shadow: 0 4px 14px var(--sb-brand-a18);
-  color: var(--sb-brand-ink);
+  background-color: var(--sb-surface-tint-strong);
+  color: var(--sb-ink-1);
 }
 .app-sidebar-task.is-live .app-sidebar-tile {
-  /* 与上面两处逐条相同：磁贴透明、白图标（渐变在整格上，磁贴再画一遍就又分家）。 */
+  /* 与上面两处逐值相同：描边消失 + 135deg 紫渐变 + 白图标 + **不发光**。 */
   border-color: transparent;
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
+  background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-brand-ink);
-  transform: scale(1.06);
+  box-shadow: none;
+  transform: scale(1.05);
 }
 
 /* ═══ 2026-09-19 批 I-③：底部那颗「开始创作」实色按钮**已删除**（用户批注 #1：

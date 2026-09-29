@@ -222,28 +222,33 @@ test('⑫ 结果区与页签的控件不再"小一号"（用户批注图1-③）
   assert.match(SHELL_CSS, /\.media-workbench-tabs button \{[\s\S]*?font-weight: 700;/, '页签字重 700（它是导航，不是正文说明）');
 });
 
-test('⑬ 侧栏的紫是**三层**，且上面的渐变必须**铺满整格**（用户 2026-09-29 第三次当面纠正）', () => {
-  /* ⚠️⚠️⚠️ 这条被**推翻过三次**，而且每轮都更错一层。这里把三次错法与正确结构一起钉住：
+test('⑬ 侧栏：**两层必须同尺寸**（用户 2026-09-29 第四次纠正 —— 「样式要做回之前的样子」）', () => {
+  /* ⚠️⚠️⚠️⚠️ 这一条被**推翻过四次**。把四次的错法与最终结构一起钉住，因为它们是同一条错误的不同阶段：
      · 续-7：看到"两层紫" ⇒ 撤掉静止态那条品牌色渐变，当成"多余的紫色底"；
-     · 续-8：把 hover/选中底色压成中性 tint-strong（底层一点紫都没有）；
-     · 续-9：铺了 a18 紫底 —— **方向对了，却没检查上面那层盖不盖得住**：
-       实测格子 78×80、磁贴 38×38，**渐变只占整格 23%**，底色在左 20 / 右 20 / 上 12 全露出来
-       ⇒ 就是一张紫色渐变方块浮在浅紫底上，两层交界那道边**正是用户从第一轮就在指的东西**。
-     用户第三次一句话点到根因：「上面这层毛玻璃的渐变，它的面积**没有完整覆盖到**下面这层紫色。
-       所以才会导致…渐变紫**它的边缘还有一层的样式**。」
+     · 续-8：把 hover/选中底色压成中性 tint-strong；
+     · 续-9：给**整格 78×80** 铺了 a18 紫底 —— 而渐变遮罩只在**磁贴 38×38** 上
+       （实测：遮罩只占整格 23%，底色在左 20 / 右 20 / 上 12 全露出来）。
+     · 续-10：把渐变搬去**整格**、并把磁贴自己的底/描边/发光全撤 ⇒ **用户：「连个框都不见了？
+       你怎么把整个按钮都给改了呀？你的样式要做回之前的样子。」**
 
-     正确的三层（逐条对着用户原话核）：
-       ① 格底  一层紫 `--sb-brand-a18`（「底层依然是一个紫色的」）
-       ② 格面  135deg 紫渐变**铺满整格 78×80**（「表面这一层…面积要完整覆盖下面那层」）
-       ③ 磁贴  底/描边/发光**全撤**，白图标直接落在紫面上（「里面的样式变成白色」）
-       ④ 文字  白（「周边变成紫色渐变」时里面要读得出来）
-     ⚠️ 判据用"**渐变挂在哪一条规则上**"来钉，而不是"有没有渐变" ——
-        挂错元素（挂磁贴而不是格子）正是前三次错法的共同形态。 */
+     ⚠️⚠️ 关键教训（四轮错法的**共同根因**）：
+       用户从头到尾说的**只是"两个矩形要对齐"**，而我每一轮都在改**层次**。
+       用户 2026-09-29 第四次把话挑明了：「我只是让你去解决**紫色底色和他上面的这个遮罩的大小覆盖
+         到底有没有拉齐**？……我们要解决的是**渐变遮罩和紫色底色之间不匹配**的问题呀。」
+
+     最终结构（其余**全部还原**，只留"对齐"这一处修改）：
+       ① **格子回中性**（`--sb-surface-tint-strong`）—— 整格那层紫**就是**那个比遮罩大的底，
+          用户要的是"不匹配的底"消失，不是"要一块更大的底"。
+       ② **磁贴还原成那颗看得见的方块**：描边在悬停时消失 + 面上 135deg 紫渐变 + 白图标。
+          ⇒ 「紫色底色」与「渐变遮罩」**就是同一个 38×38 圆角矩形**，天生对齐。
+       ③ **磁贴的紫色发光去掉**（`box-shadow: 0 5px 12px var(--sb-brand-a18)`）：
+          它是唯一一处**比遮罩大**的紫色（12px 模糊铺在 38px 方块外）——
+          「它的边缘明显还有一层紫色的底」指的就是它。去掉后紫色就只有那一块。 */
   const resting = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell {'), SIDEBAR.indexOf('.app-sidebar-cell::after'));
   assert.match(resting, /background-color: var\(--sb-surface-tint\)/, '静止态：白底方块 + 紫色图标（用户原话「周边的方块整体是白色」）');
   assert.match(resting, /background-image: none;/, '静止态：格面不挂渐变');
 
-  /* 三态每一处都要"底色 + 铺满整格的渐变"，且三处**逐值相同**。 */
+  /* ① 格子：三态都回**中性** —— 整格那层紫就是"比遮罩大的底"，要去掉的是它，不是"再换一块更大的"。 */
   for (const [label, selector] of [
     ['hover', '.app-sidebar-cell:hover {'],
     ['选中', '.app-sidebar-cell.is-active {'],
@@ -252,11 +257,10 @@ test('⑬ 侧栏的紫是**三层**，且上面的渐变必须**铺满整格**�
     const at = SIDEBAR.indexOf(selector);
     assert.ok(at > 0, `自证：${label} 那条规则找得到`);
     const block = SIDEBAR.slice(at, SIDEBAR.indexOf('}', at));
-    assert.match(block, /background-color: var\(--sb-brand-a\d+\)/, `${label}：底层紫（用户原话「底层依然是一个紫色的」）`);
-    assert.match(block, /background-image: linear-gradient\(135deg, var\(--sb-brand-\d+\), var\(--sb-brand-\d+\)\)/,
-      `${label}：**渐变必须挂在格子上**（铺满整格）—— 挂在磁贴上就是"没有完整覆盖"，那道边就是这么来的`);
+    assert.match(block, /background-color: var\(--sb-surface-tint-strong\)/, `${label}：格底是中性色（用户原话「周边的方块整体是白色」）`);
+    assert.doesNotMatch(block, /background-image/, `${label}：格子不许挂渐变 —— 渐变是**遮罩**，只在磁贴那一块上`);
   }
-  /* 三态的磁贴：透明 + 白图标（渐变已经在格子上，磁贴再画一遍就又分家）。 */
+  /* ② 磁贴：三态**逐值相同** = 一颗看得见的方块（描边消失 + 135deg 紫渐变 + 白图标）。 */
   for (const [label, selector] of [
     ['hover', '.app-sidebar-cell:hover .app-sidebar-tile {'],
     ['选中', '.app-sidebar-cell.is-active .app-sidebar-tile {'],
@@ -265,30 +269,43 @@ test('⑬ 侧栏的紫是**三层**，且上面的渐变必须**铺满整格**�
     const at = SIDEBAR.indexOf(selector);
     assert.ok(at > 0, `自证：${label} 的磁贴规则找得到`);
     const block = SIDEBAR.slice(at, SIDEBAR.indexOf('}', at));
-    assert.match(block, /background-image: none;/, `${label}：磁贴不再画自己的面（用户原话「里面的样式变成白色」）`);
-    assert.match(block, /background-color: transparent;/, `${label}：磁贴底也要透明（留白底就还是一块浅色方块）`);
-    assert.match(block, /color: var\(--sb-brand-ink\)/, `${label}：白图标压在紫面上才看得见`);
+    assert.match(block, /background-image: linear-gradient\(135deg, var\(--sb-brand-\d+\), var\(--sb-brand-\d+\)\)/,
+      `${label}：遮罩就是这颗方块（用户原话「紫色渐变的图层」）`);
+    assert.match(block, /border-color: transparent;/, `${label}：描边消失（照知渔实测，渐变盖住描边）`);
+    assert.match(block, /color: var\(--sb-brand-ink\)/, `${label}：白图标压在紫渐变上才看得见`);
   }
-  /* ⚠️ 结构性自证：全文件里那 135deg 品牌渐变必须**一条都不在磁贴规则里** ——
-     只要它还挂在磁贴上，就会重演"渐变只盖住 38×38、底色从四边露出来"。 */
-  const tileBlocks = SIDEBAR.split('.app-sidebar-tile {').slice(1).join('\n').split('}');
-  for (const block of tileBlocks) {
-    assert.doesNotMatch(block.split('\n').slice(0, 3).join('\n'), /linear-gradient\(135deg, var\(--sb-brand-/,
-      '渐变不许挂在磁贴上 —— 它必须铺满整格');
+  /* ③ ★ 本批真正的修复点：**磁贴不许有任何比它自己大的紫色**。
+     那圈 `box-shadow: 0 5px 12px var(--sb-brand-a18)` 是 12px 模糊铺在 38px 方块**外面**的 ——
+     「它这个方块的边缘明显还有一层紫色的底」「渐变紫，它的边缘还有一层的样式」指的就是它。
+     这是全文件里唯一"比遮罩大"的紫色，去掉之后两层就同尺寸了。 */
+  for (const [label, selector] of [
+    ['hover', '.app-sidebar-cell:hover .app-sidebar-tile {'],
+    ['选中', '.app-sidebar-cell.is-active .app-sidebar-tile {'],
+    ['任务在跑', '.app-sidebar-task.is-live .app-sidebar-tile {'],
+  ]) {
+    const at = SIDEBAR.indexOf(selector);
+    const block = SIDEBAR.slice(at, SIDEBAR.indexOf('}', at));
+    assert.match(block, /box-shadow: none;/,
+      `${label}：磁贴不许有外扩的紫色发光 —— 它比渐变遮罩大，就是"边缘那层紫底"`);
   }
-  /* 充能条在紫面上，必须是白的（紫压紫等于看不见，动画会消失）。 */
-  const barTint = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell::after'), SIDEBAR.indexOf('.app-sidebar-cell:hover::after'));
-  assert.match(barTint, /linear-gradient\(to right, var\(--sb-brand-ink\)/,
-    '充能条改成白色 —— 它现在压在紫渐变上，紫压紫等于看不见，充能动画会整个消失');
+  /* ⚠️ 文件级判据必须**剥注释**再扫 —— 上面那条注释里**如实写下了被删掉的那个值**（为什么删），
+     不剥注释就会把「说明」当成「代码」。这个坑本批已经踩到第二次。 */
+  const sidebarCode = SIDEBAR.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(sidebarCode, /0 5px 12px var\(--sb-brand-a18\)/, '全文件不许再有那圈外扩的紫色发光');
+  assert.doesNotMatch(sidebarCode, /0 4px 14px var\(--sb-brand-a18\)/, '续-10 加在整格上的那圈光晕也一并撤掉（同样比遮罩大）');
 
-  /* 发光收敛，且 hover / 选中 / 任务在跑**三处同一档**。 */
+  /* 充能条：压在**中性**格底上 ⇒ 品牌紫渐变；左缘钉在磁贴左缘（续-9 那条"从中间张开"的修正保留）。 */
+  const barTint = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell::after'), SIDEBAR.indexOf('.app-sidebar-cell:hover::after'));
+  assert.match(barTint, /linear-gradient\(to right, var\(--sb-brand-400\)/,
+    '充能条是品牌紫（它压在浅色格底上，不是压在紫面上）');
+
+  /* 三态的磁贴阴影：三处都不许有 —— 上面 ③ 已经逐条钉过，这里只做反向保险。 */
   const shadows = SIDEBAR.match(/box-shadow: 0 \d+px \d+px var\(--sb-brand-a\d+\);/g) || [];
-  assert.ok(shadows.length >= 3, '自证：hover / 选中 / is-live 三处阴影都找得到，实得 ' + shadows.length);
-  assert.equal(new Set(shadows).size, 1, '三处必须同档：' + shadows.join(' | '));
+  assert.equal(shadows.length, 0, '磁贴/格子都不许有外扩的紫色发光：' + shadows.join(' | '));
   assert.doesNotMatch(SIDEBAR, /0 8px 18px var\(--sb-brand-a32\)/, '旧那档光晕不许留着');
   const gradients = SIDEBAR.match(/background-image: linear-gradient\(135deg, var\(--sb-brand-\d+\), var\(--sb-brand-\d+\)\);/g) || [];
   assert.equal(new Set(gradients).size, 1,
-    '磁贴上那 135deg 品牌渐变也只有一档（原来 is-live 还在用 500→700 的同色相邻档）：' + gradients.join(' | '));
+    '磁贴上那 135deg 品牌渐变三处同档（原来 is-live 还在用 500→700 的同色相邻档）：' + gradients.join(' | '));
 
   /* ═══ 2026-09-29 批 DC 续-8：磁贴下面那条**也是紫的**，必须与磁贴**嵌套成一体** ══════════════
      用户原话（第二次当面指出）：「你确定你真的有对导航栏这里的紫色底层进行解决吗？…这种紫色的图标，
@@ -321,7 +338,6 @@ test('⑬ 侧栏的紫是**三层**，且上面的渐变必须**铺满整格**�
      留着它，后天有人为了修光晕溢出把 overflow 去掉，它会突然冒出来变成三重指示。
      ⚠️ 必须**剥掉注释再判** —— 我在注释里如实写下了它的选择器（为什么删），
      而这正是本批已经踩过一次的坑：源码级判据不剥注释，就会把"说明"当成"代码"。 */
-  const sidebarCode = SIDEBAR.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.doesNotMatch(sidebarCode, /\.app-sidebar-cell\.is-active::before/, '那条从未被渲染的左侧指示条不许复活');
   /* 窄屏那一档必须跟着一起收，否则条会停在老位置和磁贴脱开。 */
   assert.match(SIDEBAR, /@media \(max-width: 900px\)[\s\S]*?--sb-app-tile-top: 7px;/,
