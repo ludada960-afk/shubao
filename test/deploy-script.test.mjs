@@ -145,6 +145,22 @@ test('production release archive includes shared server runtime modules', () => 
 test('rollback snapshots and restores the dependency graph before restarting the app', () => {
   assert.match(deploy, /cp \$RemoteDir\/package\.json \$remoteBackup\/package\.json/);
   assert.match(deploy, /cp \$RemoteDir\/package-lock\.json \$remoteBackup\/package-lock\.json/);
+  /* ═══ 2026-09-29：备份静态资源不许**无条件**取 `$RemoteDir/dist` ══════════════════════════
+     真实事故：静态资源早已改成 `/var/www/shubao/releases/<id>` + 原子 symlink，
+     服务器上**不再有** `$RemoteDir/dist`。那条无条件的 `cp -a` 于是让**每一次后续部署**
+     都在备份这一步中止（`cp: cannot stat '/home/ubuntu/shubao/dist'`），线上根本没切换。
+     判据守两件事：① `dist` 那行必须**有才备**；② 正在对外服务的那份静态资源**仍然被完整备份**
+     （webroot_source：先 readlink 当前 symlink，失败再退到最新静态 release）——
+     只加 `if` 而不管 webroot 那半边，就是把"部署能跑"换成"回滚时没有静态资源可还原"。 */
+  const backupCommand = deploy.slice(deploy.indexOf('$remoteBackupCommand ='), deploy.indexOf('Invoke-LockedRemote -Command $remoteBackupCommand'));
+  assert.match(backupCommand, /if \[ -d __REMOTE_DIR__\/dist \]; then cp -a __REMOTE_DIR__\/dist __REMOTE_BACKUP__\/dist; fi/,
+    '$RemoteDir/dist 必须有才备份（布局迁移后它可能根本不存在）');
+  assert.doesNotMatch(backupCommand, /;\s*cp -a __REMOTE_DIR__\/dist /,
+    '不许留一条无条件的 dist 备份（`set -e` 只会报 cannot stat，看不出是哪次布局迁移留下的）');
+  assert.match(backupCommand, /webroot_source=\$\(readlink -f '__WEB_ROOT__'/,
+    '正在对外服务的那份静态资源必须被备份');
+  assert.match(backupCommand, /sudo cp -a "\$webroot_source" __REMOTE_BACKUP__\/webroot/,
+    'webroot 快照不许省 —— 否则回滚时没有静态资源可还原');
   const rollback = deploy.slice(deploy.indexOf('$rollbackCommand ='));
   assert.match(rollback, /cp \$remoteBackup\/package\.json \$RemoteDir\/package\.json/);
   assert.match(rollback, /cp \$remoteBackup\/package-lock\.json \$RemoteDir\/package-lock\.json/);
