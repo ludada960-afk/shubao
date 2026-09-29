@@ -13279,3 +13279,19 @@ hover / 选中 / 任务在跑**三处逐值相同**（早前选中格是中性�
 - **没改 stage 裁剪、没加视口剔除**。见上，裁切是模型固有属性，加剔除才是真 bug。
 - **没把初始缩放改成 fit**。63~75% 若是 fit 的产物是正常的（ComfyUI 就写死 0.75 填充系数）；
   本仓初始是 `{x:80, y:40, scale:1}` = 100%，本来就合规。
+
+### 批 CY-⑲ 部署记录
+
+- 提交：`5b760325` + `4e2e3fed`（cherry-pick 进 `codex/ecommerce-stability`；RTK.md 两边都在追加，
+  冲突按「两段都留」解 —— 那个文件只有尾部追加，没有语义冲突）
+- 部署 release `20260929-144634-4e2e3fed` → `/var/www/shubao/current`
+- 部署前 `fuser /tmp/.shubao-deploy-v2.lock` → 空闲（没抢别人的锁）
+- 服务器侧复验（只读）：
+  - `/health` 200 `{"ok":true,"ready":true,...}`，`pm2 pid shubao-production` = 795189
+  - `readlink current` → `/var/www/shubao/releases/20260929-144634-4e2e3fed`（与提交号一致）
+  - 产物 `index-KASQ6HgJ.js` mtime = 14:52:19（本次发布）
+  - **旧的那处错误调用已消失**：`grep -c 'width:200,height:200'` = **0**
+  - **新的框高上限已上线**：`grep -o 'Math.min(720'` 命中
+  - releases 目录 = 3（CY-⑮ 的静态产物治理仍然生效）
+- ⚠️ 压缩后函数名会被 mangle，所以**不能**用 `grep findCanvasBatchPlacement` 判断上线与否
+  （会误报成「没上线」）。要 grep 就 grep **不会被 mangle 的对象属性名**（`gapScreen`）或**数字字面量**。
