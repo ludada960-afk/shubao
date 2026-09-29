@@ -137,21 +137,26 @@ test('⑧ 参考图排第一（站内 44 个带上传的 skill 里 41 个是这�
   assert.equal(skill.fields[1].group, '本篇方案');
 });
 
-test('⑨ 比例 + 分辨率同一行（span: half），比例标签换成纯数字', () => {
+test('⑨ 比例与清晰度：现在收进「画面规格」面板（全宽），标签仍是纯数字，默认仍是 3:4', () => {
   const ratio = skill.fields.find(item => item.key === 'ratio');
   const clarity = skill.fields.find(item => item.key === 'clarity');
-  assert.equal(ratio.span, 'half', '比例占半列');
-  assert.equal(clarity.span, 'half', '分辨率占半列');
-  assert.equal(ratio.default, '3:4', '签名竖版不变');
-  /* ═══ 2026-09-29 批 CY-⑭：比例第一位多一档「自适应」**（用户逐字点名，全局）══════════════════════════
-     「而且你不能只改这个画布里面的尺寸……这个配置它关乎的是我们全局的问题，就是我们首页的图片生成，
-       视频生成，还有我们各种 skill 他们的子页面……你是不是也得给他们加上这个自适应的这个选项进来呢？」
-     ⇒ 这一页的比例是 8 档（自适应 + 原 7 档）。下面那条断言的**原意一个字没动**：
-        比例标签仍然是**纯数字**（半宽放不下「3:4 竖版海报」这种长标签），
-        默认档仍然是 3:4（加选项 ≠ 改默认）。 */
+  const config = skill.fields.find(item => item.key === 'genConfig');
+  /* ⚠️ 2026-09-29 批 DC 续-8：这两格**不再**并排摆在左栏网格里了 ——
+     它们被 `genConfig` 那一行触发器收进「画面规格」面板（用户 2026-09-29：「你就只排两个按钮进去
+     子页面里面不就好了吗」），所以 `span:'half'` 那一套半宽机制**在这里用不上了**。
+     面板是全宽的 ⇒ 之前那条"半宽 186px 里塞 7 档比例、只能排 4 行"的挤压**自然消失**。
+     ⚠️ 判据改成"它们必须在 covers 里"（那是真正生效的那条），而不是继续钉 span ——
+        钉一个已经不参与布局的属性，等于给一段死配置上锁。 */
+  assert.ok(config && config.covers.includes('ratio') && config.covers.includes('clarity'),
+    '比例与清晰度必须被「生成配置」那一格收走（否则左栏还是原来那两排药丸）');
+  assert.equal(ratio.span, undefined, '收进面板后不再声明 span（面板是全宽的，半宽只会把 8 档挤成 4 行）');
+  assert.equal(clarity.span, undefined, '同上');
+  assert.equal(ratio.default, '3:4', '签名竖版不变（这一条是全站唯一的固定默认，见 export-and-adaptive-ratio-0929）');
+  /* ═══ 2026-09-29 批 CY-⑭：比例第一位多一档「自适应」（用户逐字点名，全局）══════════════════════
+     ⇒ 这一页的比例是 8 档（自适应 + 原 7 档），标签仍是**纯数字**、默认仍是 3:4。 */
   assert.deepEqual(ratio.options.map(o => o.label), ['自适应', '1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9'],
-    '半宽放不下「3:4 竖版海报」这种长标签（知渔的纯数字写法，实采见 imageSkills 的注释）；最前面那一档是批 CY-⑭ 加的「自适应」');
-  /* ⚠️ 2026-09-29 真机复核（我自己看渲染截图）后补：8 个选项会被 FieldRenderer 的默认折叠
+    '纯数字标签（知渔的实测写法，见 imageSkills 的注释）；最前面那一档是批 CY-⑭ 加的「自适应」');
+  /* ⚠️ 真机复核（我自己看渲染截图）后补：8 个选项会被 FieldRenderer 的默认折叠
      收成「6 颗 + 一颗『更多』」，**9:16 与 16:9 看不见**。用户早就批过这种折叠。
      判据用 FieldRenderer 的那条真实规则算，不手抄 6：
        collapsible = options.length > maxVisible + 1  ⇒  只有 8 > maxVisible + 1 才折叠。 */
@@ -160,9 +165,9 @@ test('⑨ 比例 + 分辨率同一行（span: half），比例标签换成纯数
     '比例这一栏不许折成「更多」—— ' + (ratio.options.length - ratioMax - 1) + ' 档会被藏起来，用户选不到');
   assert.equal(ratio.maxVisible, 8, '显式写死 8：判据写"折叠上限必须覆盖全部选项"，来源仍是这一栏自己的选项数');
   assert.equal(clarity.options.length, 3, '清晰度还是三档');
-  /* 半列只有 ~212px，而药丸列最小宽 140px ⇒ 不收窄就是"每行一颗、7 行" */
+  /* 半宽机制本身**仍然留着**（还有别的技能在用），只是这一页不再依赖它 —— 门禁守着它没被删。 */
   assert.match(SHELL_CSS, /data-span="half"\] \.media-field-segmented \{\s*grid-template-columns: repeat\(auto-fill, minmax\(min\(64px, 100%\), 1fr\)\)/,
-    '半宽字段里的药丸列最小宽要收到 64px（否则两列并排反而把 7 档比例排成 7 行）');
+    '半宽字段的药丸密度覆盖仍在（别的技能还在用这一套，不许被"这一页不用了"顺手删掉）');
 });
 
 test('⑩ 模型选择换站内事实标准（.sb-opt 行），全站只留一份实现', () => {
@@ -237,6 +242,36 @@ test('⑬ 左侧导航那"第二层紫"删干净了（用户批注图1-④：「
   const gradients = SIDEBAR.match(/background-image: linear-gradient\(135deg, var\(--sb-brand-\d+\), var\(--sb-brand-\d+\)\);/g) || [];
   assert.equal(new Set(gradients).size, 1,
     '磁贴上那 135deg 品牌渐变也只有一档（原来 is-live 还在用 500→700 的同色相邻档）：' + gradients.join(' | '));
+
+  /* ═══ 2026-09-29 批 DC 续-8：磁贴下面那条**也是紫的**，必须与磁贴**嵌套成一体** ══════════════
+     用户原话（第二次当面指出）：「你确定你真的有对导航栏这里的紫色底层进行解决吗？…这种紫色的图标，
+       它下面是不是还有一层紫色呀？…我怀疑你渐变层的底部有一层多余的紫色的底。」
+     实测（上一批的错）：充能条 **78px 通栏、4px 高、圆角 0、渐变 to right brand-500→700**，
+       磁贴 **38px、圆角 12px、渐变 135deg brand-400→700** ——
+       宽不同 / 圆角不同 / 角度不同 / 上下隔 17px ⇒ 读成两块紫。
+       上一批只撤掉了「格底那条淡紫渐变」就宣布修好了，**漏了这条**。
+     ⇒ 判据锁三件事：① 宽度必须与磁贴同一个变量；② 位置必须由磁贴算出来（不是 bottom:0 贴格底）；
+        ③ 磁贴自己也必须用那个变量（否则两边各写一份尺寸，加一起又会错位）。 */
+  /* ⚠️ 切片要**连 hover / is-active 两条变体一起取**：基础那条是 `width: 0`（未充能），
+     写死宽度的恰恰是后两条。只切基础规则会误判成"没改成同宽"。 */
+  const bar = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell::after'), SIDEBAR.indexOf('.app-sidebar-tile {'));
+  assert.match(bar, /width: var\(--sb-app-tile\)/, '充能条必须与磁贴**同宽**（不是通栏 100%）');
+  assert.doesNotMatch(bar, /width: 100%/, '充能条不许再通栏 —— 那正是"下面还有一层紫"的来源');
+  assert.match(bar, /top: calc\(var\(--sb-app-tile-top\) \+ var\(--sb-app-tile\) \+ 2px\)/,
+    '充能条必须**紧贴磁贴正下方**，位置由磁贴尺寸算出（不是 bottom:0 贴格底）');
+  assert.doesNotMatch(bar, /bottom: 0/, '不许再贴格底（与磁贴之间隔着文字行，两块紫就分家了）');
+  const tile = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-tile {'), SIDEBAR.indexOf('.app-sidebar-label {'));
+  assert.match(tile, /width: var\(--sb-app-tile\)/, '磁贴自己必须走同一个变量（两边各写一份尺寸，加起来就会错位）');
+  assert.match(tile, /height: var\(--sb-app-tile\)/, '磁贴高度同理');
+  /* 那条"左侧 3px 指示条"是 `left:-8px` + 格子的 overflow:hidden ⇒ **从来没被渲染过**。
+     留着它，后天有人为了修光晕溢出把 overflow 去掉，它会突然冒出来变成三重指示。
+     ⚠️ 必须**剥掉注释再判** —— 我在注释里如实写下了它的选择器（为什么删），
+     而这正是本批已经踩过一次的坑：源码级判据不剥注释，就会把"说明"当成"代码"。 */
+  const sidebarCode = SIDEBAR.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(sidebarCode, /\.app-sidebar-cell\.is-active::before/, '那条从未被渲染的左侧指示条不许复活');
+  /* 窄屏那一档必须跟着一起收，否则条会停在老位置和磁贴脱开。 */
+  assert.match(SIDEBAR, /@media \(max-width: 900px\)[\s\S]*?--sb-app-tile-top: 7px;/,
+    '窄屏要一起收磁贴到格顶的距离（改前条是通栏所以没这个依赖，改成紧贴就必须跟）');
 });
 
 test('⑭ 预览步也要说清"确认后会出几张"（否则整页没有一处写着张数）', () => {

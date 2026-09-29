@@ -368,7 +368,15 @@
       坐标由 positionModelMenu 按按钮矩形算并夹在视口 12px 安全边内 —— 既居中又不会被截断。
       门禁 test/video-model-menu-0912 的对应断言随本轮用户口径一并更新（那里写了依据）。
    旧值留档：position: absolute; z-index: 8; left: 0; bottom: calc(100% + 8px)。 */
-.video-inline-menu { position: fixed; z-index: 90; max-height: min(58vh, 460px); overflow: auto; padding: 8px; border: 1px solid rgba(61,50,41,.1); border-radius: 12px; background: var(--sb-surface-panel-solid); box-shadow: 0 15px 40px rgba(45,33,24,.16); }
+/* ⚠️ 2026-09-29 批 DC 续-8：**z-index 从 90 抬到 --sb-z-dropdown**（用户 2026-09-29 逐字）：
+     「当然你张开的面板，你也要好好的做好适配，因为**之前视频生成那边就存在过这个问题。就是相应的模型
+       选择按钮打开之后，它的面板是会被左边导航栏截断的。**」
+   根因：`--sb-z-sticky` = **10,000,000**（`.app-sidebar` 是不透明的 fixed 浮层），而这里是 **90** ——
+     任何一点重叠，导航就画在这个菜单**上面**。`floatingLeftInset`（index.jsx）当时把 **x 坐标**让开了，
+     **z 序没动** ⇒ 只解决了"横向撞上"，纵向/窄屏时仍然被压住。⇒ z 与 x 各修一处，两条都要。
+   ⚠️ 用 token 不写死整数：z 序是站内分层（design-tokens-v3 的 z ladder），
+     写死一个数字迟早又落到某一层下面。 */
+.video-inline-menu { position: fixed; z-index: var(--sb-z-dropdown); max-height: min(58vh, 460px); overflow: auto; padding: 8px; border: 1px solid rgba(61,50,41,.1); border-radius: 12px; background: var(--sb-surface-panel-solid); box-shadow: 0 15px 40px rgba(45,33,24,.16); }
 /* 批 BJ/BK：标题直接用图片侧那个 GroupTitle 组件（全站唯一实现），这里只负责它的**外边距** ——
    用户图2-①：「你视频生成的这个标题怎么歪了呀，变成两层了」：上一版是手写的 <strong> + 一个 SVG 兄弟节点，
    两者基线各排各的；换成组件之后与图片侧逐值同款（14/800 墨色 + 14px 墨色图标 + 4px 间距）。 */

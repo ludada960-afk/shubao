@@ -115,9 +115,15 @@ test('首页图片面板的「自适应」是可见的（上一批加进去却�
   const src = code('src/pages/Home/VisualCreationMode.jsx');
   assert.match(src, /option\.adaptive \|\| IMAGE_RATIOS\.includes\(option\.id\)/,
     '带 adaptive 标记的选项必须放行');
-  /* 自证：模型里确实有这一档，且它确实不在 IMAGE_RATIOS 里（否则这条门禁就是空转） */
+  /* 自证：模型里确实有这一档，且它确实不在 IMAGE_RATIOS 里（否则这条门禁就是空转）
+     ⚠️ 2026-09-29 批 DC 续-8：这一档的 id 从字面量 `'自适应'` 改成了常量 `HOME_ADAPTIVE_RATIO`
+        （它现在同时是「选项表的第一项 / 首页默认比例 / resolveVisualSkillRatio 的特例」三处，
+        写三份字面量就会出现"改了其中一处、另两处不一致"）。判据随之改成**验那个常量**。 */
   const model = read('src/pages/Home/visualCreationModel.js');
-  assert.match(model, /id:\s*'自适应'[\s\S]{0,60}adaptive:\s*true/);
+  assert.match(model, /export const HOME_ADAPTIVE_RATIO = '自适应';/,
+    '自适应这个值必须收成一处常量（三处引用同一个值）');
+  assert.match(model, /id:\s*HOME_ADAPTIVE_RATIO, label:\s*HOME_ADAPTIVE_RATIO, adaptive:\s*true/,
+    '选项表里那一档要引用那个常量，并带 adaptive 标记');
   const catalog = read('src/services/imageSizeCatalog.js');
   const ratios = [...catalog.matchAll(/^\s{2}'([0-9]+:[0-9]+)':/gm)].map(m => m[1]);
   assert.ok(!ratios.includes('自适应'), '自证：自适应本来就不在尺寸表里（所以确实需要那条例外）');

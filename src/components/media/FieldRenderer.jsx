@@ -6,6 +6,10 @@ import MediaAssetCard from './MediaAssetCard.jsx';
 /* 2026-09-28 批 DC 续-7：`variant:'model'` 的字段渲染成**站内那一套模型行**，
    与首页/六个面板共用同一个组件（改前这里是全站唯一一处原生 <select>）。 */
 import ModelOptionRows from './ModelOptionRows.jsx';
+import ConfigTriggers from './ConfigTriggers.jsx';
+/* 「模型选择」那一格要显示**模型名与品牌**（触发器上是 logo + 名字），值要从目录取，
+   不能自己认那一串 id —— 与 ModelOptionRows 读的是同一份目录（选项只有一处真相）。 */
+import { SELECTABLE_IMAGE_MODELS, normalizeImageModel } from '../../services/imageModelCatalog.js';
 import PromptMetaRow from './PromptMetaRow.jsx';
 import ProjectAssetPicker from '../ProjectAssetPicker.jsx';
 import { uploadEcommerceAsset } from '../../services/api';
@@ -546,9 +550,72 @@ function resolveFieldOptions(field, values) {
   return options.filter(option => allowed.some(value => String(value) === String(option.value)));
 }
 
-function control(kind, field, value, onChange, disabled, assets) {
+/* `allFields`：这条技能的**全部字段声明**。`kind:'config'` 那一格要按 key 取回被它收起的几格
+   （`values` 是取值表，里面没有声明本身）。⚠️ 这个参数**必须一路传进来** ——
+   漏传时 `allFields` 在这个函数作用域里是未声明的名字，esbuild 只查语法查不出来，
+   运行期直接 ReferenceError → 整页落错误边界（第一版就是这么炸的：
+   端到端里 `.media-workbench-submit` 20s 超时、页面显示「页面出了点问题」）。 */
+function control(kind, field, value, onChange, disabled, assets, allFields, allValues) {
   const id = 'field-' + field.key;
   const common = { id, disabled, 'aria-label': field.label };
+  /* ═══ 2026-09-29 批 DC 续-8：**`kind: 'config'`** —— 把一组生成设置收成两颗触发器 ════════════════
+     用户 2026-09-29 逐字（指概念视觉方案那一页的左栏被 8 行模型列表 + 两排药丸撑爆）：
+       「你不可以像首页这样就是做成一个**生图模型的按钮和面板**，还有一个**画面规格的一个按钮和面板**吗？
+         你就只排两个按钮进去子页面里面不就好了吗？……你为什么要把子页面的规划搞得乱七八糟呢？」
+     声明侧这么写（`covers` 是它替身的那几格）：
+       { key: 'genConfig', kind: 'config', covers: ['imageModel', 'ratio', 'clarity'], … }
+     ⚠️ **页面里不许手写这一格** —— 它由 FieldRenderer 渲染（与全站"字段一律经 FieldRenderer"同一条纪律）；
+        被 `covers` 的那几格由 WorkbenchShell 从网格里剔掉，不是"藏起来"（藏起来用户就找不到了）。
+     ⚠️ 面板里的比例/清晰度仍是**原来那一份 FieldRenderer 渲染**（ConfigTriggers 内部回调回来），
+        所以药丸外观、折叠、必填标记、禁用逻辑一个字都没变。 */
+  if (kind === 'config') {
+    /* ⚠️ 面板内容在这里**就地渲染**（递归调用本组件），**不是**让 ConfigTriggers 去 import FieldRenderer ——
+       那样会形成 `FieldRenderer → ConfigTriggers → FieldRenderer` 的**循环依赖**，
+       而 esbuild 只查语法、查不出这个：模块初始化顺序一变，工作台整块白屏
+       （第一次写就是这么炸的：端到端里 `.media-workbench-submit` 20s 超时不到）。
+       触发器只负责"两颗按钮 + 一个浮层 + 坐标"，控件一律由本组件渲染。 */
+    const byKey = key => (allFields || []).find(item => item && item.key === key) || null;
+    const modelDecl = byKey(field.modelKey);
+    const specDecls = (field.specKeys || []).map(byKey).filter(Boolean);
+    const table = allValues || {};
+    const modelId = normalizeImageModel(field.modelKey ? table[field.modelKey] : '');
+    const modelMeta = SELECTABLE_IMAGE_MODELS.find(item => item.id === modelId);
+    const labelOf = decl => {
+      const raw = table[decl.key];
+      const option = (decl.options || []).find(item => String(item.value) === String(raw));
+      return option ? option.label : raw;
+    };
+    return (
+      <ConfigTriggers
+        modelKey={field.modelKey || ''}
+        modelLabel={(modelMeta && modelMeta.label) || modelId}
+        modelBrand={(modelMeta && modelMeta.brand) || 'openai'}
+        modelNode={modelDecl
+          ? <ModelOptionRows
+              value={modelId}
+              onPick={item => onChange(item.id)}
+              desc="full"
+              disabled={disabled}
+            />
+          : null}
+        specNodes={specDecls.map(decl => (
+          <FieldRenderer
+            key={decl.key}
+            field={decl}
+            value={table[decl.key]}
+            values={allValues}
+            disabled={disabled}
+            onChange={next => onChange(decl.key, next)}
+          />
+        ))}
+        specSummaries={specDecls.map(labelOf).filter(Boolean)}
+        values={table}
+        disabled={disabled}
+        coverLabels={(field.covers || []).map(key => (byKey(key) || {}).label).filter(Boolean)}
+        onChange={onChange}
+      />
+    );
+  }
   if (kind === 'select') {
     /* ═══ 2026-09-28 批 DC 续-7：声明了 `variant: 'model'` 的那一格走**站内事实标准** ==========
        用户批注图1-① 原话：「模型选择这个你为什么**不用其他地方那个选模型的样式**呀，你又自己发明了一个。」
@@ -634,7 +701,11 @@ function control(kind, field, value, onChange, disabled, assets) {
 /* labelOverride：调用方可以**整块替换标签行**（2026-09-19 批 O-⑪）。
    用途只有一个 —— 把付费动作渲染成"贴着字段标签右端"的行内胶囊（照知渔的形态）。
    不传 = 与从前完全一致。 */
-export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null, labelOverride = null }) {
+/* `allFields`：这条技能的**全部字段声明**。
+   ⚠️ 为什么需要它：`kind: 'config'` 那一格只按 **key** 引用被它收起的几格（不嵌副本 ——
+   嵌副本会造成"同一个 key 声明两次"，且改选项会漏改一处、漏改的那处**静默不生效**）。
+   而 `values` 是**取值表**（key → 值），里面没有声明本身，所以取回声明要另给一份。 */
+export default function FieldRenderer({ field = {}, value, onChange = () => {}, disabled = false, values = null, labelOverride = null, allFields = [] }) {
   const kind = field.kind || 'text';
   /* 选项可能随别的字段变（optionsFrom，见上）——控件拿到的是**过滤后**的那一份 */
   const renderField = field.optionsFrom ? { ...field, options: resolveFieldOptions(field, values) } : field;
@@ -645,24 +716,15 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
   if (field.visibleWhen && values && String(values[field.visibleWhen.key] ?? '') !== String(field.visibleWhen.equals ?? '')) {
     return null;
   }
-  /* ═══ 2026-09-28 批 CY-⑪：**"AI 结论框"空态不渲染**（用户当面纠正，逐字）══════════════════════════
-     用户原话：「下面这个一键解析风格，它应该是在这个**设计风格要求**这里的。也就是说设计风格要求
-       它**不应该是一个提示词输入框**。他应该是一个一键解析风格的按钮**在中心**……只有当用户点击这个
-       一键解析风格的按钮之后，他才会去解析，解析之后的**生成结果才会出现在这个输入框里面**。
-       你看一下知鱼他们就是这样做的呀。你是不是没有看你后面那个**自定义要求**，那个按钮里面是什么情况呀？
-       那个自定义要求他才是你现在的这个情况呀，就是用户可以自动输入他想要的各种各样的提示词。」
-     ⇒ 判据：**内容由付费动作产出的字段**（声明里写 `hideWhenEmpty: true`）在**还没有内容时整格不渲染** ——
-       那一格就只剩居中的那颗动作按钮（知渔就是这样：点之前没有输入框，点完结论才落进一个可编辑框）。
-     ⚠️ 与 `visibleWhen` 的分工：visibleWhen 管"哪一档才出现"，这一条管"这一档里**有没有内容**"（两者是"与"）；
-        用户**自己写**的字段（「自定义要求」的设计要求、视频侧那个"可以自己写、也可以点生成脚本"的脚本框）
-        **不加**这个标记 —— 那是另一回事（用户原话把这条界线划得很清楚）。
-     ⚠️ 空值判定按控件类型：文本类 trim 后为空算空；数组类（上传位）看长度；其余按 null/undefined。 */
-  if (field.hideWhenEmpty) {
-    const empty = Array.isArray(value)
-      ? value.length === 0
-      : (value == null || String(value).trim() === '');
-    if (empty) return null;
-  }
+  /* ═══ 2026-09-28 批 CY-⑪ 的 `hideWhenEmpty`（"AI 结论框空态不渲染"）已于 2026-09-29 批 DC 续-8 删除。══
+     那条规则把「内容由付费动作产出」的字段在空态整格不渲染，于是页面上只剩那颗居中按钮。
+     同一位用户两天后当面改回（逐字）：
+       「你看他们的做法是这里会有一个相应的**提示词输入框的一个背景**……**用户可以随时去改这个你
+         生成出来的文字。你现在的情况就做的是不对的，就是你把这个文字输入框给拿掉了。**」
+     支撑反转的证据在**竞品自己的 DOM**（docs/design/data/quantv-image-builtin-pages.json:46）：
+     那个具名结论框在分析之前就渲染，按钮在它下面。
+     ⚠️ 判据"哪一档才出现"仍由上一行的 `visibleWhen` 管 —— 那一半是对的，保留。
+     ⚠️ 引擎里这条分支**一并删掉**（不留死代码）：三处声明都去了标记，它已无人调用。 */
   /* ═══ 2026-09-27 批 CI：**按钮组的字段不能用 `<label>` 包**（用户现场复现的真 bug）═══════════════
      用户原话：「我鼠标放到现在这个区域的右下角这块空白的地方，它**第一个按钮的确会有一个灰色的
      显示**……所有带按钮的区域只要我把鼠标放到这块区域的空地上，它的第一个按钮都会有这个灰色的
@@ -707,7 +769,7 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
         </span>
       ))}
       {/* 批 CP：把"这条技能里已经上传的素材"传给控件 —— 提示词框下面那一行的 @ 用它列素材 */}
-      {control(kind, renderField, value, onChange, disabled || locked, uploadedAssets)}
+      {control(kind, renderField, value, onChange, disabled || locked, uploadedAssets, allFields, values)}
       {field.hint ? <small className="media-field-hint">{field.hint}</small> : null}
       {/* 锁住时的那句说明（disabledHint）：说清"为什么现在选不了、想选要先改哪一格" */}
       {locked && field.disabledHint ? <small className="media-field-hint is-locked">{field.disabledHint}</small> : null}

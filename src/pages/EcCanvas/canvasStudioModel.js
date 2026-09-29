@@ -1,6 +1,12 @@
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import { attachCanvasProjectAssetRef } from './canvasAssetReferenceModel.js';
 import { formatCanvasShotName, resolveShotPrefix } from '../../constants/canvasNames.js';
+/* ⚠️ 2026-09-29 批 DC 续-8：新建节点的默认比例 **'1:1' → ADAPTIVE_RATIO**（用户逐字：
+   「还有**画布里面的生图配置**啊这些地方。**自适应应该是它默认的一个选项呀。**」）
+   ⚠️ 注意 `CANVAS_RATIO_OPTIONS` 本身**不含**「自适应」—— 它是「**选项**不是尺寸」
+     （同首页那套口径）：渲染时由 `withAdaptiveRatioOption` 把这一档注入到列表最前面。
+     这里只改**默认值**，不动那份尺寸名单。 */
+import { ADAPTIVE_RATIO } from './canvasAdaptiveRatio.js';
 
 /* ═══════ 4c183cd4 续命 P-B 画布节点电影分镜命名 ═══════
    资深美工视角: 「素材 1」「图片 1」无法体现镜头/声轨/画面职责
@@ -80,6 +86,7 @@ const MIN_NODE_WIDTH = 160;
 const MIN_NODE_HEIGHT = 56;
 const MAX_NODE_WIDTH = 960;
 const MAX_NODE_HEIGHT = 1200;
+
 
 export const CANVAS_RATIO_OPTIONS = Object.freeze(['1:1', '3:4', '4:3', '9:16', '16:9']);
 export const CANVAS_RESOLUTION_OPTIONS = Object.freeze(['1K', '2K', '4K']);
@@ -408,7 +415,7 @@ export function createCanvasImageComposerNode({ x = 0, y = 0, sourceNodeId = '',
     w: 280,
     h: 280,
     prompt: '',
-    ratio: '1:1',
+    ratio: ADAPTIVE_RATIO,
     resolution: '2K',
     imageModel: 'image2',
     count: 1,
@@ -428,7 +435,7 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
     text: '',
     placeholder: '双击开始编辑...',
     prompt: '',
-    ratio: '1:1',
+    ratio: ADAPTIVE_RATIO,
     resolution: '2K',
     imageModel: 'image2',
     count: 1,
@@ -475,7 +482,7 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     /* 被替换掉的历史方案（重新生成方案时保留旧方案，供对比，不删除） */
     previousSuitePlans: [],
     suiteType: '完整套图',
-    ratio: '1:1',
+    ratio: ADAPTIVE_RATIO,
     resolution: '2K',
     imageModel: 'image2',
     language: '中文',

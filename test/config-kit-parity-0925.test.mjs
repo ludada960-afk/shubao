@@ -26,7 +26,16 @@ const strip = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const N = v => String(v).replace(/\s+/g, ' ').replace(/,\s*/g, ', ').trim();
 
 const videoCss = strip(read('src/pages/VideoStudio/VideoStudio.css'));
-const imageCss = strip(read('src/pages/Home/VisualCreationMode.css'));
+/* ⚠️ 2026-09-29 批 DC 续-8：图片侧的触发器/浮层那一组样式**搬去了共用组件**的样式表
+   （`ConfigTriggers.css`）—— 技能子页面也要用同一份，留在页面目录里就得让子页面去
+   import 一个**别的页面**的样式表（那是日后必然腐烂的写法）。
+   取值一个字没改，所以这里把两份拼起来读：**这条门禁没有被放松**，只是图片侧的取值换了个文件读。
+   ⚠️⚠️ 拼接**顺序必须是「共用那份在前」**：`blockOf` 取的是**第一条**同名规则，
+      而 `@media (max-width: 900px)` 里还有一条 `.visual-config-trigger`（154px 那一档）。
+      顺序反了的话，"第一条"就变成窄屏覆盖值，这条门禁会拿 154 去比视频侧的 126 —— 一片红，
+      而代码其实一个字没错。（与今天早些时候 `.media-field-segmented` 那次同源：**位置切片不能靠顺序猜**。） */
+const imageCss = strip(read('src/components/media/ConfigTriggers.css')) + '\n'
+  + strip(read('src/pages/Home/VisualCreationMode.css'));
 
 /** 把 CSS 里所有「选择器 → 声明表」抽出来（媒体查询里的规则同样会被抽到，选择器即内层选择器）。 */
 function rules(css) {

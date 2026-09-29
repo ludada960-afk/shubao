@@ -43,7 +43,10 @@ import { downloadFileName } from './mediaHistoryModel.js';
    不是"每个页面各写一遍"）。 */
 import { resolveProtocolRatio } from '../EcCanvas/canvasAdaptiveRatio.js';
 import {
+  HOME_ADAPTIVE_RATIO,
   VISUAL_CREATION_SKILLS,
+  /* 批 DC 续-8：触发器/浮层那一组样式已搬进共用组件的样式表（子页面也要用），
+     这里由组件自己 import；本文件不再自带一份，避免"两处各改各的"。 */
   VISUAL_RATIO_OPTIONS,
   buildVisualCanvasResult,
   buildVisualWorkRecord,
@@ -57,6 +60,9 @@ import {
   visualGenerationEstimate,
 } from './visualCreationModel.js';
 import './VisualCreationMode.css';
+/* 批 DC 续-8：触发器/浮层那一组样式已搬进**共用组件**的样式表（子页面那一侧也要用同一份），
+   所以本页面显式 import 它 —— 不再自带一份，两边各改各的正是要消灭的那种漂移。 */
+import '../../components/media/ConfigTriggers.css';
 import { IMAGE_PROMPT_LIMIT } from '../../constants/promptLimits.js';
 
 /* ═══ 2026-09-19 批 H（用户批注 #3）：「张数应该多一些呀。正常来说，比如说一些电商用户，
@@ -219,7 +225,8 @@ function VisualSpecsPanel({ selectedSkill, ratio, resolution, imageModel, onRati
      现在：选项 = **能生成的六档**（imageSizeCatalog 里那张与服务端逐值一致的表，
           门禁 image-size-catalog-parity 第 ② 条逐个跑过 resolveGenerationSize，
           确认六档全都真的照做、没有任何一档会被静默回落）。
-           技能自己的顺序只决定**默认值**（visualSkillDefaultRatio 取 ratios[0]，行为不变）。 */
+           技能自己的顺序只决定**回落档**（⚠️ 2026-09-29 批 DC 续-8：默认值已改成「自适应」，
+  `visualSkillDefaultRatio` 不再取 ratios[0] —— 那份名单降级成"自适应解析不出结果时"的兜底）。 */
   /* ⚠️ 批 CY-⑮ 修 P0-②：原来这里是 `.filter(option => IMAGE_RATIOS.includes(option.id))` ——
      那是「只给能生成的档位」的旧判据，而「自适应」是**选项不是尺寸**（它不进 IMAGE_RATIOS，
      选中后由 resolveProtocolRatio 现算出具体比例再发）。两种语义混在一个过滤器里，
@@ -372,7 +379,11 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   const [materials, setMaterials] = useState([]);
   const [styles, setStyles] = useState([]);
   const [imageModel, setImageModel] = useState('image2');
-  const [ratio, setRatio] = useState('1:1');
+  /* ⚠️ 2026-09-29 批 DC 续-8：默认档 **1:1 → 自适应**（用户逐字：「首页的生图模型配置啊……
+     自适应应该是它默认的一个选项呀」）。⚠️ 自适应是**选项不是尺寸**：它不进 IMAGE_RATIOS，
+     选中后由 resolveProtocolRatio 按上传图实际宽高现算出一个具体比例再发（本文件 :714 那处）。
+     ⇒ 传上去的图是什么比例，出来就是什么比例 —— 那才是"自适应"三个字的意思。 */
+  const [ratio, setRatio] = useState(HOME_ADAPTIVE_RATIO);
   const [resolution, setResolution] = useState('2K');
   const [count, setCount] = useState(1);
   const [run, setRun] = useState(null);
@@ -511,7 +522,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     restoreRatioRef.current = true;
     setPrompt(String(snapshot.prompt || snapshot.text || '').slice(0, 3000));
     setImageModel(snapshot.imageModel || 'image2');
-    setRatio(resolveVisualSkillRatio(nextSkill.id, snapshot.ratio || '1:1'));
+    setRatio(resolveVisualSkillRatio(nextSkill.id, snapshot.ratio || HOME_ADAPTIVE_RATIO));
     setResolution(snapshot.resolution || '2K');
     if (snapshot.skillControl) {
       setSkillControlValues(current => ({ ...current, [nextSkill.id]: snapshot.skillControl }));

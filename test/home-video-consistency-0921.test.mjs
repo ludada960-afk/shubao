@@ -24,7 +24,10 @@ const rowCss = read('src/components/media/SkillEntryRow.css');
 const videoCss = read('src/pages/VideoStudio/VideoStudio.css');
 const videoPage = stripComments(read('src/pages/VideoStudio/index.jsx'));
 const creation = stripComments(read('src/pages/MediaCreation/index.jsx'));
-const visualCss = read('src/pages/Home/VisualCreationMode.css');
+/* ⚠️ 2026-09-29 批 DC 续-8：`.visual-config-panel` 的基础规则搬去了**共用组件**的样式表
+   （技能子页面也要用同一份），所以这里两份一起读。取值一个字没改。 */
+const visualCss = read('src/pages/Home/VisualCreationMode.css') + '\n'
+  + read('src/components/media/ConfigTriggers.css');
 
 test('① 顶栏滚动时不再压缩（头部不跳）', () => {
   assert.doesNotMatch(shellCss, /\.app-topbar\.is-compact \{[^}]*padding-top/, '紧凑态不得再改内边距');

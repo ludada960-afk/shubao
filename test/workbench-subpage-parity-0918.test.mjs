@@ -35,7 +35,11 @@ test('① 工作台按区块分组，组名与顺序照竞品实测', () => {
         技能名 → 分类 → 参数配置@y≈202 → 第一个字段@y≈252），内置 ?tool= 页才是真分组。
         所以渲染层多了一个"并成一组"的开关，两边的分组事实各按各的走。 */
   assert.match(shell, /function groupFields\(fields, mergeTitle = ''\)/);
-  assert.match(shell, /if \(mergeTitle\) return \[\{ name: mergeTitle, fields \}\];/, '单组模式要真的并成一组');
+  /* ⚠️ 2026-09-29 批 DC 续-8：单组模式那一支现在多走一步 `dropCoveredFields(fields)` ——
+     `kind:'config'` 那一格收起的字段要从**渲染**里剔掉（取值仍在 fields 里，判据见
+     test/config-triggers-0929 ②）。断言跟着改形状，不改意图：**仍然是"并成一组"**。 */
+  assert.match(shell, /if \(mergeTitle\) return \[\{ name: mergeTitle, fields: dropCoveredFields\(fields\) \}\];/,
+    '单组模式要真的并成一组（并把被 config 收起的字段剔出渲染）');
   assert.match(shell, /media-workbench-group-title/);
   /* 页面侧：app 页必须传「参数配置」，且判据来自对照表（不在页面里再写一份名单） */
   const media = read('src/pages/MediaCreation/index.jsx');

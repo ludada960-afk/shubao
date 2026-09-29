@@ -3460,7 +3460,8 @@ const handlePointerUp = useCallback((e) => {
       y: node.y,
       w: 220,
       h: 220,
-      ratio: '1:1',
+      /* 批 DC 续-8：派生图层节点的默认比例跟新建节点一致（自适应），不再写死 1:1 */
+      ratio: ADAPTIVE_RATIO,
       name: layer.name || '独立图层',
       displayLabel: layer.name || '独立图层',
       sourceNodeIds: [node.id],

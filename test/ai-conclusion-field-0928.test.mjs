@@ -1,18 +1,32 @@
-/* ═══ 批 CY-⑪ 门禁：**"AI 结论框"空态不渲染**（用户当面纠正）═══════════════════════════════════════
-   用户原话（逐字）：「下面这个一键解析风格，它应该是在这个**设计风格要求**这里的。也就是说设计风格要求
-     它**不应该是一个提示词输入框**。他应该是一个一键解析风格的按钮**在中心**……只有当用户点击这个
-     一键解析风格的按钮之后，他才会去解析，解析之后的**生成结果才会出现在这个输入框里面**。
-     你看一下知鱼他们就是这样做的呀。你是不是没有看你后面那个**自定义要求**，那个按钮里面是什么情况呀？
-     那个自定义要求他才是你现在的这个情况呀，就是用户可以自动输入他想要的各种各样的提示词。」
-   + 「你现在做的任何改动你都要搞明白，背后是很多部分可能都有类似的东西的，如果有类似的东西，那你就得
-      类似的去改」（⇒ 本批按这条做了**同类排查**，见 ③）
+/* ═══ 「AI 结论框」门禁 —— 2026-09-29 批 DC 续-8 **整条反转**（推翻批 CY-⑪）══════════════════════════
+   批 CY-⑪ 当时守的是「空态不渲染」，用户 2026-09-28 的原话里**有一半是对的、有一半是错的**：
 
-   判据守三件事：
-     ① 引擎能力："内容由动作产出的字段"（`hideWhenEmpty`）在空值时**整格不渲染**（文本按 trim、数组按长度）；
-     ② 声明源：**三处**由 AI 产出的风格结论框都标了它；而**用户自己写**的那两处（自定义要求的设计要求、
-        视频侧那个"可以自己写、也可以点生成脚本"的脚本框）**不许**标 —— 这条界线是用户原话划的；
-     ③ 按钮那一格仍在（`.media-workbench-field-action` 居中），所以"点之前"看到的就是**一颗居中的按钮**。
-   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+   ✅ 仍然成立的一半：「他应该是一个一键解析风格的按钮**在中心**」
+      ⇒ 按钮居中、落在**这一档内容框的下方**（`.media-workbench-field-action`），这一条保留不动。
+
+   ❌ 被推翻的一半：「设计风格要求它**不应该是一个提示词输入框**」⇒ 把输入框拿掉。
+      同一位用户 2026-09-29 逐字改回（完整）：
+      「你看他们的做法是这里会有一个相应的**提示词输入框的一个背景**。然后中间再去放这个一键生成的这个按钮。
+        它的逻辑就是当用户点击这个按钮之后，它会生成出来的内容就是在这个框里面，然后是以**提示词输入区
+        的那个形式**把内容输入在里面的。**用户可以随时去改这个你生成出来的文字。你现在的情况就做的是不对的，
+        就是你把这个文字输入框给拿掉了。**你要明白他跟第三个按钮的那个「自定义要求」，他们的逻辑其实是类似的，
+        那个自定义要求就是用户他自己去写一段提示词。你这个一键分析的这个按钮，它是用来相当于由 AI 来给他写
+        这个提示词。AI 去分析它上面给到的各种条件，不管是上传的素材图还是它的配置，由 AI 去帮他进行一个方案的
+        分析。然后分析的结果就会给到这个位置的输入框里面的。」
+
+   ⚠️ 为什么上一批的「同类排查」把结论搞反了：它是按 **placeholder 措辞**筛的
+     （找"点…后结论会写在这里"这种句子）。而那句话之所以那么写，**正因为框一直在** ——
+     框一直在，才需要告诉用户"点上面那颗会把结论写进来"。
+
+   ⚠️ 支撑这次反转的证据在**竞品自己的 DOM**（docs/design/data/quantv-image-builtin-pages.json:46）：
+     详情图那一页的顺序是 `爆款风格 / 参考·自定义风格 / **AI推荐风格选择** / 爆款风格分析 · 0.10积分`
+     —— 那个**具名结论框在分析之前就渲染在页面上**，按钮在它下面。
+
+   新判据守四件事：
+     ① 引擎里**不再有** `hideWhenEmpty`（不留死分支）；
+     ② 声明源：三处 AI 产出的结论框**都不标**它，且**都是可编辑的 textarea**；
+     ③ 「哪一档才出现」仍由 `visibleWhen` 管（那一半是对的，必须还在）；
+     ④ 按钮仍在**框的下方且居中**（点之前就看得见"框 + 按钮"这一对）。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -20,39 +34,70 @@ import { readFileSync } from 'node:fs';
 const read = rel => readFileSync(new URL('../' + rel, import.meta.url), 'utf8');
 const code = rel => read(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-test('① FieldRenderer 支持 hideWhenEmpty：空文本 / 空数组 / null 都不渲染，有内容才渲染', () => {
+test('① 引擎里没有 hideWhenEmpty 了（推翻 CY-⑪，不留死分支）', () => {
   const renderer = code('src/components/media/FieldRenderer.jsx');
-  assert.match(renderer, /if \(field\.hideWhenEmpty\) \{/, '引擎里要有这一条');
-  assert.match(renderer, /Array\.isArray\(value\)[\s\S]{0,80}value\.length === 0/, '数组类（上传位）按长度判空');
-  assert.match(renderer, /value == null \|\| String\(value\)\.trim\(\) === ''/, '文本类按 trim 判空');
-  /* 与 visibleWhen 是"与"的关系：先判档位、再判有没有内容（顺序不影响语义，但两条都要在） */
-  const iVisible = renderer.indexOf('field.visibleWhen');
-  const iEmpty = renderer.indexOf('field.hideWhenEmpty');
-  assert.ok(iVisible > 0 && iEmpty > iVisible, '两条判定都要在（顺序：先档位、后空态）');
+  assert.doesNotMatch(renderer, /field\.hideWhenEmpty/, '引擎分支必须删干净（留着就是一条没人调用的死代码）');
+  assert.doesNotMatch(code('src/skills/imageSkills.js'), /hideWhenEmpty: true/, '声明源也不许再标');
+  /* ⚠️ 与 visibleWhen 的分工没变：「哪一档才出现」仍然要判 —— 那一半 CY-⑪ 是对的。 */
+  assert.match(renderer, /field\.visibleWhen && values/, 'visibleWhen 必须还在（决定这一档出不出现）');
 });
 
-test('② 声明源：三处"AI 产出"的风格结论框都标了 hideWhenEmpty；用户自己写的那两处不标', () => {
-  const skills = read('src/skills/imageSkills.js');
-  const marked = skills.match(/hideWhenEmpty: true/g) || [];
-  assert.equal(marked.length, 3, '恰好三处（设计风格要求 + 两处 AI推荐风格选择）—— 实测 '.concat(marked.length));
-  /* 三处都是 styleBrief（由动作产出的结论框）。
-     ⚠️ 窗口要留够：第一处 `styleBrief` 后面跟着一大段解释性注释（用户原话），400 字窗口会漏掉它。 */
-  const briefs = skills.match(/\{ key: 'styleBrief'[\s\S]{0,1400}?hideWhenEmpty: true/g) || [];
-  assert.equal(briefs.length, 3, '标在 styleBrief 上（内容由「一键解析风格/风格分析」产出）—— 实测 '.concat(briefs.length));
-  /* ⚠️ 用户自己写的字段不许标：自定义要求档的「设计要求」 */
-  const styleNote = skills.slice(skills.indexOf("key: 'styleNote'"), skills.indexOf("key: 'styleNote'") + 400);
-  assert.doesNotMatch(styleNote, /hideWhenEmpty/, '「设计要求」是用户自己写的（用户原话点名过）—— 不许标');
-  /* ⚠️ 视频侧那个脚本框也是"用户可自己写"⇒ 不标（它的 placeholder 明确写着"或点击…由 AI 帮你写"） */
-  const video = read('src/skills/videoWorkbenches.js');
-  assert.doesNotMatch(video, /hideWhenEmpty/, '视频侧脚本框不标：用户也能自己写（同类排查的结论）');
-  assert.match(video, /或点击上面的「生成脚本」由 AI 帮你写/, '前提：它的 placeholder 明确写了"也可以自己写"');
+test('② 三处 AI 结论框都是**常驻可编辑的 textarea**（点之前就在，点完可改）', () => {
+  const skills = code('src/skills/imageSkills.js');
+  const briefs = objectLiteralsStartingAt(skills, "{ key: 'styleBrief'");
+  assert.equal(briefs.length, 3, '恰好三处（商品套图的设计风格要求 + A+/详情图的 AI推荐风格选择），实测 ' + briefs.length);
+  for (const brief of briefs) {
+    assert.match(brief, /kind: 'textarea'/, '结论框必须是一个 textarea（用户要能随时改）');
+    assert.match(brief, /rows: \d/, '并且有高度（textarea 的形状）');
+    assert.doesNotMatch(brief, /hideWhenEmpty/, '不许再空态隐藏');
+    assert.match(brief, /placeholder: '点上面的「一键解析风格」/, 'placeholder 要说清"点上面那颗会写进来"（框一直在，这句话才成立）');
+  }
+  /* 「自定义要求」那两处是用户自己写的，从头到尾没有那个标记 —— 这一条两批都不变。 */
+  const styleNote = skills.slice(skills.indexOf("key: 'styleNote'"), skills.indexOf("key: 'styleNote'") + 500);
+  assert.doesNotMatch(styleNote, /hideWhenEmpty/, '「设计要求」是用户自己写的');
+  assert.doesNotMatch(code('src/skills/videoWorkbenches.js'), /hideWhenEmpty/, '视频侧脚本框同理');
 });
 
-test('③ 点之前那一格看到的是一颗**居中的按钮**（不是空输入框）', () => {
+/** 从 `needle` 处的 `{` 开始**按花括号配对**取出整个对象字面量。
+ *  ⚠️ 不能用 `/needle[\s\S]{0,N}?\}/` —— 声明里第一层就嵌了 `visibleWhen: { … }`，
+ *    非贪婪会在那里截断，测到的只是半个对象（第一次写就踩了）。
+ *    （与 RTK 里 EcCanvas 那条"提取函数体要配对取体"是同一条纪律。） */
+function objectLiteralsStartingAt(src, needle) {
+  const out = [];
+  let from = 0;
+  for (;;) {
+    const at = src.indexOf(needle, from);
+    if (at < 0) return out;
+    let depth = 0;
+    for (let i = at; i < src.length; i += 1) {
+      if (src[i] === '{') depth += 1;
+      else if (src[i] === '}') {
+        depth -= 1;
+        if (depth === 0) { out.push(src.slice(at, i + 1)); from = i + 1; break; }
+      }
+    }
+    if (depth !== 0) return out;   // 没配平，宁可少收也不要收半截
+  }
+}
+
+test('③ 按钮仍在**框的下方且居中**（点之前看到的是"框 + 按钮"这一对，不是一颗孤零零的按钮）', () => {
   const css = code('src/components/media/WorkbenchShell.css');
   const rule = (css.match(/\.media-workbench-field-action \{[^}]*\}/) || [''])[0];
   assert.match(rule, /justify-content: center;/, '动作行居中（知渔那颗就在正中）');
+  assert.match(rule, /grid-column: 1 \/ -1;/, '并且跨两列（它是那一档内容的下沿，不是又一个字段）');
   const shell = code('src/components/media/WorkbenchShell.jsx');
   assert.match(shell, /bigActionAfter\(groups, paidActions\)/, '按钮的挂载规则仍在（CY-⑥ 那条）');
   assert.match(shell, /field\.kind !== 'segmented'/, '只挂分段档位字段（风格三档这一族）');
+  /* ⚠️ 顺序是判据的一半：按钮必须落在**档内容块的最后一项之后** ——
+     那样它在页面上就在框的下面。`while (last + 1 < ...)` 那段就是干这个的。 */
+  assert.match(shell, /while \(last \+ 1 < group\.fields\.length && group\.fields\[last \+ 1\]\.visibleWhen\?\.key === field\.key\) last \+= 1;/,
+    '按钮要挂在"档内容块"的最后一项上（那一项就是结论框）—— 否则顺序反了，按钮跑到框上面');
+});
+
+test('④ 自证：把 hideWhenEmpty 塞回声明源必须被判红（否则 ① 是空转）', () => {
+  const original = read('src/skills/imageSkills.js');
+  const broken = original.replace(/(kind: 'textarea', rows: \d, group: '产品卖点与设计风格',\n)/, "$1      hideWhenEmpty: true,\n");
+  assert.notEqual(broken, original, '替换没生效，这条自证无效');
+  const stripped = broken.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(stripped, /hideWhenEmpty: true/, '塞回去竟然没被判红 ⇒ ② 是空转');
 });

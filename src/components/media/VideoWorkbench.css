@@ -49,7 +49,21 @@
 
 /* 计数（知渔：区块标题行右端 0/6，14px/500/灰） */
 .video-wb-count { font-size: 14px; font-weight: 500; color: var(--sb-ink-3); }
-.video-wb-required { margin-left: 2px; font-style: normal; color: var(--sb-ink-danger-strong); }
+/* ═══ 2026-09-29 批 DC 续-8：**非操作区块的标题**（批 DC 续-8 新增的一类）══════════════════════════════
+   用户原话（逐字）：「真正要加着重号的其实是**每一个用户操作区**…而不是每一个**区块的总标题**那个地方
+     要加着重号。总而言之，就是你要**以功能和操作区为主**。」
+   ⚠️ 改前 `panel` / `note` / `tags` 三种块（**都没有输入**：一组按钮、纯说明清单、只读标签行）
+     套的是 `.media-field-label`，那个 class 带着一条 3px 品牌竖条 —— 竖条的原意是
+     「这里是可被操作的地方」（批 BB：哪里可点、哪里是标题、哪里是输入区）。
+     给只读块挂竖条 = 在说"这里能点"，而它不能点。
+   ⇒ 这一类改用本 class：**与字段标签同字号、同色，但**没有竖条**。
+      分组总标题（`.media-workbench-group-title`）本批也回规格档 13.624/500/ink-3，
+      于是整栏的层级是：操作区（14.672 墨色 + 竖条）> 非操作块标题（14.672 墨色、无竖条）> 分组总标题（13.624 灰）。 */
+.video-wb-block-title { display: inline-flex; align-items: center; gap: 3px; margin: 0; font-size: 14.672px; font-weight: 500; color: var(--sb-ink-1); }
+/* 必填星号：与图片侧**同色**（`.media-field-label b` 是 `--sb-brand-600`）。
+   改前视频侧是红色 `--sb-ink-danger-strong` —— 同一件事两套颜色，
+   用户 2026-09-29 问「哪些标题应该加着重号，你好像没有搞得很明白」，颜色不一致也是"不明白"的一部分。 */
+.video-wb-required { margin-left: 2px; font-style: normal; color: var(--sb-brand-600); font-weight: 600; }
 
 /* ── 上传框（知渔原文：点击或拖拽上传图片 / 支持 JPG、JPEG、PNG，单张不超过 10MB /
       [选择文件] [从资产库选择]，全部**在虚线框里面**）────────────────────────────── */

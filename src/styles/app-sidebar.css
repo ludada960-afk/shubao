@@ -115,6 +115,15 @@
 .app-sidebar-cell {
   position: relative;
   width: 78px;
+  /* ═══ 2026-09-29 批 DC 续-8：**磁贴的尺寸与它到格顶的距离**只写在这两个变量里** ═══════════════
+     为什么要有它们：这一列的垂直节奏是"磁贴 → 充能条 → 文字"，而**充能条必须与磁贴同宽**、
+     **紧贴在磁贴正下方**（批 DC 续-8 之前它是 78px 通栏、圆角 0、渐变角度还与磁贴不同，
+     于是和磁贴读成"两块紫"而不是一个整体 —— 用户原话：「这个里面两层紫色啊，
+     你在处理的时候**没有做干净**…我怀疑你渐变层的底部有一层多余的紫色的底」）。
+     改法不是"再调一个像素"，而是**把两者的共同尺寸收成一份**：磁贴与条都用这两个变量算，
+     窄屏那一档也只覆盖这两个变量一处（改前 padding 与条宽是两处各写一遍，加一起就会错位）。 */
+  --sb-app-tile: 38px;
+  --sb-app-tile-top: 12px;
   /* ═══ 2026-09-25 批 BF：**放松间距、让整列"拉满"**（用户原话，逐字）══════════════════════════════
      原话：「你再好好看一下他们左边的导航栏，他们是**拉的比较满的**……我们现在的情况就是左边的这些
      按钮都**太紧了**，你要尽可能像他们一样**稍微松散一些**，能够让整个左边的导航栏看起来比较饱满
@@ -159,28 +168,40 @@
   overflow: hidden;
   transition: background-color .18s ease, color .18s ease;
 }
-/* ═══ 底边渐变进度条：**hover 从左往右充能、离开从右往左回落** ═══════════════════════════
-   数值逐条照 docs/design/54 §1（liuyingai 实测，也是本站在案例卡上已经用过的那一套）：
-   高 4px / bottom:0 / left:0 / 圆角 0 / 默认 width:0 → 悬停 width:100% /
-   transition: width .7s cubic-bezier(.4,0,.2,1)。
-   ⚠️ 靠 width 过渡，不是 transform / scaleX（实测确认）；左边缘钉死不动 ⇒
-      进入时右边缘向右推进，离开时收缩回左 —— 就是用户说的"充能 / 回落"。
-   ⚠️ 它是纯装饰：aria-hidden 语义上没有内容，pointer-events 不参与命中（由格子本身承担）。 */
+/* ═══ 充能条：**与磁贴同宽、紧贴磁贴正下方**（hover 从左往右充能、离开从右往左回落）════════════
+   数值逐条照 docs/design/54 §1（liuyingai 实测）：靠 `width` 过渡（不是 transform / scaleX，实测确认）、
+   左边缘钉死不动 ⇒ 进入时右边缘向右推进，离开时收缩回左 —— 就是用户说的"充能 / 回落"。
+
+   ⚠️⚠️ 2026-09-29 批 DC 续-8 改了三处，全是为了解决「两层紫」（用户原话逐字）：
+     「这个里面两层紫色啊，你在处理的时候**没有做干净**…我怀疑你渐变层的底部有一层多余的紫色的底」
+       · 改前是 **78px 通栏、4px 高、圆角 0、`to right brand-500→700`**（下面 :185 那行）；
+       · 磁贴是 **38px、圆角 12px、`135deg brand-400→700`**（:212 那行）。
+     两者宽不同、圆角不同、渐变角度不同，上下还隔 17px ⇒ 读成**两块紫**，不是一个整体。
+     留影AI 原型是 425px 卡配 56px 磁贴（7.6 倍），4px 的条读作"基线"；
+     我们只有 78px 配 38px（2 倍），同一条 4px 就读成了"第二块"。**不是抄错了数值，是比例不同。**
+     ⇒ 三处一起收：① 宽度改成 `var(--sb-app-tile)`（与磁贴逐字同宽）；
+        ② 高度 4 → **3px**（38px 的磁贴里 4px 占 10.5%，留影AI 56px 里只占 7%）；
+        ③ 位置从格底（`bottom:0`）挪到**磁贴正下方 2px**，圆角与磁贴同族。
+     ⚠️ 渐变端点顺带从 `brand-500` 改成 `brand-400`（docs/design/83:35 记的就是 400，
+        CSS 一直写成 500 —— 那是一处**已记录的漂移**，本批一并改回来）。
+     ⚠️ 它是纯装饰：语义上没有内容，pointer-events 不参与命中（由格子本身承担）。 */
 .app-sidebar-cell::after {
   content: '';
   position: absolute;
-  left: 0;
-  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--sb-app-tile-top) + var(--sb-app-tile) + 2px);
   width: 0;
-  height: 4px;
-  background-image: linear-gradient(to right, var(--sb-brand-500), var(--sb-brand-700));
+  height: 3px;
+  border-radius: 2px;
+  background-image: linear-gradient(to right, var(--sb-brand-400), var(--sb-brand-700));
   transition: width .7s cubic-bezier(.4,0,.2,1);
   pointer-events: none;
 }
 .app-sidebar-cell:hover::after,
-.app-sidebar-cell:focus-visible::after { width: 100%; }
-/* 选中档的进度条**常亮**：它就是"当前在这一格"的持久表达。 */
-.app-sidebar-cell.is-active::after { width: 100%; }
+.app-sidebar-cell:focus-visible::after { width: var(--sb-app-tile); }
+/* 选中档的充能条**常亮**：它就是"当前在这一格"的持久表达。 */
+.app-sidebar-cell.is-active::after { width: var(--sb-app-tile); }
 /* ═══ 图标磁贴：照 liuyingai 的「默认无色、悬停才上渐变」（2026-09-19 批 H-2）═══════════
    实测（docs/design/54）：他们的默认态是**白底 + 有颜色的图标**，
    悬停时只把 56×56 的**图标磁贴**换成 linear-gradient(135deg, #0076F5, #7D28CC) + scale(1.05) + 图标转白，
@@ -192,8 +213,10 @@
 .app-sidebar-tile {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  /* 批 DC 续-8：尺寸走**格子上那一个** `--sb-app-tile` —— 充能条与它逐字同宽，
+     两条几何从此只有一份真相（改前磁贴写 38、条写 100%，各改各的就会错位）。 */
+  width: var(--sb-app-tile);
+  height: var(--sb-app-tile);
   border-radius: 12px;
   /* 批 BJ：照 liuyingai.cn 实测 —— 他们的图标容器默认是 rgb(245,247,250) 底 + 1px 边（不是纯白浮片）。
      我们用同一档的 --sb-l3-option(#F4F4F4) + --sb-border-default，磁贴从此有"底托"而不是浮在白面上。 */
@@ -263,21 +286,17 @@
 .app-sidebar-cell:hover .app-sidebar-label { color: var(--sb-ink-brand); }
 .app-sidebar-cell:focus-visible { outline: none; box-shadow: var(--sb-focus-ring); }
 
-/* 选中态：**只有磁贴**上渐变（与 hover 同一套视觉），文字转墨色 + 左侧一条细指示条。
+/* 选中态：**只有磁贴**上渐变（与 hover 同一套视觉），文字转墨色 + 磁贴下方那条充能条常亮。
    不再有"品牌浅底铺满整格"—— 那是紫色的主要来源之一。 */
 .app-sidebar-cell.is-active { color: var(--sb-ink-1); background: var(--sb-surface-tint-strong); }
 .app-sidebar-cell.is-active .app-sidebar-label { color: var(--sb-ink-brand); }
-.app-sidebar-cell.is-active::before {
-  content: '';
-  position: absolute;
-  left: -8px;
-  top: 50%;
-  width: 3px;
-  height: 26px;
-  border-radius: 0 3px 3px 0;
-  background: var(--sb-ink-1);
-  transform: translateY(-50%);
-}
+/* ⚠️ 2026-09-29 批 DC 续-8：**删掉 `.app-sidebar-cell.is-active::before`** ——
+   那条"左侧 3px 指示条"是 `left: -8px`，而 `.app-sidebar-cell` 有 `overflow: hidden`
+   ⇒ 它**从来就没有被渲染过**（一直在盒子的裁切线之外）。留着它有两个坏处：
+     ① 后人读 CSS 会以为选中态有两条指示（其实一条都没显示）；
+     ② 哪天有人"顺手"把 overflow: hidden 去掉（比如为了修光晕溢出），它会突然冒出来，
+        于是选中态变成"左边一条 + 磁贴 + 下面一条"三重指示。
+   ⇒ 选中的持久表达只剩两件，都真实可见：**磁贴渐变 + 磁贴下方常亮充能条**（见 ::after）。 */
 .app-sidebar-cell.is-active .app-sidebar-tile {
   background-image: linear-gradient(135deg, var(--sb-brand-400), var(--sb-brand-700));
   color: var(--sb-brand-ink);
@@ -373,6 +392,10 @@
   .app-sidebar { width: 76px; padding-inline: 6px; }
   .app-sidebar-label { display: none; }
   .app-sidebar-cell { width: 60px; padding: 7px 4px; }
+  /* ⚠️ 2026-09-29 批 DC 续-8：磁贴到格顶的距离**跟着 padding 一起收**，否则窄屏那条充能条
+     会停在 12+38 的老位置上、和磁贴脱开（改前条是 `bottom:0` 通栏，所以压根没有这个依赖；
+     改成"紧贴磁贴下方"之后就必须跟着一起走）。**只改这两个变量一处**，别再另写条宽。 */
+  .app-sidebar-cell { --sb-app-tile-top: 7px; }
   /* 窄栏里磁贴左缘 11px、宽 38 ⇒ 角标右缘距格子右缘 11px（跟着格子重新算） */
   .app-sidebar-task-badge { right: 11px; top: 3px; }
 }

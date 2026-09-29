@@ -504,7 +504,14 @@ try {
   check(gate.hint.trim().length > 0 && uploadLabel && gate.hint.includes(uploadLabel),
     '禁用原因就写在按钮旁，且点名缺的是哪个字段', gate.hint + ' | label=' + uploadLabel);
   check(gate.points.includes('1'), '积分按后端单价预估（image2 2K = 1 积分）', gate.points);
-  check(gate.activeRatio.includes('1:1'), '比例默认值已选中（不逼用户把每个必填都点一遍）', gate.activeRatio);
+  /* ⚠️ 2026-09-29 批 DC 续-8：默认档从 1:1 改成**自适应**（用户逐字：「自适应应该是它默认的一个选项呀」，
+     「除非像这个概念视觉方案这里……那这个 3:4 就可以成为它的默认选项」）。
+     判据从"钉死 1:1"改成"**等于这条技能自己声明的默认档**" —— 后者才是意图（不逼用户把每个必填都点一遍），
+     而且以后再有技能要固定默认（像概念视觉方案那样），这条断言会**跟着对**，不需要再改一次。 */
+  const anchorDefaultRatio = (IMAGE_SKILLS.find(s => s.id === ANCHOR_SKILL_ID)?.fields || [])
+    .find(f => f && f.key === 'ratio')?.default || '';
+  check(!!anchorDefaultRatio && gate.activeRatio === anchorDefaultRatio,
+    '比例默认值已选中（不逼用户把每个必填都点一遍）', gate.activeRatio + ' / 声明默认=' + anchorDefaultRatio);
 
   /* ═══ ② 上传失败 → 原地重试 → 成功才解禁 ═══ */
   scenario('② 上传失败可就地重试');
@@ -540,7 +547,22 @@ try {
     && body.prompt.includes(anchorBrief.split('{{')[0].trim().slice(0, 8)),
     '提示词由 brief 真实拼出且无残留占位符', String(body.prompt).slice(0, 60));
   check(/\/api\/generated-assets\/[a-f0-9]{64}\.png$/.test(String(body.image_url)), '主素材进入 image_url（图生图）', String(body.image_url));
-  check(body.ratio === '1:1' && body.resolution === '2K', '比例/清晰度取声明默认值', body.ratio + '/' + body.resolution);
+  /* ⚠️ 2026-09-29 批 DC 续-8：请求里的比例不再是钉死的 '1:1' ——
+     默认档是「自适应」，而自适应 = **按上传图实际宽高就近取档**（skillRun.nearestLegalRatio）。
+     期望值从**页面上量到的那个盒子**算（`data-box` 是 FieldRenderer 实测写上去的，不是我们编的），
+     而不是手抄某张图的尺寸 —— 手抄的那张一旦换了素材就静默失准。 */
+  const primaryBox = await page.evaluate(() => {
+    const el = document.querySelector('.media-field-upload-item[data-box]');
+    const raw = (el && el.getAttribute('data-box')) || '';
+    const m = raw.match(/^(\d+)x(\d+)$/);
+    return m ? { width: Number(m[1]), height: Number(m[2]) } : null;
+  });
+  const expectedRatio = anchorDefaultRatio === '自适应'
+    ? (primaryBox ? nearestLegalRatio(primaryBox.width, primaryBox.height) : '')
+    : anchorDefaultRatio;
+  check(!!expectedRatio && body.ratio === expectedRatio && body.ratio !== '自适应' && body.resolution === '2K',
+    '比例/清晰度取声明默认值（自适应要先解析成真实尺寸，且绝不许原样下发）',
+    body.ratio + ' / 期望=' + expectedRatio + ' / 实测盒=' + JSON.stringify(primaryBox) + ' / 清晰度=' + body.resolution);
   check(body.image_model === 'image2', '模型是唯一有出图记录的 image2', String(body.image_model));
   /* ⚠️ 2026-09-23 批 AB：原来这里写死 `skill_id === 'free'`（那是已下架的 image.free 的视觉模式）。
      判据是「**creation_intent / skill_id 必须落在服务端白名单里**」，不是"必须等于某个词" ——
@@ -1490,7 +1512,10 @@ try {
     const wrap = document.querySelector('.media-workbench-field-action');
     const btn = wrap?.querySelector('button.media-workbench-paid');
     if (!wrap || !btn) return null;
-    const box = document.querySelector('textarea[placeholder*="AI 推荐"]');
+    /* ⚠️ 2026-09-29 批 DC 续-8：结论框的 placeholder 从「点上面的「AI 推荐」后…」改成
+       「点上面的「一键解析风格」…」（原句只在框被隐藏时才成立，而那一版已经推翻了）。
+       这里**按字段定位、不认文案** —— 认文案的话改一次措辞就断一次判据。 */
+    const box = document.querySelector('textarea[id="field-styleBrief"]');
     const wr = wrap.getBoundingClientRect(), br = btn.getBoundingClientRect();
     return {
       text: (btn.textContent || '').replace(/\s+/g, ' ').trim(),
@@ -1506,15 +1531,16 @@ try {
   check(bigAction && bigAction.centerOff >= -1 && bigAction.centerOff <= 1,
     '那颗按钮**相对字段列居中**（知渔实测父层就是 justify-content: center）', String(bigAction?.centerOff));
   check(bigAction && bigAction.h === 45, '高度 45（与知渔 h-9 同档）', String(bigAction?.h));
-  /* ═══ 2026-09-28 批 CY-⑪：**用户改向** —— 这一条的口径变了（原话逐字）═════════════════════════════
-     「设计风格要求它**不应该是一个提示词输入框**。他应该是一个一键解析风格的按钮**在中心**……
-       只有当用户点击这个一键解析风格的按钮之后，他才会去解析，解析之后的生成结果才会出现在那个输入框里。
-       你看一下知鱼他们就是这样做的呀。」
-     ⇒ 改前这里断言的是"按钮落在**永远存在的**「设计风格要求」框下面"；现在那一格**点之前不渲染输入框**
-       （`hideWhenEmpty`），所以正确的判据是：**空态下没有输入框、只有居中的那颗按钮**（与知渔同构）。
-       `box` 仍保留读数：一旦将来真渲染了框（例如分析已完成），这条会显示框的位置便于排查。 */
-  check(bigAction && bigAction.fieldBottom == null,
-    '那一格**点之前没有输入框**（AI 结论框空态不渲染 —— 用户原话：它不应该是一个提示词输入框）',
+  /* ═══ 2026-09-29 批 DC 续-8：**这一条的口径又变回来了**（推翻批 CY-⑪，原话逐字）════════════════════
+     批 CY-⑪（2026-09-28）据用户当时那句「它不应该是一个提示词输入框」把判据改成"空态下没有框"。
+     两天后同一位用户当面改回（逐字）：
+       「你看他们的做法是这里会有一个相应的**提示词输入框的一个背景**。然后中间再去放这个一键生成的这个按钮……
+         **用户可以随时去改这个你生成出来的文字。你现在的情况就做的是不对的，就是你把这个文字输入框给拿掉了。**」
+     ⇒ 判据恢复成"框一直在、按钮在框下面"（这正是 a3de9110 之前的原断言）。
+     ⚠️ 顺带记一条支撑证据：竞品自己的 DOM（docs/design/data/quantv-image-builtin-pages.json:46）
+       里那个具名结论框在分析之前就渲染，按钮在它下面。 */
+  check(bigAction && bigAction.fieldBottom != null && bigAction.btnTop > bigAction.fieldBottom,
+    '它落在「设计风格要求」框**下面** —— 点之前框就在、结果框在上按钮在下（与知渔同构）',
     JSON.stringify({ 框底: bigAction?.fieldBottom, 按钮顶: bigAction?.btnTop }));
   /* 没上传就点：就地提醒，不发任何请求（更不扣费） */
   const recognizeBefore = calls.recognize.length;
@@ -1937,19 +1963,15 @@ try {
           return { box, action };
         }, gate.label);
         if (!clicked) { result.problem = '切不到「' + option.label + '」（控制器里找不到这颗药丸）'; return result; }
-        /* ═══ 2026-09-28 批 CY-⑪：**用户改向** —— 这条判据的口径变了（原话逐字）═══════════════════════
-           「设计风格要求它**不应该是一个提示词输入框**。他应该是一个一键解析风格的按钮**在中心**……
-             只有当用户点击这个一键解析风格的按钮之后，他才会去解析，解析之后的**生成结果才会出现在
-             这个输入框里面**。你看一下知鱼他们就是这样做的呀。……那个**自定义要求**他才是你现在的
-             这个情况呀，就是用户可以自动输入他想要的各种各样的提示词。」
-           ⇒ 声明里带 `hideWhenEmpty` 的字段（内容**由付费动作产出**、用户不写）在"还没产出"时**本就不该出现**：
-             那一档"换出了东西"体现为**居中的那颗动作按钮**。所以这一档的判据是——
-             字段出现 **或** 那一格的动作按钮出现（两者其一即算"不是死配置"）；
-             没有 `hideWhenEmpty` 的档位（用户自己写的，如「自定义要求」的设计要求）判据不变：**必须出现**。 */
-        if (!revealed.box && !(gate.hideWhenEmpty && revealed.action)) {
-          result.problem = gate.hideWhenEmpty
-            ? '切到「' + option.label + '」之后既没有「' + gate.label + '」（空态不渲染，这是对的）也没有那一格的**动作按钮**（那才是死配置）'
-            : '切到「' + option.label + '」之后「' + gate.label + '」没有出现（死配置）';
+        /* ═══ 2026-09-29 批 DC 续-8：口径**第三次**变，这次回到最初那条（推翻批 CY-⑪）═══════════════════
+           批 CY-⑪ 让人在"这一档换出东西"时允许字段不出现（只留那颗居中动作按钮）。
+           两天后同一位用户当面改回：「…**用户可以随时去改这个你生成出来的文字。你现在的情况就是不对的，
+           就是你把这个文字输入框给拿掉了。**」
+           ⇒ 判据回到最直接的那条：**切到这一档，字段必须出现**（AI 结论框是常驻可编辑的 textarea）。
+           下面那个 `revealed.action` 兜底分支随之作废 —— 它只在 `hideWhenEmpty` 还在时才有意义，
+           而 `hideWhenEmpty` 已经从声明源和引擎里一起删掉了，留着就是一条永远不会走到的死分支。 */
+        if (!revealed.box) {
+          result.problem = '切到「' + option.label + '」之后「' + gate.label + '」没有出现（死配置）';
           return result;
         }
       }

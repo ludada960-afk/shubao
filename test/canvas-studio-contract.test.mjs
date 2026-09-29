@@ -14,6 +14,13 @@ import {
   normalizeCanvasSelection,
   resizeCanvasNode,
 } from '../src/pages/EcCanvas/canvasStudioModel.js';
+import { ADAPTIVE_RATIO } from '../src/pages/EcCanvas/canvasAdaptiveRatio.js';
+/* ⚠️ 2026-09-29 批 DC 续-8：画布新建节点的默认比例 **'1:1' → ADAPTIVE_RATIO**（用户逐字：
+     「还有**画布里面的生图配置**啊这些地方。**自适应应该是它默认的一个选项呀。**」）
+   下面三处期望值因此从 '1:1' 改成 ADAPTIVE_RATIO —— **不是放宽判据**，是"默认档"这个事实变了。
+   ⚠️ 「自适应」是**选项不是尺寸**：它不进 CANVAS_RATIO_OPTIONS，渲染时由 withAdaptiveRatioOption
+      注入到列表最前面；发出去之前由 resolveProtocolRatio 按参考图实际宽高现算成一个具体比例。
+      所以这一格存的是"自适应"，请求里带的是算出来的那个 —— 与工作台侧同一条口径。 */
 import {
   createCanvasAnnotation,
   findCanvasBlankPlacement,
@@ -117,7 +124,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     w: 280,
     h: 280,
     prompt: '',
-    ratio: '1:1',
+    ratio: ADAPTIVE_RATIO,
     resolution: '2K',
     imageModel: 'image2',
     count: 1,
@@ -146,7 +153,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     planConfirmed: false,
     previousSuitePlans: [],
     suiteType: '完整套图',
-    ratio: '1:1',
+    ratio: ADAPTIVE_RATIO,
     resolution: '2K',
     imageModel: 'image2',
     language: '中文',
@@ -188,7 +195,7 @@ test('text generation starts as an editable document body and keeps source refer
     text: '',
     placeholder: '双击开始编辑...',
     prompt: '',
-    ratio: '1:1',
+    ratio: ADAPTIVE_RATIO,
     resolution: '2K',
     imageModel: 'image2',
     count: 1,

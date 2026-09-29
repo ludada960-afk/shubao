@@ -199,65 +199,11 @@
   border-radius: 12px;
 }
 
-.visual-config-cluster {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 auto;
-  align-items: stretch;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.visual-config-trigger {
-  display: inline-flex;
-  min-width: 126px;
-  width: 180px;
-  height: 52px;
-  flex: 0 1 180px;
-  padding: 0 14px;
-  align-items: center;
-  gap: 8px;
-  color: #635d66;
-  background: rgba(255,255,255,.84);
-  border: 1px solid rgba(35,31,27,.11);
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(45,38,31,.06);
-  backdrop-filter: blur(12px) saturate(120%);
-  cursor: pointer;
-  text-align: left;
-  /* ═══ 2026-09-27 批 CS：与视频侧 `.video-config-trigger` **逐字同一条** ═════════════════════════
-     实测（`.qa/cs-motion-and-counter.mjs`）：视频侧原来是 0.2s、这里是 0.16s —— 同一档按钮两侧差 40ms，
-     而且属性表不同（视频侧底色渐隐、这里底色瞬变）。批 BF 的规则是"视频侧照图片侧逐值抄"，
-     但 BF 的门禁只比了 12 个属性（transition 不在名单里），所以这条一直漂着。
-     本批：两侧**都写成这一条**（时长/缓动 0.16s ease 与本站小控件同一档 —— WorkbenchShell /
-     generate-cta / login-dialog 用的都是 .16s），transition 也补进门禁的逐属性比较。
-     ⚠️ 只统一**动效**，不碰 hover 的取色：视频侧那颗在批 T-2「去紫色泛滥」里已改成中性 tint，
-     这一颗仍是品牌紫（#6d5dfc/#f7f5ff）—— 那属于"要不要把 T-2 的站内规则也收到首页这一档"，
-     未拍板，登记在 docs/design/87 的未量/不一致表里，不在本批擅自改。 */
-  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background-color .16s ease;
-}
-
-.visual-config-trigger:hover,
-.visual-config-trigger.is-open {
-  border-color: #6d5dfc;
-  background: #f7f5ff;
-  box-shadow: 0 0 0 3px rgba(109,93,252,.10), 0 10px 26px rgba(45,38,31,.12);
-  transform: translateY(-2px);
-}
-
-/* 批 BJ：左侧由通用图标换成**模型品牌标**（与视频侧触发那颗同档：28px 容器 + 内层品牌 logo），
-   右侧由"调节"图标换成**下拉箭头**（展开时旋转 180°，就是用户说的"向上的箭头"）——
-   用户原话：「你按钮右边的这个标也不太一样。那边好像是一个向上的箭头，你这边为什么是一个配置的样式呢？」 */
-.visual-config-trigger > svg:first-child { flex: 0 0 auto; color: #6753d8; }
-.visual-config-trigger-mark { flex: 0 0 auto; display: inline-grid; place-items: center; width: 28px; height: 28px; }
-.visual-config-trigger-chevron { flex: 0 0 auto; color: #8f8792; transition: transform var(--sb-dur-normal) var(--sb-ease-out); }
-.visual-config-trigger.is-open .visual-config-trigger-chevron { transform: rotate(180deg); }
-.visual-config-trigger-copy { display: grid; min-width: 0; flex: 1; gap: 2px; }
-/* 批 BF：这两行字与视频侧**同一批取值**（表里的 #918992 / #99918a 是两个灰、700/600 是两种字重，
-   同一颗按钮上的同一句话在两页长得不一样）。小字走 muted、值走 ink-1。 */
-.visual-config-trigger-copy small { color: var(--sb-text-muted); font-size: 10px; font-weight: 600; }
-.visual-config-trigger-copy strong { overflow: hidden; color: var(--sb-ink-1); font-size: 12px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
-.visual-config-trigger.is-open .visual-config-trigger-copy strong { color: var(--sb-brand-600); }
+/* ═══ 2026-09-29 批 DC 续-8：`.visual-config-*` 那一整组**搬去** `src/components/media/ConfigTriggers.css` ══
+   搬的理由：这一组控件从「只有首页有」变成「首页 + 所有技能子页面都有」。留在页面目录里的话，
+   子页面就得 import 一个**别的页面**的样式表 —— 那是日后必然腐烂的写法。
+   ⚠️ 取值一个字没改；门禁 test/config-kit-parity-0925 的 `imageCss` 已同步改成两份一起读，
+      所以"图片侧与视频侧逐属性同档"那条**没有被放松**。 */
 
 /* ═══ 2026-09-25 批 BF：@ 那一行右端的动作按钮（全屏）═══════════════════════════════════════════
    用户原话：「现在**首尾帧和图片生成那边，他们都没有这个全屏按钮，这个你也要加上去**。」
@@ -283,55 +229,7 @@
 .visual-creation-composer.is-fullscreen > .ec-xhs-composer,
 .visual-creation-composer.is-fullscreen > .ec-workbench-actions { width: min(1240px, calc(100vw - 64px)); margin-inline: auto; }
 
-.visual-config-panel {
-  box-sizing: border-box;
-  overflow: visible auto;
-  z-index: 15;
-  border: 1px solid rgba(255,255,255,.86);
-  /* ═══ 2026-09-25 批 BF：8 → 20（与视频侧同一档；两处一起改才算同一套）════════════════════════
-     理由不是"看着好看"：① 站内规范 panelVisualLanguage.js「4. 圆角」写明 radius.panel = 20，
-     实现却一直是 8；② 面板里的选项控件圆角是 --sb-radius-card(12)，**比外层面板还圆** ——
-     嵌套圆角倒置（原则 3.4），近看就是"按钮比面板更圆"。知渔那张面板实测 19.84，取整 20。 */
-  border-radius: 20px;
-  /* ═══ 2026-09-19 批 I-①（用户批注 #6「这里全部乱码了」/ #7「这里也是乱码了」）═════════
-     根因**不是**编码问题，是**浮层半透明**：原来是 rgba(252,252,253,.93) + blur(24px)。
-     首页把「图片生成」和「视频生成」两个创作台都挂在 DOM 里（切模式只切显隐），
-     所以浮层背后正好压着**另一个创作台的正文**；93% 的不透明度让那层字透出来，
-     与浮层自己的字叠在一起 —— 用户看到的就是"一堆乱码"。
-     （实测：视频模型浮层截图里能直接读出背后那台的「全能参考 / 用两张图定义镜头起点与终点」。）
-     修法：浮层一律**不透明**（--sb-surface-panel-solid = #FFFFFF）。
-     这同时修掉两处：画面规格浮层（批注 #6）与生图模型浮层（批注 #7，同一份 CSS）。 */
-  background: var(--sb-surface-panel-solid);
-  box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06);
-}
-
-/* ═══ 批 W（2026-09-21）：**改回"面板自己滚 + 用内边距把箭头收进去"**（用户图三）══════════════
-   原话：「你图片生成这边的**画面尺寸下面是被截断的**呀。」
-   根因是我上一批（批 U）的写法：把 `overflow` 从面板挪到内层 body + `max-height: inherit` ——
-   `inherit` 继承的是**面板的 max-height（一个像素值）**，但面板本身这会儿是 `overflow: visible`，
-   于是内容一长就直接顶出视口、**下面被切掉且滚不到**（比原来那条"多余的滚动条"严重得多）。
-   ⇒ 回到"面板自己滚"，但换一种办法消掉那条假滚动条：
-     箭头 `::after` 是 `bottom: -6px`（探出面板 6px），只要给面板补 6px 下内边距，
-     箭头就落在**内边距盒里**、不再算溢出 —— 滚动条自然不出现，而面板该滚的时候还能滚。 */
-/* 批 BG：**不显示滚动条**（用户原话：「右边的两条可以拉动的滚动条，我一直叫你把它们删掉呀……
-   更何况你这条滚动条还超框了」）。实测那条滚动条来自"面板底部那 6px 内边距 + 探出的小箭头"造成的
-   9px 溢出（内容本身装得下）。保留 overflow: auto ⇒ 真该滚的时候仍然能滚，只是不再画那根杠。 */
-.visual-config-panel { overflow-y: auto; padding-bottom: 6px; scrollbar-width: none; }
-.visual-config-panel::-webkit-scrollbar { width: 0; height: 0; }
-.visual-config-panel-body { max-height: none; overflow-y: visible; }
-
-.visual-config-panel::after {
-  position: absolute;
-  left: var(--visual-panel-anchor-x);
-  bottom: -6px;
-  width: 12px;
-  height: 12px;
-  border-right: 1px solid rgba(255,255,255,.9);
-  border-bottom: 1px solid rgba(255,255,255,.9);
-  background: var(--sb-surface-panel-solid);
-  content: '';
-  transform: translateX(-50%) rotate(45deg);
-}
+/* ═══ 批 DC 续-8：`.visual-config-panel` 的基础规则也搬去 ConfigTriggers.css（同上，一处真相）。══ */
 
 .visual-config-panel-header {
   position: sticky;

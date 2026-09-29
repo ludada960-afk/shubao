@@ -416,7 +416,7 @@ export default function VideoWorkbench({
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
               <h3 className="media-field-label">
-                <span>{block.title}</span>
+                <span>{block.title}{block.required && <i className="video-wb-required" aria-hidden="true">*</i>}</span>
                 {headerAction && (
                   <span className="media-field-inline-actions">
                     {headerAction.wired ? (
@@ -438,30 +438,6 @@ export default function VideoWorkbench({
                   </span>
                 )}
               </h3>
-              {action && (
-                <div className="media-workbench-paid-actions">
-                  {action.wired ? (
-                    <div className="media-workbench-paid-item">
-                      <button
-                        type="button"
-                        className="media-workbench-paid"
-                        disabled={disabled}
-                        onClick={() => onRunAction(action.key)}
-                      >
-                        <span><Sparkles size={13} />{action.label}</span>
-                        {action.points != null && <em>{action.points} 积分</em>}
-                      </button>
-                      {action.note && <small className="media-workbench-paid-note">{action.note}</small>}
-                    </div>
-                  ) : (
-                    <span className="media-workbench-paid is-off">
-                      <span>{action.label}</span>
-                      {action.points != null && <em>{action.points} 积分</em>}
-                      <small>{action.reason || '暂未开放'}</small>
-                    </span>
-                  )}
-                </div>
-              )}
               {/* 批 CK：@ 的说明句撤掉（改成一个 @ 按钮，在框下面那一行里）；字数计数也搬进同一行 */}
               <ScriptField
                 id={`video-workbench-prompt-${index}`}
@@ -489,13 +465,49 @@ export default function VideoWorkbench({
                   <small>{block.emptyHint}</small>
                 </div>
               )}
+              {/* ═══ 2026-09-29 批 DC 续-8：付费动作**挪到框的下方并居中**（改前是框上方、左对齐）══════════
+                 用户 2026-09-29 逐字（指商品套图那一格，视频侧是「同等级地调整」）：
+                   「你看他们的做法是这里会有一个相应的**提示词输入框的一个背景**。然后**中间再去放这个
+                     一键生成的这个按钮**。它的逻辑就是当用户点击这个按钮之后，它会生成出来的内容就是在这个
+                     框里面……**用户可以随时去改这个你生成出来的文字。**」
+                 ⇒ 形状必须与图片侧一致：**框在上、整颗按钮居中在下**（结果落进上面那个框）。
+                 ⇒ 复用 `.media-workbench-field-action` —— 图片侧就是它，**不另写一套**
+                   （本仓纪律：同一件事只有一份实现）。
+                 ⚠️ `headerAction`（「生成脚本」那颗小胶囊，在标题行右端）**不在这次移动范围内**：
+                   它是另一颗动作、另一处位置，且门禁 video-subpage-parity-0926:236-237 钉着它。 */}
+              {action && (
+                <div className="media-workbench-field-action">
+                  {action.wired ? (
+                    <button
+                      type="button"
+                      className="media-workbench-paid"
+                      disabled={disabled}
+                      onClick={() => onRunAction(action.key)}
+                    >
+                      <span><Sparkles size={13} />{action.label}</span>
+                      {action.points != null && <em>{action.points} 积分</em>}
+                    </button>
+                  ) : (
+                    <span className="media-workbench-paid is-off">
+                      <span>{action.label}</span>
+                      {action.points != null && <em>{action.points} 积分</em>}
+                      <small>{action.reason || '暂未开放'}</small>
+                    </span>
+                  )}
+                  {action.wired && action.note && <small className="media-workbench-paid-note">{action.note}</small>}
+                </div>
+              )}
             </section>
           );
         }
         if (block.kind === 'panel') {
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-field-label"><span>{block.title}</span></h3>
+              {/* ⚠️ 2026-09-29 批 DC 续-8：这一类**不是字段**，标题不给 `.media-field-label`。
+                  那个 class 带着一条 3px 品牌竖条（WorkbenchShell.css 的 `::before`），
+                  它的原意是「**这里是可被操作的地方**」（批 BB 的原话：哪里可点、哪里是标题、哪里是输入区）。
+                  一组按钮列表不是"一格可输入的字段"，给它挂竖条就是在说谎。 */}
+              <h3 className="video-wb-block-title"><span>{block.title}</span></h3>
               {block.note && <p className="media-workbench-group-note">{block.note}</p>}
               <div className="media-workbench-paid-actions">
                 {(block.actions || []).map(action => (action.wired ? (
@@ -520,7 +532,8 @@ export default function VideoWorkbench({
         if (block.kind === 'note') {
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-field-label"><span>{block.title}</span></h3>
+              {/* 同上：纯说明清单，**没有输入**，不该带"可操作区"的竖条。 */}
+              <h3 className="video-wb-block-title"><span>{block.title}</span></h3>
               <ul className="video-wb-notes">
                 {(block.items || []).map(item => (
                   <li key={item.label}><i aria-hidden="true">•</i><span><strong>{item.label}</strong>{item.detail}</span></li>
@@ -532,7 +545,8 @@ export default function VideoWorkbench({
         if (block.kind === 'tags') {
           return (
             <section className="media-workbench-group video-wb-block" key={block.key}>
-              <h3 className="media-field-label"><span>{block.title}</span></h3>
+              {/* 同上：只读的标签展示，没有输入。 */}
+              <h3 className="video-wb-block-title"><span>{block.title}</span></h3>
               <div className="video-wb-tags">
                 {(block.items || []).map(item => <span key={item}>{item}</span>)}
               </div>

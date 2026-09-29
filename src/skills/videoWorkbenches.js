@@ -71,8 +71,15 @@ const uploadBlock = ({ key, title, note = '', max = 1, hint = '点击或拖拽�
   actions: ['选择文件', '从资产库选择'],
 });
 
-const textBlock = ({ key = 'prompt', title, note = '', max = 5000, placeholder = '', mentionHint = '输入 @ 可引用 0 个素材', action = null, emptyTitle = '', emptyHint = '' }) => ({
-  key, kind: 'text', title, note, max, placeholder, mentionHint, action, emptyTitle, emptyHint,
+/* ⚠️ 2026-09-29 批 DC 续-8 补上 `required` 的透传。
+   改前这个工厂**只挑自己认识的键**，`required` 落在参数里被直接丢掉 ——
+   于是一条声明了 `required: true` 的 text 块（:606「主题」）渲染时**永远没有那个星号**。
+   用户 2026-09-29 问「哪些标题应该加着重号，你好像没有搞得很明白」：一个声明了必填、
+   页面上却看不出必填的字段，就是"不明白"最直接的一种。
+   ⇒ 透传它。⚠️ 顺带说明**为什么以前"没坏"**：VideoWorkbench 只在 `chips` 块上渲染 `*`
+     （那一支才读 block.required），text 块那一支从来没读过 —— 漏传就一直没暴露。 */
+const textBlock = ({ key = 'prompt', title, note = '', max = 5000, placeholder = '', mentionHint = '输入 @ 可引用 0 个素材', action = null, emptyTitle = '', emptyHint = '', required = false }) => ({
+  key, kind: 'text', title, note, max, placeholder, mentionHint, action, emptyTitle, emptyHint, required,
 });
 
 /* 付费动作：wired 为空 = 能力不具备，如实写 reason（不许放假按钮） */

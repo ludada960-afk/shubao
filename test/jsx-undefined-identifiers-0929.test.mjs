@@ -129,6 +129,12 @@ test('同一批的另一个 P0：「自适应」不许被尺寸过滤器吃掉',
   assert.match(vcm, /option\.adaptive \|\| IMAGE_RATIOS\.includes\(option\.id\)/,
     '带 adaptive 标记的选项必须放行，否则「自适应」在首页是不可见的');
   const model = read('src/pages/Home/visualCreationModel.js');
-  assert.match(model, /id:\s*'自适应'[\s\S]{0,60}adaptive:\s*true/,
+  /* ⚠️ 2026-09-29 批 DC 续-8：那一档的 id 从字面量 `'自适应'` 改成了常量 `HOME_ADAPTIVE_RATIO` ——
+     它现在同时是「选项表的第一项 / 首页默认比例 / resolveVisualSkillRatio 的特例」**三处**，
+     写三份字面量就会出现"改了其中一处、另两处不一致"（= 看着是自适应、跑的是别的比例）。
+     判据随之改成验那个**常量**；常量的取值由下面那条钉死，取向没变。 */
+  assert.match(model, /export const HOME_ADAPTIVE_RATIO = '自适应';/,
+    '「自适应」这个值必须收成一处常量（三处引用同一个值）');
+  assert.match(model, /id:\s*HOME_ADAPTIVE_RATIO, label:\s*HOME_ADAPTIVE_RATIO, adaptive:\s*true/,
     '「自适应」这一档必须带 adaptive 标记（它就是靠这个标记绕过尺寸过滤器的）');
 });

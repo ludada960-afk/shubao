@@ -1,5 +1,6 @@
 {
   "src/App.jsx": 1,
+  "src/components/media/ConfigTriggers.css": 5,
   "src/components/billing/AccountEntitlementControl.jsx": 8,
   "src/components/billing/Billing.module.css": 5,
   "src/components/billing/InsufficientBalanceModal.jsx": 5,

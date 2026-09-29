@@ -22,7 +22,7 @@ import { HelpCircle } from 'lucide-react';
 function groupFields(fields, mergeTitle = '') {
   /* mergeTitle：把全部字段并进**一个**组（知渔的应用市场 app 页就是这样：左栏只有一个「参数配置」）。
      内置 ?tool= 页保持各自的分组名（基础信息 / 产品卖点与设计风格 / 套图结构配置 …）。 */
-  if (mergeTitle) return [{ name: mergeTitle, fields }];
+  if (mergeTitle) return [{ name: mergeTitle, fields: dropCoveredFields(fields) }];
   const order = [];
   const map = new Map();
   for (const field of fields) {
@@ -30,7 +30,27 @@ function groupFields(fields, mergeTitle = '') {
     if (!map.has(name)) { map.set(name, []); order.push(name); }
     map.get(name).push(field);
   }
-  return order.map(name => ({ name, fields: map.get(name) }));
+  return order.map(name => ({ name, fields: dropCoveredFields(map.get(name)) }));
+}
+
+/* ═══ 2026-09-29 批 DC 续-8：**`kind: 'config'` 那一格收起的字段，从网格里剔掉** ═══════════════════
+   用户 2026-09-29：「你就只排两个按钮进去子页面里面不就好了吗？……你为什么要把子页面的规划搞得乱七八糟呢？」
+   ⇒ 声明里写 `{ kind: 'config', covers: ['imageModel', 'ratio', 'clarity'] }`，
+     那三格**从左栏的网格里拿掉**（不是隐藏 —— 藏起来用户就找不到、去哪儿改都不知道），
+     改由 `ConfigTriggers` 的面板承载；面板里那几格仍是 FieldRenderer 渲染原来那一份声明。
+   ⚠️ 为什么在**分组之后**做：被收起的字段大多属于「生成设置」那一组，若在分组前剔，
+     整组会消失、连组标题都没了 —— 用户在那一页就找不到"生成设置"这几个字。
+     现在是"组还在、组里只剩那一行触发器"，读起来是"这一组的配置收起来了"。
+   ⚠️ 剔不掉的情况要说出来：若某一组**全部**字段都被收走，就不渲染那个空 `<section>`。 */
+function dropCoveredFields(list) {
+  const covered = new Set();
+  for (const field of list) {
+    if (field && field.kind === 'config' && Array.isArray(field.covers)) {
+      for (const key of field.covers) covered.add(key);
+    }
+  }
+  if (!covered.size) return list;
+  return list.filter(field => !(field && covered.has(field.key)));
 }
 
 /* ═══ 2026-09-28 批 CY-⑥：「分段档位」字段的付费动作，还要在**这一档的内容框下面**再给一颗整颗按钮 ═════
@@ -319,6 +339,7 @@ export default function WorkbenchShell({
                         field={field}
                         value={values[field.key]}
                         values={values}
+                        allFields={fields}
                         onChange={onFieldChange}
                         disabled={disabled}
                         labelOverride={anchored.length > 0 ? label : null}
@@ -523,6 +544,7 @@ export default function WorkbenchShell({
 
 /* 字段走统一渲染器（同目录 FieldRenderer）；这里单独包一层只是为了少一次 import 往返。 */
 import FieldRenderer from './FieldRenderer.jsx';
-function FieldSlot({ field, value, onChange, disabled, values, labelOverride = null }) {
-  return <FieldRenderer field={field} value={value} values={values} disabled={disabled} labelOverride={labelOverride} onChange={next => onChange(field.key, next)} />;
+function FieldSlot({ field, value, onChange, disabled, values, labelOverride = null, allFields = [] }) {
+  /* `allFields` 透传：`kind:'config'` 那一格要按 key 取回被它收起的**声明**（values 里只有取值）。 */
+  return <FieldRenderer field={field} value={value} values={values} allFields={allFields} disabled={disabled} labelOverride={labelOverride} onChange={next => onChange(field.key, next)} />;
 }

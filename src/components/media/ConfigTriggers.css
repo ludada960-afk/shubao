@@ -1,0 +1,97 @@
+/* ═══ ConfigTriggers：生成配置的两颗触发器 + 它们的浮层（**共用样式**）══════════════════════════
+   2026-09-29 批 DC 续-8 从 `src/pages/Home/VisualCreationMode.css` **原样搬来**，一个字的值都没改。
+   为什么搬：这一组控件从「只有首页有」变成「首页 + 所有技能子页面都有」。
+   留在页面目录里的话，子页面就得 import 一个**别的页面**的样式表 —— 那是日后必然腐烂的写法。
+   ⇒ 样式跟着**组件**走（组件在 components/media 下），两边都 import 这一份。
+   ⚠️ 门禁 test/config-kit-parity-0925 的 `imageCss` 已同步改成「这一份 + VisualCreationMode.css」，
+      所以"图片侧与视频侧逐属性同档"那条**没有被放松**，只是图片侧的取值换了个文件读。
+      改这里的任何取值，仍然会被那条门禁逮住。 */
+
+.visual-config-cluster {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.visual-config-trigger {
+  display: inline-flex;
+  min-width: 126px;
+  width: 180px;
+  height: 52px;
+  flex: 0 1 180px;
+  padding: 0 14px;
+  align-items: center;
+  gap: 8px;
+  color: #635d66;
+  background: rgba(255,255,255,.84);
+  border: 1px solid rgba(35,31,27,.11);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(45,38,31,.06);
+  backdrop-filter: blur(12px) saturate(120%);
+  cursor: pointer;
+  text-align: left;
+  /* 批 CS：与视频侧 `.video-config-trigger` 逐字同一条（.16s = 站内小控件那一档） */
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background-color .16s ease;
+}
+
+.visual-config-trigger:hover,
+.visual-config-trigger.is-open {
+  border-color: #6d5dfc;
+  background: #f7f5ff;
+  box-shadow: 0 0 0 3px rgba(109,93,252,.10), 0 10px 26px rgba(45,38,31,.12);
+  transform: translateY(-2px);
+}
+
+.visual-config-trigger > svg:first-child { flex: 0 0 auto; color: #6753d8; }
+.visual-config-trigger-mark { flex: 0 0 auto; display: inline-grid; place-items: center; width: 28px; height: 28px; }
+.visual-config-trigger-chevron { flex: 0 0 auto; color: #8f8792; transition: transform var(--sb-dur-normal) var(--sb-ease-out); }
+.visual-config-trigger.is-open .visual-config-trigger-chevron { transform: rotate(180deg); }
+.visual-config-trigger-copy { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.visual-config-trigger-copy small { color: var(--sb-text-muted); font-size: 10px; font-weight: 600; }
+.visual-config-trigger-copy strong { overflow: hidden; color: var(--sb-ink-1); font-size: 12px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.visual-config-trigger.is-open .visual-config-trigger-copy strong { color: var(--sb-brand-600); }
+
+.visual-config-panel {
+  box-sizing: border-box;
+  overflow: visible auto;
+  z-index: 15;
+  border: 1px solid rgba(255,255,255,.86);
+  border-radius: 20px;
+  /* 批 I-①：浮层一律**不透明**（半透明会让背后那一台的正文透出来，与自己的字叠成"一堆乱码"） */
+  background: var(--sb-surface-panel-solid);
+  box-shadow: 0 28px 80px rgba(37,30,24,.18), 0 2px 10px rgba(37,30,24,.06);
+}
+/* 批 W：面板自己滚；批 BG：不画那根滚动条。6px 下内边距是为了让探出的小箭头落回内边距盒里。 */
+.visual-config-panel { overflow-y: auto; padding-bottom: 6px; scrollbar-width: none; }
+.visual-config-panel::-webkit-scrollbar { width: 0; height: 0; }
+.visual-config-panel-body { max-height: none; overflow-y: visible; }
+
+.visual-config-panel::after {
+  position: absolute;
+  left: var(--visual-panel-anchor-x);
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid rgba(255,255,255,.9);
+  border-bottom: 1px solid rgba(255,255,255,.9);
+  background: var(--sb-surface-panel-solid);
+  content: '';
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* ═══ 2026-09-29 批 DC 续-8：**浮层不许被左侧导航栏压住**（子页面那半边的真 bug）════════════════════
+   用户 2026-09-29 逐字：「当然你张开的面板，你也要好好的做好适配，因为**之前视频生成那边就存在过这个
+     问题。就是相应的模型选择按钮打开之后，它的面板是会被左边导航栏截断的。**」
+
+   根因（实测，两处）：
+     ① **z 序**：`.app-sidebar` 是 `z-index: var(--sb-z-sticky)` = **10,000,000**（不透明的固定浮层），
+        而视频侧那个菜单是 `z-index: 90`、面板是 `1200` —— 只要有任何重叠，**导航就画在浮层上面**。
+        视频侧当时用 `floatingLeftInset` 把 x 坐标让开了，**但 z 序没动**，所以问题还在。
+     ② **x 坐标**：首页的 `getVisualPanelPosition` 把 `left` 只夹到 **16**，同样没有侧栏让位。
+
+   ⇒ 两件事各修一处：z 用 `--sb-z-dropdown`（60,000,000，比 sticky 高一档，比 modal 低）；
+     x 由下面的 `sidebarInset()` 让开。**两条都要** —— 只让 x 会在窄屏（侧栏变矮/变底栏）时又被压住。 */
+.visual-config-panel[data-portal-host="workbench"] { z-index: var(--sb-z-dropdown); }

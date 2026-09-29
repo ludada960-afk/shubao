@@ -182,14 +182,66 @@ test('所有**有尺寸选择**的图片技能子页都有自适应；没有尺�
   assert.deepEqual(missing.map(s => s.id), [], '每一个有尺寸选择的图片技能子页都必须有自适应');
 });
 
-test('加选项不许顺带改默认档（否则等于一次性改了所有技能的行为）', () => {
+/* ═══ 2026-09-29 批 DC 续-8：默认档**改成自适应**（推翻批 CY-⑪ 那条「只加选项、不改默认」）══════════
+   用户 2026-09-29 逐字：
+     「然后比例这里我不是已经让你做了这个自适应吗？我觉得正常来说，你现在应该各种各样的子页面啊，
+       首页的生图模型配置啊，还有画布里面的生图配置啊这些地方。**自适应应该是它默认的一个选项呀。**
+       除非像这个**概念视觉方案**这里它是对于小红书这边做的一个标准适配，那这个 **3:4 就可以成为它的默认选项**。」
+
+   ⚠️⚠️ 旧的那条判据是**空判**，本批一并说明（它从来没抓得住任何东西）：
+     `field.default !== ADAPTIVE || options[0] === ADAPTIVE` ——
+     而 `ratioField` **总是**把自适应放在 options[0]，所以右边恒真，整条恒真。
+     也就是说"把默认档悄悄翻成别的"这件事，旧门禁一直是绿的。
+   ⇒ 换成**正向规则 + 具名例外表**：默认必须是自适应；例外只有表里那几条，且必须是技能**自己显式声明**的
+     （不是由 ratioField 内部偷偷判断"谁是特例"）—— 例外要**可见、可数**。 */
+const FIXED_RATIO_DEFAULTS = Object.freeze({
+  /* 小红书竖版签名：实测竞品 41 篇封面全是竖版（docs/research/2026-09-27-aura-deep-dive.md），
+     概念视觉方案的 brief 也把"留白充足 / 主体不超过 40%"写进签名纪律。 */
+  'image.concept_set': '3:4',
+});
+
+test('默认档 = 自适应；固定默认只有具名例外，且必须由技能自己显式声明', () => {
   const skillList = Array.isArray(IMAGE_SKILLS) ? IMAGE_SKILLS : Object.values(IMAGE_SKILLS || {});
-  for (const skill of skillList.filter(s => s && s.fields)) {
+  const withRatio = skillList.filter(s => s && s.fields && (s.fields || []).some(f => f && f.key === 'ratio'));
+  assert.ok(withRatio.length > 30, '自证：带比例的技能有三十条以上，实得 ' + withRatio.length);
+  const wrong = [];
+  for (const skill of withRatio) {
     const field = (skill.fields || []).find(f => f && f.key === 'ratio');
-    if (!field) continue;
-    assert.ok(field.default !== SKILL_ADAPTIVE || (field.options || [])[0]?.value === SKILL_ADAPTIVE,
-      `${skill.id} 的默认档被改成了自适应 —— 用户只要求"加这个选项"，没要求改默认`);
+    const expected = Object.prototype.hasOwnProperty.call(FIXED_RATIO_DEFAULTS, skill.id)
+      ? FIXED_RATIO_DEFAULTS[skill.id]
+      : SKILL_ADAPTIVE;
+    if (field.default !== expected) wrong.push(`${skill.id} 默认 ${field.default}，应为 ${expected}`);
+  }
+  assert.deepEqual(wrong, [], '默认档必须与「自适应 + 具名例外」完全一致');
+  /* ⚠️ 例外表本身也要被看住：不许往里加东西而不写理由 ——
+     每加一条都要回答"这条技能有什么实测依据，非自适应不可"。 */
+  for (const [id, ratio] of Object.entries(FIXED_RATIO_DEFAULTS)) {
+    const skill = withRatio.find(s => s.id === id);
+    assert.ok(skill, `例外表里的 ${id} 在声明源里不存在（技能改名/下线后要一起删）`);
+    const field = (skill.fields || []).find(f => f && f.key === 'ratio');
+    assert.equal(field.default, ratio, `${id} 的固定默认被改动 —— 例外表与声明必须一致`);
   }
   /* 显式档位照旧生效，且认不出的值仍回落默认档 */
   assert.equal(skillGenerationSettings({ fields: [] }, { ratio: '16:9' }).ratio, '16:9');
+});
+
+test('首页与画布的默认档同步是「自适应」（跨入口不一致就是"看着是 A、跑的是 B"）', () => {
+  const home = read('src/pages/Home/VisualCreationMode.jsx');
+  const model = read('src/pages/Home/visualCreationModel.js');
+  const studio = read('src/pages/EcCanvas/canvasStudioModel.js');
+  /* 首页：初始 state + 切技能时的回落，两处都必须是自适应。 */
+  assert.match(home, /useState\(HOME_ADAPTIVE_RATIO\)/, '首页初始比例必须是自适应');
+  assert.match(home, /snapshot\.ratio \|\| HOME_ADAPTIVE_RATIO/, '切技能/还原时无值也要回落自适应');
+  assert.match(model, /export const HOME_ADAPTIVE_RATIO = '自适应'/, '自适应这个值要收成一处常量（三处引用同一个值）');
+  assert.match(model, /if \(requestedRatio === HOME_ADAPTIVE_RATIO\) return HOME_ADAPTIVE_RATIO;/,
+    'resolveVisualSkillRatio 必须把自适应判为"永远受支持" —— 否则它会按该技能的尺寸名单回落成别的比例');
+  /* 画布：三处新建节点的默认值。 */
+  const studioCode = studio.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.equal((studioCode.match(/ratio: ADAPTIVE_RATIO,/g) || []).length, 3,
+    '图片 / 文本 / 套图 三个新建节点的默认比例都要是自适应');
+  assert.doesNotMatch(studioCode, /ratio: '1:1',/, '画布不许再写死 1:1 作为默认');
+  /* ⚠️ 视频侧**故意**不跟：服务端对非法比例是硬 400（server/videoGeneration.mjs），
+     给视频加自适应会直接打断请求。那是另一件事、另一批。 */
+  const video = read('src/skills/videoSkills.js');
+  assert.doesNotMatch(video, /ADAPTIVE_RATIO/, '视频侧不加自适应（上游硬 400），这一条不许被"全站统一"顺手改掉');
 });

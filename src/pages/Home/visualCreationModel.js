@@ -5,8 +5,9 @@ import { IMAGE_RATIOS } from '../../services/imageSizeCatalog.js';
 /* ═══ 批 J-⑪：画面尺寸**给满六档**（用户批注 #7-4）═════════════════════════════════════════
    用户原话：「他们会有**很多很多个尺寸的规格**可以给人选的，为什么你没有呢？**你只有这四个吗？**」
    改前：每个技能只声明 3~4 档，画面规格面板就只列那几个 —— 用户看到的是"四个"。
-   现在：把该技能**最合适的那几档放前面**（第一档仍然是它的默认值，visualSkillDefaultRatio 取 [0]，
-        行为不变），后面**补全到 IMAGE_RATIOS 全部六档**。
+   现在：把该技能**最合适的那几档放前面**，后面**补全到 IMAGE_RATIOS 全部六档**。
+   ⚠️ 2026-09-29 批 DC 续-8：第一档**不再**是它的默认值（默认值已改成「自适应」，
+      这份顺序降级成"自适应解析不出结果时"的回落档）。
    ⚠️ 敢补全的依据不是"想给更多"，是**服务端六档全都真的照做**：
       test/image-size-catalog-parity 第 ② 条逐个 resolution × ratio 跑过 resolveGenerationSize，
       确认没有任何一档会被静默回落（不在表里的比例会被悄悄改成 1:1，那种档位绝不放进 UI）。 */
@@ -191,6 +192,13 @@ export const VISUAL_CREATION_SKILLS = Object.freeze([
    一次都没扩过** —— 用户主入口看到的仍是 6 档（其余 7 档只长在技能子页面的声明里）。
    ⇒ 现在直接从 `IMAGE_RATIOS`（= 能生成的唯一真源）派生：**能选的就是能生成的**（一个不多一个不少）。
       label 只是给人看的名字，按比例方向取中文。 */
+/* ═══ 2026-09-29 批 DC 续-8：「自适应」这个**值**收成一处常量**（原来它只是数组里的一行字面量）══════
+   为什么现在需要它：它同时是 ① 选项表的第一项、② 首页的**默认比例**、
+   ③ `resolveVisualSkillRatio` 里"永远算受支持"的那个特例。三处写同一个中文字面量，
+   改一处就会剩下两处不一致 —— 而这种不一致的后果是"**看着是自适应、跑的是别的比例**"
+   （本仓铁律：不许"看着是 A、跑的是 B"）。 */
+export const HOME_ADAPTIVE_RATIO = '自适应';
+
 export const VISUAL_RATIO_OPTIONS = Object.freeze([
   /* ═══ 2026-09-29 批 CY-⑭：**最前面加一档「自适应」**（用户原话，逐字）══════════════════════════════
      「关于图片的尺寸……是不是应该在尺寸的**最前面**加入一个？**自适应**的一个选项，
@@ -200,7 +208,7 @@ export const VISUAL_RATIO_OPTIONS = Object.freeze([
        也不进任何 LEGAL_IMAGE_SIZES —— 选了它之后由 resolveProtocolRatio 现算出一个具体比例再发。
        所以这一档是"**选项**，不是**尺寸**"，两者不能混进同一张表
        （test/image-size-catalog-parity.test.mjs 钉的就是"IMAGE_RATIOS 必须恰好 13 档"，那是尺寸表）。 */
-  Object.freeze({ id: '自适应', label: '自适应', adaptive: true }),
+  Object.freeze({ id: HOME_ADAPTIVE_RATIO, label: HOME_ADAPTIVE_RATIO, adaptive: true }),
   Object.freeze({ id: '1:1', label: '方形 1:1' }),
   Object.freeze({ id: '3:4', label: '竖版 3:4' }),
   Object.freeze({ id: '4:3', label: '横版 4:3' }),
@@ -227,14 +235,24 @@ export function visualSkillById(skillId) {
 export function resolveVisualSkillRatio(skillId, requestedRatio) {
   const skill = visualSkillById(skillId);
   const supported = Array.isArray(skill.ratios) && skill.ratios.length ? skill.ratios : ['1:1'];
+  /* ⚠️ 2026-09-29 批 DC 续-8：「自适应」**永远算受支持**。
+     原来这里只按 `skill.ratios` 判，而那几份名单里**没有**「自适应」（它们列的是具体尺寸档）——
+     于是批 CY-⑭ 把「自适应」放进选项之后，一旦它成为默认值，resolveVisualSkillRatio 会把它
+     判成"这条技能不支持"，**悄悄回落成 ratios[0]**（首页就成了"选了自适应、跑的是别的比例"）。
+     它是**选项不是尺寸**（不进 IMAGE_RATIOS，选中后由 resolveProtocolRatio 现算），
+     所以不受"这条技能支持哪些尺寸"约束 —— 与上面 `options` 过滤器的 `option.adaptive` 放行是同一条理由。 */
+  if (requestedRatio === HOME_ADAPTIVE_RATIO) return HOME_ADAPTIVE_RATIO;
   return supported.includes(requestedRatio) ? requestedRatio : supported[0];
 }
 
-/* 9-13 二轮批注：切子页面时底部参数（画幅）按该板块最合适的默认值重置 */
-export function visualSkillDefaultRatio(skillId) {
-  const skill = visualSkillById(skillId);
-  const ratios = Array.isArray(skill.ratios) ? skill.ratios : [];
-  return ratios[0] || '1:1';
+/* 9-13 二轮批注：切子页面时底部参数（画幅）按该板块最合适的默认值重置
+   ⚠️ 2026-09-29 批 DC 续-8：默认值**改成「自适应」**（用户 2026-09-29 逐字：
+     「首页的生图模型配置啊，还有画布里面的生图配置啊这些地方。**自适应应该是它默认的一个选项呀。**
+       除非像这个概念视觉方案这里……那这个 3:4 就可以成为它的默认选项。」）
+     `ratios[0]` 那个"按板块挑一个最合适的"的旧逻辑保留成**回落档**（自适应解析不出结果时用），
+     但它不再是默认值。 */
+export function visualSkillDefaultRatio() {
+  return HOME_ADAPTIVE_RATIO;
 }
 
 /* ⚠️ 2026-09-19 批 I-9：上限 4 → **16**（两处都要改：预估与建 run）。
