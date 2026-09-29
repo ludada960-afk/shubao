@@ -222,19 +222,31 @@ test('⑫ 结果区与页签的控件不再"小一号"（用户批注图1-③）
   assert.match(SHELL_CSS, /\.media-workbench-tabs button \{[\s\S]*?font-weight: 700;/, '页签字重 700（它是导航，不是正文说明）');
 });
 
-test('⑬ 左侧导航那"第二层紫"删干净了（用户批注图1-④：「你没有做干净」）', () => {
-  /* 静止态那一格不许再铺品牌色渐变 —— 那一层就是截图里"后面一层紫"的来源。 */
+test('⑬ 左侧导航的紫是**两层嵌套**：格底一层紫底 + 磁贴一层紫渐变（用户 2026-09-29 第二次当面纠正）', () => {
+  /* ⚠️⚠️ 这一条被**推翻过两次**，两次都改反了方向，所以这里把整段口径写清楚：
+     · 批 DC 续-7：用户说「这个里面两层紫色…你怀疑你渐变层的底部有一层多余的紫色的底」
+       ⇒ 我把**静止态**那条品牌色渐变撤掉，当成"多余的紫色底"；
+     · 批 DC 续-8：用户又说「你没有做干净…它这个方块的周边是有一个底层依然是一个紫色的。
+       但是它表面这一层已经是一个紫色的渐变动效了」⇒ 我把 hover/选中底色压成中性 tint-strong。
+     两次都在"**消掉**那层紫"，而用户要的是"**留住**那层紫，只是要和表面那层渐变**嵌套**"。
+     实测（改前真机读计算样式）：hover 时 `cellBgColor = rgba(12,10,9,0.06)` —— 底层一点紫都没有，
+     当然看不见"下面还有一层"。 */
   const resting = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell {'), SIDEBAR.indexOf('.app-sidebar-cell::after'));
-  assert.match(resting, /background-image: none;/, '静止态：格底回到中性纯色（留影AI 实测他们的卡就是 backgroundImage:none）');
-  assert.doesNotMatch(resting, /linear-gradient\(90deg, var\(--sb-neutral-0\)[^;]*brand/, '不许再铺那条 5% 品牌色横向渐变');
-  /* hover 也不该用"渐变画纯色"—— 计算值一样，但会让"这格有没有渐变"永远查不清。
-     （规则块里有注释，所以用 [\s\S]{0,400}? 跨过去，而不是 \s* —— 早先那条 \s* 断言误报。） */
+  assert.match(resting, /background-color: var\(--sb-surface-tint\)/, '静止态：格底是中性色（白底方块 + 紫色图标）');
+  assert.match(resting, /background-image: none;/, '静止态：格底不挂渐变（渐变是 hover 才有的「表面那层」）');
+
+  /* hover / 选中 / 任务在跑：三处**都要**铺同一档紫色底。 */
   const hover = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-cell:hover {'), SIDEBAR.indexOf('.app-sidebar-cell:hover .app-sidebar-tile'))
     .replace(/\/\*[\s\S]*?\*\//g, '');   // 规则块里那条注释**提到**了 background-image，别把它算成声明
-  assert.match(hover, /background-color: var\(--sb-surface-tint-strong\);/, 'hover 用纯色档，不用渐变');
-  assert.doesNotMatch(hover, /background-image/, 'hover 不许再挂任何 background-image（那正是查不清"两层紫"的根源）');
-  /* 发光收敛，且 hover / 选中 / 任务在跑**三处同一档** ——
-     原来这一列里同时存在 8px/32% 与 5px/18% 两套，同一颗磁贴三种状态三种光晕。 */
+  assert.match(hover, /background-color: var\(--sb-brand-a\d+\);/,
+    'hover：格底要铺一层**紫底**（用户原话「整个方块被紫色包裹…周边有一个底层依然是一个紫色的」）');
+  assert.doesNotMatch(hover, /background-image/, '但底层**不许**用渐变画 —— 渐变留给磁贴那层；混在一起就永远查不清"这格有没有渐变"');
+  assert.match(SIDEBAR, /\.app-sidebar-cell\.is-active \{[^}]*background-color: var\(--sb-brand-a\d+\);/,
+    '选中：与 hover 同一档紫底（改前是中性 tint-strong，选中格一眼就看出缺了底层）');
+  assert.match(SIDEBAR, /\.app-sidebar-task\.is-live \{[^}]*background-color: var\(--sb-brand-a\d+\);/,
+    '任务在跑：同样是两层（磁贴渐变 + 格底紫底），三处必须一致');
+
+  /* 发光收敛，且 hover / 选中 / 任务在跑**三处同一档**。 */
   const shadows = SIDEBAR.match(/box-shadow: 0 \d+px \d+px var\(--sb-brand-a\d+\);/g) || [];
   assert.ok(shadows.length >= 3, '自证：hover / 选中 / is-live 三处磁贴阴影都找得到，实得 ' + shadows.length);
   assert.equal(new Set(shadows).size, 1, '三处必须同档：' + shadows.join(' | '));
@@ -260,6 +272,13 @@ test('⑬ 左侧导航那"第二层紫"删干净了（用户批注图1-④：「
   assert.match(bar, /top: calc\(var\(--sb-app-tile-top\) \+ var\(--sb-app-tile\) \+ 2px\)/,
     '充能条必须**紧贴磁贴正下方**，位置由磁贴尺寸算出（不是 bottom:0 贴格底）');
   assert.doesNotMatch(bar, /bottom: 0/, '不许再贴格底（与磁贴之间隔着文字行，两块紫就分家了）');
+  /* ⚠️ 批 DC 续-9：左缘必须**钉死在磁贴左缘**，不许用 `left:50% + translateX(-50%)` ——
+     那会让左缘随宽度一起动，动画变成"从中心对称张开"，把"充能"（左侧钉死、向右推进）整个抹掉。
+     用户 2026-09-29 当面指出：「你怎么把导航栏下面的这条脉冲条变成中间往两边张开了呀。」
+     判据：必须有 `calc(50% - 磁贴/2)`，且**不许**再有 translateX。 */
+  assert.match(bar, /left: calc\(50% - var\(--sb-app-tile\) \/ 2\);/,
+    '充能条左缘钉在磁贴左缘（满宽时与磁贴左右对齐，动画期间只向右长）');
+  assert.doesNotMatch(bar, /translateX\(-50%\)/, '不许再用 translateX 居中 —— 那样 width 过渡会变成"从中间对称张开"');
   const tile = SIDEBAR.slice(SIDEBAR.indexOf('.app-sidebar-tile {'), SIDEBAR.indexOf('.app-sidebar-label {'));
   assert.match(tile, /width: var\(--sb-app-tile\)/, '磁贴自己必须走同一个变量（两边各写一份尺寸，加起来就会错位）');
   assert.match(tile, /height: var\(--sb-app-tile\)/, '磁贴高度同理');

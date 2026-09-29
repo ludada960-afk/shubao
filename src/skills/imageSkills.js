@@ -858,7 +858,16 @@ export const IMAGE_SKILLS = [
            ⚠️ 竞品实采（docs/design/data/quantv-image-builtin-pages.json:46）里这一栏就叫
              「AI推荐风格选择」，且在分析之前就渲染在页面上。 */
         placeholder: '点上面的「一键解析风格」，AI 分析结论会写在这里，可以直接改' },
-      ratioField(),
+      /* ⚠️ 2026-09-29 批 DC 续-9：详情图**保留固定默认 9:16**，不走自适应
+         （用户 2026-09-29 逐字：「detail_page 的竖版都有实测依据，就不要自适应呀」）。
+         依据是**本仓自己的电商侧**，不是"我觉得竖版好看"：
+           · src/pages/Home/ec/ecommercePlanModel.js:67 `defaultRatio: '9:16'`，
+             且 :159 起每一个详情图模块都是 `ratio: '9:16'`；
+           · src/pages/EcCanvas/canvasState.js:48-53 六个 detail_slice_* 模块**逐个** 9:16；
+           · src/pages/Home/ec/promptSizeConflict.js:17 把「竖版|长图|手机全屏」直接判成 9:16。
+         改自适应会让这一页的默认档与它自己 brief 产出的那套方案**互相矛盾**
+         （页面说 1:1、方案里全是 9:16）—— 那正是「看着是 A、跑的是 B」。 */
+      { ...ratioField(), default: '9:16' },
       countField(6),
     ],
     /* 竞品详情图页的示例清单是「01 高效率销售转化详情页 02 场景氛围与情感共鸣详情页
@@ -943,11 +952,17 @@ export const IMAGE_SKILLS = [
     fields: [
       { key: 'subject', label: '蔬菜水果名字', longLabelReason: '照知渔原文逐字：他们这一页的第一个字段名就叫「蔬菜水果名字」（这是一个纯文本输入，不是上传位）',
         kind: 'text', required: true, group: '主题' },
-      ratioField([
+      /* ⚠️ 2026-09-29 批 DC 续-9：**这一条保留固定默认 3:2，不走自适应**（用户 2026-09-29 逐字：
+         「giant_product 的 3:2 和 detail_page 的竖版都有实测依据，就不要自适应呀。
+           我都说了，**你需要有比例预设的就不要自适应**呀。」）
+         依据不是"我觉得横版好看"，是**逐页实采**：知渔这一页的比例只有 3:2 / 4:3 / 16:9 三档
+         （上面那段注释是原文），而 brief 要的是「巨型装置 + 尺度反差 + 镜面地板」的**横版商业广告** ——
+         竖版装不下这种空间关系。全站只有这一条的比例是**收窄到 3 档**的，那就是"有比例预设"的样子。 */
+      { ...ratioField([
         { value: '3:2', label: '3:2' },
         { value: '4:3', label: '4:3' },
         { value: '16:9', label: '16:9' },
-      ]),
+      ]), default: '3:2' },
       clarityField({ label: '清晰度', options: [
         { value: '1K', label: '1K标清' },
         { value: '2K', label: '2K高清' },

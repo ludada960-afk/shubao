@@ -198,6 +198,19 @@ const FIXED_RATIO_DEFAULTS = Object.freeze({
   /* 小红书竖版签名：实测竞品 41 篇封面全是竖版（docs/research/2026-09-27-aura-deep-dive.md），
      概念视觉方案的 brief 也把"留白充足 / 主体不超过 40%"写进签名纪律。 */
   'image.concept_set': '3:4',
+  /* 巨型产品广告 3:2 —— **全站唯一一条比例被收窄到 3 档**的技能（3:2/4:3/16:9），
+     而那 3 档是知渔那一页的逐字实采（imageSkills 里那段注释是原文）。
+     brief 要的是「巨型装置 + 尺度反差 + 镜面地板」的横版商业广告，竖版装不下这种空间关系。
+     用户 2026-09-29：「giant_product 的 3:2 … 有实测依据，就不要自适应呀。」 */
+  'image.giant_product': '3:2',
+  /* 详情图 9:16 —— 依据是**本仓电商侧**：
+       ecommercePlanModel.js:67 `defaultRatio: '9:16'`，:159 起每个详情图模块都是 9:16；
+       EcCanvas/canvasState.js:48-53 六个 detail_slice_* 逐个 9:16；
+       promptSizeConflict.js:17 把「竖版|长图|手机全屏」直接判成 9:16。
+     改自适应会让这一页的默认档与它自己 brief 产出的那套方案**互相矛盾**（页面 1:1 / 方案全 9:16）
+     —— 那正是「看着是 A、跑的是 B」。
+     用户 2026-09-29：「detail_page 的竖版都有实测依据，就不要自适应呀。」 */
+  'image.detail_page': '9:16',
 });
 
 test('默认档 = 自适应；固定默认只有具名例外，且必须由技能自己显式声明', () => {
