@@ -128,16 +128,24 @@ test('⑧ 全站权威分辨率只有 1K/2K/4K —— 不许再冒出 1.5K 这�
   assert.deepEqual(offenders, [], '这些文件里还有 1.5K：' + offenders.join(', '));
 });
 
-test('⑨ CanvasNodeActionBar 仍是死代码 —— 明确记下来，别让下一个人以为它在生效', () => {
-  /* setNodeActionBar 全仓只被赋成 null ⇒ {nodeActionBar && …} 永不渲染。
-     这批**故意没有删**：它的 25 条 CSS 在 src/styles/canvas-supervisor.css，
-     那是别的会话正在改的共享样式表，删组件要连带删样式，冲突风险高于收益。
-     ⇒ 用门禁把「它确实是死的」这件事钉住，免得有人照着它去改行为。 */
-  const assignments = [...page.matchAll(/setNodeActionBar\(([^)]*)\)/g)].map(m => m[1].trim());
-  assert.ok(assignments.length > 0, '仍应看得到 setNodeActionBar 的调用');
-  assert.ok(
-    assignments.every(value => value === 'null'),
-    'setNodeActionBar 只应被赋成 null（当前实际：' + assignments.join(', ') + '）—— 一旦有人开始给它赋真值，这条门禁会失败，正好提醒他同步处理死代码',
+test('⑨ CanvasNodeActionBar 整条死链已删除（组件 / state / 接线 / 样式 / 登记册）', () => {
+  /* 这条原本是「确认它是死的，但先不删」；批 CY-㉑ 共享样式表空下来了，已彻底删除。
+     现在反过来钉住「别把它又接回来」——
+     它那 11 颗按钮里有 8 颗是空动作，接回来等于给用户一排点了没反应的按钮。 */
+  const code = page.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  assert.doesNotMatch(code, /nodeActionBar/, 'index.jsx 里不该再有 nodeActionBar 的任何引用');
+  assert.equal(
+    existsSync(new URL('../src/pages/EcCanvas/components/CanvasNodeActionBar.jsx', import.meta.url)),
+    false,
+    '组件文件必须已删除',
   );
+  const css = read('src/styles/canvas-supervisor.css');
+  assert.doesNotMatch(css, /node-action-bar|nodeActionBarEnter/, '那 119 行样式必须一并清掉');
+  const registry = read('src/pages/EcCanvas/canvasSurfaceDismiss.js');
+  const registryCode = registry.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  assert.doesNotMatch(registryCode, /nodeActionBar/,
+    '登记册里也不能留 —— 留着会让「关掉所有浮层」一直以为有个叫它的东西，却没有任何代码会打开它');
+  // 画布上真正生效的那条节点操作链必须还在
   assert.match(studio, /export function CanvasGenerationNode/);
+  assert.match(page, /CanvasObjectToolbar/, '选中态工具条才是真正生效的那条，不能被误删');
 });

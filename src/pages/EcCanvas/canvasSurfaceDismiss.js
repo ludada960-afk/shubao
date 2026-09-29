@@ -48,7 +48,10 @@ export const CANVAS_TRANSIENT_SURFACES = Object.freeze({
   outpaintDraft: { label: '扩图草稿', blank: true, escape: true },
   textInspectorNodeId: { label: '文字图层检查器', blank: true, escape: true },
   editingTextNodeId: { label: '文字工具条', blank: true, escape: true },
-  nodeActionBar: { label: '节点悬浮工具条', blank: true, escape: true },
+  /* 批 CY-㉑：`nodeActionBar` 从登记册里移除 —— 那条链（组件 + state + 119 行样式）已整体删除。
+     留在这里会有一个更坏的后果：它会让「点空白处要关掉所有浮层」这条逻辑一直以为
+     有一个叫 nodeActionBar 的浮层存在，而实际上**没有任何代码会去打开它** ——
+     登记册与现实脱节，下一个人照着它排查会白查很久。 */
   connectionDraft: { label: '连线拖拽中', blank: false, escape: true },
 });
 

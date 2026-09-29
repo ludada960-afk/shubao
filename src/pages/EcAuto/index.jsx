@@ -8,6 +8,8 @@ import { useApp } from '../../store/AppContext';
 import { IMAGES } from '../../constants/images';
 import { proxyImg, autoGenerate, saveWork } from '../../services/api';
 import { canvasEntryActionsForResults, resultItemsFromImageMap } from '../EcCanvas/sendResultsToCanvas.js';
+import { buildEcAutoStudioHandoff, canOpenEcAutoStudioHandoff } from './ecAutoStudioHandoff.js';
+import { getImageSkill } from '../../skills/imageSkills.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import { CharImg } from '../../components/ui/index';
 import Footer from '../../components/layout/Footer';
@@ -36,6 +38,11 @@ const PLATFORMS = [
 ];
 
 let observedEcommerceWorkVersion = 0;
+
+/* 批 CY-㉑：「去精修工坊微调」落到哪条技能。
+   与 galleryRemixTarget.ECOMMERCE_RECIPE_SKILL 里 `product_suite` 的落点一致 ——
+   一键出图出的就是商品套图，落到同一条技能，用户看到的是同一套表单。 */
+const EC_AUTO_HANDOFF_SKILL_ID = 'image.product_suite';
 
 export default function EcAutoPage() {
   const { state, dispatch, fetchCredits } = useApp();
@@ -263,6 +270,32 @@ export default function EcAutoPage() {
     );
     if (!actions.length) { setError('还没有可送到画布的图，先生成一次'); return; }
     for (const action of actions) dispatch(action);
+  };
+
+  /* ═══ 批 CY-㉑：「去精修工坊微调」以前是**空手跳转** ══════════════════════════════════════
+     原来只有 `dispatch({type:'NAVIGATE', page:'ec-studio'})` —— 换页面，不带任何东西。
+     而 EcStudio 挂载时只读 `loadOrCreateEcommerceDraft(...)`，**从不读传入载荷**
+     （它的三个 useEffect 只认 ownerEmail / workVersion）⇒ 用户点「微调」到了一个**空白配置页**，
+     刚生成的图一张也没跟过去，得手工重传一遍。
+     ⇒ 走 `image-creation`（MediaCreation）那条**已经存在**的入参落地通道
+     （canvas-node-edit：work-remix 的同一个形状，MediaCreation:1604 已经认这个 kind）。
+     ⚠️ 只预填、**不触发生成**：扣费仍在目标页由用户点「立即生成」时才发生。 */
+  const openStudioHandoff = () => {
+    const skill = getImageSkill(EC_AUTO_HANDOFF_SKILL_ID);
+    const launch = buildEcAutoStudioHandoff({
+      results,
+      prompt: input,
+      skillId: EC_AUTO_HANDOFF_SKILL_ID,
+      skill,
+    });
+    if (!launch) {
+      setError(canOpenEcAutoStudioHandoff(skill)
+        ? '还没有可微调的结果图，先生成一次'
+        : '这条技能暂时没有上传位，没法把图带过去微调');
+      return;
+    }
+    dispatch({ type: 'SET_CREATION_LAUNCH', launch });
+    dispatch({ type: 'NAVIGATE', page: 'image-creation' });
   };
 
   const downloadAll = () => {
@@ -533,13 +566,17 @@ export default function EcAutoPage() {
                   ? '📝 使用完整prompt模式生成，AI原样执行'
                   : `📐 尺寸已适配 ${platform} 平台规范，可直接上架`}
               </span>
-              <button onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
+              {/* 批 CY-㉑：改前是 `onClick={() => dispatch({type:'NAVIGATE', page:'ec-studio'})}`
+                  —— 只换页面、不带任何东西，而 EcStudio 并不读传入载荷
+                  ⇒ 到了那边是一张空白配置页，刚出的图一张也没跟过去。
+                  现在把结果图与提示词一起带进图片生成的对应技能页。 */}
+              <button onClick={openStudioHandoff}
                 style={{
                   background: 'none', border: 'none', color: 'var(--sb-brand-700)',
                   cursor: 'pointer', fontSize: 'var(--sb-text-sm)', fontWeight: 500, fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', gap: 3,
                 }}>
-                去精修工坊微调 <ChevronRight size={12} />
+                带着这批图去精修 <ChevronRight size={12} />
               </button>
             </div>
           </div>

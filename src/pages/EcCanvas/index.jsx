@@ -158,7 +158,6 @@ import { EcCanvasRightPanel } from './components/EcCanvasRightPanel.jsx';
 /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能 UI 组件
    CanvasContextMenuPanel.jsx 内含: CanvasContextMenuPanel / CanvasAddNodePanel /
    CanvasShortcutHelp / CanvasMinimap / CanvasTaskLogPanel / SaveStatusIndicator / CanvasSticker */
-import CanvasNodeActionBar from './components/CanvasNodeActionBar.jsx';
 /* CanvasContextMenuPanel 是 default export, 其余是 named exports */
 import CanvasContextMenuPanel, {
   CanvasAddNodePanel,
@@ -923,7 +922,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         case 'outpaintDraft': setOutpaintDraft(null); break;
         case 'textInspectorNodeId': setTextInspectorNodeId(null); break;
         case 'editingTextNodeId': setEditingTextNodeId(null); break;
-        case 'nodeActionBar': setNodeActionBar(null); break;
+        /* 批 CY-㉑：这里原来有 `case 'nodeActionBar': setNodeActionBar(null); break;`
+           —— 随那条死链一起删了（state 恒为 null，这个 case 永远在关一个不存在的东西）。 */
         /* 批 CY-⑮：登记册 canvasSurfaceDismiss 里有 connectionDraft，
            而这个 switch 原来**没有**它的 case ⇒ 它只靠另一个手写 Esc 处理器兜着，
            正是那个模块当初要消灭的「两套关闭逻辑互相打架」。补上，职责就不重叠了。 */
@@ -977,7 +977,6 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   }), []);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
-  const [nodeActionBar, setNodeActionBar] = useState(null);
   const [snapEnabled, setSnapEnabled] = useState(false);
   const [themeMode, setThemeMode] = useState('auto');
 
@@ -1082,7 +1081,6 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       case 'outpaintDraft': return Boolean(outpaintDraft);
       case 'textInspectorNodeId': return Boolean(textInspectorNodeId);
       case 'editingTextNodeId': return Boolean(editingTextNodeId);
-      case 'nodeActionBar': return Boolean(nodeActionBar);
       default: return false;
     }
   });
@@ -8109,22 +8107,13 @@ const handlePointerUp = useCallback((e) => {
         />
       )}
 
-      {/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 节点操作条 (NodeActionBar) */}
-      {nodeActionBar && (
-        <CanvasNodeActionBar
-          node={nodeActionBar.node}
-          position={nodeActionBar.position}
-          onAction={(actionId, node) => {
-            /* 转发到对应的 canvas action */
-            handleToolAction({ id: actionId, execute: { handler: actionId } }, node);
-            if (actionId !== 'preview' && actionId !== 'add-asset') {
-              setNodeActionBar(null);
-            }
-          }}
-          onClose={() => setNodeActionBar(null)}
-          saveStatus={saveStatus}
-        />
-      )}
+      {/* 批 CY-㉑：这里原来渲染 `CanvasNodeActionBar`（Quantv 节点操作条）。
+          **整条链是死的**：`nodeActionBar` 这个 state 在全仓**只被赋成 null**，
+          没有任何一处给它赋真值 ⇒ `{nodeActionBar && …}` 永不进入。
+          那个组件里的 11 颗按钮就算渲染出来，8 颗也是空动作。
+          ⇒ 连组件、连它在 canvas-supervisor.css 里的 119 行样式、连这里的接线一并删除。
+          画布上真正生效的是选中态工具条（CanvasObjectToolbar），功能与它重复 ——
+          留着只会让人以为有两套节点操作条。 */}
 
       {/* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 画布右键菜单 (空白处) */}
       {canvasContextPanel && (

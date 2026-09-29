@@ -13468,3 +13468,71 @@ Midjourney 再窄一档只有 1K/2K）。留着这个文件，会让人以为 1.
   - 产物里 `onRefund` = 0 命中（死 prop 已清）
   - 产物里 `"1.5K"` = 0 命中（假档位已随死链一起消失）
 - 全量 `npm test` **4396 条 / 4386 通过 / 10 跳过 / 0 失败** ✅
+
+## 批 CY-㉑：EcAuto 空手跳转 + 删掉一整条死链（2026-09-29）
+
+### 一、EcAuto「去精修工坊微调」是**空手跳转**
+
+改前就一行：
+
+```js
+onClick={() => dispatch({ type: 'NAVIGATE', page: 'ec-studio' })}
+```
+
+只换页面，**不带任何东西**。而 EcStudio 挂载时读的是 `loadOrCreateEcommerceDraft(...)`，
+它的三个 `useEffect` **只认 `ownerEmail` / `workVersion`，从不读任何传入载荷**
+⇒ 用户点「微调」到了一张**空白配置页**，刚生成的图一张也没跟过去，得手工重传。
+这与批 CY-⑰ 记的「EcAuto 结果是死胡同」是同一条线的最后一段。
+
+**为什么不去给 EcStudio 加一个入口？** EcStudio 是**电商方案工作台**
+（上传商品 → 出方向 → 生成套图），入参是 `draftId` 体系，给它加新入口要动它的
+草稿轮转与三处重置逻辑。而用户点「微调」的**真实意图**是「把这张图拿去继续编辑」——
+真正干这件事的页面是 `image-creation`（MediaCreation），它**已经**有成熟的入参落地通道
+（`work-remix` / `canvas-node-edit` / `gallery-remix` 三种 kind 共用一个载体），
+而且正是用户 9 月亲自拍板「做同款应该匹配到我们现在的图片生成的区域里面」的那条路。
+
+⇒ **不新造第三条通道**，复用既有的 `canvas-node-edit`
+（`MediaCreation:1604` 已经认这个 kind，载荷形状 `skillId / panelValues / prompt / title`）。
+
+- 新增 `src/pages/EcAuto/ecAutoStudioHandoff.js`（纯函数，门禁直接测）
+- 落点技能 `image.product_suite`，与 `galleryRemixTarget.ECOMMERCE_RECIPE_SKILL`
+  里 `product_suite` 的落点**一致**（一键出图出的就是商品套图）
+- 只预填、**不触发生成**：扣费仍在目标页由用户点「立即生成」时才发生
+- ⚠️ 只写该技能**自己声明过的字段**（`assets` / `productParams`）——
+  写一个不存在的 key，界面不显示、参数却照发，那是本仓最贵的一类 bug
+- 按钮文案从「去精修工坊微调」改成「**带着这批图去精修**」：
+  它现在去的**不是**精修工坊，旧文案会骗用户
+
+### 二、`CanvasNodeActionBar` 整条死链删除
+
+上一批确认了它是死的（`nodeActionBar` state 全仓只被赋成 `null`），
+但因为它的 119 行 CSS 在 `src/styles/canvas-supervisor.css`（共享样式表）而暂缓。
+这批先查了那个文件的最近改动（`git log` 显示已沉寂），确认可以动，于是彻底删除：
+
+- 组件 `components/CanvasNodeActionBar.jsx`（163 行）
+- `index.jsx` 的 import / state / 渲染接线 / `selectionPanelsVisible` 里的那个 case
+- `canvas-supervisor.css` 的 119 行样式（含 `nodeActionBarEnter` 关键帧）
+- `canvasSurfaceDismiss.js` 登记册里的 `nodeActionBar` 条目
+
+最后一条**最容易被忽略、后果最阴**：登记册里留着它，会让「点空白处关掉所有浮层」
+这条逻辑一直以为有一个叫 `nodeActionBar` 的浮层存在，而**没有任何代码会去打开它** ——
+登记册与现实脱节，下一个人照着它排查会白查很久。
+
+删它的理由不是「死代码难看」：那个组件里 11 颗按钮有 **8 颗是空动作**，
+接回来等于给用户一排点了没反应的按钮；而且画布上真正生效的节点操作条
+（选中态的 `CanvasObjectToolbar`）与它功能重复，留着只会让人以为有两套。
+
+### 门禁
+
+- `test/ec-auto-studio-handoff-0929.test.mjs`（**9 条**，新建）
+  核心是 ⑧：跳转 handler 里**不许**出现任何生成调用 —— 那会静默扣费。
+- `test/canvas-dead-entry-points-0929.test.mjs` ⑨ 条**改写**：
+  原来是「确认它是死的但先不删」，现在反过来钉住「别把它又接回来」。
+
+（又一次踩到同一个坑：`doesNotMatch(/nodeActionBar/)` 匹配到了**我自己写的解释性注释**。
+这已经是这批里第三次了，现在这类断言一律先剥注释再匹配。）
+
+### 验证
+
+全量 `npm test` **4405 条 / 4395 通过 / 10 跳过 / 0 失败** ✅
+构建 exit 0 ✅
