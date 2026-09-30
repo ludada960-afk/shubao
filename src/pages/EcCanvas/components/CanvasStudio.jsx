@@ -524,17 +524,25 @@ export function useCanvasPopoverAnchor(openKey = '') {
     };
     place();
     window.addEventListener('resize', place);
-    /* ═══ 批 CY-⑭：**锚点必须跟着素材走**（用户原话，逐字）══════════════════════════════════════════════
+    /* ═══ 批 CY-⑭：**锚点必须跟着素材走**（用户 2026-09-28 原话，逐字）══════════════════════════════
        「而且现在他们张开面板之后，我拖动我当前这块素材的话，你这个面板是没有跟着一起吸附在选项上面的。
          我不是说了很多遍了吗你的面板是必须要吸附在当前这个按钮的上面的。
          **不管用户怎么拖动素材，张开的面板都必须如影随形。**」
-       改前这里只监听 `window.resize` —— 所以拖动画布 / 拖节点时锚点**一动不动**，
-       面板留在原地，节点走远了它还挂在原处。
-       ⇒ 加一个 rAF 轮询：只要这个弹层是开着的就一直对齐。
-          为什么用轮询而不是事件：触发源可能是拖拽（每帧变）、平移、缩放、节点高度自适应，
-          它们的共同点是「DOM 在动但没有任何我们能订阅的尺寸事件」——
-          `ResizeObserver` 只管尺寸不管位置（拖拽时尺寸不变，它根本不触发，实测过）。
-          弹层关闭时 effect 直接 return，轮询随之停止，不留常驻开销。 */
+       改前这里只监听 `window.resize` —— 拖动画布 / 拖节点时锚点一动不动，
+       面板留在原地、节点走远了它还挂在原处。
+       ⇒ rAF 轮询：只要弹层开着就一直对齐。为什么用轮询而不是事件：触发源可能是
+         拖拽（每帧变）、平移、缩放、节点高度自适应，共同点是「DOM 在动但没有任何
+         我们能订阅的尺寸事件」—— `ResizeObserver` 只管尺寸不管位置。
+
+       ⚠️⚠️ 批 DC 续-18 **一度把它删掉**，因为它看起来像"面板死死粘在节点上"。
+         **那是误判，已撤回**：① 它服务的是**另一个**用户要求（2026-09-28 的"如影随形"），
+         删掉会静默回退那条；② **画布平移是 pointer 驱动的，不是 `scroll` 事件** ——
+         新的全局口径「滚一滚就关」根本不会因为拖动画布而触发，所以"删掉跟随就能自动关"
+         这个推理**不成立**。
+         真正的"粘住"是另一回事：滚轮/滚动现在会由 EcCanvas/index.jsx 那一次全局订阅
+         （登记册 `scroll` 列）把面板**整个收掉**。两者不冲突。
+         代价要说清：弹层开着时有一条 rAF 常驻，关闭时 effect return、随之停止
+         —— 是"开着才有"的开销，不是常驻烧 CPU。 */
     let frame = 0;
     const follow = () => {
       place();
@@ -622,7 +630,12 @@ export function CanvasPopoverPortal({ open = false, anchor = null, className = '
     ? { position: 'fixed', left: placement.left, right: 'auto', bottom: 'auto', top: placement.top, transform: 'none', zIndex: CANVAS_Z.popover, maxHeight: `calc(100vh - ${Math.round(placement.top)}px - 12px)`, overflowY: 'auto' }
     : { position: 'fixed', left: 0, top: 0, visibility: 'hidden', zIndex: CANVAS_Z.popover };
   return createPortal(
-    <div ref={popoverRef} className={`ec-canvas-parameter-popover is-portaled${placement?.mode === 'right' ? ' is-anchored-right' : ''}${placement?.flipped ? ' is-flipped' : ''} ${className}`} style={style} role="menu" aria-label={label}>{children}</div>,
+    /* ⚠️ `data-overlay-root`（批 DC 续-18）：画布弹层**自身可滚**
+       （上面 style 里的 `maxHeight: calc(100vh - …)` + `overflowY:auto`）。
+       不打这个标记，用户在弹层里滚一下就把它自己关了。
+       "关"本身由 EcCanvas/index.jsx 那一次全局订阅统一做（登记册 `scroll` 列，13 个浮层一次到位），
+       这里只负责声明"我内部滚动不算"。 */
+    <div ref={popoverRef} data-overlay-root="true" className={`ec-canvas-parameter-popover is-portaled${placement?.mode === 'right' ? ' is-anchored-right' : ''}${placement?.flipped ? ' is-flipped' : ''} ${className}`} style={style} role="menu" aria-label={label}>{children}</div>,
     document.body,
   );
 }

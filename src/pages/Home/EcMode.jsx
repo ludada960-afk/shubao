@@ -945,14 +945,14 @@ const DEFAULT_BUTTONS = [
   }, [activePanel]);
 
   useEffect(() => {
-    if (!activePanel) return;
+    if (!activePanel) return undefined;
     repositionPanel();
+    /* ⚠️ 2026-09-29 批 DC 续-18：**scroll 跟随删掉**。
+       全局口径是「滚一滚，浮层就关」（`useDismissOverlay`，见本文件上面那一处订阅），
+       面板不需要再跟着滚 —— 跟着滚是"面板会撕裂"那一族 bug 的来源。
+       `resize` 保留：视口尺寸真的变了，重量坐标是对的。 */
     window.addEventListener('resize', repositionPanel);
-    window.addEventListener('scroll', repositionPanel, true);
-    return () => {
-      window.removeEventListener('resize', repositionPanel);
-      window.removeEventListener('scroll', repositionPanel, true);
-    };
+    return () => window.removeEventListener('resize', repositionPanel);
   }, [activePanel, repositionPanel]);
 
   const openPanel = useCallback(

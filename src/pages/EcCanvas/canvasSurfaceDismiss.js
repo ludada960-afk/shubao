@@ -32,27 +32,36 @@
  *
  * `blank`  = 点画布空白处要不要一起收起（用户 ① ② 的核心诉求）
  * `escape` = 按 Esc 要不要一起收起
+ * `scroll` = **滚轮/滚动时**要不要收起（2026-09-29 批 DC 续-18 加的第三列）
  * 两者都为 true 的才是「跟随型」浮层；模态（资产库/模板广场/工作流）由自己的遮罩管，不在此册。
- */
+ *
+ * ⚠️ `scroll` 这一列是**加一列就覆盖画布全部浮层**的地方（2026-09-29 批 DC 续-18）。
+ *    用户实测知渔之后的全局口径：「如果用户去滚动鼠标滚轮的话，**面板就会自动关闭**」。
+ *    画布上曾有一个 `requestAnimationFrame` 死循环（`CanvasStudio.jsx` 的
+ *    `useCanvasPopoverAnchor`）让弹层每帧重算锚点、"死死粘在节点上" ——
+ *    与那个口径直接冲突，且常驻烧 CPU，已一并删掉。
+ *    ⇒ 现在画布只订阅**一次**全局总线，收到滚动就 `dismissCanvasSurfaces('scroll')`，
+ *      由这张表逐个关。`connectionDraft`（连线拖拽中）**不登记 scroll**：
+ *      拖连线时画布本来就在动，滚轮事件不该把用户正在拉的线打断。 */
 export const CANVAS_TRANSIENT_SURFACES = Object.freeze({
-  addMenuOpen: { label: '左侧「+」添加菜单', blank: true, escape: true },
-  connectionPicker: { label: '素材派生菜单（左右加号）', blank: true, escape: true },
-  activeComposerSurface: { label: '生成框参数弹层（模型 / 生成配置 / 技能）', blank: true, escape: true },
-  contextMenu: { label: '节点右键菜单', blank: true, escape: true },
-  canvasContextPanel: { label: '画布右键面板', blank: true, escape: true },
-  addNodePanel: { label: '双击空白的新增面板', blank: true, escape: true },
-  watermarkPanelOpen: { label: '水印面板', blank: true, escape: true },
-  layersPanelOpen: { label: '图层面板', blank: true, escape: true },
-  focusedEditor: { label: '图片编辑器', blank: true, escape: true },
-  imageInfoNode: { label: '图片信息弹窗', blank: true, escape: true },
-  outpaintDraft: { label: '扩图草稿', blank: true, escape: true },
-  textInspectorNodeId: { label: '文字图层检查器', blank: true, escape: true },
-  editingTextNodeId: { label: '文字工具条', blank: true, escape: true },
+  addMenuOpen: { label: '左侧「+」添加菜单', blank: true, escape: true, scroll: true },
+  connectionPicker: { label: '素材派生菜单（左右加号）', blank: true, escape: true, scroll: true },
+  activeComposerSurface: { label: '生成框参数弹层（模型 / 生成配置 / 技能）', blank: true, escape: true, scroll: true },
+  contextMenu: { label: '节点右键菜单', blank: true, escape: true, scroll: true },
+  canvasContextPanel: { label: '画布右键面板', blank: true, escape: true, scroll: true },
+  addNodePanel: { label: '双击空白的新增面板', blank: true, escape: true, scroll: true },
+  watermarkPanelOpen: { label: '水印面板', blank: true, escape: true, scroll: true },
+  layersPanelOpen: { label: '图层面板', blank: true, escape: true, scroll: true },
+  focusedEditor: { label: '图片编辑器', blank: true, escape: true, scroll: true },
+  imageInfoNode: { label: '图片信息弹窗', blank: true, escape: true, scroll: true },
+  outpaintDraft: { label: '扩图草稿', blank: true, escape: true, scroll: true },
+  textInspectorNodeId: { label: '文字图层检查器', blank: true, escape: true, scroll: true },
+  editingTextNodeId: { label: '文字工具条', blank: true, escape: true, scroll: true },
   /* 批 CY-㉑：`nodeActionBar` 从登记册里移除 —— 那条链（组件 + state + 119 行样式）已整体删除。
      留在这里会有一个更坏的后果：它会让「点空白处要关掉所有浮层」这条逻辑一直以为
      有一个叫 nodeActionBar 的浮层存在，而实际上**没有任何代码会去打开它** ——
      登记册与现实脱节，下一个人照着它排查会白查很久。 */
-  connectionDraft: { label: '连线拖拽中', blank: false, escape: true },
+  connectionDraft: { label: '连线拖拽中', blank: false, escape: true, scroll: false },
 });
 
 /** 登记册里全部 key（门禁用）。 */

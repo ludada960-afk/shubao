@@ -26,6 +26,7 @@ import {
 } from '@phosphor-icons/react';
 import { useApp } from '../../store/AppContext';
 import { useModalScrollLock } from '../ui/useModalScrollLock.js';
+import { useDismissOverlay, OVERLAY_ROOT_ATTR } from '../media/useDismissOverlay.js';
 import {
   CREATIVE_NAV_GROUPS,
   getNavigationItem,
@@ -173,12 +174,15 @@ function CreativeDomainNav() {
     };
     updatePanelPosition();
     window.addEventListener('resize', updatePanelPosition, { passive: true });
-    window.addEventListener('scroll', updatePanelPosition, { passive: true });
-    return () => {
-      window.removeEventListener('resize', updatePanelPosition);
-      window.removeEventListener('scroll', updatePanelPosition);
-    };
+    /* ⚠️ 2026-09-29 批 DC 续-18：**scroll 跟随删掉**。
+       全局口径是「滚一滚，浮层就关」（见下面那行 `useDismissOverlay`）。
+       这一处原先是"跟着滚"里最糟的一个：它还是**悬停触发**的（80ms 打开延迟），
+       跟滚 + 悬停两个状态机叠在一起，用户滚一下面板既不关也不跟，行为最不可预期。 */
+    return () => window.removeEventListener('resize', updatePanelPosition);
   }, [openGroupId]);
+
+  /* 滚一滚就关（用户 2026-09-29 实测知渔后的全局口径）。 */
+  useDismissOverlay(Boolean(openGroupId), () => setOpenGroupId(null));
 
   useEffect(() => {
     if (!mobileOpen) return undefined;
@@ -321,7 +325,7 @@ function CreativeDomainNav() {
   const renderGroupPanel = group => {
     const theme = DOMAIN_THEMES[group.id] || 'image';
     return (
-      <div className={`creative-nav-panel creative-nav-panel--${theme} creative-nav-panel--items-${group.items.length}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`}>
+      <div className={`creative-nav-panel creative-nav-panel--${theme} creative-nav-panel--items-${group.items.length}`} id={`creative-nav-panel-${group.id}`} role="region" aria-label={`${group.label}入口`} {...{ [OVERLAY_ROOT_ATTR]: 'true' }}>
         <div className="creative-nav-panel-links">
           {group.items.map((item, index) => {
             const ItemIcon = ITEM_ICONS[item.icon] || Sparkles;

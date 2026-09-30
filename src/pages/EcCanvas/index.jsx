@@ -81,6 +81,7 @@ import { applyCanvasGroupAction, applyMultiSelectionAction, CANVAS_CREATION_OPTI
 import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuiteComposerNode, createCanvasTextComposerNode, createCanvasTextNode, createCanvasVideoComposerNode, createUploadedImageNodes, createUploadedVideoNodes,
   resolveSourceStackPlacement, getCanvasComposerPresentation, layoutCanvasGeneratedResults, mediaRatioFor, normalizeCanvasSelection, ratioValue, resizeCanvasNodeByHandle, applyCanvasSkill, exactMediaRatio } from './canvasStudioModel.js';
 import { canvasSurfacesToDismiss } from './canvasSurfaceDismiss.js';
+import { useDismissOverlay } from '../../components/media/useDismissOverlay.js';
 import { exportDialogCopy } from './exportCopyModel.js';
 import { ADAPTIVE_RATIO, resolveProtocolRatio } from './canvasAdaptiveRatio.js';
 
@@ -953,6 +954,21 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const dismissAllCanvasSurfacesExcept = useCallback(keepKey => {
     dismissCanvasSurfaces('blank', keepKey);
   }, [dismissCanvasSurfaces]);
+
+  /* ═══ 2026-09-29 批 DC 续-18：**滚轮一滚，画布上的浮层全部收起** ══════════════════════════════════
+     用户实测知渔之后的全局口径（逐字）：
+     「他们好像全局都是把这种按钮张开面板的时候，如果用户去滚动鼠标滚轮的话，**面板就会自动关闭**。
+       ……不管是首页的两个板块，还是各种子页面，还是画布里面？……**你全局都要去实现这个方案。**」
+
+     画布这一处**订阅一次**全局总线（`useDismissOverlay` 那个），收到滚动就按登记册的
+     `scroll` 列逐个关 —— 13 个浮层一次到位，不用给每个浮层各接一遍。
+     `connectionDraft`（连线拖拽中）在登记册里 `scroll:false`：拖线时画布本来就在动，
+     滚轮不该把用户正在拉的线打断。 */
+  useDismissOverlay(true, () => {
+    /* 无条件调：登记册里没开的那些 state 已经是 null/空，再关一次是无害的 ——
+       这样就不用在这里逐个判断"哪个浮层开着"（那正是这份登记册当初要消灭的散乱）。 */
+    dismissCanvasSurfaces('scroll');
+  });
 
   /* 生成框弹层（模型 / 生成配置 / 技能）也归同一套仲裁：打开其中一个，先把其它跟随型浮层收掉。
      否则会出现"水印面板开着、又点开生成配置"这种叠在一起的状态 —— 用户 ① 说的"打架"的另一种形态。 */

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useDismissOverlay, OVERLAY_ROOT_ATTR } from '../media/useDismissOverlay.js';
+
 const VIEWPORT_GAP = 10;
 
 export default function AnchoredPortal({
@@ -52,16 +54,22 @@ export default function AnchoredPortal({
       if (event.key === 'Escape') onDismiss?.();
     };
     globalThis.addEventListener('resize', reposition);
-    globalThis.addEventListener('scroll', reposition, true);
     document.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       globalThis.removeEventListener('resize', reposition);
-      globalThis.removeEventListener('scroll', reposition, true);
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [anchorRef, onDismiss, open, reposition]);
+
+  /* ═══ 2026-09-29 批 DC 续-18：**滚一滚就关**（用户实测知渔后的全局口径）══════════════════════
+     原来这里是 `addEventListener('scroll', reposition, true)` —— 面板**跟着滚**。
+     那是"跟滚"那一族的最后一份：跟着滚的浮层天生会撕裂（锚点在动、浮层在动，
+     不同步就出现"面板盖住别的控件""点面板里的东西点到下面"）。
+     ⇒ 删掉跟随、改成收起；`resize` 保留（视口尺寸真的变了，重量坐标是对的）。
+     这一处覆盖 4 个浮层（品牌色取色盘 / 画面比例 12 档 / 电商平台 / 目标语言）。 */
+  useDismissOverlay(Boolean(open), onDismiss);
 
   if (!open || !globalThis.document?.body) return null;
   return createPortal(
@@ -69,6 +77,10 @@ export default function AnchoredPortal({
       ref={contentRef}
       className={className}
       data-anchored-portal="true"
+      /* 标成浮层根：全局那个滚轮监听据此**放过面板内部**的滚动。
+         ⚠️ 比例那 12 档列表本身就是可滚的（`maxHeight` + `overflow:auto`）——
+            不打这个标记，用户在档位里滚一下整个面板就关了。 */
+      {...{ [OVERLAY_ROOT_ATTR]: 'true' }}
       style={{
         position: 'fixed',
         zIndex: 'var(--sb-z-tooltip)',

@@ -45,6 +45,7 @@ import PromptFocusModal from '../../components/creation/PromptFocusModal.jsx';
      这也是 `test/workbench-panel-ux-0915` 第 ⑮ 条要的方向（分组标题唯一实现、必须带图标）。 */
 import { GroupTitle } from '../Home/ec/PanelPrimitives.jsx';
 import MediaAssetCard from '../../components/media/MediaAssetCard.jsx';
+import { useDismissOverlay } from '../../components/media/useDismissOverlay.js';
 import '../../components/media/MediaAssetCard.css';
 /* 素材卡：**与图片侧同一份实现**（用户 9-18 批注 3：「视频素材改成三张对称卡片，
    样式从图片侧复制，不要歪卡」）。这里不复制样式，直接复用电商生图那两个组件 ——
@@ -1217,14 +1218,17 @@ export default function VideoStudioPage({
     document.addEventListener('pointerdown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('scroll', handleViewportChange, true);
+    /* ⚠️ 2026-09-29 批 DC 续-18：**scroll 跟随删掉**，改由下面那行 `useDismissOverlay` 收起。
+       视频侧这个面板也是"跟着滚"那一族：锚点在动、浮层在动，不同步就压住别的控件。 */
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', handleViewportChange);
-      window.removeEventListener('scroll', handleViewportChange, true);
     };
   }, [activePanel, positionPanel]);
+
+  /* 滚一滚就关（用户 2026-09-29 实测知渔后的全局口径）。 */
+  useDismissOverlay(Boolean(activePanel), () => setActivePanel(null));
 
   useEffect(() => {
     if (!inlineMenu) return undefined;
@@ -2114,6 +2118,8 @@ export default function VideoStudioPage({
       id="video-floating-panel"
       className="video-config-panel"
       data-panel={activePanel}
+      /* 批 DC 续-18：标成浮层根，全局滚轮监听据此放过**面板内部**的滚动。 */
+      data-overlay-root="true"
       role="dialog"
       aria-label={meta?.label || '视频配置面板'}
       style={{

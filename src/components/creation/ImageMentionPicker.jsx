@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AtSign, Check } from 'lucide-react';
 import ResponsiveImage from '../ResponsiveImage.jsx';
 import { buildImageMentions } from './imageMentionModel.js';
+import { useDismissOverlay, OVERLAY_ROOT_ATTR } from '../media/useDismissOverlay.js';
 import './ImageMentionPicker.css';
 
 function imageIdentity(image = {}) {
@@ -110,15 +111,21 @@ export default function ImageMentionPicker({
     if (!open) return undefined;
     updateMenuPosition();
     window.addEventListener('resize', updateMenuPosition);
-    window.addEventListener('scroll', updateMenuPosition, true);
     return () => {
       window.removeEventListener('resize', updateMenuPosition);
-      window.removeEventListener('scroll', updateMenuPosition, true);
     };
   }, [open, updateMenuPosition]);
 
+  /* ═══ 2026-09-29 批 DC 续-18：**滚一滚就关**（用户实测知渔后的全局口径）══════════════════════
+     原来这里是 `addEventListener('scroll', updateMenuPosition, true)` —— 菜单**跟着滚**。
+     这一处覆盖全站 **8 个挂载点**（首页图片创作 / 小红书图文 5 处 / 视频创作 /
+     电商工作台 / 画布生成框 / 子页面提示词那一行），是全站复用度最高的一个浮层。
+     ⚠️ 传 `() => setOpen(false)` 而不是外面那个 `close` —— 那个 `close` 是**上面那个
+        useEffect 内部的局部变量**（带 event 参数、判据是"点在谁身上"），在外面引用不到。 */
+  useDismissOverlay(Boolean(open), () => setOpen(false));
+
   const menu = open && typeof document !== 'undefined' ? createPortal(
-    <div ref={menuRef} className={'image-mention-menu' + (renderItem ? ' is-custom-item' : '')} style={menuStyle} role="menu" aria-label={menuTitle} onPointerDown={event => event.stopPropagation()}>
+    <div ref={menuRef} className={'image-mention-menu' + (renderItem ? ' is-custom-item' : '')} style={menuStyle} role="menu" aria-label={menuTitle} onPointerDown={event => event.stopPropagation()} {...{ [OVERLAY_ROOT_ATTR]: 'true' }}>
       <strong>{menuTitle}</strong>
       {available.map(image => {
         const active = selectedIds.has(imageIdentity(image));
