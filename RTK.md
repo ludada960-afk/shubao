@@ -15292,3 +15292,11 @@ React 把同一批 setState **合并**、后写的赢 ⇒ **面板开了又在�
 哪怕它守的是一个错的方向：它至少逼我把那个方向查清楚，而不是顺手把代码改回去。
 ⚠️ 反过来说：**门禁红了先怀疑门禁**（这已经是本仓第二次了，见批 CY-㉟ 的
 CSS padding 解析器那次）。判据与它自己声明的原则矛盾时，先看原则。
+
+### 上线记录 20260930-182936-2fe74a0e（批 CY-㊲ + CY-㊳ 一起上）
+线上 `/var/www/shubao/current -> releases/20260930-182936-2fe74a0e`，`/health` ok。
+部署姿势沿用上一批记的那六条（pwsh / 不设 Stop / 干净工作树 / node_modules 软链指向
+codex-ecommerce-stability / 显式 -HostName / -SkipPublicChecks + 服务器本机补跑校验）。
+
+⚠️ 中间**有一次部署被门禁挡下来了**（Test suite failed ⇒ 脚本抛错、**没有切换 current**），
+  线上当时仍是上一版、站点健康 —— 这条本身是门禁在正常工作，详见上一段。
