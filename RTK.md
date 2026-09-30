@@ -15256,3 +15256,39 @@ promptFieldRef.current?.setValue?.('');
 它按 `family` 归拢（Seedance 一家 / MiniMax 一家 / 通义万相一家…）。
 ⚠️ **只排序、不加"家族标题行"**：批 BR-2 已按用户原话把视频侧那种
    「分类完把名字都当标题再各自做一行」删掉了（「都没必要」）。这次是同一口径。
+
+## 2026-09-30 · 批 CY-㊳（用户图4-①）画布上传后**右侧面板被自己关掉**
+
+用户原话：「你看我现在在画布里面随便上传一个素材，**为什么右边的这个面板没有张开呢**？
+我不是跟你说了很多次吗？就是当用户他上传一个新的素材上来，他素材上面的这个面板以及他
+右边加号里面的这个面板都应该同步的进行张开。」
+
+### 根因（一行）
+`openConnectionPickerForNode` 里先 `setConnectionPicker({...})` **把面板打开**，
+紧接着又调 `dismissAllCanvasSurfaces('blank')` —— 而 `dismissCanvasSurfaces` 的 switch 里
+正好有 `case 'connectionPicker': setConnectionPicker(null)`。
+React 把同一批 setState **合并**、后写的赢 ⇒ **面板开了又在同一个 tick 里被自己关掉**。
+注释自己写的意图是「把**别的**收掉」，代码写的却是「把**全部**收掉」，两者不符。
+
+### 证据（Chromium 实测，`scripts` 未入库，用的 `.p4-canvas.mjs`；两次构建对照）
+| | 上传后 `derive` 的状态 |
+| --- | --- |
+| 改前 | `present: false` —— **面板根本没渲染**（复现了用户那条） |
+| 改后 | `present: true, shown: true, 480×316` ✅ |
+
+### 一条**与代码互相打架**的门禁（这次的门禁才是错的，不是代码）
+`test/canvas-surface-dismiss-0929.test.mjs` 里
+`assert.match(page, /openConnectionPickerForNode[\s\S]{0,2000}?dismissAllCanvasSurfaces\('blank'\)/)`
+**恰好把那个 bug 断言成了"正确行为"**。
+而同一条测试自己的标题是「「开一个先关其它」：**自己除外**」，
+另外三个入口（加号菜单 / 水印面板 / 生成框弹层）用的也**全是 `Except` 那一支** ——
+四条里只有派生菜单这一条是例外。
+⇒ 这次是**门禁先错**：它把「不排除自己」写成了要求。
+   已改成 `Except('connectionPicker')`，与另外三条同口径，并把上面的实测证据写进门禁注释。
+
+### 教训（值得单独记）
+这次部署**被这条门禁挡下来了**（deploy 的 `npm run test` 红了 ⇒ 脚本抛
+`Test suite failed`，**没有切换 current**）—— 这正是门禁该干的事，
+哪怕它守的是一个错的方向：它至少逼我把那个方向查清楚，而不是顺手把代码改回去。
+⚠️ 反过来说：**门禁红了先怀疑门禁**（这已经是本仓第二次了，见批 CY-㉟ 的
+CSS padding 解析器那次）。判据与它自己声明的原则矛盾时，先看原则。

@@ -2611,8 +2611,17 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     });
     setConnectionDraft(null);
     /* 批 CY-⑭：派生菜单也是"跟随型"浮层 —— 开它之前把别的收掉，
-       否则它会和加号菜单 / 水印面板 / 生成框弹层同时挂在屏幕上（用户 ① 说的"打架"）。 */
-    dismissAllCanvasSurfaces('blank');
+       否则它会和加号菜单 / 水印面板 / 生成框弹层同时挂在屏幕上（用户 ① 说的"打架"）。
+
+       ⚠️⚠️ 2026-09-30 批 CY-㊳：**这里传错了 key，面板开了又立刻被自己关掉**
+       （用户图4-①原话：「我现在在画布里面随便上传一个素材，为什么右边的这个面板没有张开呢？」）
+       根因：写的是 `dismissAllCanvasSurfaces('blank')` —— 它**不排除自己**，
+       而 dismissCanvasSurfaces 的 switch 里正好有
+       `case 'connectionPicker': setConnectionPicker(null)`。
+       React 会把同一批里的两个 setState **合并**，后写的赢 ⇒
+       上面刚 `setConnectionPicker({...})` 开的面板，被紧接着的这一行**在同一个 tick 里关掉**。
+       ⇒ 意图（注释自己写的"把**别的**收掉"）与代码不符，应该是 `Except` 那一支。 */
+    dismissAllCanvasSurfacesExcept('connectionPicker');
     /* ⚠️ deps 里**只能放 viewportRectForNode**（它定义在本函数之前）。
        把它上面的 `canDeriveFromCanvasSource` 放进 deps 会立刻 TDZ 白屏 ——
        实测（.qa/cu-derive-menu.mjs）：
