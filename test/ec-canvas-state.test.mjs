@@ -208,13 +208,19 @@ test('canvas interaction surfaces dismiss each other and text has one toolbar', 
   assert.match(canvasSource, /const selectionPanelsVisible = !focusedEditor && multiSelected\.size <= 1[\s\S]{0,260}selectedNode\.kind !== 'text'/);
   assert.match(canvasSource, /selectionPanelsVisible && <CanvasObjectToolbar/);
   assert.match(canvasSource, /\['text', 'text-composer'\]\.includes\(selectedNode\?\.kind\) && <CanvasTextToolbar/);
-  assert.match(canvasStudioSource, /onPointerUp=\{event => onPointerUp\?\.\(event\)\}/);
+  /* ⚠️ 2026-09-30 批 CY-㊴：pointerup 现在必须把 side 一起传出去，这条判据方向被用户推翻。
+     事故：左右两侧的 pointerup 都不传 side，父组件又把 side 写死成 'out'，
+     于是 handlePortPointerUp 的 `side !== 'in'` 直接把它丢弃 ——
+     用户看到的现象是「左边也有个加号，但把线拉过去连不上」。 */
+  assert.match(canvasStudioSource, /const handlerSide = isInput \? 'in' : 'out'/);
+  assert.match(canvasStudioSource, /onPointerUp=\{event => onPointerUp\?\.\(event, handlerSide\)\}/);
 });
 
 test('clicking an image output port opens the derive picker without requiring a drag', () => {
   assert.match(canvasStudioSource, /function DerivePort\(\{[^}]*onClick/);
   /* 9-11 三轮: 左右加号都点击开派生菜单 (用户: 左加号点了没反应) */
-  assert.match(canvasStudioSource, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event\); \}\}/);
+  /* 同上：onClick 也要带 side（9-11 用户口径「左右加号都点开派生菜单」在改后依然成立）。 */
+  assert.match(canvasStudioSource, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event, handlerSide\); \}\}/);
   assert.match(canvasSource, /const handlePortClick = useCallback/);
   /* 2026-09-20：锚点从「世界坐标 toWorldPoint(event)」改为「触发按钮的视口矩形 anchorRect」。
      原因见 test/canvas-popover-anchor-authority-0920.test.mjs：世界坐标要经缩放层换算，
@@ -377,7 +383,11 @@ test('project library imports create a durable Canvas work context before switch
   assert.match(importBlock, /saveWork\(/);
   assert.match(importBlock, /canvasWorkMediaFields/);
   assert.match(importBlock, /SET_RESULT/);
-  assert.match(importBlock, /不会产生生成或扣费/);
+  /* 批 CY-㊴（2026-09-30）：用户原话「不会产生生成或者扣费，这一句是废话，你要把它去掉」。
+    旧断言写的是 match —— 也就是**要求这句话必须在**，与用户要求正相反。
+    改成反向断言：这句话不许再出现；且删掉它之后，"已加入画布"这个事实仍要说清楚。 */
+ assert.doesNotMatch(importBlock, /不会产生生成|不会产生任何费用|不扣积分/);
+ assert.match(importBlock, /项目素材已加入画布/);
   assert.match(canvasSource, /const mediaAssets = collectCanvasMediaAssets\(work, currentNodes\);[\s\S]*?const projectAssetRefs = collectCanvasProjectAssetRefs/);
   assert.match(canvasSource, /!work\.videoUrl && !work\.images\?\.length && work\.productAssets\?\.length/);
   assert.match(canvasSource, /createProjectVersion\(projectId, \{[\s\S]*?idempotencyKey: `canvas-media-version:/);

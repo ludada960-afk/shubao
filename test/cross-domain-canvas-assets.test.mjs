@@ -135,7 +135,9 @@ test('Canvas Works entry exposes the owner-scoped project asset library without 
   assert.match(source, /handleImportProjectAsset/);
   assert.match(source, /importProjectAssetToCanvas/);
   assert.match(source, /项目素材/);
-  assert.match(source, /不会产生生成或扣费/);
+  /* 批 CY-㊴（2026-09-30）：同上 —— 用户点名删掉这句废话，断言方向随之反转。 */
+  assert.doesNotMatch(source, /不会产生生成或扣费/);
+  assert.match(source, /项目素材已加入画布/);
   assert.match(source, /node\.kind === 'audio'/);
   assert.match(source, /mediaKind === 'video' \? <video src=\{asset\.playbackUrl \|\| asset\.stableUrl\}/);
   assert.match(source, /mediaKind === 'audio' \? <audio[\s\S]*?src=\{asset\.playbackUrl \|\| asset\.stableUrl\}/);

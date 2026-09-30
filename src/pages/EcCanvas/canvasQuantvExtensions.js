@@ -60,7 +60,7 @@ export const NODE_ACCEPT_TYPES = Object.freeze({
   'layer-group': ['image'],
   'image-composer': ['image', 'text'],
   'text-composer': ['text', 'image'],
-  'video-composer': ['image', 'text'],
+  'video-composer': ['image', 'text', 'video', 'audio'],
   'suite-composer': ['image'],
   'smart-remix': ['image', 'text'],
   'layer-workbench': ['image'],
@@ -72,6 +72,50 @@ export const NODE_ACCEPT_TYPES = Object.freeze({
 });
 
 /* ═══════ 2. 边类型校验 (Quantv isEdgeInvalid) ═══════ */
+
+const TYPE_LABEL = Object.freeze({
+  image: '图片', video: '视频', audio: '音频', text: '文本', application: '应用',
+});
+
+/** 给用户看的"这个框能接什么"（用于把拦截原因说成人话，而不是 type-mismatch） */
+export function describeAcceptedTypes(kind) {
+  return (NODE_ACCEPT_TYPES[kind] || []).map(type => TYPE_LABEL[type] || type);
+}
+
+/* ═══ 批 CY-㊴（2026-09-30）：把这条矩阵从"只画红线"变成**真的会拦** ═════════════
+   用户原话：
+     「他不应该让画布里面的任意视频也跟他进行连接匹配。因为视频是跟他互斥的，
+       视频是不能跟他连接的嘛，**如果跟他连接了的话，你下面的素材图这个框是没有办法添加进来的**。
+       那这些逻辑性的问题肯定不止我说的这么一个例子。你要把所有的逻辑都想明白。」
+
+   事故：`isEdgeInvalid` 的结果**只被用来把线画成红色虚线**（index.jsx 的 ConnectionLines），
+   边本身照样进 connections、照样进生成链路、照样扣费 ——
+   也就是说"图片生成框里连了一条视频"这种事，用户看得见红线，却照样会发生。
+   ⇒ 这里补一个**建边前**的判定：不合规则不建边，并把原因说成人话给用户看。
+
+   顺带修一处矩阵与真实上传口径的**不一致**（用户 9-30 点名的"逻辑想明白"）：
+     `handleComposerSourceUpload` 里 **视频生成框本来就能收视频/音频**
+     （files.filter(type.startsWith('video/') || startsWith('audio/'))），
+     但矩阵写的是 ['image','text'] —— 于是"手动上传能进、拖线进不去"。
+     同一件事两条路两种结果，这才叫逻辑没想清楚。 */
+export function canConnectCanvasNodes(fromId, toNode, nodes = []) {
+  const fromNode = Array.isArray(nodes) ? nodes.find(node => node.id === fromId) : null;
+  if (!fromNode || !toNode) return { ok: false, reason: '这条线的两端有一端已经不在画布上了' };
+  if (fromNode.id === toNode.id) return { ok: false, reason: '不能把素材连到它自己' };
+  const outputType = NODE_TYPE_KIND[fromNode.kind] || 'image';
+  const acceptedTypes = NODE_ACCEPT_TYPES[toNode.kind] || [];
+  if (!acceptedTypes.includes(outputType)) {
+    const label = TYPE_LABEL[outputType] || outputType;
+    const accepted = describeAcceptedTypes(toNode.kind);
+    return {
+      ok: false,
+      outputType,
+      acceptedTypes,
+      reason: `「${label}」接不到这个框上 —— 它只接受${accepted.length ? accepted.join('、') : '（暂不支持任何素材）'}`,
+    };
+  }
+  return { ok: true, outputType };
+}
 
 /* 检查边是否类型有效: 上游节点产出的类型是否被下游节点接受
    - 任一端缺失: 返回 invalid (边的两端节点必须存在)

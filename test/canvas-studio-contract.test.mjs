@@ -799,8 +799,13 @@ test('canvas output port stays clear of resize handles and owns click feedback',
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
   assert.match(css, /\.ec-canvas-node-port \{[^}]*right: -32px/);
   /* 9-11 三轮: 左右加号同功能 (左加号也可点开派生菜单); pointerup 仍须冒泡到 stage (连接草稿不残留) */
-  assert.match(source, /onPointerUp=\{event => onPointerUp\?\.\(event\)\}/);
-  assert.match(source, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event\); \}\}/);
+  /* 批 CY-㊴（2026-09-30）：这两个 handler 现在**必须把 side 一起传出去** ——
+     改前左右两侧都不传 side、父组件再把 side 写死成 'out'，于是
+     `handlePortPointerUp` 的 `side !== 'in'` 直接丢弃，用户看到的现象是
+     「左边也有个加号，但把线拉过去连不上」。
+     意图（pointerup 冒泡到 stage、点击开派生菜单）不变，多带的只是 side。 */
+  assert.match(source, /onPointerUp=\{event => onPointerUp\?\.\(event, handlerSide\)\}/);
+  assert.match(source, /onClick=\{event => \{ event\.stopPropagation\(\); onClick\?\.\(event, handlerSide\); \}\}/);
   assert.match(css, /\.ec-canvas-node-port\.is-input \{ right: auto; left: -32px/, '左侧输入加号镜像定位');
 });
 

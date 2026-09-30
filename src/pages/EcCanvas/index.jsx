@@ -176,7 +176,9 @@ import {
   dissolveCanvasGroup,
   autoArrangeCanvasNodes,
   estimateNodeCost,
+  canConnectCanvasNodes,
 } from './canvasQuantvExtensions.js';
+import { pickCanvasConnectionSnapTarget, CANVAS_SNAP_RADIUS } from './canvasGeometry.js';
 import {
   copyNodesToClipboard,
   readClipboardNodes,
@@ -1232,6 +1234,14 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
   const focusedNodeIds = hoveredNodeId ? getCanvasFocusIds(hoveredNodeId, connections) : null;
+  /* ═══ 批 CY-㊴：拖线期间的端口可见性 + 吸附候选 ═══════════════════════════════════
+     用户 9-30：「他为什么不能够跟我们当前的任意节点创建连接呢？」
+     改前未选中节点的端口是 pointer-events:none（只有 hover/选中才亮），
+     于是把线拉到**没选中**的那个节点旁边，压根落不上去。
+     ⇒ 正在拉线时，所有**别的**节点的输入加号一律亮出来可点；
+        吸住的那个再额外高亮，用户能看见"它认这个了"。 */
+  const connectingFromNodeId = pointerMode?.kind === 'connect' ? pointerMode.from : null;
+  const connectSnapNodeId = connectionDraft?.snapNodeId || null;
   /* ═══ 批 CY-㊴：小地图视窗框必须按**提交之后**的可见画布尺寸算 ══════════════
      详见 `canvasVisibleViewport.js` 顶部的完整事故记录（两个缺陷叠在一起，
      单独修任何一个都还是错，所以两处必须一起改）：
@@ -1281,8 +1291,17 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     ...rawAvailableComposerSources.find(node => node.id === mention.sourceNodeId),
     ...mention,
   }));
+  /* ═══ 批 CY-㊴：素材卡必须**同时**认「显式 sourceNodeIds」和「手动拉上来的边」 ════════
+     用户 9-30：「当他把一个新的节点拉到这个共同的节点里面去之后，你是不是也得在他的
+     这个上传素材这个地方去同步显示出来呢？…他下面这个生成的框的这个地方肯定也得上传
+     同样的素材进来的。这样他才能够在下面的提示词区去进行相关的 @ 和提示词工程的表达呀。」
+
+     事故：这一行原来**只读** `node.sourceNodeIds`。而那条数组只有两条写入路径 ——
+     建框时、以及走"点上传"时（handleComposerSourceUpload 同时写数组和边）。
+     **手拉线只产生边、不产生数组项** ⇒ 线连上了、@ 菜单里也能看到（那条走
+     mergeGraphMentionSources，读边），但面板上的素材卡是空的 —— 用户说的就是它。 */
   const selectedComposerSources = selectedNode
-    ? (selectedNode.sourceNodeIds || []).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
+    ? mergeGraphMentionSources(selectedNode, connections).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
     : [];
   const selectedComposerMentions = selectedNode
     ? mergeGraphMentionSources(selectedNode, connections).map(id => availableComposerSources.find(node => node.id === id) || nodes.find(node => node.id === id)).filter(node => node?.url)
@@ -2549,7 +2568,19 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     }
     if (pointerMode.kind === 'connect') {
       const point = toWorldPoint(e);
-      setConnectionDraft(prev => prev ? { ...prev, pointer: point } : prev);
+      /* 批 CY-㊴：拖线时做**吸附**判定（用户：「给一个吸附的能力，让它可以吸附上去」）。
+         用纯模型口径 getNodePortCenter —— 与连线端点同一个源，不做 DOM 实测
+         （canvas-port-geometry / ec-canvas-state 两条门禁正是为此存在）。 */
+      const snap = pickCanvasConnectionSnapTarget(nodes, point, {
+        fromId: connectionDraft?.from,
+        radius: CANVAS_SNAP_RADIUS / Math.max(0.2, viewport.scale),
+        accept: node => connectionDraft ? canConnectCanvasNodes(connectionDraft.from, node, nodes) : false,
+      });
+      setConnectionDraft(prev => prev ? {
+        ...prev,
+        pointer: point,
+        snapNodeId: snap?.nodeId || null,
+      } : prev);
       return;
     }
     if (pointerMode.kind === 'pan') {
@@ -2645,6 +2676,28 @@ const handlePointerUp = useCallback((e) => {
     if (pointerMode?.kind === 'connect' && connectionDraft) {
       if (e?.type === 'pointercancel') {
         setConnectionDraft(null);
+        setPointerMode(null);
+        return;
+      }
+      /* ═══ 批 CY-㊴：吸附命中 ⇒ 建边；没命中 ⇒ 维持原行为（打开派生菜单） ═══════════
+         改前这里**只有**开派生菜单一条路，因为压根没有"目标端口命中"这回事：
+         pointerup 是否落在某个端口上，完全取决于浏览器把事件派给了哪个元素，
+         而未选中节点的端口是 pointer-events:none（用户 9-30 实测连不上）。
+         现在改成**用模型坐标判定吸附**：鼠标进入目标加号附近就高亮它，
+         松手即建边 —— 不用精确点中那个 30px 的圆钮。 */
+      if (connectionDraft.snapNodeId) {
+        const fromId = connectionDraft.sourceNodeId || connectionDraft.from;
+        const target = nodes.find(node => node.id === connectionDraft.snapNodeId);
+        const check = canConnectCanvasNodes(fromId, target, nodes);
+        if (!check.ok) {
+          showToast(check.reason, 'info');
+        } else {
+          setConnections(prev => addConnection(prev, fromId, target.id, connectionDraft.type));
+          showToast('已建立素材关系', 'success');
+        }
+        connectReleaseSettledRef.current = true;
+        setConnectionDraft(null);
+        setConnectionPicker(null);
         setPointerMode(null);
         return;
       }
@@ -2977,12 +3030,21 @@ const handlePointerUp = useCallback((e) => {
   const handlePortPointerUp = useCallback((e, nodeId, side) => {
     const sourceNodeId = connectionDraft?.sourceNodeId || connectionDraft?.from;
     if (side !== 'in' || !sourceNodeId || sourceNodeId === nodeId) return;
-    setConnections(prev => addConnection(prev, sourceNodeId, nodeId, connectionDraft.type));
+    /* 批 CY-㊴：建边前先过**媒体类型互斥矩阵**。改前这里直接 addConnection ——
+       视频拖进图片生成框也能连上（用户原话：「如果跟他连接了的话，你下面的素材图，
+       这个框是没有办法添加进来的」），而矩阵的结果当时只被拿去画红线。 */
+    const target = nodes.find(node => node.id === nodeId);
+    const check = canConnectCanvasNodes(sourceNodeId, target, nodes);
+    if (!check.ok) {
+      showToast(check.reason, 'info');
+    } else {
+      setConnections(prev => addConnection(prev, sourceNodeId, nodeId, connectionDraft.type));
+      showToast('已建立素材关系', 'success');
+    }
     setConnectionDraft(null);
     setConnectionPicker(null);
     setPointerMode(null);
-    showToast('已建立素材关系', 'success');
-  }, [connectionDraft, showToast]);
+  }, [connectionDraft, nodes, showToast]);
 
   const executeBrowserSegmentation = useCallback(async ({
     source,
@@ -4666,7 +4728,12 @@ const handlePointerUp = useCallback((e) => {
       updateComposerNode(composer.id, { status: 'ready', error: '请先预览并确认生成方案' });
       return;
     }
-    const sourceNodes = [...new Set(composer.sourceNodeIds || [])].map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    /* 批 CY-㊴：边也算输入来源 —— 改前只读 sourceNodeIds，
+       于是「手动拉一条线进视频生成框」在生成时是不存在的（@ 菜单能看到、生成时看不见）。
+       与另外三个生成节点（collectRunInputs）统一口径。 */
+    const sourceNodes = mergeGraphMentionSources(composer, connections)
+      .map(id => nodes.find(node => node.id === id))
+      .filter(node => node?.url);
     const files = canvasVideoInputFiles(composer, sourceNodes);
     const mode = composer.mode || 'smart';
     if (!hasRequiredVideoInputs(mode, files)) {
@@ -4768,7 +4835,12 @@ const handlePointerUp = useCallback((e) => {
 
   const handleVideoComposerAnalyze = useCallback(async composer => {
     if (!String(composer?.prompt || '').trim() || composer.status === 'processing') return null;
-    const sourceNodes = [...new Set(composer.sourceNodeIds || [])].map(id => nodes.find(node => node.id === id)).filter(node => node?.url);
+    /* 批 CY-㊴：边也算输入来源 —— 改前只读 sourceNodeIds，
+       于是「手动拉一条线进视频生成框」在生成时是不存在的（@ 菜单能看到、生成时看不见）。
+       与另外三个生成节点（collectRunInputs）统一口径。 */
+    const sourceNodes = mergeGraphMentionSources(composer, connections)
+      .map(id => nodes.find(node => node.id === id))
+      .filter(node => node?.url);
     const files = canvasVideoInputFiles(composer, sourceNodes);
     const mode = composer.mode || 'smart';
     if (!hasRequiredVideoInputs(mode, files)) {
@@ -5936,6 +6008,55 @@ const handlePointerUp = useCallback((e) => {
     }
   };
 
+  /* ═══ 批 CY-㊴（2026-09-30）：**从桌面 / 外部直接拖素材进画布** ════════════════════
+     用户原话：「首先是图片为什么不能从外面直接拖到画布里面呢？如果用户他想从桌面或者从
+     其他本地的地方拖一张图片进来，为什么是拖不了的呢？视频也是呀。」
+
+     改前 stage 上**只有** pointer 事件，没有 onDragOver / onDrop，整个
+     src/pages/EcCanvas 目录里 dataTransfer 零命中 —— 是纯缺失，不是被禁。
+
+     做法刻意**不重写上传**：把拖到的 File 按 MIME 分发到已有的三个上传处理函数上，
+     它们吃的是 `event.target.files`，这里只合成一个最小的假 event。
+     ⇒ 拖进来与点「+ → 上传」走**同一条**代码，持久化、落位避让、Toast 行为逐字一致。 */
+  const canvasDropActiveRef = useRef(false);
+  const [canvasDropActive, setCanvasDropActive] = useState(false);
+  const handleCanvasDragOver = useCallback(event => {
+    /* 必须 preventDefault，否则浏览器不会派发 drop —— 这是"拖进来没反应"的直接原因 */
+    const hasFiles = [...(event.dataTransfer?.types || [])].includes('Files');
+    if (!hasFiles) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    if (!canvasDropActiveRef.current) { canvasDropActiveRef.current = true; setCanvasDropActive(true); }
+  }, []);
+  const handleCanvasDragLeave = useCallback(event => {
+    /* 只有真的离开 stage（进入子元素不算）才撤掉高亮，否则移一下就闪 */
+    if (event.currentTarget?.contains?.(event.relatedTarget)) return;
+    canvasDropActiveRef.current = false;
+    setCanvasDropActive(false);
+  }, []);
+  const handleCanvasDrop = useCallback(async event => {
+    const dropped = [...(event.dataTransfer?.files || [])];
+    event.preventDefault();
+    canvasDropActiveRef.current = false;
+    setCanvasDropActive(false);
+    if (!dropped.length) return;
+    /* 拖进来一律是"新增"，绝不接管"替换素材"那个上下文 ——
+       否则用户以为在加素材，实际上把某个节点换掉了。 */
+    mediaReplaceTargetRef.current = null;
+    const images = dropped.filter(file => file.type?.startsWith('image/')).slice(0, 8);
+    const videos = dropped.filter(file => file.type?.startsWith('video/')).slice(0, 4);
+    const audios = dropped.filter(file => file.type?.startsWith('audio/')).slice(0, 4);
+    if (!images.length && !videos.length && !audios.length) {
+      showToast('只支持把图片、视频或音频文件拖进画布', 'info');
+      return;
+    }
+    /* 合成最小假 event 复用既有上传链路（它们只读 event.target.files 与 event.target.value） */
+    const asEvent = list => ({ target: { files: list, value: '' } });
+    if (images.length) await handleCanvasSourceUpload(asEvent(images));
+    if (videos.length) await handleCanvasVideoUpload(asEvent(videos));
+    if (audios.length) await handleCanvasAudioUpload(asEvent(audios));
+  }, [handleCanvasAudioUpload, handleCanvasSourceUpload, handleCanvasVideoUpload, showToast]);
+
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
     const accepted = composer?.kind === 'video-composer'
@@ -6032,27 +6153,38 @@ const handlePointerUp = useCallback((e) => {
       const failedImageIds = new Set(importedImages.failed.map(item => canvasImportSourceId('image', item.asset)));
       const failedVideoIds = new Set(importedVideos.failed.map(item => canvasImportSourceId('video', item.asset)));
       const failedAudioIds = new Set(importedAudios.failed.map(item => canvasImportSourceId('audio', item.asset)));
+      /* 批 CY-㊴：资产 → 节点的映射。改前这里按下标去取三类节点的数组，
+         而那三个数组名**在本函数作用域里从未声明**（其中一个是另一个上传函数里的局部变量），
+         触发即 ReferenceError，又被下面的 catch 吞成「参考图读取失败」，把崩溃说成了读取问题。
+         而且按下标对齐也不成立：persistedAssets 与 import 后的 assets 不是同一个数组。
+         改成按 assetId 查，与索引无关。 */
+      const nodeIdByAssetId = new Map(
+        uploadedNodes
+          .map(node => [String(node.assetId || node.videoAssetId || ''), node.id])
+          .filter(([assetId]) => assetId),
+      );
+      const nodeIdOf = asset => [nodeIdByAssetId.get(String(asset?.assetId || asset?.id || asset?.videoAssetId || ''))].filter(Boolean);
       enqueuePendingProjectAssetImports([
         ...persistedAssets.map((asset, index) => ({
           asset,
           kind: 'image',
           role,
           displayName: asset.name || 'Canvas 图片素材',
-          nodeIds: failedImageIds.has(canvasImportSourceId('image', asset)) || !projectContext ? [imageNodes[index]?.id].filter(Boolean) : [],
+          nodeIds: failedImageIds.has(canvasImportSourceId('image', asset)) || !projectContext ? nodeIdOf(asset) : [],
         })),
         ...videoAssets.map((asset, index) => ({
           asset,
           kind: 'video',
           role: 'reference-video',
           displayName: asset.name || 'Canvas 视频素材',
-          nodeIds: failedVideoIds.has(canvasImportSourceId('video', asset)) || !projectContext ? [videoNodes[index]?.id].filter(Boolean) : [],
+          nodeIds: failedVideoIds.has(canvasImportSourceId('video', asset)) || !projectContext ? nodeIdOf(asset) : [],
         })),
         ...audioAssets.map((asset, index) => ({
           asset,
           kind: 'audio',
           role: 'reference-audio',
           displayName: asset.name || 'Canvas 音频素材',
-          nodeIds: failedAudioIds.has(canvasImportSourceId('audio', asset)) || !projectContext ? [audioNodes[index]?.id].filter(Boolean) : [],
+          nodeIds: failedAudioIds.has(canvasImportSourceId('audio', asset)) || !projectContext ? nodeIdOf(asset) : [],
         })),
       ]);
       const durableImportFailures = importedImages.failed.length + importedVideos.failed.length + importedAudios.failed.length;
@@ -6220,10 +6352,15 @@ const handlePointerUp = useCallback((e) => {
       draftReadyRef.current = true;
       canvasSaveKeyRef.current ||= canvasDraftKey({ ...result, canvasImportId: `project-asset-${Date.now()}` });
       canvasGeneratedWorkKeyRef.current ||= canvasSaveKeyRef.current;
+      /* ⚠️ 批 CY-㊴：**故意不写 _saveKey**（单素材导入路径同样删掉了）。
+         画布重建 effect（index.jsx:1775，依赖 [result.id, result._saveKey, state.creationLaunch]）
+         一旦看到 _saveKey 变化就重跑 createFreshCanvasSession，而 resultMediaAssets 里只有
+         刚导入的这一个素材 ⇒ 整张画布被重建成「空画布 + 这一个」。
+         用户 9-30 原话：「它会直接重置整个画布，然后把这个素材放进来。」
+         画布内三条上传路径都不写这一行，所以它们只追加不重置 —— 这里与它们对齐。 */
       const nextResult = {
         ...result,
         ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
-        _saveKey: result._saveKey || canvasGeneratedWorkKeyRef.current,
       };
       if (projectContext) dispatch({ type: 'SET_RESULT', result: nextResult });
       setNodes(imported.session.nodes);
@@ -6249,7 +6386,7 @@ const handlePointerUp = useCallback((e) => {
       const remoteArchived = Boolean(savedWork?._saveKey);
       showToast(
         projectContext && remoteArchived
-          ? '项目素材已加入画布并保存，不会产生生成或扣费'
+          ? '项目素材已加入画布并保存'
           : projectContext
             ? '项目素材已加入画布，本地草稿已保留，云端作品暂未保存'
             : '项目素材已加入画布，本地草稿已保留',
@@ -6320,7 +6457,6 @@ const handlePointerUp = useCallback((e) => {
       const nextResult = {
         ...result,
         ...(projectContext ? { projectId: projectContext.projectId, sourceVersionId: projectContext.baseVersionId } : {}),
-        _saveKey: result._saveKey || canvasGeneratedWorkKeyRef.current,
       };
       if (projectContext) dispatch({ type: 'SET_RESULT', result: nextResult });
       setNodes(session.nodes);
@@ -6345,7 +6481,7 @@ const handlePointerUp = useCallback((e) => {
       const batchSummary = importedNodes.length > 1 ? `已加入 ${importedNodes.length} 个项目素材` : '项目素材已加入画布';
       showToast(
         projectContext && savedWork?._saveKey
-          ? `${batchSummary}${skippedSummary}并保存，不会产生生成或扣费`
+          ? `${batchSummary}${skippedSummary}并保存`
           : projectContext
             ? `${batchSummary}${skippedSummary}，本地草稿已保留，云端作品暂未保存`
             : `${batchSummary}${skippedSummary}，本地草稿已保留`,
@@ -7220,8 +7356,12 @@ const handlePointerUp = useCallback((e) => {
           /* 9-13 用户批注：「我随便上传一张图片，右边这个功能栏为什么整个盖上来？之前是在右边展示功能栏。」
              —— 右侧面板不再浮在画布上盖住内容：面板打开时画布区**让出右侧空间**（.has-right-panel），
              节点不会被面板压住，画布中心与底部工具栏也跟着这条边界走。 */
-          className={`ec-canvas-stage${selectionPanelsVisible ? ' has-right-panel' : ''}`}
+          className={`ec-canvas-stage${selectionPanelsVisible ? ' has-right-panel' : ''}${canvasDropActive ? ' is-drop-active' : ''}`}
           style={{ cursor: canvasCursorForState({ tool: activeTool, pointerKind: pointerMode?.kind, spaceKey: spacePressed }) }}
+          /* 批 CY-㊴：从桌面 / 外部直接拖素材进来（用户 9-30：「为什么是拖不了的呢？视频也是呀」） */
+          onDragOver={handleCanvasDragOver}
+          onDragLeave={handleCanvasDragLeave}
+          onDrop={handleCanvasDrop}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -7665,9 +7805,14 @@ const handlePointerUp = useCallback((e) => {
                   focusActive={Boolean(focusedNodeIds)}
                   related={Boolean(focusedNodeIds?.has(node.id))}
                   onPointerDown={handleNodeDown}
-                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
-                  onPortPointerUp={event => handlePortPointerUp(event, node.id, 'out')}
-                  onPortClick={event => handlePortClick(event, node.id)}
+                  /* 批 CY-㊴：side 必须透传。改前两侧都写死 'out'，
+                     于是 handlePortPointerUp 的 `side !== 'in'` 直接丢弃 ——
+                     用户看到左边也有加号，但把线拉过去连不上。 */
+                  onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
+                  onPortPointerUp={(event, side) => handlePortPointerUp(event, node.id, side)}
+                  onPortClick={(event, side) => handlePortClick(event, node.id, side)}
+                  connectActive={Boolean(connectingFromNodeId) && connectingFromNodeId !== node.id}
+                  snapActive={connectSnapNodeId === node.id}
                   onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
                   canDerive={canDeriveFromCanvasSource(node)}
                   onHoverChange={setHoveredNodeId}
@@ -7734,9 +7879,11 @@ const handlePointerUp = useCallback((e) => {
                   onDoubleClick={node => node.url && openImagePreview({ url: node.url, label: node.name || '图片预览' })}
                   onReplace={replaceGenAction.canRun(node) ? () => handleToolAction(replaceGenAction, node) : null}
                   canDerive={canDeriveFromCanvasSource(node)}
-                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
-                  onPortPointerUp={event => handlePortPointerUp(event, node.id, 'out')}
-                  onPortClick={event => handlePortClick(event, node.id)}
+                  onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
+                  onPortPointerUp={(event, side) => handlePortPointerUp(event, node.id, side)}
+                  onPortClick={(event, side) => handlePortClick(event, node.id, side)}
+                  connectActive={Boolean(connectingFromNodeId) && connectingFromNodeId !== node.id}
+                  snapActive={connectSnapNodeId === node.id}
                 />;
               }
               const productImages = (node.inputs?.productImages || []).map(image => ({ ...image, url: proxyImg(image.url) }));
@@ -7835,10 +7982,6 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
               node={selectedNode}
               position={selectedComposerPosition}
-              handlesVisible
-              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
-              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
-              onPortClick={event => handlePortClick(event, selectedNode.id)}
                sources={selectedComposerSources}
                mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
@@ -7856,10 +7999,6 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'text-composer' && <CanvasTextGenerationComposer
               node={selectedNode}
               position={selectedComposerPosition}
-              handlesVisible
-              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
-              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
-              onPortClick={event => handlePortClick(event, selectedNode.id)}
                sources={selectedComposerSources}
                mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
@@ -7877,10 +8016,6 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'suite-composer' && <CanvasEcommerceComposer
               node={selectedNode}
               position={selectedComposerPosition}
-              handlesVisible
-              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
-              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
-              onPortClick={event => handlePortClick(event, selectedNode.id)}
                sources={selectedComposerSources}
                mentionSources={selectedComposerMentions}
                availableSources={availableComposerSources}
@@ -7901,10 +8036,6 @@ const handlePointerUp = useCallback((e) => {
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'video-composer' && <CanvasVideoComposer
               node={selectedNode}
               position={selectedComposerPosition}
-              handlesVisible
-              onPortPointerDown={event => handlePortPointerDown(event, selectedNode.id, 'out')}
-              onPortPointerUp={() => handlePortPointerUp?.(event, selectedNode.id, 'out')}
-              onPortClick={event => handlePortClick(event, selectedNode.id)}
               sources={selectedComposerSources}
               mentionSources={selectedComposerMentions}
               availableSources={availableComposerSources}
@@ -8566,14 +8697,22 @@ const handlePointerUp = useCallback((e) => {
         <div style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modalScrim, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
-            <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+            {/* 批 CY-㊴：零张时**不渲染任何选项**（旧版无条件渲染一条
+                「导出 ${total} 张图片」，于是弹窗里赫然写着「导出 0 张图片」——
+                用户 9-30 截图里就有这句）。零张时改为说明"怎么才能导出"。 */}
+            {exportCopy.options.length > 0 && <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
               {/* 批 CY-⑭：文案由 `exportDialogCopy` 统一算（按**实际可交付张数**，
-                  不再按 `exportIntent` 这个入口标记），单图场景**不再渲染**长图那一项。 */}
+                  不再按 `exportIntent` 这个入口标记）。 */}
               {exportCopy.options.map(option => {
                 const disabled = (option.mode === 'long-detail' && !canExportLongDetail) || isExportDeliveryBusy(exportDelivery);
                 return <button key={option.mode} type="button" disabled={disabled} onClick={() => { configureExport(option.mode); setExportIntent(option.mode === 'long-detail' ? 'long-detail' : exportIntent); }} style={{ textAlign: 'left', border: exportMode === option.mode ? '1.5px solid var(--sb-info-solid-600)' : '1px solid #dfe3e8', borderRadius: 8, padding: '9px 11px', background: exportMode === option.mode ? '#eff5ff' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .52 : 1 }}><div style={{ fontSize: 13, fontWeight: 750, color: '#303640' }}>{option.label}</div><div style={{ fontSize: 11, color: '#7b8490', marginTop: 2 }}>{option.description}</div></button>;
               })}
-            </div>
+            </div>}
+            {/* 批 CY-㊴：把另外两种导出方式说出来（用户原话：「你得告诉用户，除了导出单张之外，
+                我们还可以导出多张，并且我们还可以导出合成的长图」）。 */}
+            {exportCopy.hints.length > 0 && <div style={{ display: 'grid', gap: 6, marginBottom: 14, padding: '10px 11px', borderRadius: 8, background: '#f8fafc', border: '1px solid #eef1f4' }}>
+              {exportCopy.hints.map(hint => <div key={hint} style={{ fontSize: 11.5, color: '#5b6472', lineHeight: 1.6 }}>· {hint}</div>)}
+            </div>}
             {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
               <div style={{ display: 'grid', gap: 6 }}>
