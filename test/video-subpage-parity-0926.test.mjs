@@ -279,10 +279,21 @@ test('CI-① 按钮组的字段不许用 <label> 包（会把整格悬停转给�
      `matches(':hover')===true`、底色由选中紫变悬停灰 ⇒ 根因是 `<button>` 是 labelable 元素，
      整格被 `<label>` 包住时浏览器把整格悬停转给第一个 labelable 后代。 */
   const jsx = read('src/components/media/FieldRenderer.jsx');
-  assert.match(jsx, /const isOptionGroup = kind === 'segmented'/, '按钮组字段要单独识别出来');
-  assert.match(jsx, /const Wrapper = isOptionGroup \? 'div' : 'label'/, '按钮组用 div，单控件字段继续用 label');
+  /* ⚠️⚠️ 2026-09-29 批 DC 续-18：判据从「列举哪些 kind 是按钮组」改成
+     「**这一格有没有一个可关联的表单控件**」。
+     列举法正是这次漏掉四格的原因 —— 上一版只列了 segmented/choice/cards/multi，
+     于是 `config`（生图模型/画面规格，两颗按钮）、`stepper`（−/+）、
+     `counts`、`slot` **全都还包在 <label> 里**，而用户 2026-09-29 第二次报的
+     「点空地就张开面板、悬停就高亮」正是 config 那一格。
+     （`<button>` 按 HTML 规范**就是** labelable 元素，所以这不是"也许"，是定义。） */
+  assert.match(jsx, /const hasOwnControl = kind === 'select'/, '判据要按"有没有自己的表单控件"来定，而不是逐个 kind 列举');
+  assert.match(jsx, /kind === 'textarea'[\s\S]{0,80}?kind === 'upload';/, '单控件的那几种（select/textarea/text/upload）继续用 label');
+  assert.match(jsx, /const Wrapper = hasOwnControl \? 'label' : 'div';/, '其余一律 div（含 config / stepper / counts / slot）');
   assert.match(jsx, /role: 'group', 'aria-labelledby': labelId/, '换掉 label 之后语义要用 role=group + aria-labelledby 补回来');
   assert.match(jsx, /<span className="media-field-label" id=\{labelId\}>/, '标题要有 id 供 aria-labelledby 指过去');
+  /* labelId 必须按**实际用的 Wrapper** 算：走 div 的那几格也要有可访问名。 */
+  assert.match(jsx, /const labelId = hasOwnControl \? undefined :/,
+    'labelId 要跟 Wrapper 同一个判据，否则新挪出来的那几格会变成"没有名字的组"');
 });
 
 test('CH-① 放大按钮与文字不再重叠（两个板块一起改）', () => {
