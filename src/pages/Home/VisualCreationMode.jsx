@@ -65,6 +65,9 @@ import './VisualCreationMode.css';
    所以本页面显式 import 它 —— 不再自带一份，两边各改各的正是要消灭的那种漂移。 */
 import '../../components/media/ConfigTriggers.css';
 import { IMAGE_PROMPT_LIMIT } from '../../constants/promptLimits.js';
+/* 批 CY-㉞：全屏按钮改成页内「放大输入」弹窗（不再用浏览器原生全屏） */
+import PromptFocusModal from '../../components/creation/PromptFocusModal.jsx';
+import '../../components/creation/PromptFocusModal.css';
 
 /* ═══ 2026-09-19 批 H（用户批注 #3）：「张数应该多一些呀。正常来说，比如说一些电商用户，
    他可能就是几张他自己的产品图，后面就全部都是竞品的图了，那电商的竞品图可能有十几张、
@@ -578,15 +581,20 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     return () => document.removeEventListener('fullscreenchange', sync);
   }, []);
 
-  const toggleFullscreen = useCallback(async () => {
-    const node = composerRef.current;
-    if (!node) return;
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await node.requestFullscreen?.();
-    } catch {
-      /* 浏览器不允许（非用户手势 / 权限）时什么都不做，按钮标题里已写明这是全屏 */
-    }
+  /* ═══ 批 CY-㉞：全屏按钮改成**页内「放大输入」弹窗**（与视频侧同一套）══════════════════════
+     用户 2026-09-30 逐字（图8）：
+       「我点击输入框这里的全屏按钮，为什么你会是这样的一个展现方式呀？
+         你难道没有搞明白全屏按钮是干什么的吗？**他是把你当前这个输入框他的输入区给放大呀。**
+         你其实只需要做一个弹窗，然后这个弹窗跟我们现在的这个区域是一样的。
+         只是他的输入框会变得更大。让用户可以一次性看到更多的文字。」
+
+     用户还点名了范围：「这个问题可能不止电商套图存在，可能现在这里面的四个生成功能都存在
+     的问题。甚至首页的视频生成和图片生成功能也存在这个问题。」⇒ 两处一起改。
+     改前两边都调**浏览器原生 Fullscreen API** ⇒ 用户看到的是操作系统级全屏
+     （浏览器自己的「按 Esc 退出」提示条压在顶上），而**输入框并没有变大**。 */
+  const [promptFocusOpen, setPromptFocusOpen] = useState(false);
+  const toggleFullscreen = useCallback(() => {
+    setPromptFocusOpen(true);
   }, []);
 
   const showToast = (message, type = 'error') => setToast({ message, type });
@@ -1131,10 +1139,22 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
                 「现在**首尾帧和图片生成那边，他们都没有这个全屏按钮，这个你也要加上去**。」
                 位置照视频侧：@ 这一行的**右端**（margin-left: auto），不额外占一行高度。 */}
             <div className="visual-materials-actions">
-              <button type="button" className="visual-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>
+              <button type="button" className="visual-materials-fullscreen" aria-pressed={promptFocusOpen} title="放大输入框" onClick={toggleFullscreen}><Maximize2 size={13} />放大输入</button>
             </div>
           </div>
         </div>
+        {/* 批 CY-㉞：页内「放大输入」弹窗（替代原来的浏览器原生全屏）。
+           ⚠️ 这一页的提示词是**普通 textarea**（`xhs-prompt-field`），没有 @ 引用那套
+           —— 所以弹窗里传 `mentions={[]}`、并且**不接** onFilesPasted，
+           避免把视频侧才有的能力凭空加进来。长度上限沿用本页的 `IMAGE_PROMPT_LIMIT`。 */}
+        <PromptFocusModal
+          open={promptFocusOpen}
+          onClose={() => setPromptFocusOpen(false)}
+          value={prompt}
+          onChange={next => setPrompt(String(next || '').slice(0, IMAGE_PROMPT_LIMIT))}
+          maxLength={IMAGE_PROMPT_LIMIT}
+          title="编辑提示词"
+        />
 
         {/* ═══ 底栏：左侧工具胶囊 + 右侧统一生成按钮（按钮内动态积分），照小红书图文那套 ═══ */}
         <div className="ec-workbench-actions xhs-template-actions visual-parameter-bar">

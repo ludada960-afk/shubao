@@ -1,0 +1,128 @@
+/* 提示词「放大输入」弹窗（批 CY-㉞）
+   口径与 .video-plan-backdrop / .video-plan-modal 同一套（z-index 1500、--sb-scrim、
+   同样的圆角与阴影），因为它们是同一类东西：一个盖在页面上的、用来集中做一件事的层。
+   ⚠️ 刻意**不**用 `:fullscreen` —— 那是操作系统级的全屏（会盖掉浏览器自己的
+   「按 Esc 退出」提示条），而用户要的是「一次看到更多提示词」。
+   ⚠️ 颜色一律走 --sb-* token（design-token-ratchet 门禁：任何文件都不得新增硬编码色值）。 */
+
+.prompt-focus-backdrop {
+  position: fixed;
+  z-index: 1500;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--sb-scrim);
+}
+
+.prompt-focus-card {
+  width: min(880px, 100%);
+  max-height: min(820px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 20px;
+  background: var(--sb-surface-card);
+  box-shadow: var(--sb-shadow-lg);
+}
+
+.prompt-focus-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--sb-border-subtle);
+}
+
+.prompt-focus-head > strong {
+  color: var(--sb-ink-1);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.prompt-focus-close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 12px;
+  background: var(--sb-neutral-0);
+  color: var(--sb-ink-4);
+  cursor: pointer;
+}
+
+.prompt-focus-close:hover {
+  border-color: var(--sb-border-strong);
+  color: var(--sb-brand-600);
+}
+
+/* ★ 本组件存在的全部理由：这一块比页面里那块**高得多**。
+   页面里的提示词区只有几行，长的提示词看不到全；这里是"快速看全 + 快速改"的地方。 */
+.prompt-focus-field {
+  min-height: 320px;
+  max-height: 56vh;
+  margin: 20px 24px;
+  padding: 16px 18px;
+  overflow: auto;
+  border: 1px solid var(--sb-border-default);
+  border-radius: 14px;
+  background: var(--sb-neutral-0);
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.prompt-focus-empty {
+  margin: 20px 24px;
+  padding: 20px;
+  border: 1px dashed var(--sb-border-strong);
+  border-radius: 14px;
+  color: var(--sb-ink-4);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.prompt-focus-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--sb-border-subtle);
+}
+
+.prompt-focus-foot > small {
+  color: var(--sb-ink-4);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.prompt-focus-done {
+  flex: 0 0 auto;
+  padding: 9px 22px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sb-brand-600);
+  color: var(--sb-neutral-0);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.prompt-focus-done:hover {
+  background: var(--sb-brand-700);
+}
+
+@media (max-width: 640px) {
+  .prompt-focus-backdrop { padding: 12px; }
+  .prompt-focus-field { min-height: 200px; max-height: 46vh; margin: 14px 16px; }
+  .prompt-focus-head { padding: 16px 16px 12px; }
+  .prompt-focus-foot { padding: 12px 16px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prompt-focus-backdrop { animation: none; }
+}

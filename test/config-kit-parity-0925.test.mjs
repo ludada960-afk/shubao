@@ -256,15 +256,33 @@ test('⑦ 模型标尺寸与动效：视频侧与图片侧同源', () => {
     '图片侧 .ec-model-mark 的静止态就是 0.88 —— 两边同源');
 });
 
-/* ── ⑧ 全屏按钮：两侧同一颗（图片侧是本批新加的 —— 用户点名「这个你也要加上去」） ──────── */
-test('⑧ 全屏按钮：图片侧与视频侧同一套', () => {
+/* ── ⑧ 「放大输入」按钮：两侧同一颗（图片侧是本批新加的 —— 用户点名「这个你也要加上去」） ──
+   ⚠️ 批 CY-㉞ 改写了这一节。原断言钉的是「走**浏览器原生 Fullscreen API**」，
+   而用户 2026-09-30（图8）明确否掉了那个做法：
+     「我点击输入框这里的全屏按钮，为什么你会是这样的一个展现方式呀？……
+       **他是把你当前这个输入框他的输入区给放大呀。** 你其实只需要做一个弹窗……」
+   原生全屏给出的是操作系统级全屏：浏览器自己的「按 Esc 退出」提示条压在顶上，
+   而**输入框并没有变大**。按钮叫全屏、做出来也真是全屏，但不是用户要的那个东西。
+   ⇒ 改为页内「放大输入」弹窗；两侧仍是**同一套**（这才是本节真正要守的东西）。 */
+test('⑧ 「放大输入」按钮：图片侧与视频侧同一套', () => {
   const imagePage = read('src/pages/Home/VisualCreationMode.jsx');
-  assert.match(imagePage, /className="visual-materials-fullscreen"[^>]*aria-pressed=\{fullscreen\}/,
-    '图片侧的「全屏」按钮要有 aria-pressed（与视频侧同一实现）');
-  assert.match(imagePage, /requestFullscreen/, '图片侧走原生 Fullscreen API（与视频侧同一套）');
-  assert.match(imagePage, /fullscreen && composerRef\.current \? composerRef\.current : document\.body/,
-    '全屏时配置浮层必须挂到全屏元素自己（挂 body 的浮层在全屏下根本不渲染）');
-  assert.match(imagePage, /addEventListener\('fullscreenchange'/, '状态从 fullscreenchange 读回来（按 ESC 后不许说反话）');
+  const videoPage = read('src/pages/VideoStudio/index.jsx');
+
+  for (const [name, raw] of [['图片侧', imagePage], ['视频侧', videoPage]]) {
+    /* ⚠️ 剥掉注释再断言 —— 本节的注释里正好写着 `requestFullscreen` 这个词
+       （解释「为什么不再用它」），不剥就会自己撞自己。 */
+    const page = raw.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+    assert.match(page, /className="(?:visual|video)-materials-fullscreen"[^>]*aria-pressed=\{promptFocusOpen\}/,
+      `${name}：按钮要有 aria-pressed（两侧同一实现），且读的是 promptFocusOpen`);
+    assert.doesNotMatch(page, /requestFullscreen/,
+      `${name}：不得再走浏览器原生全屏 —— 用户要的是「输入框变大」，不是「占满显示器」`);
+  }
+  assert.match(imagePage, /<PromptFocusModal/, '图片侧要渲染放大输入弹窗');
+  assert.match(videoPage, /<PromptFocusModal/, '视频侧要渲染放大输入弹窗');
+  /* fullscreenchange 监听仍保留（:fullscreen 那套 CSS 还挂在它上面，一次删会变孤儿），
+     但它**不再驱动交互** —— 按钮与弹窗都走 promptFocusOpen。 */
+  assert.match(imagePage, /addEventListener\('fullscreenchange'/,
+    'fullscreenchange 监听本批保留（避免孤儿 CSS），但不驱动交互');
 
   for (const [imgSel, vidSel] of [
     ['.visual-materials-actions', '.video-materials-actions'],

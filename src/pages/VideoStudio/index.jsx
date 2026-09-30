@@ -33,6 +33,8 @@ import {
   X,
 } from 'lucide-react';
 import MentionPromptField from '../../components/creation/MentionPromptField.jsx';
+/* 批 CY-㉞：全屏按钮改成页内「放大输入」弹窗（不再用浏览器原生全屏） */
+import PromptFocusModal from '../../components/creation/PromptFocusModal.jsx';
 /* ═══ 2026-09-24 批 BB：面板里的「分组标题」改用**图片侧同一个实现**（用户批注，逐字）═════════════
    原话：「你整体的样式和标题都要跟图片生成那边的**生成配置样式是一样的**。这个问题为什么那么难
    解决呢？我都跟你提过无数次这个需求了。就是你现在视频生成和图片生成他们下面的模型选择和生成设置
@@ -114,6 +116,8 @@ import { usePlanLeaveGuard } from '../../components/plan-preview/usePlanLeaveGua
    而这两件事必须有门禁真跑 —— 见 test/save-to-assets-and-video-materials-0927）。 */
 import { normalizePresetMaterials, restoredAssetCount } from './videoMaterialsModel.js';
 import './VideoStudio.css';
+/* 批 CY-㉞：放大输入弹窗的样式（放这里而不是组件里，因为它用的是 VideoStudio 那套 token） */
+import '../../components/creation/PromptFocusModal.css';
 
 /* ═══ 视频素材 → @ 引用项（共用 ImageMentionPicker 的口子）═══
    视频侧的命名是「图片1 / 视频1 / 音频1」（见 mentionedAssets），与电商的「产品图N / 参考图N」不同 ——
@@ -1073,6 +1077,13 @@ export default function VideoStudioPage({
     setMarkMode(String(defaults.markMode || 'manual'));
   }, [localEngine, localPlan, processProduct, processSpec.fps, processSpec.resolution]);
 
+  /* 批 CY-㉞：原来这里监听 `fullscreenchange`、把 `fullscreen` state 跟着浏览器原生全屏走。
+     既然那颗按钮已经改成**页内弹窗**（不再调 requestFullscreen），
+     这个监听与 state 永远不会变 —— 但**先不删**：
+     `is-fullscreen` 那套 CSS（VideoStudio.css:137-157）与 `.video-composer.is-fullscreen` 的
+     class 分支都还挂在它上面，删 state 会连带把那套样式变成孤儿。
+     ⇒ 本批只**不再由它驱动**任何交互（按钮与弹窗都走 `promptFocusOpen`）；
+     彻底清理留到确认没有别处依赖 `:fullscreen` 之后，一次性做完。 */
   useEffect(() => {
     const sync = () => setFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener('fullscreenchange', sync);
@@ -1380,15 +1391,22 @@ export default function VideoStudioPage({
     });
   }
 
-  const toggleFullscreen = useCallback(async () => {
-    const node = composerRef.current;
-    if (!node) return;
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await node.requestFullscreen?.();
-    } catch {
-      /* 浏览器不允许（非用户手势 / 权限）时什么都不做，按钮标题里已写明这是全屏 */
-    }
+  /* ═══ 批 CY-㉞：全屏按钮改成**页内「放大输入」弹窗** ══════════════════════════════════
+     用户 2026-09-30 逐字：
+       「我点击输入框这里的全屏按钮，为什么你会是这样的一个展现方式呀？
+         你难道没有搞明白全屏按钮是干什么的吗？**他是把你当前这个输入框他的输入区给放大呀。**
+         你其实只需要做一个弹窗……只是他的输入框会变得更大。让用户可以一次性看到更多的文字。」
+
+     改前这里调的是**浏览器原生 Fullscreen API**（`node.requestFullscreen()`）⇒
+     用户看到的是操作系统级全屏：浏览器自己的「若要退出全屏模式，请按 Esc」提示条压在顶上，
+     而**输入框并没有变大**（只是整页被撑满）。按钮叫全屏、做出来也真是全屏，
+     但不是用户要的那个东西。
+     ⇒ 改为打开 `PromptFocusModal`：内容与当前那块一致（同一个 MentionPromptField、
+       同一份文字、同一套 @ 引用与上限），**只有输入框变大**。 */
+  const [promptFocusOpen, setPromptFocusOpen] = useState(false);
+  const toggleFullscreen = useCallback(() => {
+    setPromptFocusOpen(true);
+    setPlanReviewed(false);
   }, []);
 
   function appendQuickFiles(items) {
@@ -2383,9 +2401,20 @@ export default function VideoStudioPage({
             <div className="video-materials-actions">
               {deckMode && assetCount > 0 && <b>{assetCount} 个</b>}
               {deckMode && assetCount > 0 && <button type="button" className="video-materials-clear" onClick={clearMaterials}><Trash2 size={13} />清空素材</button>}
-              <button type="button" className="video-materials-fullscreen" aria-pressed={fullscreen} title={fullscreen ? '退出全屏' : '全屏创作台'} onClick={toggleFullscreen}><Maximize2 size={13} />{fullscreen ? '退出全屏' : '全屏'}</button>
+              <button type="button" className="video-materials-fullscreen" aria-pressed={promptFocusOpen} title="放大输入框" onClick={toggleFullscreen}><Maximize2 size={13} />放大输入</button>
             </div>
           </div>
+          {/* 批 CY-㉞：页内「放大输入」弹窗（替代原来的浏览器原生全屏） */}
+          <PromptFocusModal
+            open={promptFocusOpen}
+            onClose={() => setPromptFocusOpen(false)}
+            value={prompt}
+            mentions={mentionedAssets}
+            onChange={value => { setPlanReviewed(false); setPrompt(String(value || '').slice(0, VIDEO_PROMPT_MAX_LENGTH)); }}
+            onFilesPasted={items => appendQuickFiles(items)}
+            maxLength={VIDEO_PROMPT_MAX_LENGTH}
+            title="编辑提示词"
+          />
           </>}
           {/* ═══ 批 W（2026-09-21）：融合控件（运镜 / 只改一个元素）**整行删除**（用户原话，逐字）════
              原话：「第 4 条**运镜这个没必要啊，这个没有什么意思，去掉**。」
