@@ -13863,7 +13863,6 @@ belowBottom = … toolbarHeight / scale …      ← 高度是对的
 ### 验证
 
 全量 `npm test` **4429 条 / 4419 通过 / 10 跳过 / 0 失败** ✅
-<<<<<<< HEAD
 
 ## 批 DC 续-15 · 面板别跟着滚 + 连拍组推翻重做（2026-09-29 用户两条批注）
 
@@ -14055,8 +14054,6 @@ vx 为负时要向左多铺 |vx|；两边合起来：W = (stageW + 40 + |vx|) / 
 ### 验证
 
 全量 `npm test` **4428 条 / 4418 通过 / 10 跳过 / 0 失败** ✅
-=======
->>>>>>> 0b7a3cb9 (fix(画布+技能): 工具条被裁掉的真正根因 + 6 处「填了却不生效」的死控件（批 CY-㉓/㉔）)
 
 ### 批 CY-㉓ / ㉔ / ㉕ 部署记录（三批一起上线）
 
@@ -14533,3 +14530,63 @@ JSX 上**忘了挂 `is-person` 这个开关类名** ⇒ 规则永不生效。
 
 验收：全量 `npm test` **4440 条 / 4430 通过 / 10 跳过 / 0 失败**。
 
+<!-- 以下来自被 cherry-pick 的提交（按顺序追加，未改动上文任何一行） -->
+
+## 批 CY-㉙：@ 菜单不得列出整张画布的图（图5②）
+
+### 用户 2026-09-30 逐字
+
+> 「然后你这里为什么@ 按钮是能生效的呢……他现在能够艾特到一个完全跟当前节点不相关的一张
+> 图片。这个是完全不对的呀。他必须只能@ 到当前节点，有用户上传上来的图片或者视频等等的
+> 素材才对呀。」
+
+### 根因（`index.jsx:1202`，一行）
+
+```js
+const rawAvailableComposerSources = nodes.filter(node => node?.url
+  && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind)
+  && node.id !== selectedNode?.id);
+```
+
+**画布上每一张图**（只要 kind 命中、且不是自己）都进了 @ 菜单。
+用户在电商套图框里点 @，「可用参考图」里躺着十张八竿子打不着的素材 ——
+这不是"功能多"，是**让用户以为那些图会参与本次生成**。
+
+### 改法：范围 = 自己的素材 + 一级上游
+
+```js
+const composerScopeIds = selectedNode
+  ? new Set([...(selectedNode.sourceNodeIds || []),
+             ...mergeGraphMentionSources(selectedNode, connections)].map(trim).filter(Boolean))
+  : new Set();
+// 候选再要求 composerScopeIds.has(node.id)
+```
+
+⚠️ **不动** `mergeGraphMentionSources` 的实现 —— 它是对的（自身 mention 优先、
+入边按连接顺序补位、与自身去重），只需把「菜单候选」从"全画布"收窄到"这个节点的圈子"。
+
+只收**一级**上游：连线是有向的，`far → near → video1` 里的 `far` 与当前节点没有直接关系。
+
+### 门禁
+
+`test/canvas-mention-scope-0929.test.mjs`（**7 条**），核心是判据本身：
+① 自己的素材可被 @ ② **无关素材不得出现** ③ 一级上游仍可被 @（别收得过窄）
+④ 二级上游不出现 ⑤ 不能 @ 自己 ⑥ 代码里收窄必须还在、旧写法必须已消失
+⑦ `mergeGraphMentionSources` 的顺序语义不得被改坏。
+
+**验证过它真抓得住**：把 `composerScopeIds` 临时退回「全画布的 id」⇒ 7 条里 1 条变红。
+
+### ⚠️ 一次自我更正（记下来免得下一个人跟着错方向查）
+
+我一开始把用户图7①「智能成片和首尾帧的 @ 列表被共用」也归到这个 bug 上，
+去查了画布的 `selectedComposerMentions`（四个 composer 共用同一个值）。
+**查完发现：画布这四个框是按 `selectedNode.kind` 互斥挂载的，同一个值给它们并不构成 bug**；
+而且**图7 是首页视频页**（智能成片 / 首尾帧 两个 tab），根本不是画布 ——
+那是另一处（`VideoStudio` 那侧）的独立问题，本批**没查、没改**。
+
+⇒ 教训：截图上的现象要先确认**是哪个页面**，再去找代码；
+画布和首页同名概念（智能成片/首尾帧/@引用）很容易串。
+
+### 验证
+
+全量 `npm test` **4444 条 / 4433 通过 / 11 跳过 / 0 失败** ✅

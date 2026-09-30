@@ -1199,7 +1199,36 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
   const focusedNodeIds = hoveredNodeId ? getCanvasFocusIds(hoveredNodeId, connections) : null;
-  const rawAvailableComposerSources = nodes.filter(node => node?.url && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind) && node.id !== selectedNode?.id);
+  /* ═══ 批 CY-㉙：@ 菜单**不得列出整张画布的图** ════════════════════════════════════════════
+     用户 2026-09-30 逐字（电商套图那张）：
+       「然后你这里为什么@ 按钮是能生效的呢……他现在能够艾特到一个完全跟当前节点不相关的
+         一张图片。这个是完全不对的呀。他必须只能@ 到当前节点，有用户上传上来的图片或者
+         视频等等的素材才对呀。」
+
+     改前：`rawAvailableComposerSources = nodes.filter(...)` —— **画布上每一张图**
+     （只要 kind 命中 image/output/image-composer/layer-group 且不是自己）都进了 @ 菜单。
+     ⇒ 用户在电商套图框里点 @，会看到「可用参考图」里躺着十张八竿子打不着的素材。
+     这不是"功能多"，这是**让用户以为那些图会参与本次生成**。
+
+     正确的范围（也是用户要的）：**当前节点自己的素材 + 它的一级上游**。
+     两者合起来正好等于既有那两个量的并集：
+       · 自己的  = selectedNode.sourceNodeIds（用户在这个框里上传的）
+       · 一级上游 = mergeGraphMentionSources（连进来的那些，见下）
+     ⚠️ 所以**不动** mergeGraphMentionSources 的实现（它是对的：自身 mention 优先、
+     入边按顺序补位）—— 只需要把「菜单的候选」从"全画布"收窄到"这个节点的圈子"。 */
+  const composerScopeIds = selectedNode
+    ? new Set([
+      ...(selectedNode.sourceNodeIds || []),
+      ...mergeGraphMentionSources(selectedNode, connections),
+    ].map(id => String(id ?? '').trim()).filter(Boolean))
+    : new Set();
+  const rawAvailableComposerSources = nodes.filter(node =>
+    node?.url
+    && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind)
+    && node.id !== selectedNode?.id
+    /* 收窄到当前节点的圈子：自己的素材 + 一级上游。
+       没有选中节点时（不该发生）退回空列表，而不是把整张画布倒出来。 */
+    && composerScopeIds.has(String(node.id)));
   const availableComposerSources = buildImageMentions(rawAvailableComposerSources).map(mention => ({
     ...rawAvailableComposerSources.find(node => node.id === mention.sourceNodeId),
     ...mention,
