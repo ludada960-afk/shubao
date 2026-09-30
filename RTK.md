@@ -15215,3 +15215,123 @@ promptFieldRef.current?.setValue?.('');
 且**每次被 TaskStop 打断都会留下一个孤儿监听**（连杀 4 个 PID 才清干净）。
 最后改成「轮询等端口空出来再跑」才拿到一次干净结果。**这不是代码问题，是共享机器的端口争用。**
 
+## 批 DC 续-35 · 做同款不再写死 image2（逐案例记录）+ 撤掉连拍悬停文案 / 修纵向对齐（`b88ed934`）
+
+用户 2026-10-01 三条批注（一条是回头纠正上一批的，一条是新提的两条 UI）。
+
+### ① 把「做同款留在 image2」从**规则**降回成**记录**（批 DC 续-34 的自我纠正）
+
+用户原话：
+> 「我们以后肯定还会再添加案例进来呀。如果以后再添加其他的案例进来，他们的导向就是他们
+> 生成时候的各种各样的模型和配置方案呀。**你不要把这个做同款给写死了，就是完全指向 2 啊。**」
+
+批 DC 续-34 把全局默认换成 2.5 时，同时在 `galleryModel.js` **四处**把做同款的模型钉成
+`'image2'`（tryon / product-suite / 视觉案例的外层与 `replay`）。当时的依据是用户那句
+「首页那些案例的做同款用的是 image2」—— **那句话说的是当时那批案例，不是全局规则**。
+今天 42 张恰好都是 image2 出的，所以写死碰巧是对的；**新增一张用 2.5 / Midjourney 出的
+案例，做同款就会拿 2 重跑** —— 那正是续-34 注释里声称要避免的"张冠李戴"。
+⇒ 我把**当前正确性**修好了，却把**未来正确性**写死了。
+
+改法（记录是唯一真源，缺记录才回落默认）：
+- `productionCaseCatalog.js`：42 条资产**逐条**记 `imageModel`，两个工厂改成**必填**
+  （漏写抛错，不静默继承）。值不是印象，是生成审计 `.tmp/production-visual-cases/*.json`
+  每个 case 的 `imageModel` 字段（电商 18 张另见两个生成脚本）。
+- `production-visual-case-manifest.mjs`：`caseItem` 同样改必填，25 条案例逐条显式声明。
+- `galleryModel.js`：`recordedImageModel()` 先读案例/资产自带的记录，读不到才回落
+  `DEFAULT_IMAGE_MODEL`；**外层与 `replay` 取同一个值**（原来两处各写一遍，最容易只改一处）。
+- `PRODUCT_SUITE_MANIFEST.outputs` 补上 `imageModel`，让 manifest 链也带着记录走。
+
+门禁 ③ **反转**（原来那版断言 `galleryModel.js` 里**必须有** `'image2'`，等于给写死背书）；
+④ 去掉对 `galleryModel.js` 的豁免，并放行"逐案例记录"用的具名常量声明（窄规则，
+只放行 `const XXX_IMAGE_MODEL =` 那一行）。
+
+**自证里踩的一个坑，值得记**：交接提示让我造一条 `imageModel: 'image2-5-sunburst'`
+的假案例。但 `DEFAULT_IMAGE_MODEL` **本身就是** `image2-5-sunburst` ⇒「读了记录」与
+「回落了默认」两种路径观测结果**完全一样**，这条自证验不出任何东西。
+改用 **非默认**的 `image2` 当假数据才有区分度。**假数据必须选一个"猜错就会露馅"的值。**
+
+变异验证（四个全部被抓，不是"看着对"）：写死 image2 / 只改外层不改 replay /
+目录与 manifest 走岔 / 工厂不再抛错 —— 分别判红 3、1、1、1 条。
+
+### ② 连拍药丸：撤掉 110 多字的悬停提示
+
+用户原话：
+> 「而且你现在这些连拍按钮鼠标放上去为什么有那么长的提示啊，**那些文案你应该在对话里面
+> 回答我呀，你放到线上来给用户看干嘛呀**。」
+
+那条 `seriesHint` 有 110 多字、**还带着没被渲染的 `**` 星号**（写在 `title` 属性里，
+Markdown 不会被解析）。⇒ 删掉 `title`、`seriesHint` 字段一并删掉 ——
+留一个没人读的字段比删掉更糟：它看起来像"这功能有说明"，实际谁也不会去看。
+
+### ③ 「连拍和镜头没对齐」：这次是**纵向**，不是横向
+
+用户原话：
+> 「然后你现在的连拍和镜头的按钮为什么没对齐呀，要去调整呀。」
+
+**这一句用户已经说过一次了**（批 DC 续-17 修的就是它），我当时判成**横向**：未勾进行的
+下拉不渲染 ⇒ 少一个 flex 子元素 ⇒ 药丸往左滑，于是十行的药丸不在同一条竖线上。
+那个诊断是对的，修法（三列 grid）也对，但**只解决横向**。
+
+这次截图里是**纵向**：药丸基线规则自带 `margin-top: 5px`，镜头下拉那一格没有
+⇒ 每行差 5px（实测 Δtop = 5，四行全中）。
+⇒ 不在单边改（改了药丸、以后有人给下拉加偏移又会岔开），而是把两颗**并列**钉在一起：
+```css
+.media-workbench-checklist.is-person .media-workbench-checklist-series,
+.media-workbench-checklist.is-person .media-workbench-checklist-person {
+  align-self: start; margin-top: 0; min-height: 32px;
+}
+```
+顺带发现这条规则**特异度更高**，所以就算有人再往药丸基线规则里加 `margin-top` 也压不住 ——
+实测注入一条同特异度、位置更靠后的 `margin-top:5px` 才会真的歪回去（Δtop 立刻回到 5）。
+
+**同一个症状被报了两次、两次根因不同** ⇒ 只凭用户描述定位会重复修错方向，
+必须先量真实盒模型（`getBoundingClientRect`）再动手。
+
+### ④ 一次门禁把自己绊倒（值得记）
+
+`concept-set-set-generation-0927` ⑧ 的判据是"代码里没有 `seriesHint`"，
+而我**刚写的注释里恰好写了 `seriesHint`**（解释为什么删它）⇒ 第一次跑就红。
+⇒ 这个文件补了 `code()`（剥 `/* */` 与 `//` 注释再扫），⑧⑨ 都改用它。
+**判据要问的是"代码里还有没有"，不是"文字里还提不提"。**
+
+### 验收
+
+- 全量 `npm test`：**4496 条 / 4486 通过 / 10 跳过 / 0 失败**（在**干净 detached 工作树**
+  上跑的 —— 共享工作树里另有一条线正在做 `src/pages/Redesign/` 与 `src/styles/sb2-tokens.css`，
+  它们让 BLOCKING 的「可点无 hover」与「token 棘轮」两条变红，**那不是我的**，我没代修）。
+- `precommit`：构建 exit 0 / 渲染冒烟通过 / e2e 325 全绿 / BLOCKING **260 条全绿**。
+- 对齐是**实测**的，不是看图看出来的：改前每行 Δtop=5px，改后 4 行 Δtop=Δheight=0，
+  并用同特异度变异确认这个测量抓得住。
+- **线上可见变化只有一处**：概念视觉方案清单里那颗「连拍」不再有悬停气泡、且与镜头下拉同高同顶。
+  做同款那条链**行为逐字未变**（42 条案例记录的模型都是 image2，与改前一致）——
+  这次改的是"以后新增案例时不会重蹈覆辙"，不是今天的表现。
+
+### ⚠️ 一条实测发现的、还没修的既有问题（如实记，别当成已修）
+
+`test/home-panel-hitarea-live.test.mjs` 的健康判据用 `.ec-config-trigger`，
+而首页默认落在**视觉创作**模式，那颗触发器在**电商模式**里 ⇒ 拿不到健康环境。
+我拿**干净 HEAD(586ced21)** 起工作树跑同一个探针，结果逐字相同（`hasReady:false`、
+正文 665 字、同样一条 401）⇒ **与本批无关，是既有的测试夹具问题**。
+
+而它打出来的原因是 `test/helpers/live-browser.mjs:190` 写死的**通用兜底文案**
+「并发 agent 改同一文件导致瞬时白屏 / HMR 中断」——**那不是诊断，是猜的**，
+本次实测证明应用其实是健康的（无 vite 错误遮罩、正文正常）。**这条文案误导人，
+下一批该改成把真实观测（overlay / hasReady / bodyLen）带出来。**
+
+### 部署记录（release `20261001-010154-b88ed934`）
+
+- 提交 `b88ed934`（只含我那 10 个文件；共享工作树里另有一条线的
+  `index.html / App.jsx / main.jsx / AppContext.jsx / styles/* / vite.config.js`
+  与未跟踪的 `src/pages/Redesign/`、`src/styles/sb2-tokens.css` —— **一条都没 stage**）。
+- 部署一律从**固定 sha 的 detached 工作树**起：`git worktree add --detach` + `mklink /J` 连
+  `node_modules` + `pwsh -NoProfile -File scripts\deploy-production.ps1 -SkipPublicChecks`；
+  完事先 `rmdir <worktree>\node_modules`（只删联接）再 `git worktree remove`。
+- ⚠️ **共享工作树里 precommit 会红，但不是我的**：那条线新加的 `src/pages/Redesign/sb2-showcase.css`
+  与 `src/styles/sb2-tokens.css` 让 BLOCKING 的「可点无 hover」与「token 棘轮」两条变红
+  （棘轮从基线 165 涨到 242）。**没代修** —— precommit 自己就写着「红在别人路径内的文件：
+  不要代修，报告给对应线」。干净 detached 工作树上 precommit **260 条全绿**。
+- 服务器侧复验：`/health` → `ok:true, ready:true, pid 1313103`，与 `pm2 pid` 一致；
+  `deploy-backups/20261001-010154-b88ed934` 与提交号一致；产物三项标记全部命中 ——
+  ① 悬停文案 `点一下开始标这一段` 在 `assets/` 里**已不存在**；
+  ② `imageModel is required for production case asset`（逐案例必填）在 1 个产物文件里；
+  ③ `style-CZ4uIgwr.css` 的 `.media-workbench-checklist-series{…}` **没有 `margin-top`**。
