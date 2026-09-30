@@ -2128,6 +2128,43 @@ export default function VideoStudioPage({
     setInlineMenu(null);
   };
 
+  /* ═══ 批 CY-㉝：切创作方式时，**清掉提示词里那串已经失效的 @ 提及** ═════════════════════
+     用户 2026-09-30 逐字：
+       「我在首尾帧那边上传了一张图片，然后在 @ 按钮里面添加了一个图片的样式到了输入框这里。
+         为什么我切换到智能成片这边，他这个样式还是会跟着过来啊。
+         你现在智能成片和首尾帧这边的 @ 按钮难道是共用的吗？……
+         **一定要把它们给分开呀，绝对不能够共同使用呀，共同使用就会乱掉的。**」
+
+     逐条核对后发现：**@ 菜单本身是分开的**（`mentionedAssets` 按 mode 分支：
+     frame 档只列 files.first/files.last，其余档只列 materialEntries —— 见 612/624 行）。
+     真正被共用、并且**串档**的是**提示词框**：
+       · prompt 是这一层的单一 state，两个档共用；
+       · 在首尾帧档 @ 插入的「@图片1」写进了 prompt；
+       · 切到智能成片，菜单里已经**没有**「图片1」这个条目了（它属于另一个档），
+         但那句话还留在输入框里 ⇒ 一个**指向不存在条目的悬空引用**。
+     用户的体感「样式跟着过来」说的正是这个。
+
+     改法：切档时清空 prompt。**只清提示词、不清素材** ——
+     素材本来就是分桶存的（files.first/last vs files.images/videos/audios，
+     见 1554-1556 那处分支），切回去还能用；
+     而提示词里的 @ 提及在**另一档是无意义的**，留着才是错。
+     ⚠️ 这会丢掉用户已写的描述 —— 但那串描述里嵌着别的档的 @ 引用，
+     整段带过去必然出错；宁可让用户重写，也不要提交一条自相矛盾的提示词。
+
+     ⚠️ `MentionPromptField` 是**受控**组件（`value={prompt}` + `onChange`），
+     它暴露的 imperative API 只有 `focus()` 与 `insertMention()`，**没有 setValue** ——
+     所以只能通过喂给它的那个 state（`setPrompt`）来清。
+     （写第一版时我按 `promptFieldRef.current?.setValue?.('')` 写了，
+       那是**静默无效**的：`?.` 会把不存在的属性吞掉，一行白写。） */
+  const switchVideoMode = nextMode => {
+    setMode(nextMode);
+    setPlanReviewed(false);
+    setPlannedUploads(null);
+    setAnalyzedPlan(null);
+    /* 提示词里的 @ 提及属于**上一个档**的素材清单，切档即失效 */
+    setPrompt('');
+  };
+
   /* ⚠️ data-video-mode 是**当前创作方式**的稳定观测点（批 N）：
      子页面按 skill 声明渲染工作台之后不再显示「智能成片 / 首尾帧 / 爆款重构」那排页签
      （知渔 20 个 skill 页都没有 —— 创作方式是 skill 自带的属性），
@@ -2211,7 +2248,10 @@ export default function VideoStudioPage({
             还有一个首尾针的切换按钮而已」）。爆款重构是独立 skill，从左侧导航/总页面进。 */}
         {(homeComposer ? VIDEO_CREATION_MODES.filter(item => item.id === 'smart' || item.id === 'frame') : VIDEO_CREATION_MODES).map(item => {
           const ModeIcon = VIDEO_MODE_ICONS[item.id] || Clapperboard;
-          return <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setMode(item.id); }}>
+          return <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} className={mode === item.id ? 'is-selected' : ''} onClick={() => {
+            if (mode !== item.id) switchVideoMode(item.id);
+            setPlanReviewed(false);
+          }}>
             <span className="video-mode-icon" aria-hidden="true"><ModeIcon size={18} /></span><span className="video-mode-copy"><strong>{item.label}</strong><small>{item.hint}</small></span><i aria-hidden="true" />
           </button>;
         })}

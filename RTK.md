@@ -14858,3 +14858,65 @@ item.previewUrl || item.url || uploadFor(item.file)?.asset?.url || ''
 ### 验证
 
 全量 `npm test` **4465 条 / 4455 通过 / 10 跳过 / 0 失败** ✅
+
+## 批 CY-㉝：切「智能成片 / 首尾帧」时 @ 提及被带过去（��7①）
+
+### 用户 2026-09-30 逐字
+
+> 「我在首尾帧那边上传了一张图片，然后在 @ 按钮里面添加了一个图片的样式到了输入框这里。
+> 为什么我切换到智能成片这边，他这个样式还是会跟着过来啊。
+> 你现在智能成片和首尾帧这边的 @ 按钮难道是共用的吗？……
+> **一定要把它们给分开呀，绝对不能够共同使用呀，共同使用就会乱掉的。**」
+
+### 逐条核对后的真实情况（**和用户的猜测不完全一样，如实记**）
+
+- **@ 菜单本身是分开的** —— `mentionedAssets` 按 mode 分支：
+  `frame` 档只列 `files.first` / `files.last`，其余档只列 `materialEntries`。
+  用户自己也看到菜单里已经没有「图片1」了 ⇒ **问题不在菜单**。
+- **真正被共用、并且串档的是提示词框** —— `prompt` 是这一层的**单一 state**，
+  两档共用；首尾帧档 @ 进去的「@图片1」写进了 prompt，
+  切到智能成片后那串文字还在 —— 而它指向的条目**在另一档根本不存在**
+  ⇒ 一个**悬空引用**。用户说的「样式跟着过来」就是这个。
+
+⚠️ 上一批（CY-㉙）我曾把这条也归到画布的 `selectedComposerMentions` 头上，
+查完发现画布那四个框按 `selectedNode.kind` **互斥挂载**，共用同一个值**并不构成 bug**。
+本批才找到真正的位置（首页视频页）。这也再次说明：**同名概念跨页面最容易串**。
+
+### 改法
+
+新增 `switchVideoMode(nextMode)`，页签点击改走它：
+- `setMode(nextMode)`
+- **清空 prompt**（那串 @ 提及属于上一个档的素材清单，切档即失效）
+- 清掉 `plannedUploads` / `analyzedPlan` / `planReviewed`（都是这一档的产物）
+
+**只清提示词、**不清素材** —— 素材本来就是分桶的
+（`files.first/last` vs `files.images/videos/audios`，见提交请求那处的 mode 分支），
+切回去还能用；清掉等于让用户白白丢东西。
+
+### 一次「静默无效」的写法（记下来）
+
+第一版我写的是：
+
+```js
+promptFieldRef.current?.setValue?.('');
+```
+
+**`MentionPromptField` 是受控组件**（`value={prompt}` + `onChange`），
+`useImperativeHandle` 只暴露了 `focus()` 与 `insertMention()`，**根本没有 `setValue`**。
+`?.` 把不存在的属性安静吞掉 ⇒ 一行看起来对、实际什么都没做的代码。
+清空只能走喂给它的那个 state（`setPrompt('')`）。
+门禁 ④ 专门钉死这个写法不许回来。
+
+⚠️ 这与批 CY-㉕ 那个 `offsetWidth` 是同一类错：**写了一个看起来合理、实际不存在的 API**。
+
+### 门禁
+
+`test/video-mode-mention-isolation-0929.test.mjs`（**4 条**）：
+① @ 菜单按档分支（本来就是对的，钉住别改坏）
+② 切档必须清提示词、页签必须走 `switchVideoMode`、旧写法必须已消失
+③ **只清提示词不清素材**（`setFiles` / `clearMaterials` 一旦出现就判失败）+ 佐证素材本就分桶
+④ 不得调用不存在的 `setValue`（含组件侧确认它确实没这个 API）
+
+### 验证
+
+全量 `npm test` **4469 条 / 4459 通过 / 10 跳过 / 0 失败** ✅
