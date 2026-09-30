@@ -188,3 +188,51 @@ test('⑤ 自证：把 covers 去掉必须判红（否则 ② 是空转）', () 
   assert.notEqual(broken, code('src/components/media/WorkbenchShell.jsx'), '替换没生效，这条自证无效');
   assert.doesNotMatch(broken, /field\.kind === 'config' && Array\.isArray\(field\.covers\)/, '去掉判据竟然没被抓到 ⇒ ② 是空转');
 });
+
+/* ═══ 2026-09-29 批 DC 续-19：这一格要能长到**别的板块**上去，而不只是图片技能 ══════════════════════
+   背景（`/tmp` 里的子页面布局审计）：「两颗触发器」这个形态当时**写死成图片专用** ——
+     · `ConfigTriggers` 的标题/说明硬编码「生图模型 / 画面规格」；
+     · `FieldRenderer` 的 config 分支硬编码图片模型目录 `normalizeImageModel` + `SELECTABLE_IMAGE_MODELS`。
+   于是视频侧（字节/MiniMax/可灵/Google/通义/xAI，走家族分组 + `VideoModelMark`）**根本复用不了**，
+   而这正是 PO 说的「全局统一布局」的第一道墙。
+   ⇒ ① 标题/说明改由**字段声明**给（`modelLabelText` / `specLabelText` / `modelNote` / `specNote`），
+        不给才落回那份默认（**45+ 条既有声明一个字不用改，行为逐字不变**）；
+      ② 模型目录由 `field.modelSource` 给，不给才退回图片目录（向后兼容）；
+      ③ **降级形态**：`triggers:['specs']` = 只有一颗规格触发器 ——
+        给那 44 条"规格散落在左栏、且本来就没有模型选择器"的技能用，
+        **不该为了统一硬塞一个不存在的模型按钮**。 */
+test('⑥ 这一格是**通用原语**：标题/模型目录/按钮数都由声明决定，不是图片侧写死', () => {
+  const triggers = code('src/components/media/ConfigTriggers.jsx');
+  const renderer = code('src/components/media/FieldRenderer.jsx');
+
+  /* ① 标题与说明走声明，默认值只是兜底 */
+  assert.match(triggers, /modelLabelText = ''/, '要接受 modelLabelText（声明给标题）');
+  assert.match(triggers, /specLabelText = ''/, '要接受 specLabelText');
+  assert.match(triggers, /const metaOf = panelId =>/, '标题/说明要走一个统一的取值函数');
+  assert.match(triggers, /<small>\{modelLabelText \|\| '生图模型'\}<\/small>/, '模型触发器的小标题用声明值');
+  assert.match(triggers, /<small>\{specLabelText \|\| '画面规格'\}<\/small>/, '规格触发器的小标题用声明值');
+  assert.match(triggers, /aria-label=\{metaOf\(open\)\.title\}/, '面板的 aria-label 也要走声明值');
+
+  /* ② 模型目录由 `field.modelSource` 给，不给才退回图片目录（向后兼容） */
+  assert.match(renderer, /const modelSource = field\.modelSource \|\| null;/, '要读 field.modelSource');
+  assert.match(renderer, /\|\| SELECTABLE_IMAGE_MODELS;/, '不给时退回图片模型目录（既有声明一个字不用改）');
+  assert.match(renderer, /const normalize = \(modelSource && modelSource\.normalize\) \|\| normalizeImageModel;/,
+    '归一化函数也要可由声明覆盖（视频模型的 id 规则与图片不同）');
+  assert.ok(
+    renderer.indexOf('const catalog =') < renderer.indexOf('<ConfigTriggers'),
+    '目录必须在渲染 ConfigTriggers **之前**算出来',
+  );
+
+  /* ③ 降级形态：没有模型格就只渲染一颗触发器 */
+  assert.match(renderer, /if \(modelDecl\) \{\s*triggers\.push\('model'\);/, '没有 modelKey 就不该出现模型触发器');
+  assert.match(triggers, /triggers\.includes\('model'\) && modelNode &&/, '模型按钮要受 triggers 约束');
+  assert.match(triggers, /triggers\.includes\('specs'\) && specNodes\.length > 0 &&/, '规格按钮要受 triggers 约束');
+
+  /* 向后兼容：默认仍是两颗，图片侧既有形状一个字没变（① 的老判据仍要成立） */
+  assert.match(triggers, /triggers = \['model', 'specs'\]/, '默认两颗（老形态不变）');
+  assert.deepEqual(
+    [...config.covers].sort(),
+    ['clarity', 'imageModel', 'ratio'],
+    'concept_set 的 covers 必须逐字不变 —— 这一批只把原语变通用，没改任何既有声明',
+  );
+});

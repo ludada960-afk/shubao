@@ -96,6 +96,14 @@ function panelPosition(button, desiredHeight) {
   };
 }
 
+/* ═══ 2026-09-29 批 DC 续-19：这一份从**硬编码**改成**声明驱动** ═══════════════════════════════════════
+   改前是 `{ model: {title:'生图模型', …}, specs: {title:'画面规格', …} }` 写死在这里 ——
+   于是「两颗触发器」这个形态**只能长在图片技能上**：视频侧要显示「视频模型 / 视频规格」
+   就必须先改这个文件（而它被 `config-triggers-0929` 门禁逐字钉着）。
+   ⇒ 现在标题与说明由**字段声明**给（`modelLabelText` / `specLabelText` / `modelNote` / `specNote`），
+      不给就用下面这份默认 —— 45+ 条既有声明一个字不用改，行为逐字不变。
+   ⚠️ 下面这行默认值**仍然被门禁逐字钉着**（`config-triggers-0929` ② 就是查它），
+      改它之前先想清楚是不是要连门禁一起改。 */
 const PANEL_META = {
   model: { title: '生图模型', note: '换模型会按它的能力夹取清晰度档位' },
   specs: { title: '画面规格', note: '比例与清晰度决定这张图的实际尺寸' },
@@ -109,10 +117,18 @@ function specSummaryOf(values, specNodes, specSummaries) {
 }
 
 export default function ConfigTriggers({
+  /* ⚠️ 2026-09-29 批 DC 续-19：`triggers` 决定**渲染几颗按钮**。
+     默认两颗（图片侧既有形态）；`['specs']` = 只有规格（给那 44 条"规格散落、
+     本来就没有模型选择器"的技能用的降级形态 —— 不该为了统一硬塞一个模型按钮）。 */
+  triggers = ['model', 'specs'],
   modelKey = '',
   modelLabel = '',
   modelBrand = '',
   modelNode = null,
+  modelLabelText = '',
+  specLabelText = '',
+  modelNote = '',
+  specNote = '',
   specNodes = [],
   specSummaries = [],
   values = {},
@@ -130,6 +146,11 @@ export default function ConfigTriggers({
   const [pos, setPos] = useState(null);
   const buttonRefs = { model: useRef(null), specs: useRef(null) };
   const model = normalizeImageModel(modelKey ? values[modelKey] : '');
+  /* 标题/说明：声明给了就用声明的，没给才落回那份（被门禁钉着的）默认。 */
+  const metaOf = panelId => ({
+    title: (panelId === 'model' ? modelLabelText : specLabelText) || PANEL_META[panelId].title,
+    note: (panelId === 'model' ? modelNote : specNote) || PANEL_META[panelId].note,
+  });
 
   const measure = useCallback(panel => {
     const button = buttonRefs[panel] && buttonRefs[panel].current;
@@ -196,7 +217,7 @@ export default function ConfigTriggers({
       {...{ [OVERLAY_ROOT_ATTR]: 'true' }}
       data-density={pos.maxHeight < (open === 'model' ? 520 : 460) ? 'compact' : 'comfortable'}
       role="dialog"
-      aria-label={PANEL_META[open].title}
+      aria-label={metaOf(open).title}
       style={{
         position: 'fixed',
         left: pos.left, top: pos.top, bottom: pos.bottom,
@@ -214,7 +235,7 @@ export default function ConfigTriggers({
 
   return (
     <div className="visual-config-cluster media-workbench-config-triggers" aria-label="生成配置">
-      {modelNode && (
+      {triggers.includes('model') && modelNode && (
         <button
           type="button"
           ref={node => { buttonRefs.model.current = node; }}
@@ -227,13 +248,13 @@ export default function ConfigTriggers({
             <ModelLogo logo={brandLogo(modelBrand || 'openai')} size={28} radius={8} />
           </span>
           <span className="visual-config-trigger-copy">
-            <small>生图模型</small>
+            <small>{modelLabelText || '生图模型'}</small>
             <strong>{modelLabel || model || '未选择'}</strong>
           </span>
           <ChevronDown className="visual-config-trigger-chevron" size={14} aria-hidden="true" />
         </button>
       )}
-      {specNodes.length > 0 && (
+      {triggers.includes('specs') && specNodes.length > 0 && (
         <button
           type="button"
           ref={node => { buttonRefs.specs.current = node; }}
@@ -244,7 +265,7 @@ export default function ConfigTriggers({
         >
           <MdCropFree aria-hidden="true" />
           <span className="visual-config-trigger-copy">
-            <small>画面规格</small>
+            <small>{specLabelText || '画面规格'}</small>
             <strong>{specSummary || '未选择'}</strong>
           </span>
           <ChevronDown className="visual-config-trigger-chevron" size={14} aria-hidden="true" />

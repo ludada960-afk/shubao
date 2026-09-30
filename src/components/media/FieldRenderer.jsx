@@ -612,21 +612,48 @@ function control(kind, field, value, onChange, disabled, assets, allFields, allV
        （第一次写就是这么炸的：端到端里 `.media-workbench-submit` 20s 超时不到）。
        触发器只负责"两颗按钮 + 一个浮层 + 坐标"，控件一律由本组件渲染。 */
     const byKey = key => (allFields || []).find(item => item && item.key === key) || null;
-    const modelDecl = byKey(field.modelKey);
+    const modelDecl = field.modelKey ? byKey(field.modelKey) : null;
     const specDecls = (field.specKeys || []).map(byKey).filter(Boolean);
     const table = allValues || {};
-    const modelId = normalizeImageModel(field.modelKey ? table[field.modelKey] : '');
-    const modelMeta = SELECTABLE_IMAGE_MODELS.find(item => item.id === modelId);
+    /* ═══ 2026-09-29 批 DC 续-19：**这一支改成真正通用的原语**（原来写死图片侧）═════════════════════
+       改前这里**硬编码**了图片模型目录（`normalizeImageModel` + `SELECTABLE_IMAGE_MODELS`），
+       于是「两颗触发器」这个形态**只能用���图片技能**上，视频侧（字节/MiniMax/可灵…，
+       走家族分组 + `VideoModelMark`）根本复用不了 —— 而这正是"全局统一布局"的第一道墙。
+
+       现在模型列表由**字段声明**给：
+         field.modelSource = { normalize?, list: [{id,label,brand,group?}], render? }
+       不给 `modelSource` 时**退回图片目录**（保持既有 45+ 条声明一个字不用改）。
+       视频侧将来只要在自己的字段上写 `modelSource` 就能拿到同一套形态。
+     */
+    const modelSource = field.modelSource || null;
+    const catalog = (modelSource && Array.isArray(modelSource.list) && modelSource.list)
+      || SELECTABLE_IMAGE_MODELS;
+    const normalize = (modelSource && modelSource.normalize) || normalizeImageModel;
+    const modelId = modelDecl ? normalize(table[field.modelKey] ?? '') : '';
+    const modelMeta = modelId ? catalog.find(item => item.id === modelId) : null;
     const labelOf = decl => {
       const raw = table[decl.key];
       const option = (decl.options || []).find(item => String(item.value) === String(raw));
       return option ? option.label : raw;
     };
+    /* 没有模型格（`modelKey` 没声明）⇒ **只有一颗触发器**。
+       这是给「规格字段散落的 44 条」用的降级形态：它们本来就没有模型选择器，
+       不该为了统一硬塞一个不存在的模型按钮。 */
+    const triggers = [];
+    if (modelDecl) {
+      triggers.push('model');
+    }
+    if (specDecls.length) triggers.push('specs');
     return (
       <ConfigTriggers
+        triggers={triggers}
         modelKey={field.modelKey || ''}
         modelLabel={(modelMeta && modelMeta.label) || modelId}
         modelBrand={(modelMeta && modelMeta.brand) || 'openai'}
+        modelLabelText={field.modelLabelText || '生图模型'}
+        specLabelText={field.specLabelText || '画面规格'}
+        modelNote={field.modelNote || ''}
+        specNote={field.specNote || ''}
         modelNode={modelDecl
           ? <ModelOptionRows
               value={modelId}
