@@ -6,6 +6,7 @@ import { MdCropFree } from 'react-icons/md';
 import ModelLogo from '../ModelLogo.jsx';
 import { brandLogo } from '../../services/modelLogos.js';
 import { SELECTABLE_IMAGE_MODELS, normalizeImageModel } from '../../services/imageModelCatalog.js';
+import { useDismissOverlay, OVERLAY_ROOT_ATTR } from './useDismissOverlay.js';
 import './ConfigTriggers.css';
 
 /* ═══ 生成配置的两颗触发器（生图模型 / 画面规格）**共用组件**（2026-09-29 批 DC 续-8）════════════
@@ -148,21 +149,23 @@ export default function ConfigTriggers({
    *   理由是"滚动时重算会脱离"。**那个诊断错了**：脱离的根因是**锚点选错** ——
    *   当时拿 `.app-topbar` 的下沿当锚，而顶栏是 sticky、滚过 120px 会加 `.is-compact`
    *   **改变自身高度**，所以 top 跳来跳去。
-   *   现在锚点是**按钮自己的视口矩形**：它在视口坐标系里"就是要跟着按钮走"，
-   *   滚动时重算 = 面板始终贴着按钮，**不滚动才是脱离**。
-   *   ⚠️ 用 capture 监听：左栏 `.media-workbench-left` 是**独立滚动容器**，
-   *      冒泡阶段收不到它的 scroll（这一条从首页那边抄对了）。 */
+   *   锚点因此换成**按钮自己的视口矩形**。
+   *
+   * ⚠️⚠️ 2026-09-29 批 DC 续-18：**这段 scroll 跟随被整条删掉了**。
+   *   用户实测知渔之后的全局口径是「**滚轮一滚，浮层就关**」，所以浮层**不再需要跟着滚** ——
+   *   跟着滚的那套（重算坐标、翻上翻下、防撕裂）在"滚一下就关"面前全是白做的。
+   *   ⇒ 现在只在**打开时**量一次 + `resize` 时重量；滚轮/滚动/缩放一律走
+   *     `useDismissOverlay` 收起。批 DC 续-15 与续-17 在这条上反复改了三版，
+   *     根因是**问题问错了**（在"怎么跟得稳"上找答案，而正确答案是"根本不用跟"）。 */
   useLayoutEffect(() => { if (open) measure(open); }, [open, measure]);
   useEffect(() => {
     if (!open) return undefined;
-    const onMove = () => measure(open);
-    window.addEventListener('resize', onMove);
-    window.addEventListener('scroll', onMove, true);
-    return () => {
-      window.removeEventListener('resize', onMove);
-      window.removeEventListener('scroll', onMove, true);
-    };
+    const onResize = () => measure(open);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, [open, measure]);
+  /* 全局口径：滚轮 / 滚动 / 缩放 ⇒ 收起（实现见 useDismissOverlay.js，那里只有一个全局监听）。 */
+  useDismissOverlay(Boolean(open), () => setOpen(null));
 
   /* 点外面 / ESC 收起。⚠️ 监听用 capture：**面板与触发器都在 React 树里**，
      而这段代码活在 useEffect 里（不在渲染期），直接监听不会撞上"打开的那一下"就立刻关闭。 */
@@ -188,6 +191,9 @@ export default function ConfigTriggers({
       id="config-triggers-panel"
       className="visual-config-panel"
       data-portal-host="workbench"
+      /* 标成"浮层根"：全局那个滚轮监听据此**放过面板内部的滚动** ——
+         用户在比例那 12 档列表里上下翻，不该把面板自己关掉。 */
+      {...{ [OVERLAY_ROOT_ATTR]: 'true' }}
       data-density={pos.maxHeight < (open === 'model' ? 520 : 460) ? 'compact' : 'comfortable'}
       role="dialog"
       aria-label={PANEL_META[open].title}

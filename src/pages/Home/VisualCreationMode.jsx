@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
+import { useDismissOverlay } from '../../components/media/useDismissOverlay.js';
 import { Check, ChevronDown, Info, LayoutTemplate, Layers3, Maximize2, Monitor, Palette, Sparkles, Type, WandSparkles } from 'lucide-react';
 /* 批 BJ：触发按钮里要显示**模型品牌 logo**（与视频侧同款），需要这两个 —— 见下面「生图模型」那颗按钮。 */
 import ModelLogo from '../../components/ModelLogo.jsx';
@@ -891,15 +892,21 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     window.addEventListener('keydown', closeOnEscape);
     const timer = window.setTimeout(() => window.addEventListener('mousedown', closeOnOutsideClick), 0);
     window.addEventListener('resize', repositionConfigPanel);
-    window.addEventListener('scroll', repositionConfigPanel, true);
+    /* ⚠️⚠️ 2026-09-29 批 DC 续-18：`scroll` 跟随**删掉**。
+       用户实测知渔后的全局口径是「**滚轮一滚，浮层就关**」（逐字：
+       「他们好像全局都是把这种按钮张开面板的时候，如果用户去滚动鼠标滚轮的话，面板就会自动关闭……
+       你全局都要去实现这个方案」）。
+       ⇒ 面板不再跟着滚，下面这一行 `useDismissOverlay` 负责"滚一下就关"。
+       跟滚那套（重算 top/bottom、翻上翻下）在"滚一下就关"面前全是白做的 ——
+       批 DC 续-15/续-17 在这条上反复改了两版，根因是**问题问错了**。 */
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('keydown', closeOnEscape);
       window.removeEventListener('mousedown', closeOnOutsideClick);
       window.removeEventListener('resize', repositionConfigPanel);
-      window.removeEventListener('scroll', repositionConfigPanel, true);
     };
   }, [activeConfigPanel, repositionConfigPanel]);
+  useDismissOverlay(Boolean(activeConfigPanel), () => setActiveConfigPanel(null));
 
   const toggleConfigPanel = panelId => {
     if (busy) return;
@@ -930,6 +937,8 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
       <div
         id="visual-floating-panel"
         className="visual-config-panel"
+        /* 2026-09-29 批 DC 续-18：标成浮层根，全局那个滚轮监听据此放过**面板内部**的滚动。 */
+        data-overlay-root="true"
         data-density={configPanelPos.compact ? 'compact' : 'comfortable'}
         role="dialog"
         aria-label={panelMeta?.title || '生成配置面板'}

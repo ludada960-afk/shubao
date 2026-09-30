@@ -32,6 +32,7 @@ import { uploadEcommerceAssets } from '../../services/api.js';
 import { archiveProductProfile, createProductProfile, getProjectAsset, listProductProfiles } from '../../services/projects.js';
 import { createEcommerceDraftId, resolveSizingImages } from './ec/ecommercePlanModel.js';
 import { usePanelScrollLock } from '../../components/ui/usePanelScrollLock.js';
+import { useDismissOverlay } from '../../components/media/useDismissOverlay.js';
 import SkillLibraryModal from './ec/SkillLibraryModal.jsx';
 import { applyCanvasSkill } from '../EcCanvas/canvasStudioModel.js';
 import { normalizeCommerceContext } from './ec/internationalCommerceRegistry.js';
@@ -534,6 +535,12 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     };
   }, [activePanel]);
 
+  /* ═══ 2026-09-29 批 DC 续-18：**滚轮一滚，这个面板就关**（用户实测知渔后的全局口径）════════════
+     原来这里是 `usePanelScrollLock` 里的 `preventDefault` + 把 deltaY 喂给面板 scrollTop，
+     也就是"面板跟着滚" —— 用户逐字要改掉的就是它。
+     现在页面锁仍然留着（面板开着时底下别跟着滚），"关"交给这一行。 */
+  useDismissOverlay(Boolean(activePanel), () => setActivePanel(null));
+
   /* 9-11 二轮批注: 面板打开 → 页面锁滚, 滚轮只滚面板 (所有板块同规则) */
   usePanelScrollLock(Boolean(activePanel));
 
@@ -1000,6 +1007,8 @@ const DEFAULT_BUTTONS = [
         id="ec-floating-panel"
         className="ec-config-panel"
         data-panel={activePanel}
+        /* 批 DC 续-18：标成浮层根，全局滚轮监听据此放过**面板内部**的滚动。 */
+        data-overlay-root="true"
         style={{
           ...GLASS_PANEL,
           position: 'fixed',

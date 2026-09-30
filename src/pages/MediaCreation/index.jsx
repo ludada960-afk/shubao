@@ -692,62 +692,79 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
           21 篇里 16 篇（76%）的封面不在连拍簇内，74 张里 54 张（73%）所在簇不含首图，
           而且簇**不是开头连续段**（n19: 3/4/5/7/10/11）。详见 imageSkills 里那一段注释。
      ⇒ 现在勾哪几张就是哪几张；封面不会被自动占用，真要放进去是用户自己标的。 */
-  /* ═══ 2026-09-29 批 DC 续-17：连拍改成「**这张 + 下一张**」成对**（用户第三次追问）══════════════
-     用户原话：「他点了第一张图的这个连拍按钮，然后他又点了第 5 张图的这个连拍按钮。那第一张和
-       第 5 张会形成连拍吗？那最后这套图片岂不是就变成第一张跟第 5 张是连拍，**但是中间又插了
-       第二第三第四张**？他又不跟他们是连拍。」
+  /* ═══ 2026-09-29 批 DC 续-18：连拍改成「**可连任意张，但永远是连续的一段**」══════════════════════
+     用户 2026-09-29 第四次追问（批 DC 续-17 的成对版他不接受）：
+     > 「可是这样的话，它的连拍不就相当于每次只能预设两张图进行连拍吗？当我点击第三张图的时候，
+     >   它又会自动默认跟第四张图连拍。这样的话，**如果我想要连拍三张图，岂不是就没办法实现了？**
+     >   我觉得**你不如把它设计成只要点击某一个连拍，你就可以通过鼠标去连接下面的连拍按钮**，
+     >   这样就可以更自定义的去选择连拍多少张？」
 
-     改这一条的依据（本轮把那 27 个簇的位置结构重算）：
-       · 只有 **4/27（15%）**是完整连成一段；随机打乱对照 2 万次，实测 55 段 vs 随机均值 56.9，
-         **p ≈ 0.19** ⇒ 簇**没有位置信号**（"1 和 5 一组"那种形状确实常见，但与随机不可区分）；
-       · 但**尺寸**很明确：**中位数 2 张、70% 恰好 2 张**、48.8% 的篇一个簇都没有；
-       · 真实摄影里连拍就是**相邻帧**，中间插一张别的画面在物理上不成立。
-     ⇒ 存的是「**起点**」，成对关系由「起点 + 它下面那一行」派生：
-       · 点一下成一对，**不可能跨空档**（用户担心的那个洞从根上不存在了）；
-       · 一张图**只能进一组** —— 点某行时若前一行已经和它成对，先把那一对拆掉；
-       · **最后一行不能起组**（没有下一行可配）。
-     ⚠️ 下面 `effectiveSeriesNames` 仍然摊平成一个名字数组喂给 `skillSeriesClause` ——
-        那是它判定"这张在不在组里"的唯一输入，形状不变，只是来源从"用户逐张勾"变成"成对派生"。 */
-  const [seriesStarts, setSeriesStarts] = useState(() => new Set());
-  useEffect(() => { setSeriesStarts(new Set()); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  /** 起点 + 下一行 → 摊平成"组里所有张的名字"（与 shots 同序，供提示词那条判据用）。 */
-  const effectiveSeriesNames = useMemo(() => {
-    const names = selectedModules.map(module => module.name);
-    const out = [];
-    names.forEach((name, index) => {
-      if (!seriesStarts.has(name)) return;
-      const partner = names[index + 1];
-      if (!partner) return;               // 最后一行起不了组（没有下一行）
-      out.push(name, partner);
+     ⇒ 存「**被标中的行**」，并维持一条不变式：**标中的行永远构成若干个连续段**。
+       · 点一个**没标**的行 ⇒ 标上它，并把到最近标行之间的空档**一并补上**
+         （点 1 再点 5 ⇒ 1~5 整段；点 1 再点 2 再点 3 ⇒ 同样 1~3）；
+       · 点一个**已标**的行 ⇒ 从它开始**截断**（后面同一段的一并去掉）。
+       ⇒ 「1 和 5 一组、中间夹着 2/3/4」那个洞**在数据结构上就不可能**出现，
+         而 2/3/4/5 连拍也照样做得到 —— 兼顾了用户第一次提的顾虑与第四次的顾虑。
+     ⚠️ 分组由 `deriveSeriesGroups` 切成**若干段**（可以同时有 1~3 与 6~8 两段），
+        每一段单独交给 `skillSeriesClause` —— 批 DC 续-17 那个"摊平成一个数组"的写法
+        会把两段报成一组，那是个真的错。 */
+  const [seriesMarks, setSeriesMarks] = useState(() => new Set());
+  useEffect(() => { setSeriesMarks(new Set()); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** 名字数组 → 连续段数组（每段至少 1 张；单张的段会被 skillSeriesClause 判掉不出那句话）。 */
+  const deriveSeriesGroups = (names, marks) => {
+    const groups = [];
+    let run = [];
+    names.forEach(name => {
+      if (marks.has(name)) { run.push(name); return; }
+      if (run.length) { groups.push(run); run = []; }
     });
-    return out;
-  }, [selectedModules, seriesStarts]);
-  /** 连拍**起点**是哪几行（界面上用它把"组的开头"与"跟着来的那张"区分显示）。 */
-  const seriesStartNames = useMemo(() => {
-    const names = selectedModules.map(module => module.name);
-    return names.filter((name, index) => seriesStarts.has(name) && index < names.length - 1);
-  }, [selectedModules, seriesStarts]);
+    if (run.length) groups.push(run);
+    return groups;
+  };
+
+  const seriesGroups = useMemo(
+    () => deriveSeriesGroups(selectedModules.map(module => module.name), seriesMarks),
+    [selectedModules, seriesMarks],
+  );
+  /** 段的**第一行**（界面上标出"组从这儿开始"）。 */
+  const seriesStartNames = useMemo(() => seriesGroups.map(group => group[0]).filter(Boolean), [seriesGroups]);
+
   const toggleSeries = useCallback(name => {
     const names = selectedModules.map(module => module.name);
     const at = names.indexOf(name);
     if (at < 0) return;
-    setSeriesStarts(previous => {
+    setSeriesMarks(previous => {
       const next = new Set(previous);
-      /* 点的是自己起的组 → 整对取消。 */
-      if (next.has(name)) { next.delete(name); return next; }
-      /* **一张图只能进一组**，所以相邻两个起点必须先拆掉一个：
-         · 上一行如果已经起组、而我正是它那一对的搭档 → 拆掉它（我改当起点）；
-         · 下一行如果自己起了组 → 也拆掉它（否则我加入后它**既是搭档又是起点**，
-           会同时落进两组 —— 这个洞是第一版真跑出来的：点第 3 行之后第 4 行同时是
-           「3+4 的搭档」和「4+5 的起点」）。 */
-      const above = names[at - 1];
-      if (above && next.has(above)) next.delete(above);
-      const below = names[at + 1];
-      if (below && next.has(below)) next.delete(below);
-      if (at < names.length - 1) next.add(name);   // 最后一行不能起组
+      if (next.has(name)) {
+        /* 点已标的那一行 ⇒ **从它开始截断**（同一段里在它后面的都去掉）。 */
+        for (let i = at; i < names.length; i += 1) {
+          if (!next.has(names[i])) break;
+          next.delete(names[i]);
+        }
+        return next;
+      }
+      /* 点没标的那一行 ⇒ 标上它，并**补齐到最近标行的空档**（不变式：标中的行永远连续）。
+         ⚠️⚠️ 补齐的**范围**只看**真实存在的标行**，不能一路铺到清单两端。
+         这个坑我连踩两次，都是真跑出来的：
+           · 第一版漏了「两边都没有标行」⇒ `up=-1`、`down=末尾` ⇒ 点第 1 张把 **6 张全标上**；
+           · 第二版有上方标行时仍把 `down` 走到末尾 ⇒ 已标 {1} 再点第 3 张 ⇒ 标成 [1..6]
+             （应该是 [1,2,3]）。
+         ⇒ 规则：上方有标行就补到它为止；下方有标行就从它开始补；两边都有就连成整段；
+           **两边都没有就只标它自己**。 */
+      let up = at - 1;
+      while (up >= 0 && !next.has(names[up])) up -= 1;
+      let down = at + 1;
+      while (down < names.length && !next.has(names[down])) down += 1;
+      const hasUp = up >= 0;
+      const hasDown = down < names.length;
+      const from = hasUp ? up + 1 : at;
+      const to = hasDown ? down - 1 : at;
+      for (let i = from; i <= to; i += 1) next.add(names[i]);
       return next;
     });
   }, [selectedModules]);
+
   /* ═══ 2026-09-29 批 DC 续-16：**逐张的人物形态**（推翻"全篇一档"）═════════════════════════════
      用户 2026-09-29 逐字：「那是不是它出来的所有内容都会包含这些人物形态，构图方向，版式组等等的
      选好的选项呢？**那出来的作品岂不都千篇一律了？**」
@@ -801,13 +818,13 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
        才能判这一张在不在连拍组里（组是按**名字**标的，不是按位置）。 */
     const shotNames = selectedModules.map(module => module.name);
     const merged = shots.length
-      ? { ...baseValues, shots, shotNames, seriesNames: effectiveSeriesNames, shotPerson, shotOverrides }
-      : { ...baseValues, seriesNames: effectiveSeriesNames, shotPerson, shotOverrides };
+      ? { ...baseValues, shots, shotNames, seriesGroups, shotPerson, shotOverrides }
+      : { ...baseValues, seriesGroups, shotPerson, shotOverrides };
     /* ⚠️ 批 DC（M2）：下发前再夹一次（声明里 `disabledWhen` 锁住的字段回到它自己的默认档）。
        面板里改字段时已经夹过（onFieldChange 的那条链），这一行管的是**带进来的旧值**那条路 ——
        历史还原 / 做同款 / 断线补跑，免得出现"界面锁着、请求里还带着旧方向"。 */
     return reconcileFieldValues(skill?.fields, merged);
-  }, [skill, baseValues, selectedModules, effectiveSeriesNames, shotPerson, shotOverrides]);
+  }, [skill, baseValues, selectedModules, seriesGroups, shotPerson, shotOverrides]);
   const validation = useMemo(() => (skill ? validateSkillInput(skill, effectiveValues) : { ok: false, missing: [] }), [skill, effectiveValues]);
   const gateHint = useMemo(() => {
     if (moduleGate) return moduleGate;
@@ -1107,10 +1124,15 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
             界面上也据实写明，别让用户以为标一张就能连拍。 */
       ...(skill.modulesSeries ? {
         series: true,
-        seriesNames: effectiveSeriesNames,
+        seriesGroups,
+        /* ⚠️ 药丸的"在组内"高亮读的是 `seriesNames`（**摊平**的一组名字），
+           "这是组的开头"读的是 `seriesStarts` —— 两个是**不同的信息**，都要给。
+           批 DC 续-18 改名成 seriesGroups 时漏了前者，结果只有起点亮、组内不亮
+           （真跑出来的：行 1 显示「▶起点」但 `is-on` 从未出现）。 */
+        seriesNames: seriesGroups.flat(),
         seriesStarts: seriesStartNames,
         onToggleSeries: toggleSeries,
-        seriesHint: '点一下＝这张和**下一张**连着拍（机位/景别/光线全不变，画面里的人与物可以换）。一张图只能进一组；最后一行不能起组。',
+        seriesHint: '点一下开始标这一段，**再点下面几行就把它连长**（2 张、3 张、5 张都行）。标中的行永远是连着的一段，中间不会夹进没标的。机位/景别/光线全不变，画面里的人与物可以换；再点一次已标的那行＝从它开始截断。',
       } : {}),
       /* ═══ 2026-09-29 批 DC 续-16：**清单上移**（用户「你的连拍组去哪了呢」）═════════════════════
          原来 `sections` 一律排在所有字段组之后，那一页的「版式族」是四张长卡片，
@@ -1138,7 +1160,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onPersonChange: setShotPerson,
       } : {}),
     }];
-  }, [skill, skillModules, moduleOff, effectiveSeriesNames, seriesStartNames, toggleSeries, shotPerson, setShotPerson]);
+  }, [skill, skillModules, moduleOff, seriesGroups, seriesStartNames, toggleSeries, shotPerson, setShotPerson]);
 
   /* ── 一键解析（付费前置动作，0.2 积分）──────────────────────────────────────
      照竞品做法：先上传商品图 → 点「一键解析」→ 字段自动填好 → 用户改细节 → 再生成。

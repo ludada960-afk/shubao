@@ -378,10 +378,13 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
   const picked = skill.modules.filter(module => wanted.includes(module.name)).map(module => module.name);
   assert.equal(picked.length, 5, '夹具要凑够 5 种手法（组内 2 + 组外 3），实际 ' + picked.length);
 
-  /* ★ 成对：组永远是**相邻两行**。这里取 picked[1] 与 picked[2] 这一对。 */
-  const group = [picked[1], picked[2]];
-  assert.equal(picked.indexOf(group[1]) - picked.indexOf(group[0]), 1, '夹具这一对必须是**相邻**的');
-  const withGroup = { ...valuesWithShots(picked), seriesNames: group };
+  /* ★ 批 DC 续-18：组是**若干个连续段**（不再是"一对"）。
+     用户 2026-09-29 第四次追问：成对版「如果我想要连拍三张图，岂不是就没办法实现了？
+     我觉得**你不如把它设计成只要点击某一个连拍，你就可以通过鼠标去连接下面的连拍按钮**」。
+     约束仍然是"绝不跨空档"（第一次追问的诉求）—— 靠"标中的行永远连续"这条不变式来保证。 */
+  const group = picked.slice(1, 4);   // 第 2~4 张连成一段（**3 张**，正是成对版做不到的）
+  assert.equal(group.length, 3, '夹具要一段 3 连拍');
+  const withGroup = { ...valuesWithShots(picked), seriesGroups: [group] };
   const prompts = picked.map((_, index) => buildSkillRequest(
     skill, skillValuesForShot(withGroup, index), { runId: 'r', slotIndex: index },
   ).prompt);
@@ -418,47 +421,73 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
   assert.equal(new Set(group.map(n => prompts[picked.indexOf(n)])).size, group.length,
     '组内两张的提示词必须仍然各不相同（否则就是同一张画两遍）');
 
-  /* ★ 绝不跨空档：页面派生成对时只能取「起点 + 它下面那一行」。
-     这里把页面那段派生逻辑原样复算一遍（它就是判据的一部分，不是摆样子）。 */
-  const derivePairs = (names, starts) => {
-    const out = [];
-    names.forEach((name, index) => {
-      if (!starts.has(name)) return;
-      const partner = names[index + 1];
-      if (!partner) return;                      // 最后一行起不了组
-      out.push(name, partner);
+  /* ★ 绝不跨空档 —— 靠一条不变式：**标中的行永远构成若干个连续段**。
+     下面把页面的两段逻辑（分组派生 + 点击）原样复算一遍（它们就是判据的一部分，不是摆样子）。 */
+  const deriveGroups = (names, marks) => {
+    const groups = [];
+    let run = [];
+    names.forEach(name => {
+      if (marks.has(name)) { run.push(name); return; }
+      if (run.length) { groups.push(run); run = []; }
     });
-    return out;
+    if (run.length) groups.push(run);
+    return groups;
   };
-  assert.deepEqual(derivePairs(picked, new Set([picked[0]])), [picked[0], picked[1]],
-    '点第 1 张 ⇒ 与**第 2 张**成对');
-  assert.deepEqual(derivePairs(picked, new Set([picked[0], picked[3]])), [picked[0], picked[1], picked[3], picked[4]],
-    '点第 1 张和第 4 张 ⇒ 两组**各自相邻**，第 2、3 张不进任何组（这正是用户担心的那个洞）');
-  assert.deepEqual(derivePairs(picked, new Set([picked[4]])), [],
-    '点**最后一个**勾进行 ⇒ 起不了组（没有下一张可配）');
-
-  /* 一张图不许同时落进两组。那条规则在**点击那一步**（`toggleSeries`）里，不在派生里 ——
-     所以这里复算点击链本身（与页面同一条），而不是拿派生去断言它。 */
-  const toggleStarts = (starts, names, name) => {
+  /* 点的链：已标 ⇒ 从它截断；没标 ⇒ 补齐到**真实存在**的标行为止。 */
+  const toggleMark = (marks, names, name) => {
     const at = names.indexOf(name);
-    if (at < 0) return starts;
-    const next = new Set(starts);
-    if (next.has(name)) { next.delete(name); return next; }
-    const above = names[at - 1];
-    if (above && next.has(above)) next.delete(above);
-    const below = names[at + 1];
-    if (below && next.has(below)) next.delete(below);
-    if (at < names.length - 1) next.add(name);
+    if (at < 0) return marks;
+    const next = new Set(marks);
+    if (next.has(name)) {
+      for (let i = at; i < names.length; i += 1) { if (!next.has(names[i])) break; next.delete(names[i]); }
+      return next;
+    }
+    let up = at - 1;
+    while (up >= 0 && !next.has(names[up])) up -= 1;
+    let down = at + 1;
+    while (down < names.length && !next.has(names[down])) down += 1;
+    const from = up >= 0 ? up + 1 : at;
+    const to = down < names.length ? down - 1 : at;
+    for (let i = from; i <= to; i += 1) next.add(names[i]);
     return next;
   };
-  /* 点第 2 张、再点第 3 张 ⇒ 第 3 张顶掉第 2 张（否则第 3 张会同时是「2+3 的搭档」和「3+4 的起点」）。 */
-  const afterTwo = toggleStarts(toggleStarts(new Set(), picked, picked[1]), picked, picked[2]);
-  assert.deepEqual([...afterTwo], [picked[2]], '相邻两个起点不能并存：后者顶掉前者');
-  const flat = derivePairs(picked, afterTwo);
-  assert.equal(new Set(flat).size, flat.length,
-    '任何一张图都不许在组名单里出现两次（第一版真跑出来的洞：点第 3 行后第 4 行同时落进两组）');
-  /* 再点一次自己 ⇒ 整对取消 */
-  assert.deepEqual([...toggleStarts(afterTwo, picked, picked[2])], [], '点自己起的组 ⇒ 取消那一对');
+
+  assert.deepEqual(deriveGroups(picked, new Set([picked[0]])), [[picked[0]]],
+    '点第 1 张 ⇒ **只**标第 1 张（⚠️ 第一版漏了"两边都没有标行"这个分支，把 5 张全标上了）');
+  assert.deepEqual(deriveGroups(picked, toggleMark(new Set([picked[0]]), picked, picked[2])),
+    [picked.slice(0, 3)],
+    '点第 1 张再点第 3 张 ⇒ **1~3 整段**（补齐中间那一张，正是成对版做不到的"连拍三张"）');
+  assert.deepEqual(deriveGroups(picked, toggleMark(new Set([picked[0], picked[1], picked[2]]), picked, picked[4])),
+    [picked.slice(0, 5)],
+    '点第 5 张 ⇒ 从 1 连到 5');
+  assert.deepEqual(deriveGroups(picked, toggleMark(new Set(picked.slice(0, 5)), picked, picked[4])),
+    [picked.slice(0, 4)],
+    '再点已标的第 5 张 ⇒ **从它开始截断**（1~4）');
+  assert.deepEqual(deriveGroups(picked, toggleMark(new Set(picked), picked, picked[0])), [],
+    '点第 1 张 ⇒ 整段取消');
+  /* 不变式本身：任何点击序列之后，标中的行都**连续**（这一条覆盖所有上面的分支） */
+  for (const seed of [[0], [0, 4], [2], [1, 2]]) {
+    let marks = new Set(seed.map(i => picked[i]));
+    for (let step = 0; step < 4; step += 1) {
+      marks = toggleMark(marks, picked, picked[(step * 2 + 1) % picked.length]);
+      const groups = deriveGroups(picked, marks);
+      for (const g of groups) {
+        assert.ok(g.every((n, k) => k === 0 || picked.indexOf(n) === picked.indexOf(g[k - 1]) + 1),
+          '标中的行必须连续（用户第一次追问的那个洞）：' + JSON.stringify(g));
+      }
+      const flat = groups.flat();
+      assert.equal(new Set(flat).size, flat.length, '一张图不许落进两组');
+    }
+  }
+  /* 两段并存时，各段各报各的 —— 批 DC 续-17 那个"摊平成一个数组"的写法会报成一组 */
+  const twoGroups = [[picked[0], picked[1]], [picked[3], picked[4]]];
+  const a = skillSeriesClause({ seriesGroups: twoGroups }, picked[0]);
+  const b = skillSeriesClause({ seriesGroups: twoGroups }, picked[3]);
+  assert.ok(a.includes('2 张'), '第一段应报 2 张：' + a.slice(0, 40));
+  assert.ok(b.includes('2 张'), '第二段应报 2 张：' + b.slice(0, 40));
+  assert.ok(!a.includes(picked[3]) && !b.includes(picked[0]), '两段不许互相把对方列进来');
+  assert.equal(skillSeriesClause({ seriesGroups: twoGroups }, picked[2]), '',
+    '没进组的那张一句话都不许带');
 
   /* 没标任何张时**与不带这一栏时逐字相同**（老参数、老历史还原都不会变味） */
   const none = valuesWithShots(picked);
@@ -491,8 +520,10 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
   assert.match(PAGE, /const shotNames = selectedModules\.map\(module => module\.name\)/,
     '页面要把**名字**按勾选顺序一起算出来（连拍组按名字判，不按位置）');
   assert.match(PAGE, /shots,\s*\n?\s*shotNames,/, '并把它与 shots 一起带进生效值（两者必须同序）');
-  assert.match(PAGE, /seriesNames: effectiveSeriesNames/,
-    '页面要把标中的那几张传下去');
+  assert.match(PAGE, /seriesGroups, shotPerson, shotOverrides/,
+    '页面要把**分组**传下去（批 DC 续-18：摊平成一个数组的写法会把两段报成一组）');
+  assert.match(PAGE, /seriesNames: seriesGroups\.flat\(\)/,
+    '清单那颗药丸的"在组内"高亮读的是摊平后的名字（与 seriesStarts 是两回事，两个都要给）');
   assert.match(PAGE, /buildSkillRequest\(skill, skillValuesForShot\(effectiveValues, index\)/,
     '逐张生成要经过 skillValuesForShot（连拍那句就是在那里注入的）');
   const shell = read('src/components/media/WorkbenchShell.jsx');

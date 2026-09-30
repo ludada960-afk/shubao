@@ -367,11 +367,17 @@ export function skillValuesForShot(values = {}, index = 0) {
      （空串，被 buildSkillBrief 的清理逻辑吃掉），所以"没标连拍组"的篇与改前逐字相同。
    ⚠️ 组内不足 2 张时**不出这句话** —— 「一组 1 张」不成立。 */
 export function skillSeriesClause(values = {}, shotName = '') {
-  const group = (Array.isArray(values && values.seriesNames) ? values.seriesNames : []).map(text).filter(Boolean);
-  const count = group.length;
-  if (count < 2) return '';
-  if (!text(shotName) || !group.includes(text(shotName))) return '';
-  return '这一张属于本组的「同机位连拍」（本组共 ' + count + ' 张：' + group.join('、') + '）：'
+  /* ⚠️ 2026-09-29 批 DC 续-18：输入从"一个摊平的名字数组"改成「**若干个连续段**」。
+     摊平那个写法（批 DC 续-17）有个真错：一篇里同时有「1~3」与「6~8」两段时，
+     它会把 4 张报成**一组**。现在按段查，各段各报各的。 */
+  const groups = Array.isArray(values && values.seriesGroups) ? values.seriesGroups : [];
+  const name = text(shotName);
+  if (!name) return '';
+  const group = groups
+    .map(entry => (Array.isArray(entry) ? entry : []).map(text).filter(Boolean))
+    .find(entry => entry.includes(name));
+  if (!group || group.length < 2) return '';
+  return '这一张属于本组的「同机位连拍」（本组共 ' + group.length + ' 张：' + group.join('、') + '）：'
     + '本组内**以本条为准** —— 机位、景别、焦段、光线与背景位置完全不变；'
     + '画面里的人与物可以换，但必须一眼能看出是**同一台机器、同一个位置**连着按下的。';
 }

@@ -133,10 +133,18 @@ test('③ 共用一份实现：子页面与首页走同一个组件 + 同一份�
   assert.match(comp, /bottom: Math\.max\(12, Math\.round\(viewportHeight - rect\.top \+ gap\)\)/,
     '翻到上方时必须按 **bottom** 定位（按 top 配 maxHeight 算会在内容比上限矮时脱离按钮 —— 实测差 162px）');
   assert.match(comp, /document\.querySelector\('\.app-topbar'\)/, '仍要量顶栏：面板不许压到顶栏上');
-  /* 跟着按钮走 = scroll 时要重算。⚠️ 批 DC 续-15 把它整条删掉过（诊断错误），这里钉住它。 */
-  assert.match(comp, /window\.addEventListener\('scroll', onMove, true\)/,
-    '面板要**跟着按钮**走 ⇒ scroll 时必须重算（capture 才能收到左栏那个独立滚动容器的 scroll）');
-  assert.match(comp, /window\.addEventListener\('resize', onMove\)/, '视口尺寸变了也要重算');
+  /* ⚠️⚠️ 2026-09-29 批 DC 续-18：**"跟着按钮走"整条作废**。
+     用户实测知渔后的全局口径是「**滚轮一滚，浮层就关**」（逐字：「他们好像全局都是把这种按钮
+     张开面板的时候，如果用户去滚动鼠标滚轮的话，面板就会自动关闭……你全局都要去实现这个方案」）。
+     ⇒ 面板**不再**跟着滚：scroll/wheel 一律收起，跟滚那套（重算坐标、翻上翻下）全部不需要。
+     批 DC 续-15 与续-17 在这条上反复改了两版，根因是**问题问错了** ——
+     在"怎么跟得稳"上找答案，而正确答案是"根本不用跟"。 */
+  assert.doesNotMatch(comp, /addEventListener\('scroll'/,
+    '面板不许再跟着滚（全局口径是"滚一下就关"）—— 这一行是"面板跟着滚动"的全部来源');
+  assert.match(comp, /useDismissOverlay\(Boolean\(open\), \(\) => setOpen\(null\)\)/,
+    '要接全局那个"滚一下就关"（实现见 useDismissOverlay.js，那里只有**一个** wheel 监听）');
+  assert.match(comp, /\[OVERLAY_ROOT_ATTR\]/, '面板根要标成浮层根，否则在面板内部滚动会把自己关掉');
+  assert.match(comp, /window\.addEventListener\('resize', onResize\)/, '视口尺寸变了要重量（这不是"跟滚"，是尺寸真变了）');
   /* 点外面 / ESC 要自己关掉（用户同一句里提的：「用户点击其他的东西，面板就要自己关掉」）。 */
   assert.match(comp, /document\.addEventListener\('mousedown', onDown, true\)/, '点外面要收起');
   assert.match(comp, /event\.key === 'Escape'/, 'ESC 也要能收起');

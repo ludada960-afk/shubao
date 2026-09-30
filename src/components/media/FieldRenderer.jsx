@@ -774,21 +774,42 @@ export default function FieldRenderer({ field = {}, value, onChange = () => {}, 
        + `aria-labelledby` 指向标题 —— 语义不变（读屏照读"比例"这一组的名字），
        悬停也不会再串到第一颗按钮上。单控件字段（文本/下拉/数字/上传）继续用 `<label>`（那才是它该有的关联）。 */
   const isOptionGroup = kind === 'segmented' || kind === 'choice' || kind === 'cards' || kind === 'multi';
+  /* ═══ 2026-09-29 批 DC 续-18：**渲染按钮的 kind 一律不许包 `<label>`** ═══════════════════════════════
+     用户 2026-09-29 逐字：「当我的鼠标点击这块空地的时候，你会张开这个生图模型的面板。然后我的鼠标
+       悬停在这个位置，你这个生图模型的按钮也会高亮起来。这个有点像之前那个各种按钮，只要我的
+       鼠标悬停在他们的按钮区，第一个按钮就会高亮起来的，那个 bug 是有点类似的。」
+
+     根因：`<label>` 的**隐式关联控件 = 它的第一个 labelable 后代**，而 `<button>` 按 HTML 规范
+     **就是 labelable**。所以一个包着按钮的 `<label>`，整块面积都成了那颗按钮的点击区 ——
+     这与 2026-09-28 修过的「组级 hover 点亮第一颗」是**同一个病**（那次只把
+     `segmented/choice/cards/multi` 挪出来，漏了另外几个渲染按钮的 kind）。
+     ⚠️ 实测（.qa/cy32-hitarea.mjs）：本机 Chromium 上 6 个取样空地点下去**没有**误开面板，
+        所以这条更像"语义错的隐患"而不是"眼前正在犯的错"—— 但它必须修：
+        一旦某天浏览器/无障碍实现按规范转发，这块 386×52 的空白就全是误触发区。
+     ⇒ 判据改成**"这一格渲染的是不是一个可关联的表单控件"**，而不是逐个 kind 列举：
+       `select / textarea / text / upload` 保留 `<label>`（那才是它该有的关联），
+       其余（config / stepper / counts / slot / 各类选项组）一律 `<div role="group">`。 */
+  const hasOwnControl = kind === 'select' || kind === 'textarea' || kind === 'text' || kind === 'upload';
   /* 批 CP：这条技能里**已经上传的素材**（上传类字段的值都是 {id,url,name} 的数组）——
      提示词框下面那一行的 @ 用它列素材（用户：「点击这个按钮就可以随时去 @ 我们现在上传的任意素材」）。 */
   const uploadedAssets = Object.values(values || {})
     .flatMap(v => (Array.isArray(v) ? v : []))
     .filter(a => a && typeof a === 'object' && (a.id || a.url))
     .filter((a, i, arr) => arr.findIndex(x => (x.id || x.url) === (a.id || a.url)) === i);
-  const labelId = isOptionGroup ? `${field.key || kind}-group-label` : undefined;
+  /* ⚠️ 凡是走 `<div role="group">` 的都要有名字，否则读屏只报"一组"。
+     `config / stepper / counts / slot` 这几个 kind 不在 `isOptionGroup` 里（它只管选项组），
+     所以这里按**实际用的哪个 Wrapper** 来算，而不是沿用 isOptionGroup ——
+     否则续-18 新挪出来的这几格会变成"没有名字的组"。 */
+  const labelId = hasOwnControl ? undefined : `${field.key || kind}-group-label`;
   /* ═══ 批 DC（M2）：这一格被声明锁住了（disabledWhen）══════════════════════════════════════
      锁住 = 禁用控件 + **就地说明为什么**（判据与"取值夹回默认档"同源，见 skillRun.skillFieldLocked）。
      ⚠️ 不给说明的禁用控件等于死控件 —— 用户只会觉得点不动、不知道为什么（本项目铁律）。 */
   const locked = skillFieldLocked(field, values);
-  const Wrapper = isOptionGroup ? 'div' : 'label';
-  const wrapperProps = isOptionGroup
-    ? { role: 'group', 'aria-labelledby': labelId }
-    : {};
+  /* `hasOwnControl` 才是判据（见上面那段）；`isOptionGroup` 保留是为了 labelId 的历史命名。 */
+  const Wrapper = hasOwnControl ? 'label' : 'div';
+  const wrapperProps = hasOwnControl
+    ? {}
+    : { role: 'group', 'aria-labelledby': labelId };
   return (
     <Wrapper className="media-field" data-kind={kind} data-span={field.span || undefined} {...wrapperProps}>
       {/* hideLabel：声明里仍要写 label（契约与读屏都用它），但这一格**页面上不画标题** ——
