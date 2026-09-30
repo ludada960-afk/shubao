@@ -2,12 +2,37 @@ import React from 'react';
 import { FileAudio, Film, ImagePlus, X } from 'lucide-react';
 import ResponsiveImage from '../../../../components/ResponsiveImage.jsx';
 
+/* ═══ 批 CY-㉜：状态角标**不許**把内部枚举原样渲染出来 ═══════════════════════════════════
+   用户 2026-09-30 逐字（首尾帧那张图）：
+     「然后你这里为什么会显示一个英文呢？这又是什么 bug 呀？」
+
+   根因就在下面那一行：`<span className="ec-xhs-card-status">{image.status}</span>`
+   —— 直接渲染 `image.status` 的**原始字符串**。而调用方传的是内部枚举：
+     · VideoStudio/index.jsx:1958  mediaCardStatus() 返回 `'ready' | 'uploading' | 'error'`
+     · XhsContentMode.jsx:134/137  传的是 `'loaded'`
+   两个都是**代码内部用的词**，不是给用户看的文案。
+   ⇒ 改成查表映射；**查不到就整个不渲染**（宁可没有角标，也不要漏一个英文单词给用户）。 */
+export const STATUS_LABEL = Object.freeze({
+  ready: '就绪',
+  loaded: '就绪',
+  done: '就绪',
+  ok: '就绪',
+  uploading: '上传中',
+  loading: '上传中',
+  pending: '等待中',
+  queued: '排队中',
+  error: '上传失败',
+  failed: '上传失败',
+  processing: '处理中',
+});
+
 export function EcommerceImageCard({ role, image, label, index, onRemove }) {
+  const statusLabel = STATUS_LABEL[String(image?.status || '').toLowerCase()] || '';
   return (
     <div className={`ec-xhs-upload-card ec-xhs-image-card ec-xhs-card-${role}`}>
       <ResponsiveImage src={image.url} variant="thumb" ratio="4:5" alt={label} style={{ width: '100%', height: '100%', background: 'var(--sb-neutral-0)' }} imgStyle={{ objectFit: 'cover' }} />
       <span className="ec-xhs-card-caption">{label}</span>
-      {image.status && <span className="ec-xhs-card-status">{image.status}</span>}
+      {statusLabel && <span className="ec-xhs-card-status">{statusLabel}</span>}
       {!image.locked && (
         <button type="button" className="ec-xhs-card-remove" aria-label={`移除${label}`} onClick={() => onRemove(index)}>
           <X size={10} />

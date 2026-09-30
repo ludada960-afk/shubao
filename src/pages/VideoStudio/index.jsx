@@ -240,13 +240,26 @@ function MediaLightbox({ entry, onClose }) {
    此前这里手写了一套 video-media-card（扇形数值靠 CSS 复制），与图片侧是两份实现；
    现在空态仍由本地 label 承载（要触发原生文件选择器），已选态一律交给 MediaAssetCard 渲染，
    重复实现随之删除。判据见 test/media-language-unify-0916.test.mjs。 */
-function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove, inputRef, upload, onRetry, onPreview }) {
+function FilePicker({ accept, icon: Icon, label, files, multiple = false, onChange, onRemove, inputRef, upload, uploadUrl, onRetry, onPreview }) {
   const file = files[0];
   const kind = accept?.startsWith('video') ? 'video' : accept?.startsWith('audio') ? 'audio' : 'image';
   if (file) {
     return <MediaAssetCard
       kind={kind}
-      src={file.previewUrl || file.url || ''}
+      /* ═══ 批 CY-㉜：这里原来只有 `file.previewUrl || file.url` ═══════════════════════════
+         用户 2026-09-30 逐字（首尾帧那张图）：
+           「为什么你现在首帧，尾帧上传出来的图片他们都是没有显示图片的内容呀。
+             现在这张图片它就只是一个卡片而已。」
+         根因：`files.first/last` 存的是 **`<input type=file>` 给的裸 `File` 对象**
+         （`replaceFiles` 直接 `setFiles(current => ({...current, [key]: next}))`，
+           `next` 就是 `Array.from(event.target.files)`）—— 浏览器 `File` 上
+         **既没有 `previewUrl` 也没有 `url`**，所以 src 恒为 '' ⇒ `MediaAssetCard`
+         走「无 src → 只画类型图标」那条分支（MediaAssetCard.jsx:40），于是只剩一个空卡片。
+         对照**能正常显示缩略图**的普通素材那条路（index.jsx:1958）：
+             `item.previewUrl || item.url || uploadFor(item.file)?.asset?.url || ''`
+         —— **第三个来源（上传完成后的资产 URL）正是首尾帧这条路缺的**。
+         ⇒ 这里补上同一个来源；优先级与普通素材那条保持一致。 */
+      src={file.previewUrl || file.url || uploadUrl || ''}
       label={files.length > 1 ? `${label} · ${files.length} 个` : label}
       status={upload?.status === 'uploading' ? 'uploading' : upload?.status === 'error' ? 'error' : 'ready'}
       progress={upload?.progress || 0}
@@ -1915,9 +1928,9 @@ export default function VideoStudioPage({
            · 歪的是**外壳**，所以空态（.video-media-picker）与已选态（MediaAssetCard）
              两种长相都会跟着歪，不会"放上图片以后突然摆正"。 */
       return <div className="video-media-deck is-frame">
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} inputRef={firstFrameInputRef} upload={uploadFor(files.first[0])} onRetry={() => retryUpload(files.first[0], 'image')} />
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传首帧图" files={files.first} onChange={next => replaceFiles('first', next, 1)} onRemove={() => removeFile('first', 0)} inputRef={firstFrameInputRef} upload={uploadFor(files.first[0])} uploadUrl={uploadFor(files.first[0])?.asset?.url || ''} onRetry={() => retryUpload(files.first[0], 'image')} />
         <span className="ec-xhs-multiply" aria-hidden="true">×</span>
-        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} inputRef={lastFrameInputRef} upload={uploadFor(files.last[0])} onRetry={() => retryUpload(files.last[0], 'image')} />
+        <FilePicker accept="image/jpeg,image/png,image/webp" icon={ImagePlus} onPreview={setLightboxEntry} label="上传尾帧图" files={files.last} onChange={next => replaceFiles('last', next, 1)} onRemove={() => removeFile('last', 0)} inputRef={lastFrameInputRef} upload={uploadFor(files.last[0])} uploadUrl={uploadFor(files.last[0])?.asset?.url || ''} onRetry={() => retryUpload(files.last[0], 'image')} />
         <div className="video-media-guidance"><strong>用两张画面定义镜头起点与终点</strong><small>中间动作、运镜和节奏在下方描述。</small></div>
       </div>;
     }

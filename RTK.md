@@ -14792,3 +14792,69 @@ const composerScopeIds = selectedNode
 也同样在并发下超时。**这是这套"全量并发 + 实机浏览器"组合的固有毛刺，值得单开一条：
 实机类用例应当串行、或给更宽的时限。**
 
+<!-- 以下来自被 cherry-pick 的提交（按顺序追加，上文一行未改） -->
+
+## 批 CY-㉜：首尾帧不显示缩略图 + 素材卡冒出英文「ready」（图6② / 图7②）
+
+### 用户 2026-09-30 两条批注
+
+> 「为什么你现在首帧，尾帧上传出来的图片他们都是没有显示图片的内容呀。
+>   现在这张图片它就只是一个卡片而已。你要明白……用户只要上传了任意的素材……
+>   你必须要自己把用户上传的素材显示出来呀。」
+> 「然后你这里为什么会显示一个英文呢？这又是什么 bug 呀？」
+
+### ① 根因：`File` 对象上根本没有这两个字段
+
+`files.first/last` 存的是 `<input type=file>` 给的**裸 `File` 对象**
+（`replaceFiles` 直接把 `Array.from(event.target.files)` 塞进 state），
+而浏览器 `File` 上**既没有 `previewUrl` 也没有 `url`**。
+
+于是 `FilePicker` 里 `src={file.previewUrl || file.url || ''}` **恒为 `''`**，
+`MediaAssetCard` 走「无 src → 只画类型图标」那条分支（`MediaAssetCard.jsx:40`）
+⇒ 用户看到的就剩一个空卡片。
+
+对照**能正常显示缩略图**的普通素材那条路（`index.jsx` 的 `materialEntries` 分支）：
+
+```js
+item.previewUrl || item.url || uploadFor(item.file)?.asset?.url || ''
+```
+
+**缺的正是第三个来源：上传完成后的资产 URL。** ⇒ 给 `FilePicker` 补上同一个来源，
+优先级与普通素材那条保持一致。
+
+⚠️ 同一个文件里 `@` 菜单那条路（`renderVideoMentionItem`）**早就**把三个来源都写了
+（批 CY 修的）—— 也就是说**首尾帧这条是当时漏掉的同类**。本批没动 @ 菜单那条，
+门禁专门钉住它。
+
+### ② 根因：把内部枚举原样渲染出来了
+
+`EcommerceAssetCards.jsx` 原来就一行：
+
+```jsx
+{image.status && <span className="ec-xhs-card-status">{image.status}</span>}
+```
+
+直接渲染 `image.status` 的**原始字符串**，而调用方传的是内部枚举：
+- `VideoStudio/index.jsx` 的 `mediaCardStatus()` → `'ready' | 'uploading' | 'error'`
+- `XhsContentMode.jsx:134/137` → `'loaded'`
+
+两个都是**代码内部用的词**，不是给用户看的文案 ⇒ 角标上就冒出 `ready`。
+改成查表映射，**查不到就整个不渲染**（宁可没有角标，也不要漏一个英文单词给用户）。
+
+### 门禁
+
+`test/media-thumb-and-status-0929.test.mjs`（**6 条**）：
+① 首尾帧两处都要传 `uploadUrl`、签名要声明它
+② **普通素材那条能用的路径必须原样保留**（别把好的改坏）
+③ 不得再出现 `{image.status}` ④ 未知状态整个不渲染
+⑤ `STATUS_LABEL` 覆盖各调用方真实取值**且全是中文**
+⑥ `@` 菜单那条路的判据不得被动（防止有人以为「首尾帧没缩略图」就把它也改了）
+
+⚠️ 写这条门禁时**又踩了同一个坑**：`doesNotMatch(/\{image\.status\}/)` 匹配到了
+**我自己写的注释里那句原文**（「根因就在下面那一行：`{image.status}`」）⇒
+这已是本会话第三次「断言撞上自己的注释」。已在测试顶部统一剥注释。
+另一条是漏写了 `export` 关键字，测试跑红才发现。
+
+### 验证
+
+全量 `npm test` **4465 条 / 4455 通过 / 10 跳过 / 0 失败** ✅
