@@ -627,7 +627,19 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
 .video-mode-grid span { color: #2d2925; font-size: 13px; font-weight: 800; }
 .video-mode-grid small { color: #8e8780; font-size: 11px; line-height: 1.45; }
 
-.video-panel-section { display: grid; gap: 10px; }
+/* 批 CY-㊴（2026-09-30）：gap 10 → **12**，对齐到仓库自己的间距阶梯。
+   用户原话：「首页两个板块的生成配置面板，你自己看一下他们的标题间距……
+     你自己去好好调整一下吧。」
+   实机量出来的差值（1600×1000、真浏览器）：
+     视频侧（GroupTitle + 本行 gap）                 标题↔内容 = **10px**
+     图片侧（.visual-panel-section-heading margin）   标题↔内容 = **12px**
+   其余逐值相同：文字 14/800/lh19.6、颜色 var(--sb-ink-1)、图标 14×14 同色、图标↔文字 4px。
+   ⇒ 只差这一处 2px。
+   **为什么是改视频侧而不是图片侧**：`panelVisualLanguage.js` 的 SPACING 阶梯里
+   `sp3 = 12`，语义写的正是「分组标题 ↔ 内容」——12px 才是规范值；
+   而 10 **不在 4pt 栅格上**（阶梯只有 4/8/12/16/20/24），是历史遗留的魔法数字。
+   把不合规的那个拉回合规，而不是把合规的那个拉去迁就魔法数字。 */
+.video-panel-section { display: grid; gap: 12px; }
 /* ═══ 2026-09-24 批 BB：分区间距与图片侧同一档（用户批注，逐字）═══════════════════════════════════
    原话：「你整体的样式和标题都要跟图片生成那边的生成配置样式是一样的……很多像间距啊，大小啊，
    样式啊，交互的动效啊，这些东西都完全不一样。」图片侧 `.visual-config-panel-body` 是
