@@ -15215,3 +15215,44 @@ promptFieldRef.current?.setValue?.('');
 且**每次被 TaskStop 打断都会留下一个孤儿监听**（连杀 4 个 PID 才清干净）。
 最后改成「轮询等端口空出来再跑」才拿到一次干净结果。**这不是代码问题，是共享机器的端口争用。**
 
+
+## 2026-09-30 · 批 CY-㊲（用户 6 张批注 · 图3）生图模型**按厂商归拢**
+
+用户原话（逐字）：
+「你现在的生图模型也排序排的不对呀。你为什么没有把同类型的模型给排在一起呢？
+你现在把**不同厂商的模型都打混乱了**呀。你应该跟**视频生成那边的模型面板一样**，
+就是尽可能的把同样的模型给排在一起。然后这个问题**肯定不只是首页这边存在**。
+你像现在各个 skill 的子页面以及**画布里面的模型选择器**里面肯定也存在同样的问题的。
+你都要去解决掉。」
+
+### 实测（就是他截图里那个顺序）
+改前 `SELECTABLE_IMAGE_MODELS` 的 brand 序列：
+  openai → **gemini** → gemini → **openai** → openai → openai → **gemini** → midjourney
+⇒ GPT Image 2 与它的两个 2.5 变体被 Nano Banana **劈开**，MDKJ 又插在 GPT 家族中间。
+
+### 改法：写在**目录这一层**（`src/services/imageModelCatalog.js`）
+新增 `sortImageModelsByFamily()`，`SELECTABLE_IMAGE_MODELS` 冻结前先过一遍它。
+- 家族键 = `model.brand`（目录里每一档都有）；顺序取**首次出现顺序**，
+  不用写死一张表 ⇒ **加新模型时不必记得同步顺序表**。
+- 同家族内保持目录原序（稳定排序）。
+
+改后：
+  openai ×4：GPT Image 2 / 2.5 Sunburst / 2.5 Flare / MDKJ Super
+  gemini ×3：Nano Banana 2 / Nano Banana Pro / Gemini 3 图像
+  midjourney ×1：Midjourney
+（已用 `.m5-verify-order.mjs` 断言「每个 brand 只出现一段」⇒ 通过）
+
+### 为什么这一处能覆盖用户点名的**三个**地方
+逐个查了消费点（`.m3-consumers.cjs` / `.m4-check-consumer.cjs`），全部读同一个数组：
+  · 首页图片板块      → `ConfigTriggers.jsx` / `ModelOptionRows.jsx`
+  · skill 子页面      → `FieldRenderer.jsx`
+  · **画布模型选择器** → `CanvasStudio.jsx`
+（`VisualCreationMode.jsx` 只用 `.find()` 取当前模型、不渲染列表，不受影响）
+⇒ 三个面板本来就在读同一份清单，**在源头排一次即三处一起对**；
+  若在每个面板里各排一次，早晚会再漂回去。
+
+### 对齐的是视频侧那个实现
+用户点名的「视频生成那边的模型面板」= `videoModelRows.js` 的 `buildVideoModelRows`，
+它按 `family` 归拢（Seedance 一家 / MiniMax 一家 / 通义万相一家…）。
+⚠️ **只排序、不加"家族标题行"**：批 BR-2 已按用户原话把视频侧那种
+   「分类完把名字都当标题再各自做一行」删掉了（「都没必要」）。这次是同一口径。
