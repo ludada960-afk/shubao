@@ -88,10 +88,20 @@
   transition: transform .3s ease;
 }
 .media-case-card-hit:hover .media-case-card-monogram { transform: scale(1.06); }
+/* ═══ 2026-09-30：这颗「案例补充中」原来钉在 `right:10 / bottom:10`，**压在副标题上** ══════════════
+   实测（1440 视口、235 宽的卡）：副标题占 x 422→593，「案例补充中」占 x 538→627 ——
+   **横向压掉约 55px**，读出来是"文案被一团灰字盖住"。
+   根因：两者都想占**卡片右下角**那一块，而那一块已经被 `.media-case-card-caption`
+   （标题 + 副标题 + 箭头，z-index:2）占了。
+   ⇒ 挪到**画面区的正中**（它本来就是一个"这里还没有图"的占位说明，
+     居中比挤在角上更贴它的意思），并给画面区留出底部空间，别压到 caption。
+   ⚠️ 这条与用户 2026-09-30 那句「后续我们把封面给填上去之后，会显得内容会更多更密」
+      是同一件事：**没图的卡现在占着页面，补上封面之后这一块就整个消失了。** */
 .media-case-card-blank-note {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
   display: inline-flex;
   align-items: center;
   gap: 4px;

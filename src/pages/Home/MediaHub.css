@@ -31,13 +31,29 @@
 
 /* ── 顶部快捷筛选页签（照竞品实测结构：图片页 8 档、视频页 4 档）─────────────
    每一档后面那个数字是该档的技能条数 —— 竞品没有，但"这一档里有多少个"是用户
-   决定要不要点进去的第一依据，白给的信息没有理由不写。 */
-.media-hub-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+   决定要不要点进去的第一依据，白给的信息没有理由不写。
+
+   ⚠️ 2026-09-30 用户批注（逐字）：「他们现在整个页面的周边其实都没有多大的间距……
+     你应该相应的去做调整，就是**尽可能像他这样把页面的信息给拉满一些**。」
+     实测差多少（1440 视口）：改前**第一张卡片出现在 y≈278**，
+       知渔是 y≈90 —— 我们在出第一张卡之前先吃掉了约 **190px** 的顶部装饰
+       （大标题 30px + 副标题 + 一排 8 颗筛选药丸 + 各自的上下外边距）。
+     ⇒ 这一块收：标题 30→24、副标题 15→13.5、药丸 10/18→7/13、
+       药丸那行的上下外边距 10/4→6/2、行间距 12→10。
+     ⚠️ 只改**尺寸与间距**，不改结构与文案 —— 顶部那块的信息层次是另一件事，
+        动结构要连带看 e2e 里那几条「顶部标题/副标题/筛选」的断言。 */
+.media-hub { display: grid; gap: 10px; padding: 4px 24px 48px; }
+.media-hub-head h1 { margin: 0 0 3px; font-size: 24px; line-height: 1.15; color: var(--sb-ink-1); }
+.media-hub-head p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--sb-ink-2); }
+.media-hub-empty { margin: 0; padding: 30px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }
+.media-hub-group-note { margin: 2px 0 8px; font-size: 12px; color: var(--sb-ink-3); }
+
+.media-hub-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; }
 .media-hub-tabs button {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 10px 18px; border-radius: var(--sb-radius-pill);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: var(--sb-radius-pill);
   border: 1px solid var(--sb-border-default); background: var(--sb-surface-card);
-  color: var(--sb-ink-2); font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+  color: var(--sb-ink-2); font-size: 13.5px; font-weight: 700; font-family: inherit; cursor: pointer;
   transition: background-color var(--sb-duration-fast) var(--sb-ease-out),
               border-color var(--sb-duration-fast) var(--sb-ease-out),
               color var(--sb-duration-fast) var(--sb-ease-out);
