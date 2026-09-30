@@ -98,6 +98,7 @@ import { markStaleDownstream } from './canvasGraphEngine.js';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
 /* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + 连线@引用合一的纯函数（无入边节点回退旧并集, 与 P0 无图契约逐字节一致）*/
 import { collectRunInputs, instantiateWorkflowTemplate, legacyComposerSourceIds, markP3PendingNodes, mergeGraphMentionSources } from './workflowTemplates.js';
+import { readCanvasVisibleViewport } from './canvasVisibleViewport.js';
 import { migrateMentionsToEdges } from './mentionEdgeMigration.js';
 import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
@@ -1199,6 +1200,15 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
   const focusedNodeIds = hoveredNodeId ? getCanvasFocusIds(hoveredNodeId, connections) : null;
+  /* ═══ 批 CY-㉚：小地图视窗框必须按**真正看得见的**画布尺寸算 ══════════════════════════════
+     详见 `canvasVisibleViewport.js` 顶部的完整事故记录：一句话版是
+     `clientWidth`（1524）是**布局宽**，而右面板是靠 `margin-right`（476）让位的，
+     两者相差 45.4%；改前把布局宽当可见宽喂给了小地图，于是视窗框探进看不见的那块，
+     关掉面板又涨回来 —— 用户报的「右边缩小一点点 / 再多出一点点」。 */
+  const canvasVisibleViewportSize = readCanvasVisibleViewport(
+    containerRef.current,
+    { width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900 },
+  );
   /* ═══ 批 CY-㉙：@ 菜单**不得列出整张画布的图** ════════════════════════════════════════════
      用户 2026-09-30 逐字（电商套图那张）：
        「然后你这里为什么@ 按钮是能生效的呢……他现在能够艾特到一个完全跟当前节点不相关的
@@ -8375,10 +8385,7 @@ const handlePointerUp = useCallback((e) => {
         connections={connections}
         viewport={viewport}
         worldBounds={minimapWorldBounds}
-        viewportSize={{
-          width: containerRef.current?.clientWidth || globalThis.innerWidth || 1440,
-          height: containerRef.current?.clientHeight || globalThis.innerHeight || 900,
-        }}
+        viewportSize={canvasVisibleViewportSize}
         onViewportChange={(v) => setViewport(current => ({ ...current, x: v.x, y: v.y }))}
         onWheelZoom={(deltaY) => {
           const rect = containerRef.current?.getBoundingClientRect();
