@@ -1795,7 +1795,14 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
           （实测：其余四项标题顶 825，技能内容顶 852，差 27px）。
           修法：把技能放进**同一结构**的 <label> 里（标题「技能」在上、控件在下），
           与其余四项共用同一套 label/select 样式，不再单独排版。 */}
-      <label className="ec-canvas-video-field">技能<CanvasSkillControl node={node} onChange={change} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="video" /></label>
+      {/* ═══ 批 CY-㊴（2026-09-30）：去掉外面那层「技能」文字 ═══════
+          用户原话：「而且你这个技能的这个按钮上面怎么还有一个技能呀？」
+          9-17 那批把技能包进 <label> 是为了和另外四项同一结构（标题在上、控件在下），
+          但另外四项是**裸 select**、没有自带标题，而 CanvasSkillControl 的触发器
+          title 本身就是「技能」——于是渲染成「技能 / ⚡ 技能 ▾」，同一个词上下各一份。
+          图片侧（:1019 / :1188）一直是直接渲染控件、没有这层 label，所以只有视频面板中招。
+          ⇒ 与图片侧对齐：控件自带标题与值，这里不再重复写一遍。 */}
+      <CanvasSkillControl node={node} onChange={change} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="video" />
       {/* ═══ 批 CY-㉘：删掉「声音」开关（用户 2026-09-30 逐字：「最右边这个声音你要把它拿掉啊，
           我们现在首页的视频生成都早就没有这个功能了」）。
           删的是**开关**，不是能力：`generateAudio` 缺省仍是 true，
@@ -1805,7 +1812,32 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
     {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>素材分析与生成前方案</strong><small>{plan.analyzed ? '真实素材分析已完成 · 已结算 1 AI 积分' : '补齐输入后进行真实分析'}</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.risks?.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.risks.map((item, index) => <span key={`${item}-${index}`}>风险：{item}</span>)}</div>}{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready || !plan.analyzed} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
     <div className="ec-canvas-composer-footer">
       {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || (estimate ? `${formatCanvasPoints(estimate.points)} 积分 / 次 · 确认方案后扣费` : `生成前方案 ${CANVAS_PLAN_ANALYSIS_POINTS} 积分 · 确认方案后扣费`)}</span>}
-      <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>{planning ? '正在分析素材' : node.planReviewed ? '方案已确认' : analyzedPlan ? '查看生成方案' : `分析并生成方案 · ${CANVAS_PLAN_ANALYSIS_POINTS} 积分`}</button><button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频{estimate && <span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span>}</>}</button></div>
+      <div className="ec-canvas-video-actions">
+        {/* ═══ 批 CY-㊴（2026-09-30）：两个生成按钮改为**互斥**，与首页同一口径 ═══════
+            用户原话：「为什么会有两个生成按钮呢？一个是分析并生成方案，一个是生成视频。
+              你首页那边生成视频的这个板块明明只有一个按钮呀。」
+            改前：两个按钮**无条件同时渲染**，第二个只是被 disabled 置灰 ——
+            用户看到的是「两个都摆在那儿，其中一个点不动」，读出来的就是「有两个生成按钮」，
+            而且置灰按钮不解释为什么灰（他没确认方案），用户只会当成坏了。
+            首页（VideoStudio/index.jsx:2569）早就是互斥的：
+              未确认方案 → 只有「分析并生成方案」
+              已确认方案 → 「查看方案」（次）+「开始生成」（主）
+            ⇒ 这里照首页同一口径改：**任何时刻只有一个主按钮**。
+                右侧那个「生成视频」在没有已确认方案时压根不渲染（不是置灰）。 ═══ */}
+        {!node.planReviewed
+          ? <button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>
+            {planning ? '正在分析素材' : analyzedPlan ? '查看生成方案' : `分析并生成方案 · ${CANVAS_PLAN_ANALYSIS_POINTS} 积分`}
+          </button>
+          : <>
+            <button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>
+              {planning ? '正在分析素材' : analyzedPlan ? '查看生成方案' : '方案已确认'}
+            </button>
+            <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
+              {loading ? '生成中' : <><Clapperboard size={15} />开始生成{estimate && <span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span>}</>}
+            </button>
+          </>
+        }
+      </div>
     </div>
 
   </section>;
