@@ -3,7 +3,7 @@
    同源：图片 = generationUnits(模型, 清晰度) × 张数；文案 = ec_ai_assistant(200 单位) = 0.2 积分；
    套图 = 首页 resolveSizingImages 的整套张数 × 单价；视频 = 产品报价的 short / long 档。
    这里只做「报价展示」，真正扣费仍由后端一次性结算（失败自动退回），前端不得自行定价。 */
-import { generationUnits, normalizeImageModel, IMAGE_MODELS } from '../../services/imageModelCatalog.js';
+import { generationUnits, normalizeImageModel, IMAGE_MODELS, DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 import { resolveSizingImages } from '../Home/ec/ecommercePlanModel.js';
 
 const UNITS_PER_POINT = 1000;
@@ -57,7 +57,7 @@ export function canvasValidSkuCount(skus) {
 }
 
 /* 套图框：与首页 planPoints 完全同源（整套张数不能退化成 1 张；SKU 变体计入张数） */
-export function estimateSuiteComposerPoints({ platform = 'smart', sizing = {}, resolution = '2K', imageModel = 'image2', skus = [] } = {}) {
+export function estimateSuiteComposerPoints({ platform = 'smart', sizing = {}, resolution = '2K', imageModel = DEFAULT_IMAGE_MODEL, skus = [] } = {}) {
   const normalizedResolution = String(resolution || '2K').toUpperCase();
   const planned = resolveSizingImages(platform, { ...(sizing || {}), resolution: normalizedResolution });
   const fallback = Array.isArray(sizing?.images) ? sizing.images : [];

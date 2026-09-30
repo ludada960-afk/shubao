@@ -60,9 +60,27 @@ export const IMAGE_MODELS = Object.freeze([
  *  pending 机制保留：将来要临时下线某档，给它加回 pending 标记即可，前后端都不用改。 */
 export const SELECTABLE_IMAGE_MODELS = Object.freeze(IMAGE_MODELS.filter(model => model.pending !== true));
 
+/* ═══ 2026-09-30 用户 2026-09-30 拍板：**全局默认模型换成 GPT Image 2.5 Sunburst** ═══════════════════
+   原话：「把默认都换成 2.5 吧，**这是长期比较好的做法**，你可以全局去调整这个事情。」
+
+   选 **Sunburst** 而不是 Flare 的理由：两档**同价**（1K/2K 都 1500、4K 都 2000），
+   Sunburst 的定位是「旗舰 / 画质与指令理解更强」，Flare 是「极速 / 日常批量」。
+   默认档要给用户**案例那样的效果**，所以取旗舰那一档。
+
+   ⚠️ 这个常量**放在目录这一层**，因为：
+     · 它是全站唯一的默认真源（首页、各子页面、画布、估算、报价、服务端兜底都指它）；
+     · `imageModelCatalog.js` 不 import 任何东西 ⇒ 放这里不会造出循环依赖
+       （`skillRun.js` / `imageSkills.js` / `api.js` 都已经是它的下游）。
+   ⚠️ **代价（用户已知情）**：1K/2K 档从 1 积分涨到 1.5 积分（+50%）；
+     **4K 档不变**（2 积分，2 与 2.5 同价）。
+   ⚠️ **不要动的是"provider 键"**：`provider: 'image2'` 指的是**上游适配器**，
+     2.5 走的是同一个适配器（`generationBillingSku` 里 `image2-5-sunburst` → `ec_image25_*`），
+     改 provider 会打断路由。 */
+export const DEFAULT_IMAGE_MODEL = 'image2-5-sunburst';
+
 const IDS = new Set(['smart', ...IMAGE_MODELS.map(model => model.id)]);
 
-export function normalizeImageModel(value, fallback = 'image2') {
+export function normalizeImageModel(value, fallback = DEFAULT_IMAGE_MODEL) {
   const normalized = String(value || '').trim().toLowerCase();
   return IDS.has(normalized) ? normalized : fallback;
 }
@@ -73,10 +91,14 @@ export function imageModelResolutions(value) {
   return Array.isArray(model?.resolutions) && model.resolutions.length ? [...model.resolutions] : ['1K', '2K', '4K'];
 }
 
+/** 兜底文案也跟着默认档走（原来写死「GPT Image 2」，换默认后会自相矛盾）。 */
+const DEFAULT_IMAGE_MODEL_LABEL =
+  (IMAGE_MODELS.find(model => model.id === DEFAULT_IMAGE_MODEL) || {}).label || 'GPT Image 2.5 Sunburst';
+
 export function imageModelLabel(value) {
   const id = normalizeImageModel(value);
   if (id === 'smart') return '智能推荐';
-  return IMAGE_MODELS.find(model => model.id === id)?.label || 'GPT Image 2';
+  return IMAGE_MODELS.find(model => model.id === id)?.label || DEFAULT_IMAGE_MODEL_LABEL;
 }
 
 export function generationBillingSku(imageModel, resolution = '2K') {

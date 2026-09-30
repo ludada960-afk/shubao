@@ -18,7 +18,7 @@
 
    ⚠️ 本文件是纯函数：不碰 DOM、不发请求，便于门禁直接断言。 */
 
-import { generationUnits, imageModelResolutions, normalizeImageModel } from '../services/imageModelCatalog.js';
+import { generationUnits, imageModelResolutions, normalizeImageModel, DEFAULT_IMAGE_MODEL } from '../services/imageModelCatalog.js';
 /* 套图方案（张数 / 各图比例 / 报价请求）**只有这一份实现**：面板、画布、首页都用它。
    我们要就地跑套图，就必须用同一份 —— 自己另算一套张数会和服务端的方案对不上，
    而服务端在建 hold 之前会校验报价（数量对不上直接报错），对不上就是白跑一趟。 */
@@ -27,8 +27,14 @@ import { resolveEcommercePlan } from '../pages/Home/ec/ecommercePlanModel.js';
 /* 服务端唯一认得的四个视觉方向（server/visualCreationSkills.mjs:1） */
 export const SERVER_VISUAL_SKILL_IDS = Object.freeze(['free', 'poster', 'social-cover', 'brand-kv']);
 
-/* 唯一有真实出图记录的图片模型。换掉它之前，先拿出新的出图证据。 */
-export const DEFAULT_IMAGE_MODEL = 'image2';
+/* 全站默认图片模型。**真源在 `services/imageModelCatalog.js`**（2026-09-30 起：
+   用户拍板「把默认都换成 2.5，这是长期比较好的做法」）—— 这里只做**再导出**，
+   免得几十个 import 点各改一遍、也免得两处常量将来走岔。
+   ⚠️ 历史：这一行原来写死 `image2`，理由是"唯一有真实出图记录的模型"。
+     那个理由 2026-09-30 不再成立 —— `image2-5-sunburst` 早在 9-13 就接通了
+     （上游 `gpt-image-2.5-sunburst-*`、计费 SKU `ec_image25_sunburst_*` 齐全，
+     一直可选，只是没当默认）。 */
+export { DEFAULT_IMAGE_MODEL };
 export const DEFAULT_RESOLUTION = '2K';
 
 /* 字段 key → 服务端 ratio 的合法值（服务端不认的写法在这里就拦住，不让它静默回落） */

@@ -1,3 +1,4 @@
+import { DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 const PRODUCT_SOURCE_PATTERN = /白底|透明|png|去背|抠图/i;
 
 function cleanText(value) {
@@ -83,7 +84,7 @@ export function buildGalleryRemixCheckpoint(item = {}) {
           panelValues: replay.panelValues && typeof replay.panelValues === 'object' ? { ...replay.panelValues } : {},
           text: cleanText(replay.originalPrompt || replay.prompt || item.prompt) || title,
           prompt: cleanText(replay.prompt || item.prompt) || title,
-          imageModel: cleanText(replay.imageModel || item.imageModel) || 'image2',
+          imageModel: cleanText(replay.imageModel || item.imageModel) || DEFAULT_IMAGE_MODEL,
           ratio: cleanText(replay.ratio || item.ratio) || '1:1',
           resolution: cleanText(replay.resolution || item.resolution) || '2K',
           referenceAssets: Array.isArray(item.referenceAssets) ? item.referenceAssets : (Array.isArray(replay.referenceAssets) ? replay.referenceAssets : []),

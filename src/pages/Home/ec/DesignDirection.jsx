@@ -45,6 +45,7 @@ import {
   getDirectionExecutionGuide,
 } from './components/directionUiModel.js';
 import { normalizeCommerceContext } from './internationalCommerceRegistry.js';
+import { DEFAULT_IMAGE_MODEL } from '../../../services/imageModelCatalog.js';
 
 function normalizeDirectionImages(images = []) {
   const seen = new Set();
@@ -214,7 +215,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     platform: commerceContext.platform,
     sizing: { ...effectiveSizing, contentType: commerceContext.contentType },
     resolution: params?.genSettings?.resolution || '2K',
-    imageModel: params?.genSettings?.imageModel || 'image2',
+    imageModel: params?.genSettings?.imageModel || DEFAULT_IMAGE_MODEL,
     skus: params?.skus || [],
   }), [commerceContext.contentType, commerceContext.platform, params?.genSettings?.imageModel, params?.genSettings?.resolution, params?.sizing, params?.skus]);
   const quoteText = formatEcommerceQuote({
@@ -609,7 +610,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
           ...effectiveSizing,
           contentType: commerceContext.contentType,
           resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
-          imageModel: params?.genSettings?.imageModel || params?.sizing?.imageModel || 'image2',
+          imageModel: params?.genSettings?.imageModel || params?.sizing?.imageModel || DEFAULT_IMAGE_MODEL,
         },
         skus: params?.skus || [],
         customColors: params?.customColors || [],
@@ -767,7 +768,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
             ...(params?.sizing || {}),
             contentType: commerceContext.contentType,
             resolution: params?.genSettings?.resolution || params?.sizing?.resolution || '2K',
-            imageModel: params?.genSettings?.imageModel || params?.sizing?.imageModel || 'image2',
+            imageModel: params?.genSettings?.imageModel || params?.sizing?.imageModel || DEFAULT_IMAGE_MODEL,
           },
           skus: params?.skus || [],
           customColors: params?.customColors || [],

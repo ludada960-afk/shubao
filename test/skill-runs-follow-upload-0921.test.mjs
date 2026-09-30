@@ -10,6 +10,7 @@ import {
   skillPointsEstimate,
   skillRunsFollow,
 } from '../src/skills/skillRun.js';
+import { generationUnits, DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 
 /* ═══ 「上传几张就出几张」的接线门禁（2026-09-21，用户第 22 轮）════════════════════════════
    用户原话（逐字）：
@@ -55,10 +56,12 @@ test('② 张数 = 参考图张数（0 张 → 1 张，3 张 → 3 张；不是�
   assert.equal(countOf(2), 2);
   assert.equal(countOf(3), 3, '用户原话：上传 3 张就复刻 3 张');
   assert.equal(countOf(20), 20, '上限跟着那一格自己的 maxImages 走（他们那一格是 0/20）');
-  /* 报价与张数同源：3 张 = 3 × image2 2K 单价（1 积分） */
+  /* 报价与张数同源。⚠️ 2026-09-30 换默认模型后单价从 1 积分变成 1.5（2.5 Sunburst @2K），
+     3 张因此是 **4.5** 积分。这里从计费表取默认档单价，换默认时自动跟着走。 */
+  const unit = generationUnits(DEFAULT_IMAGE_MODEL, '2K') / 1000;
   const points = skillPointsEstimate(skill, { reference: products(1), source: refs(3) });
-  assert.equal(points, 3, '按钮上的积分必须按张数算（点之前就看得到要花多少）');
-  assert.equal(skillPointsEstimate(skill, { reference: products(1), source: refs(1) }), 1);
+  assert.equal(points, Number((unit * 3).toFixed(2)), '按钮上的积分必须按张数算（点之前就看得到要花多少）');
+  assert.equal(skillPointsEstimate(skill, { reference: products(1), source: refs(1) }), unit);
   /* 没声明的技能一个字不变：张数仍走自己的 count 控件 */
   const other = getImageSkill('image.style_swap');
   assert.equal(skillGenerationSettings(other, { assets: products(1) }).count, 1);

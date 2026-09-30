@@ -27,7 +27,7 @@ import {
 
 import { useApp } from '../../store/AppContext';
 import { proxyImg, uploadEcommerceAssets, regenerateCanvasImage, saveWork } from '../../services/api';
-import { IMAGE_MODELS, imageModelResolutions } from '../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, imageModelResolutions, DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
 import { insertImageMentionAt } from '../../components/creation/imageMentionModel.js';
@@ -382,7 +382,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
   /* 9-13 二轮批注：跟小红书图文一致，上传区拆成「我的素材 ≤6」与「风格参考 ≤3」两个桶 */
   const [materials, setMaterials] = useState([]);
   const [styles, setStyles] = useState([]);
-  const [imageModel, setImageModel] = useState('image2');
+  const [imageModel, setImageModel] = useState(DEFAULT_IMAGE_MODEL);
   /* ⚠️ 2026-09-29 批 DC 续-8：默认档 **1:1 → 自适应**（用户逐字：「首页的生图模型配置啊……
      自适应应该是它默认的一个选项呀」）。⚠️ 自适应是**选项不是尺寸**：它不进 IMAGE_RATIOS，
      选中后由 resolveProtocolRatio 按上传图实际宽高现算出一个具体比例再发（本文件 :714 那处）。
@@ -525,7 +525,7 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
     setSkillId(nextSkill.id);
     restoreRatioRef.current = true;
     setPrompt(String(snapshot.prompt || snapshot.text || '').slice(0, 3000));
-    setImageModel(snapshot.imageModel || 'image2');
+    setImageModel(snapshot.imageModel || DEFAULT_IMAGE_MODEL);
     setRatio(resolveVisualSkillRatio(nextSkill.id, snapshot.ratio || HOME_ADAPTIVE_RATIO));
     setResolution(snapshot.resolution || '2K');
     if (snapshot.skillControl) {

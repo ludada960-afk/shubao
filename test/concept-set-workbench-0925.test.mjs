@@ -250,16 +250,19 @@ test('⑩ 模型选择：8 档来自目录、默认 GPT Image 2，价格随模�
   assert.ok(field, '缺「模型选择」这一格');
   assert.equal(field.kind, 'select', '模型是长清单，用下拉（不新造控件）');
   assert.equal(field.required, true, '它是必填（有默认值，不会卡 CTA）');
-  assert.equal(field.default, 'image2', '默认仍是 GPT Image 2（通用主力 + 全场最便宜的那一档）');
+  assert.equal(field.default, 'image2-5-sunburst',
+    '默认 = GPT Image 2.5 Sunburst（用户 2026-09-30 拍板全局换 2.5）');
   assert.ok(field.options.some(option => option.value === 'image2-5-sunburst'), '2.5 旗舰（Sunburst）必须在场');
   assert.ok(field.options.some(option => option.value === 'image2-5-flare'), '2.5 极速（Flare）必须在场');
   assert.equal(field.options.length, 8, '选项 = 目录里的全部可选拍档（不许手写第二份名单）');
   /* 价格随模型走：skillPointsEstimate 读的就是 settings.imageModel（与 CTA 同一份） */
   const base = { ...initialSkillValues(skill), count: 1 };
-  const gpt2 = skillPointsEstimate(skill, base);
-  const sunburst = skillPointsEstimate(skill, { ...base, imageModel: 'image2-5-sunburst' });
+  const gpt2 = skillPointsEstimate(skill, { ...base, imageModel: 'image2' });
+  const sunburst = skillPointsEstimate(skill, base);
   assert.equal(gpt2, 1, 'GPT Image 2 @2K = 1 积分/张');
-  assert.equal(sunburst, 1.5, '2.5 Sunburst @2K = 1.5 积分/张（目录价，按钮上的数自动跟着变）');
+  assert.equal(sunburst, 1.5,
+    '**默认档**（2.5 Sunburst）@2K = 1.5 积分/张 —— 2026-09-30 换默认后，'
+    + '不选模型的这一档就按 1.5 报价（目录价，按钮上的数自动跟着变）');
   /* 分辨率随模型夹取：Midjourney 只有 1K/2K —— optionsFrom 指向目录那张映射表 */
   const clarity = skill.fields.find(item => item.key === 'clarity');
   assert.deepEqual(clarity.optionsFrom, { key: 'imageModel', map: { midjourney: ['1K', '2K'] } },

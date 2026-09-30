@@ -19,6 +19,7 @@ import {
   skillPointsEstimate,
   validateSkillInput,
 } from '../src/skills/skillRun.js';
+import { generationUnits, imageModelResolutions } from '../src/services/imageModelCatalog.js';
 
 /* ═══ Skill 运行契约（2026-09-17）═══════════════════════════════════════════════
    这一条守的是「工作台能不能真的出图」：字段 → 引擎参数 的翻译必须唯一、合法、可断言。
@@ -117,7 +118,18 @@ test('⑥ 生成参数：非法值在前端就被拦住，不许靠服务端静�
   assert.equal(legal.resolution, '2K');
   assert.equal(legal.count, 3);
   assert.equal(legal.imageModel, DEFAULT_IMAGE_MODEL);
-  assert.equal(DEFAULT_IMAGE_MODEL, 'image2', '只有 image2 有真实出图记录，换它要先拿出证据');
+  /* ⚠️ 2026-09-30 换默认（用户拍板：「把默认都换成 2.5，这是长期比较好的做法」）。
+     这一条原来守的是"只有 image2 有真实出图记录，换它要先拿出证据"——**证据已经在了**：
+       · `image2-5-sunburst` 早在 2026-09-13 就接通上线（用户自己在线上跑真实生成验收）；
+       · 上游路由 `gpt-image-2.5-sunburst-*`、计费 SKU `ec_image25_sunburst_{1k,2k,4k}` 齐全；
+       · 1K/2K/4K 三档都支持（`imageModelResolutions('image2-5-sunburst')` = 1K/2K/4K），
+         换默认**没有**带来任何清晰度档位的缺失。
+     ⇒ 下面两条改成守"换默认之后仍然自洽"：默认必须可计费、且支持全三档。 */
+  assert.equal(DEFAULT_IMAGE_MODEL, 'image2-5-sunburst', '全局默认 = GPT Image 2.5 Sunburst');
+  assert.equal(generationUnits(DEFAULT_IMAGE_MODEL, '2K'), 1500,
+    '默认档必须能被计费表查到单价（查不到 = 报价那一格会空）');
+  assert.deepEqual(imageModelResolutions(DEFAULT_IMAGE_MODEL), ['1K', '2K', '4K'],
+    '默认档必须支持全三档（否则换默认会悄悄砍掉一档清晰度）');
   assert.equal(legal.visualSkillId, 'free');
   /* 非法比例/清晰度：回落到合法默认，而不是把 '21:9x' 这种值发给服务端 */
   const bad = skillGenerationSettings(skill, { ratio: '21:9x', clarity: '8K', count: 99 });
@@ -132,11 +144,17 @@ test('⑥ 生成参数：非法值在前端就被拦住，不许靠服务端静�
   assert.equal(bad.count, 16, '数量必须夹在 1..16');
 });
 
-test('⑦ 积分预估与后端单价同源（image2 2K 单张 = 1 积分）', () => {
+test('⑦ 积分预估与后端单价同源（按**默认档**的单价算，不写死数字）', () => {
   const skill = getImageSkill('image.white_bg');
-  assert.equal(skillPointsEstimate(skill, { clarity: '2K', count: 1 }), 1);
-  assert.equal(skillPointsEstimate(skill, { clarity: '4K', count: 1 }), 2);
-  assert.equal(skillPointsEstimate(skill, { clarity: '2K', count: 3 }), 3);
+  /* ⚠️ 2026-09-30：默认档从 image2 换成了 2.5 Sunburst（2K = 1.5 积分）。
+     这条原来把 1/2/3 写死 —— 换默认之后必然对不上。
+     ⇒ 改成从计费表取默认档的单价，**换默认时这条门禁自动跟着走**。 */
+  const perK = generationUnits(DEFAULT_IMAGE_MODEL, '2K') / 1000;
+  const per4K = generationUnits(DEFAULT_IMAGE_MODEL, '4K') / 1000;
+  assert.ok(perK > 0 && per4K > 0, '自证：默认档 2K/4K 的单价都要能算出来');
+  assert.equal(skillPointsEstimate(skill, { clarity: '2K', count: 1 }), perK);
+  assert.equal(skillPointsEstimate(skill, { clarity: '4K', count: 1 }), per4K);
+  assert.equal(skillPointsEstimate(skill, { clarity: '2K', count: 3 }), Number((perK * 3).toFixed(2)));
 });
 
 test('⑧ 必填校验能指出缺哪一项（给工作台做就近错误）', () => {

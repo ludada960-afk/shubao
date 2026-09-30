@@ -31,7 +31,9 @@ import { VIDEO_SKILLS } from '../src/skills/videoSkills.js';
 import { nearestLegalRatio, skillVideoMode } from '../src/skills/skillRun.js';
 /* 模型白名单**从目录里来**（批 R）：页面上能选的每一档，都是请求里允许出现的那几档。
    手抄一份 ['image2'] 会在目录加档时变成"页面能选、请求判非法"的假红。 */
-import { SELECTABLE_IMAGE_MODELS, generationUnits } from '../src/services/imageModelCatalog.js';
+/* 2026-09-30：默认档从 image2 换成 2.5 Sunburst（用户拍板「把默认都换成 2.5」），
+   端到端里凡是"请求应该带默认模型"的地方一律取 `DEFAULT_IMAGE_MODEL`，不再写死字符串。 */
+import { SELECTABLE_IMAGE_MODELS, generationUnits, DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 /* 批 DC 续-7：按钮上的清单多了一项「文案 0.5」，端到端要拿它跟**目录里的价**逐字比 ——
    同样不许手抄一个 0.5（目录改价就会变成"页面写一个数、真扣另一个数"）。 */
 import { CONCEPT_COPY_POINTS } from '../src/services/conceptCopy.js';
@@ -503,7 +505,12 @@ try {
   });
   check(gate.hint.trim().length > 0 && uploadLabel && gate.hint.includes(uploadLabel),
     '禁用原因就写在按钮旁，且点名缺的是哪个字段', gate.hint + ' | label=' + uploadLabel);
-  check(gate.points.includes('1'), '积分按后端单价预估（image2 2K = 1 积分）', gate.points);
+  /* ⚠️ 2026-09-30 换默认模型后单价从 1 积分变成 1.5（2.5 Sunburst @2K）。
+     原来写死 `includes('1')` —— 换默认之后它恰好还可能"碰巧"命中（1.5 里含 1），
+     那是**假绿**。改成从计费表取默认档单价。 */
+  const defaultUnit = generationUnits(DEFAULT_IMAGE_MODEL, '2K') / 1000;
+  check(gate.points.includes(String(defaultUnit)),
+    '积分按后端单价预估（默认档 ' + DEFAULT_IMAGE_MODEL + ' 2K = ' + defaultUnit + ' 积分）', gate.points);
   /* ⚠️ 2026-09-29 批 DC 续-8：默认档从 1:1 改成**自适应**（用户逐字：「自适应应该是它默认的一个选项呀」，
      「除非像这个概念视觉方案这里……那这个 3:4 就可以成为它的默认选项」）。
      判据从"钉死 1:1"改成"**等于这条技能自己声明的默认档**" —— 后者才是意图（不逼用户把每个必填都点一遍），
@@ -563,7 +570,8 @@ try {
   check(!!expectedRatio && body.ratio === expectedRatio && body.ratio !== '自适应' && body.resolution === '2K',
     '比例/清晰度取声明默认值（自适应要先解析成真实尺寸，且绝不许原样下发）',
     body.ratio + ' / 期望=' + expectedRatio + ' / 实测盒=' + JSON.stringify(primaryBox) + ' / 清晰度=' + body.resolution);
-  check(body.image_model === 'image2', '模型是唯一有出图记录的 image2', String(body.image_model));
+  check(body.image_model === DEFAULT_IMAGE_MODEL,
+    '模型走的是全局默认档（2026-09-30 起 = 2.5 Sunburst）', String(body.image_model));
   /* ⚠️ 2026-09-23 批 AB：原来这里写死 `skill_id === 'free'`（那是已下架的 image.free 的视觉模式）。
      判据是「**creation_intent / skill_id 必须落在服务端白名单里**」，不是"必须等于某个词" ——
      所以改成：与声明源里这条技能的 `visual` 一致，且**用服务端自己的 normalizeVisualSkillId
@@ -2121,11 +2129,14 @@ try {
   /* ⚠️ 批 R：判据从"所有请求都用 image2"升级成**"页面显示什么模型，请求就发什么模型"**——
      旧判据是"模型写死"时代的产物；现在有「模型选择」的页面上用户能换档，
      真正要咬的是"显示的和跑的是同一个"（本项目铁律：不许"看着是 A、跑的是 B"）。
-     没有这一格的技能仍然必须是默认档 image2。 */
-  const wrongModel = generated.filter(row => row.sent.image_model !== (row.modelShown || 'image2'));
-  check(wrongModel.length === 0, '请求里的模型与页面上选中的那一档一致（没有这一格的技能用默认 image2）',
-    wrongModel.map(row => row.id + '：显示 ' + (row.modelShown || 'image2') + ' 发了 ' + row.sent.image_model).join(' ｜ ').slice(0, 300));
-  check(generated.some(row => row.modelShown && row.modelShown !== 'image2'),
+     没有这一格的技能仍然必须是**默认档**。
+     ⚠️ 2026-09-30：默认档从 image2 换成 **2.5 Sunburst**（用户拍板「把默认都换成 2.5」），
+     这三处原来写死 'image2' ⇒ 换默认之后必然对不上，且报错指不到真正原因。
+     ⇒ 改成从目录取默认（DEFAULT_IMAGE_MODEL）。 */
+  const wrongModel = generated.filter(row => row.sent.image_model !== (row.modelShown || DEFAULT_IMAGE_MODEL));
+  check(wrongModel.length === 0, '请求里的模型与页面上选中的那一档一致（没有这一格的技能用默认档）',
+    wrongModel.map(row => row.id + '：显示 ' + (row.modelShown || DEFAULT_IMAGE_MODEL) + ' 发了 ' + row.sent.image_model).join(' ｜ ').slice(0, 300));
+  check(generated.some(row => row.modelShown && row.modelShown !== DEFAULT_IMAGE_MODEL),
     '扫描里真的覆盖到了"换成别的模型"的技能（否则这条断言是空转）',
     generated.filter(row => row.modelShown).map(row => row.id + '=' + row.modelShown).join(','));
   check(sweepRows.filter(row => row.suite).length === 1, '套图那条仍然按套报价（没有掉进单图分支）');
@@ -2230,7 +2241,11 @@ try {
   await page.fill('textarea[id="field-product"]', '白色陶瓷杯，350ml，家用').catch(() => {});
   await page.waitForTimeout(400);
   const points3 = await page.evaluate(() => (document.querySelector('.media-workbench-points')?.textContent || '').trim());
-  check(/3\s*积分/.test(points3), '参考图 3 张 → 按钮上就是 3 积分（按张报价，点之前看得到）', points3);
+  /* ⚠️ 2026-09-30 换默认模型后单价 1 → 1.5 积分，3 张因此是 **4.5** 积分。
+     原来写死 /3\s*积分/ —— 换默认之后必然对不上。改成从计费表算。 */
+  const expect3 = generationUnits(DEFAULT_IMAGE_MODEL, '2K') / 1000 * 3;
+  check(new RegExp(String(expect3).replace('.', '\\.') + '\\s*积分').test(points3),
+    '参考图 3 张 → 按钮上就是 ' + expect3 + ' 积分（按张报价，点之前看得到）', points3);
   const before3 = calls.regenerate.length;
   await clickGenerate();
   await page.waitForFunction(count => document.querySelectorAll('.media-run-slot img').length >= count, 3, { timeout: 30000 }).catch(() => {});

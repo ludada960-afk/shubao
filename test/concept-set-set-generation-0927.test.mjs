@@ -39,7 +39,7 @@ import {
   updateVisualRunSlot,
   visualRetryIndexes,
 } from '../src/pages/Home/visualCreationModel.js';
-import { generationUnits } from '../src/services/imageModelCatalog.js';
+import { generationUnits, DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = relative => readFileSync(join(ROOT, relative), 'utf8');
@@ -137,8 +137,12 @@ test('① 勾 3 种手法 → 发 3 张请求，且每一张只带自己那一�
 });
 
 test('② 报价 = 单价 × 张数（按钮上写的就是这个数）', () => {
-  const unit = generationUnits('image2', '2K') / 1000;
-  assert.ok(unit > 0, '自证前提：2K 的单价必须能算出来，实际 ' + unit);
+  /* ⚠️ 2026-09-30：单价这一项**跟着默认模型走**（默认已换成 2.5 Sunburst，2K = 1.5 积分）。
+     原来这里写死 `generationUnits('image2', '2K')` —— 换默认之后它会拿 image2 的价
+     去对比 2.5 的报价，必然对不上，而且报错信息完全指不到真正的原因。
+     ⇒ 改成从**默认档**取价：换默认时这条门禁自动跟着走，不用再改一次。 */
+  const unit = generationUnits(DEFAULT_IMAGE_MODEL, '2K') / 1000;
+  assert.ok(unit > 0, '自证前提：默认档 2K 的单价必须能算出来，实际 ' + unit);
   const one = skillPointsEstimate(skill, valuesWithShots(['概念静物']));
   const three = skillPointsEstimate(skill, valuesWithShots(['概念静物', '平铺集合', '材质静物']));
   const seven = skillPointsEstimate(skill, valuesWithShots(skill.modules.slice(0, 7).map(module => module.name)));

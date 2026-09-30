@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions } from '../../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions, DEFAULT_IMAGE_MODEL } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
 import {
   AlignCenter,
@@ -946,7 +946,7 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   const open = activeSurface.startsWith('parameter:') ? activeSurface.slice('parameter:'.length) : '';
   const ratio = node?.ratio || '1:1';
   const resolution = node?.resolution || '2K';
-  const imageModel = node?.imageModel || 'image2';
+  const imageModel = node?.imageModel || DEFAULT_IMAGE_MODEL;
   const count = Number(node?.count) || countOptions[0] || 1;
   const toggle = key => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `parameter:${key}`));
   /* 9-17（图6）：「张开的面板必须居中于按钮的正上方」+ 必须真的能张开（portal 脱离裁剪） */
@@ -1078,7 +1078,7 @@ function suiteConfiguration(node = {}) {
     sizing: { ...defaults.sizing, ...(value.sizing || {}) },
     productParams: { ...defaults.productParams, ...(value.productParams || {}) },
     copywriting: { ...defaults.copywriting, ...(value.copywriting || {}) },
-    genSettings: { ...defaults.genSettings, ...(value.genSettings || {}), resolution: value.genSettings?.resolution || node.resolution || '2K', imageModel: value.genSettings?.imageModel || node.imageModel || 'image2' },
+    genSettings: { ...defaults.genSettings, ...(value.genSettings || {}), resolution: value.genSettings?.resolution || node.resolution || '2K', imageModel: value.genSettings?.imageModel || node.imageModel || DEFAULT_IMAGE_MODEL },
   };
 }
 
@@ -1209,7 +1209,7 @@ function CanvasSuiteSettingsControl({ node, onChange, activeSurface = '', onSurf
   const configuration = suiteConfiguration(node);
   const activePanel = activeSurface.startsWith('suite:') ? activeSurface.slice('suite:'.length) : '';
   const [anchorRef, anchor] = useCanvasPopoverAnchor(activePanel === 'settings' ? 'settings' : '');
-  const suiteModel = configuration.genSettings?.imageModel || 'image2';
+  const suiteModel = configuration.genSettings?.imageModel || DEFAULT_IMAGE_MODEL;
   return <div className="ec-canvas-suite-settings-control">
     <CanvasConfigTrigger
       surface="suite-settings"

@@ -196,6 +196,7 @@ import {
 } from './canvasVisualLanguage.js';
 /* 2026-09-17 三层权威性排序（硬约束 > 产出结构 > 内容意图 > 设计方案）—— 唯一规则实现。 */
 import { applyPlanToConfiguration, resolvePromptAuthority } from './canvasPromptAuthority.js';
+import { DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
 
 /* 添加菜单的尺寸 —— 用于 `resolveAnchoredRight` 算「放不放得下」。
@@ -3267,7 +3268,7 @@ const handlePointerUp = useCallback((e) => {
       const settled = await Promise.allSettled(pendingOutputIndexes.map(index => {
         const ratio = node.inputs?.ratio || source.ratio;
         const resolution = node.inputs?.resolution || source.resolution || '2K';
-        const imageModel = node.inputs?.imageModel || source.imageModel || 'image2';
+        const imageModel = node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL;
         return regenerateCanvasImage({
           prompt,
           imageUrl: sourceUrl,
@@ -3425,9 +3426,9 @@ const handlePointerUp = useCallback((e) => {
         url = data.result_url || data.url || '';
         resultGeometry = canvasImageResultGeometry(data, source);
       } else if (actionId === 'inpaint') {
-        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || 'image2' });
+        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
       } else {
-        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || 'image2' });
+        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
         url = data.url || data.result_url || '';
       }
       if (!url) throw new Error('处理结果为空');
@@ -3980,7 +3981,7 @@ const handlePointerUp = useCallback((e) => {
       try {
         const prompt = [node.direction?.purpose, node.direction?.composition, node.direction?.copy]
           .filter(Boolean).join('\n') || '保持商品、品牌和文字准确，重新生成同一商业用途的电商图片。';
-        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio, resolution: node.resolution || '2K', imageModel: node.imageModel || 'image2' });
+        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio, resolution: node.resolution || '2K', imageModel: node.imageModel || DEFAULT_IMAGE_MODEL });
         const output = normalizeCanvasNode({
           ...node,
           id: `node_regenerated_${Date.now()}`,
@@ -4032,7 +4033,7 @@ const handlePointerUp = useCallback((e) => {
     if (handler === 'grid-split') {
       setPromptLoading(true);
       try {
-        const data = await transformCanvasImage({ action: actionId, imageUrl: node.url, resolution: node.resolution || '2K', imageModel: node.imageModel || 'image2' });
+        const data = await transformCanvasImage({ action: actionId, imageUrl: node.url, resolution: node.resolution || '2K', imageModel: node.imageModel || DEFAULT_IMAGE_MODEL });
         const parts = (data.urls || []).map(({ url }, index) => ({
           ...node,
           id: `${node.id}_grid_${index + 1}_${Date.now()}`,
@@ -4923,7 +4924,7 @@ const handlePointerUp = useCallback((e) => {
             references: sourceReferences.references,
             ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
             selection,
           });
           return response;
@@ -4935,7 +4936,7 @@ const handlePointerUp = useCallback((e) => {
             imageUrl: sourceNodes[0].url,
             ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           });
           const url = response?.url || response?.result_url;
           if (!url) throw new Error('图片处理没有返回结果');
@@ -4949,14 +4950,14 @@ const handlePointerUp = useCallback((e) => {
             references: sourceReferences.references,
             ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           })
           : regenerateCanvasImage({
             prompt: composer.prompt.trim(),
             imageUrl: '',
             ratio: protocolRatioFor(composer, [], composer.prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || 'image2',
+            imageModel: composer.imageModel || DEFAULT_IMAGE_MODEL,
           });
       }));
       const createdAt = Date.now();
@@ -4979,7 +4980,7 @@ const handlePointerUp = useCallback((e) => {
           displayLabel: canvasShotNamerRef.current.next('image'),
           group: '素材',
           role: '创作图片',
-          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           resolution: composer.resolution || '2K',
           ratio,
           sourceNodeIds: [composer.id],
@@ -5195,7 +5196,7 @@ const handlePointerUp = useCallback((e) => {
         generationSettings: {
           ...(configuration.genSettings || {}),
           resolution: configuration.genSettings?.resolution || composer.resolution || '2K',
-          imageModel: configuration.genSettings?.imageModel || composer.imageModel || 'image2',
+          imageModel: configuration.genSettings?.imageModel || composer.imageModel || DEFAULT_IMAGE_MODEL,
           suiteType: composer.suiteType || '完整套图',
           skuMode: composer.skuMode || '默认SKU',
           styleSkill: configuration.styleSkill || composer.styleSkill || 'smart',
@@ -5250,7 +5251,7 @@ const handlePointerUp = useCallback((e) => {
             role,
             ratio,
             size: image.size || '',
-            imageModel: configuration.genSettings?.imageModel || composer.imageModel || 'image2',
+            imageModel: configuration.genSettings?.imageModel || composer.imageModel || DEFAULT_IMAGE_MODEL,
             resolution: configuration.genSettings?.resolution || composer.resolution || '2K',
             sourceNodeIds: [composer.id],
             x: composer.x + composer.w + 80 + column * 268,
@@ -5313,14 +5314,14 @@ const handlePointerUp = useCallback((e) => {
           references: sourceReferences.references,
           ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
           resolution: composer.resolution || '2K',
-          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
         })
         : regenerateCanvasImage({
           prompt,
           imageUrl: '',
           ratio: composer.ratio || '1:1',
           resolution: composer.resolution || '2K',
-          imageModel: composer.imageModel || 'image2',
+          imageModel: composer.imageModel || DEFAULT_IMAGE_MODEL,
         })));
       const createdAt = Date.now();
       const ratio = composer.ratio || '1:1';
@@ -5341,7 +5342,7 @@ const handlePointerUp = useCallback((e) => {
           displayLabel: canvasShotNamerRef.current.next('image'),
           group: '素材',
           role: '创作图片',
-          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           resolution: composer.resolution || '2K',
           ratio,
           sourceNodeIds: [composer.id],

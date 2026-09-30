@@ -25,7 +25,7 @@ import { toGenerationStatus } from '../pages/EcCanvas/generationStatusModel.js';
 import { isTransientTaskSyncError, withTransientTaskSyncRetry } from './taskSync.js';
 import { getEcommerceAutoRepairDecision } from './ecommerceRetryPolicy.js';
 import { normalizeCommerceContext } from '../pages/Home/ec/internationalCommerceRegistry.js';
-import { generationBillingSku, normalizeImageModel } from './imageModelCatalog.js';
+import { generationBillingSku, normalizeImageModel, DEFAULT_IMAGE_MODEL } from './imageModelCatalog.js';
 
 const API_BASE = ''; // 使用相对路径，由 Vite Proxy 转发
 const ECOMMERCE_SUITE_REPAIR_VERSION = 1;
@@ -1261,7 +1261,7 @@ export async function generateEcommerce({ productName, category, refImgs, realSh
   //   分辨率/模型：generation_settings 是用户控件，sizing 同值镜像；
   //   图集选择：sizing.images 是唯一来源，image_selections 同源镜像。
   const resolvedResolution = generationSettings?.resolution || sizing?.resolution || '2K';
-  const resolvedImageModel = generationSettings?.imageModel || sizing?.imageModel || 'image2';
+  const resolvedImageModel = generationSettings?.imageModel || sizing?.imageModel || DEFAULT_IMAGE_MODEL;
   const resolvedSelections = Array.isArray(sizing?.images) && sizing.images.length > 0
     ? sizing.images
     : (Array.isArray(imageSelections) ? imageSelections : []);
@@ -1674,7 +1674,9 @@ export async function getExtractData(token) {
 
 /* ── 单图重生成 ── */
 export async function regenerateImage(prompt, category, { ratio = '1:1', resolution = '2K' } = {}) {
-  const billingSku = generationBillingSku('image2', resolution);
+  /* ⚠️ 2026-09-30：这里原来写死 `generationBillingSku('image2', resolution)`，而且**没有模型入参**
+     —— 用户没得选时就默认 image2。跟着全局默认走（2026-09-30 起是 2.5 Sunburst）。 */
+  const billingSku = generationBillingSku(DEFAULT_IMAGE_MODEL, resolution);
   const billing = await quoteCanvasAction(billingSku);
   const res = await fetch(`${API_BASE}/api/regenerate-image`, {
     method: 'POST',
@@ -1875,7 +1877,7 @@ export function buildCanvasGenerationBody({
   references = [],
   ratio,
   resolution = '2K',
-  imageModel = 'image2',
+  imageModel = DEFAULT_IMAGE_MODEL,
   requestKey = '',
   selection,
   creationIntent = 'ecommerce',
@@ -1908,7 +1910,7 @@ export function buildCanvasGenerationBody({
   };
 }
 
-export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = 'image2', requestKey = '', selection, creationIntent = 'ecommerce', skillId = 'free', includeMetadata = false, signal }) {
+export async function regenerateCanvasImage({ prompt, imageUrl, referenceImages = [], references = [], ratio, resolution = '2K', imageModel = DEFAULT_IMAGE_MODEL, requestKey = '', selection, creationIntent = 'ecommerce', skillId = 'free', includeMetadata = false, signal }) {
   const { requestBody: baseBody, stableRequestKey } = buildCanvasGenerationBody({
     prompt, imageUrl, referenceImages, references, ratio, resolution, imageModel, requestKey, selection, creationIntent, skillId,
   });
@@ -1959,7 +1961,7 @@ export async function transformCanvasImage({
   ratio = '1:1',
   targetLanguage = '中文',
   resolution = '2K',
-  imageModel = 'image2',
+  imageModel = DEFAULT_IMAGE_MODEL,
   annotation = '',
   annotations = [],
   grid = 2,
