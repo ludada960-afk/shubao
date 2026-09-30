@@ -692,21 +692,62 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
           21 篇里 16 篇（76%）的封面不在连拍簇内，74 张里 54 张（73%）所在簇不含首图，
           而且簇**不是开头连续段**（n19: 3/4/5/7/10/11）。详见 imageSkills 里那一段注释。
      ⇒ 现在勾哪几张就是哪几张；封面不会被自动占用，真要放进去是用户自己标的。 */
-  const [seriesNames, setSeriesNames] = useState(() => new Set());
-  useEffect(() => { setSeriesNames(new Set()); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  /** 标了连拍、但本身没被勾进这一篇的，自动摘掉 —— 清单里没有的那张不可能出现在组里。 */
+  /* ═══ 2026-09-29 批 DC 续-17：连拍改成「**这张 + 下一张**」成对**（用户第三次追问）══════════════
+     用户原话：「他点了第一张图的这个连拍按钮，然后他又点了第 5 张图的这个连拍按钮。那第一张和
+       第 5 张会形成连拍吗？那最后这套图片岂不是就变成第一张跟第 5 张是连拍，**但是中间又插了
+       第二第三第四张**？他又不跟他们是连拍。」
+
+     改这一条的依据（本轮把那 27 个簇的位置结构重算）：
+       · 只有 **4/27（15%）**是完整连成一段；随机打乱对照 2 万次，实测 55 段 vs 随机均值 56.9，
+         **p ≈ 0.19** ⇒ 簇**没有位置信号**（"1 和 5 一组"那种形状确实常见，但与随机不可区分）；
+       · 但**尺寸**很明确：**中位数 2 张、70% 恰好 2 张**、48.8% 的篇一个簇都没有；
+       · 真实摄影里连拍就是**相邻帧**，中间插一张别的画面在物理上不成立。
+     ⇒ 存的是「**起点**」，成对关系由「起点 + 它下面那一行」派生：
+       · 点一下成一对，**不可能跨空档**（用户担心的那个洞从根上不存在了）；
+       · 一张图**只能进一组** —— 点某行时若前一行已经和它成对，先把那一对拆掉；
+       · **最后一行不能起组**（没有下一行可配）。
+     ⚠️ 下面 `effectiveSeriesNames` 仍然摊平成一个名字数组喂给 `skillSeriesClause` ——
+        那是它判定"这张在不在组里"的唯一输入，形状不变，只是来源从"用户逐张勾"变成"成对派生"。 */
+  const [seriesStarts, setSeriesStarts] = useState(() => new Set());
+  useEffect(() => { setSeriesStarts(new Set()); }, [skill?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** 起点 + 下一行 → 摊平成"组里所有张的名字"（与 shots 同序，供提示词那条判据用）。 */
   const effectiveSeriesNames = useMemo(() => {
-    const picked = new Set(selectedModules.map(module => module.name));
-    return selectedModules.map(module => module.name).filter(name => seriesNames.has(name) && picked.has(name));
-  }, [selectedModules, seriesNames]);
+    const names = selectedModules.map(module => module.name);
+    const out = [];
+    names.forEach((name, index) => {
+      if (!seriesStarts.has(name)) return;
+      const partner = names[index + 1];
+      if (!partner) return;               // 最后一行起不了组（没有下一行）
+      out.push(name, partner);
+    });
+    return out;
+  }, [selectedModules, seriesStarts]);
+  /** 连拍**起点**是哪几行（界面上用它把"组的开头"与"跟着来的那张"区分显示）。 */
+  const seriesStartNames = useMemo(() => {
+    const names = selectedModules.map(module => module.name);
+    return names.filter((name, index) => seriesStarts.has(name) && index < names.length - 1);
+  }, [selectedModules, seriesStarts]);
   const toggleSeries = useCallback(name => {
-    setSeriesNames(previous => {
+    const names = selectedModules.map(module => module.name);
+    const at = names.indexOf(name);
+    if (at < 0) return;
+    setSeriesStarts(previous => {
       const next = new Set(previous);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      /* 点的是自己起的组 → 整对取消。 */
+      if (next.has(name)) { next.delete(name); return next; }
+      /* **一张图只能进一组**，所以相邻两个起点必须先拆掉一个：
+         · 上一行如果已经起组、而我正是它那一对的搭档 → 拆掉它（我改当起点）；
+         · 下一行如果自己起了组 → 也拆掉它（否则我加入后它**既是搭档又是起点**，
+           会同时落进两组 —— 这个洞是第一版真跑出来的：点第 3 行之后第 4 行同时是
+           「3+4 的搭档」和「4+5 的起点」）。 */
+      const above = names[at - 1];
+      if (above && next.has(above)) next.delete(above);
+      const below = names[at + 1];
+      if (below && next.has(below)) next.delete(below);
+      if (at < names.length - 1) next.add(name);   // 最后一行不能起组
       return next;
     });
-  }, []);
+  }, [selectedModules]);
   /* ═══ 2026-09-29 批 DC 续-16：**逐张的人物形态**（推翻"全篇一档"）═════════════════════════════
      用户 2026-09-29 逐字：「那是不是它出来的所有内容都会包含这些人物形态，构图方向，版式组等等的
      选好的选项呢？**那出来的作品岂不都千篇一律了？**」
@@ -1033,9 +1074,12 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       /* ⚠️ 批 DC（M2）：标题与说明可以**由技能自己声明** —— 概念的清单勾的是"手法"，
          A+ 那条勾的是"内容模块"，同一句话套上去会说错东西。没声明的一律走原来的文案。 */
       title: String(skill.modulesTitle || '').trim() || '包含模块',
-      /* 用户批注 #3-2 原话：「选中多少个模块就是多少张，并且对应他自己的模块主题不是吗。」
-         —— 所以那句说明也跟着改成"勾几个出几张"，不再说"全都交、不能改价"。 */
-      note: String(skill.modulesNote || '').trim() || '勾几个出几张，价钱跟着勾选走（每张的单价与右下角那颗按钮同源）。',
+      /* ⚠️ 2026-09-29 批 DC 续-17（用户 2026-09-30 原话）：
+         「然后像这两句描述说明我觉得没有太大必要，你可以删掉。」
+         ⇒ 技能**显式声明** `modulesNote`（哪怕是空串）就照用，不再回退到那句通用说明 ——
+         原来 `|| '勾几个出几张…'` 把「显式留空」和「没声明」当成一回事，于是想删也删不掉。
+         只有**整个键都没有**的技能才走兜底。 */
+      note: typeof skill.modulesNote === 'string' ? skill.modulesNote : '勾几个出几张，价钱跟着勾选走（每张的单价与右下角那颗按钮同源）。',
       selectable: true,
       items: skillModules.map((module, position) => ({
         ...module,
@@ -1064,8 +1108,9 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
       ...(skill.modulesSeries ? {
         series: true,
         seriesNames: effectiveSeriesNames,
+        seriesStarts: seriesStartNames,
         onToggleSeries: toggleSeries,
-        seriesHint: '标了的那几张共享「机位/景别/光线全不变、只换实体」；至少标 2 张才生效',
+        seriesHint: '点一下＝这张和**下一张**连着拍（机位/景别/光线全不变，画面里的人与物可以换）。一张图只能进一组；最后一行不能起组。',
       } : {}),
       /* ═══ 2026-09-29 批 DC 续-16：**清单上移**（用户「你的连拍组去哪了呢」）═════════════════════
          原来 `sections` 一律排在所有字段组之后，那一页的「版式族」是四张长卡片，
@@ -1093,7 +1138,7 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         onPersonChange: setShotPerson,
       } : {}),
     }];
-  }, [skill, skillModules, moduleOff, effectiveSeriesNames, toggleSeries, shotPerson, setShotPerson]);
+  }, [skill, skillModules, moduleOff, effectiveSeriesNames, seriesStartNames, toggleSeries, shotPerson, setShotPerson]);
 
   /* ── 一键解析（付费前置动作，0.2 积分）──────────────────────────────────────
      照竞品做法：先上传商品图 → 点「一键解析」→ 字段自动填好 → 用户改细节 → 再生成。

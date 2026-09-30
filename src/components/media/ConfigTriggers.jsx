@@ -37,40 +37,60 @@ function sidebarInset() {
   return Math.max(12, Math.round(rect.right) + 12);
 }
 
-/** 浮层坐标：**顶到视口上沿**，横向跟着触发按钮，高度按可用空间封顶。
+/** 浮层坐标：**吸附到触发按钮**，下方放不下就翻到上方，再夹进视口。
  *
- *  ⚠️ 2026-09-29 批 DC 续-14（用户 2026-09-29 逐字）：
- *    「子页面的模型和规格的面板应该**尽量跟首页的样式和间距和 UI 等等保持一致**，
- *      如果会有适配上面**互相截断**等问题，你就把面板**居最上面**，
- *      这样应该就不会和其他的部分打架了。」
+ *  ⚠️⚠️ 2026-09-29 批 DC 续-17：这一段被同一批用户**两次**纠正过，第三次才落对。
+ *    批 DC 续-14 我把它改成「一律顶到视口上沿」（用户当时说「你把面板居最上面」）；
+ *    批 DC 续-15 又因为「滑动就脱离」把 scroll 监听**整条删掉** —— 那次是**修错了地方**：
+ *      脱离的根因不是"跟着滚"，而是锚点选错了：我当时拿 `.app-topbar` 的下沿当锚，
+ *      而顶栏是 sticky、滚过 120px 会加 `.is-compact` **改变自身高度** ⇒ 位置一跳一跳。
+ *    批 DC 续-17（用户 2029-09-29 第三次原话：「**它必须吸附在按钮上呀，你这个又没有吸附住**」）
+ *      把两件事一起定了：锚点换成**按钮自己的视口矩形**，scroll 监听**加回来**。
+ *      按钮在视口坐标系里的 rect 随滚动**稳定变化**（它就是要跟着按钮走），
+ *      所以"跟着按钮"和"不脱离"这两件事**不矛盾** —— 上一批把它们当成互斥，才是错的。
  *
- *  改前是"按可用空间决定向上还是向下开"（搬自首页 `getVisualPanelPosition`）。
- *  那是**首页**那套：首页的两颗按钮在页面**底部**，向上开正好落在空白区。
- *  子页面这两颗在**左栏中部**，向上开就压在大标题、说明文字、输入框上（实测截图就是这样）。
- *  ⇒ 改成**一律顶到上沿**（顶栏之下留一档），横向仍跟着触发按钮并夹住：
- *     这样面板永远落在"最上面那条空白带"里，不与页面正文打架；
- *     代价是不再"贴着按钮下沿"，但换来的是**任何滚动位置、任何触发器位置都不打架**。
- *  ⚠️ 视觉规格/内边距与首页同源那部分**没动**（`ConfigTriggers.css` 复用 `.visual-config-*`），
- *     这次只改**开在哪**。
- */
+ *  高度与翻转：优先**按钮下方**（`rect.bottom + 10`）；下方不够就翻到**上方**
+ *  （`rect.top - 10 - height`）；两侧都不够才夹进视口，并且**永不超过视口**。
+ *  ⇒ 批 DC 续-14 那个"互相截断"的担心仍然被满足，但不再以"脱离按钮"为代价。 */
 function panelPosition(button, desiredHeight) {
   const rect = button.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const leftInset = sidebarInset();
   const width = Math.min(420, Math.max(240, viewportWidth - leftInset - 16));
-  /* 顶栏之下留 12px；顶栏本身是 fixed 高约 64px，所以从 64 起算，不是从 0。
-     量不到顶栏就退回 12 —— 那时面板会贴着视口顶，仍然不与正文打架。 */
+  /* 顶栏之下是禁区：面板不许压到顶栏上。量不到顶栏就退回 12。 */
   const bar = document.querySelector('.app-topbar');
-  const barBottom = bar ? Math.round(bar.getBoundingClientRect().bottom) : 0;
-  const top = Math.max(12, barBottom + 12);
-  const maxHeight = Math.min(Math.round(viewportHeight * 0.92) - top, Math.max(desiredHeight, 160));
+  const ceil = Math.max(12, (bar ? Math.round(bar.getBoundingClientRect().bottom) : 0) + 12);
+  const floor = viewportHeight - 12;
+  const gap = 10;
+
+  const roomBelow = floor - (rect.bottom + gap);
+  const roomAbove = (rect.top - gap) - ceil;
+  const cap = Math.max(160, Math.min(Math.round(viewportHeight * 0.92), viewportHeight - ceil));
+
+  /* ⚠️⚠️ 往**上**开的时候必须按 `bottom` 定位，**不能**按 `top` 算。
+     第一版翻到上方时写的是 `top = rect.top - gap - maxHeight` —— 那是拿**上限高度**倒推，
+     而面板实际渲染高度是**内容高度**（实测 maxHeight 714、实高 554）⇒ 面板底边离按钮
+     差了 162px，看起来又"脱离"了。
+     ⇒ 改成只给 `bottom`（离视口底多少），让 CSS 把面板底边钉在按钮上方 gap 处；
+        面板多高就多高，永远贴着。（首页 `getVisualPanelPosition` 当初也是这么写的。）
+     ⚠️ 判据也从「下方至少还有 160px」改成「下方**放得下这一块**」——
+        否则在「生成设置」那个位置（下方 236px / 上方 714px）会硬开在下方并被视口底边切掉。 */
+  const place = roomBelow >= desiredHeight
+    ? { top: rect.bottom + gap, bottom: undefined, maxHeight: Math.min(roomBelow, cap) }
+    : roomAbove >= Math.min(desiredHeight, 160)
+      ? { top: undefined, bottom: Math.max(12, Math.round(viewportHeight - rect.top + gap)), maxHeight: Math.min(roomAbove, cap) }
+      /* 两侧都不够：取空间多的一侧夹进视口，宁可内部滚动。 */
+      : roomBelow >= roomAbove
+        ? { top: Math.min(rect.bottom + gap, Math.max(ceil, floor - cap)), bottom: undefined, maxHeight: Math.min(Math.max(160, roomBelow), cap) }
+        : { top: undefined, bottom: Math.max(12, Math.round(viewportHeight - rect.top + gap)), maxHeight: Math.min(Math.max(160, roomAbove), cap) };
+
   return {
     left: Math.max(leftInset, Math.min(rect.left + rect.width / 2 - width / 2, viewportWidth - width - 16)),
-    top,
-    bottom: undefined,
+    top: place.top == null ? undefined : Math.round(place.top),
+    bottom: place.bottom,
     width,
-    maxHeight: Math.max(160, maxHeight),
+    maxHeight: Math.round(Math.max(160, place.maxHeight)),
     anchorX: rect.left + rect.width / 2,
   };
 }
@@ -122,24 +142,26 @@ export default function ConfigTriggers({
     setOpen(panel);
   };
 
-  /* 打开时算一次坐标，之后**什么都不跟**（这就是「吸附住」）。
+  /* 打开时算一次坐标，之后**跟着按钮走**（这就是「吸附在按钮上」）。
    *
-   * ⚠️ 2026-09-29 批 DC 续-15（用户 2026-09-29 逐字）：
-   *   「你的模型和画面的面板打开之后为什么**没有吸附住**啊，我滑动一下界面就**脱离**了呀。」
-   * 根因是我在 `scroll` 时重新 `measure()`，而 `measure` 会去量顶栏下沿：
-   *   `.app-topbar` 是 `position: sticky`，页面滚过 120px 会加 `.is-compact`（标 30→26），
-   *   **顶栏高度变了** ⇒ `barBottom` 变 ⇒ 面板 top 跟着跳 ⇒ 看起来就是"脱离"。
-   *   （面板是 `position: fixed` 的浮层，滚一下就换位置，用户眼里就是没吸住。）
-   * ⇒ 现在：**只在打开时算一次**。滚动不重算。
-   *   ⚠️ 只保留 `resize` —— 视口尺寸真的变了（转屏、窗口缩放）时，
-   *      之前夹好的 left/maxHeight 会失效，那一次重算是必要的。
-   *      滚动**不**在列：fixed 浮层的坐标系是视口，页面怎么滚它都不该动。 */
+   * ⚠️ 2026-09-29 批 DC 续-17：批 DC 续-15 把 scroll 监听**整条删掉**了，
+   *   理由是"滚动时重算会脱离"。**那个诊断错了**：脱离的根因是**锚点选错** ——
+   *   当时拿 `.app-topbar` 的下沿当锚，而顶栏是 sticky、滚过 120px 会加 `.is-compact`
+   *   **改变自身高度**，所以 top 跳来跳去。
+   *   现在锚点是**按钮自己的视口矩形**：它在视口坐标系里"就是要跟着按钮走"，
+   *   滚动时重算 = 面板始终贴着按钮，**不滚动才是脱离**。
+   *   ⚠️ 用 capture 监听：左栏 `.media-workbench-left` 是**独立滚动容器**，
+   *      冒泡阶段收不到它的 scroll（这一条从首页那边抄对了）。 */
   useLayoutEffect(() => { if (open) measure(open); }, [open, measure]);
   useEffect(() => {
     if (!open) return undefined;
-    const onResize = () => measure(open);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const onMove = () => measure(open);
+    window.addEventListener('resize', onMove);
+    window.addEventListener('scroll', onMove, true);
+    return () => {
+      window.removeEventListener('resize', onMove);
+      window.removeEventListener('scroll', onMove, true);
+    };
   }, [open, measure]);
 
   /* 点外面 / ESC 收起。⚠️ 监听用 capture：**面板与触发器都在 React 树里**，

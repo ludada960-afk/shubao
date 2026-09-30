@@ -190,6 +190,23 @@
    实测滚到底时最后一张卡 bottom 855 vs CTA top 849 ⇒ 卡片被压住 6px；给最后一段补 12px 余量即可。 */
 .media-workbench-group:last-of-type { padding-bottom: 12px; }
 .media-workbench-group + .media-workbench-group { padding-top: 40px; border-top: 1px solid var(--sb-border-subtle); }
+/* ═══ 2026-09-29 批 DC 续-17：**紧挨 CTA 的那一组不再另起一个"区块"** ═════════════════════════════
+   用户 2026-09-30 原话：「而且你确定这个生成设置放在最下面是合适的吗？……怎么我感觉你在最底部
+   单独的放这个东西很奇怪啊。」
+
+   ⚠️⚠️ **位置本身是对的，不要往上搬** —— 2026-09-30 那轮实测（`.tmp/competitor-layout.md`）：
+     知渔 **94/104 个图片 app 页**的「比例 + 分辨率」**恰好就是左栏最后两格**（比例在前，94/94 一致）；
+     内置页是另一族（商品套图/A+/详情图**整组没有**输出设置，我们批 I-10 删掉那一步是对的）；
+     视频侧放**页脚条**、CTA 正上方。**没有一个知渔页面把输出设置放顶部。**
+     ⇒ 真正的问题不是"在最下面"，是"**单独的**放"：40px 内边距 + 1px 分隔线把它切成了
+       一座孤岛，而竞品那里它只是**表单的尾巴**，和上面连着。
+     ⇒ 所以只拆掉那道"另起一个区块"的界线（去分隔线、内边距收到 20px ≈ 组内 gap 量级），
+       位置与顺序一个字不动。 */
+.media-workbench-left > .media-workbench-group:last-of-type,
+.media-workbench-left > .media-workbench-checklist:last-of-type {
+  padding-top: 20px;
+  border-top: 0;
+}
 .media-workbench-group-title {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin: 0;
@@ -300,6 +317,19 @@
   gap: 2px 12px; margin: 0; padding: 0; list-style: none;
 }
 .media-workbench-checklist.is-person .media-workbench-checklist-items { grid-template-columns: 1fr; }
+/* ═══ 2026-09-29 批 DC 续-17：逐行三列，**药丸与下拉各占一列** ═════════════════════════════════════
+   用户 2026-09-30 原话：「你的连拍和你的镜头选项，他们现在是不对齐的一个情况呀。」
+   根因：行是 flex（`手法名(1fr) + 连拍 + 下拉`），而未勾进行**不渲染下拉** ⇒ 少一个子元素，
+   那颗「连拍」药丸就**往左滑**一格 —— 十行的药丸于是不在同一条竖线上（截图里前六行在 x≈553、
+   后四行滑到 x≈690）。
+   ⇒ 行改成三列 grid，第三列**永远占位**（空格子也留着），两列宽度固定 ⇒ 逐行对齐。
+   ⚠️ 只在 `is-person`（有逐行镜头列）时改网格；其余清单块保持原来的 flex 行为不变。 */
+.media-workbench-checklist.is-person .media-workbench-checklist-items li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 112px;
+  align-items: start;
+  gap: 10px;
+}
 .media-workbench-checklist-items li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; }
 .media-workbench-checklist-check { flex: 0 0 auto; font-size: 12.576px; font-weight: 500; color: var(--sb-brand-600); line-height: 1.5; }
 /* ═══ 可勾选那一档（2026-09-19 批 I-9，用户批注 #10）═══════════════════════════════════════
@@ -385,6 +415,26 @@
   color: var(--sb-brand-ink);
 }
 .media-workbench-checklist-series:disabled { opacity: .4; cursor: not-allowed; }
+/* ═══ 批 DC 续-17：组的**开头**那一张要一眼认得出来 ═════════════════════════════════════════════
+   连拍改成"这张 + 下一张"成对之后，两张药丸都会是 `is-on`；不加区分的话用户看到的是
+   "两个一样的绿药丸"，读不出谁带谁。`is-start` 用**更深的底 + 一个小三角**标出开头。 */
+.media-workbench-checklist-series.is-start {
+  background: var(--sb-brand-700);
+  border-color: var(--sb-brand-700);
+  color: var(--sb-brand-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sb-brand-ink) 28%, transparent);
+  font-weight: 800;
+}
+.media-workbench-checklist-series.is-start::before {
+  content: '';
+  display: inline-block;
+  width: 0; height: 0;
+  margin-right: 3px;
+  border-left: 4px solid currentColor;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  vertical-align: middle;
+}
 @media (prefers-reduced-motion: reduce) { .media-workbench-checklist-series { transition: none; } }
 @media (prefers-reduced-motion: reduce) {
   .media-workbench-checklist-toggle,
@@ -408,7 +458,7 @@
    ⚠️ 逐行那个可见标签**去掉**了（`.media-field-label` 隐藏，只留给读屏）：
      六行各写一遍「人物形态」是纯噪声，而且与「着重号只给可操作区、不给重复标题」那条口径相反。
      改由整块**上面一行**说明一次（`.media-workbench-checklist-colhead`）。 */
-.media-workbench-checklist-person { flex: 0 0 auto; align-self: flex-start; }
+.media-workbench-checklist-person { flex: 0 0 auto; align-self: flex-start; min-height: 32px; }
 .media-workbench-checklist-person .media-field { gap: 0; }
 .media-workbench-checklist-person .media-field-label {
   position: absolute; width: 1px; height: 1px;

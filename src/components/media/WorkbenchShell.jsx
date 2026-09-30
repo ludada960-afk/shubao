@@ -220,11 +220,11 @@ export default function WorkbenchShell({
           </span>
         </h3>
         {section.note && <p className="media-workbench-group-note">{section.note}</p>}
-        {/* 逐行那颗下拉是什么，整块**说一次**（批 DC 续-16）。
-            逐行各写一遍标签是纯噪声 —— 六行六个「人物形态」竖着排下来比控件本身还抢眼。 */}
-        {section.personField && (
-          <p className="media-workbench-checklist-colhead">右侧：这一张的人物形态（按实测分布自动分配，可逐张改）</p>
-        )}
+        {/* ⚠️ 批 DC 续-16 曾在这一行放过一句「右侧：这一张的人物形态（按实测分布自动分配，可逐张改）」，
+            批 DC 续-17 **按用户要求删掉**（逐字：「像这两句描述说明我觉得没有太大必要，你可以删掉。」）
+            —— 说明句压在清单上方、离它要解释的那一列很远，反而多此一举。
+            逐行那颗下拉靠**控件自身的取值**（空镜 / 躯干与腿 / …）自解释，
+            读屏用的 `aria-label` 仍在（FieldRenderer 一直传 `field.label`），不影响无障碍。 */}
         <ul className="media-workbench-checklist-items">
           {section.items.map(item => {
             const on = item.checked !== false;
@@ -262,11 +262,20 @@ export default function WorkbenchShell({
                     ⚠️ 与上面那颗勾选**分开**是必须的：勾 = 这一篇出不出这张；
                        连拍 = 这张和哪几张同机位。点它不会改张数、也不会改价钱。
                     ⚠️ 本身没被勾进这一篇的那行置灰：清单里没有的那张不可能出现在组里。 */}
+                {/* ═══ 2026-09-29 批 DC 续-17：连拍改成「这张 + 下一张」**成对** ══════════════════════
+                    用户 2026-09-29 第三次追问（逐字）：
+                    「他点了第一张图的这个连拍按钮，然后他又点了第 5 张图的这个连拍按钮。那第一张和
+                      第 5 张会形成连拍吗？那最后这套图片岂不是就变成第一张跟第 5 张是连拍，
+                      **但是中间又插了第二第三第四张**？他又不跟他们是连拍。」
+                    ⇒ 改成"点一下＝这张和下一张一组"，**跨空档从根上不存在**。
+                    `is-start` 标出"组的开头"那一张（深一档底色 + 一个小三角），
+                    跟着来的那一张是普通 `is-on` —— 两张一眼能看出是一对。 */}
                 {section.series && (
                   <button
                     type="button"
                     className={'media-workbench-checklist-series'
-                      + (section.seriesNames?.includes(item.name) ? ' is-on' : '')}
+                      + (section.seriesNames?.includes(item.name) ? ' is-on' : '')
+                      + (section.seriesStarts?.includes(item.name) ? ' is-start' : '')}
                     aria-pressed={section.seriesNames?.includes(item.name) || false}
                     disabled={!on}
                     title={on ? (section.seriesHint || '') : '先把这一张勾进这一篇，才能标它进连拍组'}
@@ -288,16 +297,23 @@ export default function WorkbenchShell({
                        （空镜）** —— 于是 10 行里有 4 行未勾选的行看上去"也是空镜"，
                        读起来就是"这一篇九张空镜"，与实际（勾 6 张、其中 3 张空镜）完全不符。
                        现在未勾选的行只有名称 + 那颗置灰的「连拍」。 */}
-                {section.personField && on && (
+                {/* ⚠️ 批 DC 续-17：**这一格永远渲染**，即使里面是空的。
+                    批 DC 续-16 只在 `on`（勾进行）时渲染那颗下拉 ⇒ 未勾进行少一个子元素，
+                    flex 布局下那颗「连拍」药丸会**往左滑**，于是十行的药丸**不在一条竖线上**
+                    （用户 2026-09-30 原话：「你的连拍和你的镜头选项，他们现在是不对齐的一个情况呀」）。
+                    ⇒ 行改成三列 grid（手法名 / 连拍 / 镜头），空的那一列照样占位。 */}
+                {section.personField && (
                   <div className="media-workbench-checklist-person">
-                    <FieldRenderer
-                      field={section.personField}
-                      value={item.person || ''}
-                      values={values}
-                      allFields={fields}
-                      disabled={disabled}
-                      onChange={next => section.onPersonChange?.(item.name, next)}
-                    />
+                    {on && (
+                      <FieldRenderer
+                        field={section.personField}
+                        value={item.person || ''}
+                        values={values}
+                        allFields={fields}
+                        disabled={disabled}
+                        onChange={next => section.onPersonChange?.(item.name, next)}
+                      />
+                    )}
                   </div>
                 )}
               </li>

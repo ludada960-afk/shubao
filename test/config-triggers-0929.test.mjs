@@ -114,15 +114,29 @@ test('③ 共用一份实现：子页面与首页走同一个组件 + 同一份�
   assert.doesNotMatch(compCode, /coverLabels/, '那个只为渲染说明而存在的 prop 要一起删掉（不留半截）');
   const skills = code('src/skills/imageSkills.js');
   assert.doesNotMatch(skills, /模型与画面规格收在这里/, '触发器下面那句说明要删（同上，用户点名的那句）');
-  /* ⚠️ 2026-09-29 批 DC 续-14：面板**顶到视口上沿**（用户逐字：「如果会有适配上面互相截断等问题，
-     你就把面板**居最上面**，这样应该就不会和其他的部分打架了」）。
-     改前是"按可用空间决定向上/向下开"（搬自首页）—— 那是**首页**那套：首页两颗按钮在页面**底部**，
-     向上开正好落在空白区；子页面这两颗在**左栏中部**，向上开就压在大标题与输入框上（实测截图）。
-     ⇒ 一律 top = 顶栏下沿 + 12，横向仍跟着触发按钮并夹住。 */
-  assert.match(comp, /const top = Math\.max\(12, barBottom \+ 12\);/,
-    '面板要顶到上沿（顶栏之下留一档），不按可用空间上下翻转');
-  assert.match(comp, /document\.querySelector\('\.app-topbar'\)/, '要量顶栏下沿，不能贴视口顶（会被顶栏压住）');
-  assert.doesNotMatch(comp, /openAbove/, '不许再按"向上还是向下"翻转（那是首页那套，子页面不适用）');
+  /* ⚠️⚠️ 2026-09-29 批 DC 续-17：面板改成**吸附到触发按钮**（用户**第三次**当面纠正）。
+     这一格先后被推翻过两次，三次的落点都记在这儿，因为它们错在同一个地方 —— **锚点选错**：
+       · 批 DC 续-14「你把面板**居最上面**」⇒ 我改成"一律顶到视口上沿"（锚点＝顶栏下沿）；
+       · 批 DC 续-15「滑动一下界面就**脱离**了」⇒ 我把 scroll 监听**整条删掉**（诊断错了：
+         脱离的根因是顶栏 sticky、滚过 120px 加 `.is-compact` **高度会变**，不是"跟着滚"本身）；
+       · 批 DC 续-17「**它必须吸附在按钮上呀，你这个又没有吸附住**」⇒ 锚点换成**按钮自己的视口矩形**，
+         scroll 监听**加回来**。按钮在视口坐标系里"就是要跟着按钮走"，所以
+         **"跟着按钮"与"不脱离"这两件事不矛盾** —— 上一批把它们当互斥才是错的。
+     ⇒ 现在的判据：优先开在按钮**下方**；下方**放得下这一块**才用下方（第一版写"至少还有 160px"，
+       于是在「生成设置」那个位置硬开在下方并被视口底边切掉）；放不下就翻到**上方**。 */
+  assert.match(comp, /const rect = button\.getBoundingClientRect\(\);/,
+    '锚点必须是**按钮自己**的视口矩形（不是顶栏 —— 顶栏 sticky、滚过去高度会变）');
+  assert.match(comp, /roomBelow >= desiredHeight/,
+    '下方要**放得下这一块**才开在下方（不是"还有 160px 就行"，那会被视口底边切掉）');
+  assert.match(comp, /roomAbove >= Math\.min\(desiredHeight, 160\)/,
+    '下方放不下就翻到上方');
+  assert.match(comp, /bottom: Math\.max\(12, Math\.round\(viewportHeight - rect\.top \+ gap\)\)/,
+    '翻到上方时必须按 **bottom** 定位（按 top 配 maxHeight 算会在内容比上限矮时脱离按钮 —— 实测差 162px）');
+  assert.match(comp, /document\.querySelector\('\.app-topbar'\)/, '仍要量顶栏：面板不许压到顶栏上');
+  /* 跟着按钮走 = scroll 时要重算。⚠️ 批 DC 续-15 把它整条删掉过（诊断错误），这里钉住它。 */
+  assert.match(comp, /window\.addEventListener\('scroll', onMove, true\)/,
+    '面板要**跟着按钮**走 ⇒ scroll 时必须重算（capture 才能收到左栏那个独立滚动容器的 scroll）');
+  assert.match(comp, /window\.addEventListener\('resize', onMove\)/, '视口尺寸变了也要重算');
   /* 点外面 / ESC 要自己关掉（用户同一句里提的：「用户点击其他的东西，面板就要自己关掉」）。 */
   assert.match(comp, /document\.addEventListener\('mousedown', onDown, true\)/, '点外面要收起');
   assert.match(comp, /event\.key === 'Escape'/, 'ESC 也要能收起');

@@ -116,7 +116,14 @@ test('④ 十种画面手法来自一手实测、互不重复，且是**可勾�
   const field = skill.fields.find(f => f.key === 'shot');
   assert.equal(field, undefined, '手法不再是一个字段（也不再是单选）—— 它现在只有一份：本篇手法清单');
   assert.equal(skill.modulesTitle, '本篇手法', '清单的标题要说清它是什么（不能沿用"包含模块"）');
-  assert.ok(String(skill.modulesNote || '').length >= 8, '清单那句说明要写清"勾几种出几张、按张计价"');
+  /* ⚠️ 2026-09-29 批 DC 续-17：清单那句说明**按用户要求删掉了**（逐字：「然后像这两句描述说明
+     我觉得没有太大必要，你可以删掉。」）。原来守的是「说明要写清勾几种出几张、按张计价」，
+     而那件事**按钮下面本来就写着**（「这一步只出方案；确认后将出 6 张图 和一组发布文案」），
+     两处说同一件事。
+     ⇒ 判据反过来：**必须显式声明为空串**（不许把键删掉 —— 删掉会落回页面那句通用兜底说明，
+        那正是"想删也删不掉"的原因）。 */
+  assert.equal(typeof skill.modulesNote, 'string', 'modulesNote 必须显式声明（空串表示"这一篇不要说明句"）');
+  assert.equal(skill.modulesNote, '', '清单那句说明已按用户要求删除（留空串，不是删键）');
   assert.ok(String(skill.modulesGate || '').includes('勾选'), '一个都不勾时要有一句点名勾选的话');
   const modules = skill.modules;
   assert.ok(Array.isArray(modules) && modules.length >= 10, '手法至少 10 种，实际 ' + (modules ? modules.length : 0));

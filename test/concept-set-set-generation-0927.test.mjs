@@ -357,7 +357,18 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
        · 按张数 **74 张里 54 张（73%）**所在簇**不含**首图；
        · 簇**不是开头连续段**，多是中段连着（n19: 3/4/5/7/10/11、n23: 4/5/9/11、n40: 2/3|4/5）。
      ⇒ 「前 N 张」不但没依据，还**必然占用封面**（清单第 1 项就是概念静物）。
-     ⇒ 改成**用户逐张标**：勾哪几张就是哪几张，封面不再被自动占用。 */
+
+   ⚠️⚠️ 批 DC 续-17（用户**第三次**当面追问，整个交互再改一次）：
+     「他点了第一张图的这个连拍按钮，然后他又点了第 5 张图的这个连拍按钮。那第一张和第 5 张会
+       形成连拍吗？那最后这套图片岂不是就变成第一张跟第 5 张是连拍，**但是中间又插了第二第三
+       第四张**？他又不跟他们是连拍。」
+
+     ⇒ **改成「这张 + 下一张」成对**。这一轮把 27 个簇的**位置结构**也重算了：
+       · 只有 **4/27（15%）**是完整连成一段；随机打乱对照 2 万次，实测 55 段 vs 随机均值 56.9，
+         **p ≈ 0.19** ⇒ 簇**没有位置信号**（那种"1 和 5 一组"的形状确实常见，但与随机不可区分）；
+       · **中位数 2 张、70% 恰好 2 张**、48.8% 的篇一个簇都没有；
+       · 真实摄影里连拍就是**相邻帧**，中间插一张别的画面在物理上不成立。
+     ⇒ 这一条门禁守的就是「**绝不跨空档**」：组永远是清单上**相邻的两行**。 */
   assert.equal(skill.fields.find(item => item.key === 'series'), undefined,
     '**「连拍组」这一格要去掉** —— 标记挪到清单每一行上（用户选定）');
   assert.equal(skill.modulesSeries, true, '由技能自己声明"这份清单要连拍标记"（别的技能的清单是内容模块，不适用）');
@@ -365,40 +376,89 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
   /* 顺序取自**清单声明顺序**（skillShotValues 保的就是它）。 */
   const wanted = ['概念静物', '平铺集合', '材质静物', '空镜', '局部极特写'];
   const picked = skill.modules.filter(module => wanted.includes(module.name)).map(module => module.name);
-  assert.equal(picked.length, 5, '夹具要凑够 5 种手法（组内 3 + 组外 2），实际 ' + picked.length);
+  assert.equal(picked.length, 5, '夹具要凑够 5 种手法（组内 2 + 组外 3），实际 ' + picked.length);
 
-  /* ★ 本批最要紧的一条：**组里可以没有封面**（这正是用户指出的那个问题）。 */
-  const group = ['平铺集合', '材质静物', '空镜'];
+  /* ★ 成对：组永远是**相邻两行**。这里取 picked[1] 与 picked[2] 这一对。 */
+  const group = [picked[1], picked[2]];
+  assert.equal(picked.indexOf(group[1]) - picked.indexOf(group[0]), 1, '夹具这一对必须是**相邻**的');
   const withGroup = { ...valuesWithShots(picked), seriesNames: group };
   const prompts = picked.map((_, index) => buildSkillRequest(
     skill, skillValuesForShot(withGroup, index), { runId: 'r', slotIndex: index },
   ).prompt);
-  const clause = skillSeriesClause(withGroup, '平铺集合');
+  const clause = skillSeriesClause(withGroup, group[0]);
   assert.ok(clause.length > 30, '自证前提：这句真的是一句可执行的纪律');
-  assert.ok(!clause.includes('概念静物'), '自证：这一组里本来就没有封面');
+  assert.ok(!clause.includes(picked[0]), '自证：这一组里本来就没有封面');
 
-  /* 标中的那几张：都带同机位那句，且**共用同一句**（这就是"同一次拍摄"） */
+  /* 口径：锁机位与布光、**放行画面里的人与物**（原先写"只换道具"与逐张人物形态直接矛盾，
+     而实测簇内人物形态并不恒定 —— 排除"双双空镜"后，簇内一致性 35.0% 低于随机基线 38.6%）。 */
+  assert.match(clause, /机位、景别、焦段、光线与背景位置完全不变/, '仍要锁死机位与布光（那才是实测里被锁住的）');
+  assert.match(clause, /画面里的人与物可以换/, '必须放行"画面里的人与物"，否则与逐张人物形态自相矛盾');
+  assert.doesNotMatch(clause, /只更换画面里的实体/, '旧的"只换道具"说法与逐张镜头冲突，已改');
+
+  /* 组内那两张：都带同机位那句，且**共用同一句**（这就是"同一次拍摄"） */
   for (const name of group) {
     const index = picked.indexOf(name);
     assert.ok(prompts[index].includes(clause), name + ' 没带上同机位那句');
   }
-  /* 没标中的：一个字都不许带 */
+  /* 没进组的：一个字都不许带 */
   for (const name of picked.filter(n => !group.includes(n))) {
     const index = picked.indexOf(name);
-    assert.ok(!prompts[index].includes(clause), name + ' 不该拿到同机位那句（它没被标）');
+    assert.ok(!prompts[index].includes(clause), name + ' 不该拿到同机位那句（它没进组）');
     assert.ok(!prompts[index].includes('同机位连拍'), name + ' 里连这个词都不许出现');
   }
   /* ★ 封面（概念静物）**默认不会被卷进任何组** —— 用户 2026-09-29 指出的正是这一点。 */
-  assert.ok(!prompts[0].includes('同机位连拍'), '没标封面时，封面那张不许自动进连拍组');
+  assert.ok(!prompts[0].includes('同机位连拍'), '没点封面时，封面那张不许自动进连拍组');
 
-  /* 组内那几张仍然各带自己那一种手法（连拍不等于几张一样） */
+  /* 组内那两张仍然各带自己那一种手法（连拍不等于两张一样） */
   for (const name of group) {
     const index = picked.indexOf(name);
     const own = skill.modules.find(module => module.name === name).value;
     assert.ok(prompts[index].includes(own), name + ' 丢了它自己的手法定义');
   }
   assert.equal(new Set(group.map(n => prompts[picked.indexOf(n)])).size, group.length,
-    '组内几张的提示词必须仍然各不相同');
+    '组内两张的提示词必须仍然各不相同（否则就是同一张画两遍）');
+
+  /* ★ 绝不跨空档：页面派生成对时只能取「起点 + 它下面那一行」。
+     这里把页面那段派生逻辑原样复算一遍（它就是判据的一部分，不是摆样子）。 */
+  const derivePairs = (names, starts) => {
+    const out = [];
+    names.forEach((name, index) => {
+      if (!starts.has(name)) return;
+      const partner = names[index + 1];
+      if (!partner) return;                      // 最后一行起不了组
+      out.push(name, partner);
+    });
+    return out;
+  };
+  assert.deepEqual(derivePairs(picked, new Set([picked[0]])), [picked[0], picked[1]],
+    '点第 1 张 ⇒ 与**第 2 张**成对');
+  assert.deepEqual(derivePairs(picked, new Set([picked[0], picked[3]])), [picked[0], picked[1], picked[3], picked[4]],
+    '点第 1 张和第 4 张 ⇒ 两组**各自相邻**，第 2、3 张不进任何组（这正是用户担心的那个洞）');
+  assert.deepEqual(derivePairs(picked, new Set([picked[4]])), [],
+    '点**最后一个**勾进行 ⇒ 起不了组（没有下一张可配）');
+
+  /* 一张图不许同时落进两组。那条规则在**点击那一步**（`toggleSeries`）里，不在派生里 ——
+     所以这里复算点击链本身（与页面同一条），而不是拿派生去断言它。 */
+  const toggleStarts = (starts, names, name) => {
+    const at = names.indexOf(name);
+    if (at < 0) return starts;
+    const next = new Set(starts);
+    if (next.has(name)) { next.delete(name); return next; }
+    const above = names[at - 1];
+    if (above && next.has(above)) next.delete(above);
+    const below = names[at + 1];
+    if (below && next.has(below)) next.delete(below);
+    if (at < names.length - 1) next.add(name);
+    return next;
+  };
+  /* 点第 2 张、再点第 3 张 ⇒ 第 3 张顶掉第 2 张（否则第 3 张会同时是「2+3 的搭档」和「3+4 的起点」）。 */
+  const afterTwo = toggleStarts(toggleStarts(new Set(), picked, picked[1]), picked, picked[2]);
+  assert.deepEqual([...afterTwo], [picked[2]], '相邻两个起点不能并存：后者顶掉前者');
+  const flat = derivePairs(picked, afterTwo);
+  assert.equal(new Set(flat).size, flat.length,
+    '任何一张图都不许在组名单里出现两次（第一版真跑出来的洞：点第 3 行后第 4 行同时落进两组）');
+  /* 再点一次自己 ⇒ 整对取消 */
+  assert.deepEqual([...toggleStarts(afterTwo, picked, picked[2])], [], '点自己起的组 ⇒ 取消那一对');
 
   /* 没标任何张时**与不带这一栏时逐字相同**（老参数、老历史还原都不会变味） */
   const none = valuesWithShots(picked);
