@@ -330,6 +330,18 @@
   align-items: start;
   gap: 10px;
 }
+/* ⚠️ 2026-10-01 用户第二次提同一件事：「然后你现在的连拍和镜头的按钮为什么没对齐呀」。
+   批 DC 续-17 修的是**横向**（未勾进行的药丸往左滑 ⇒ 行改三列 grid）；
+   这次报的是**纵向**：药丸自己带了一截 `margin-top: 5px`，而镜头下拉那一格没有 ——
+   两颗控件于是差 5px，截图里读起来就是"连拍比镜头高一截"。
+   ⇒ 不在单边改（改了药丸、以后有人给下拉加偏移又会岔开），而是把两颗**并列钉在一起**：
+     同一个 `align-self` / `margin-top` / `min-height`，谁也不许再单独加偏移。 */
+.media-workbench-checklist.is-person .media-workbench-checklist-series,
+.media-workbench-checklist.is-person .media-workbench-checklist-person {
+  align-self: start;
+  margin-top: 0;
+  min-height: 32px;
+}
 .media-workbench-checklist-items li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 2px; }
 .media-workbench-checklist-check { flex: 0 0 auto; font-size: 12.576px; font-weight: 500; color: var(--sb-brand-600); line-height: 1.5; }
 /* ═══ 可勾选那一档（2026-09-19 批 I-9，用户批注 #10）═══════════════════════════════════════
@@ -393,7 +405,6 @@
   flex: 0 0 auto;
   align-self: flex-start;
   min-height: 32px;
-  margin-top: 5px;
   padding: 0 10px;
   border: 1px solid var(--sb-border-default);
   border-radius: var(--sb-radius-pill);

@@ -43,6 +43,10 @@ import { generationUnits, DEFAULT_IMAGE_MODEL } from '../src/services/imageModel
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = relative => readFileSync(join(ROOT, relative), 'utf8');
+/* 剥掉注释再扫 —— 否则「注释里提到某个字段名」会把判据自己绊倒
+   （本批第一次跑就撞上了：⑧ 的判据是"没有 seriesHint"，而我刚写的注释里恰好写了 seriesHint）。
+   判据要问的是**代码里还有没有**，不是**文字里还提不提**。 */
+const code = relative => read(relative).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 const ID = 'image.concept_set';
 const skill = getImageSkill(ID);
@@ -534,4 +538,34 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
   assert.match(shell, /media-workbench-checklist-series/, '清单每行要渲染出那颗「连拍」标记');
   assert.match(shell, /disabled=\{!on\}/,
     '本身没被勾进这一篇的那行，标记要置灰（清单里没有的那张不可能出现在组里）');
+});
+
+/* ═══ 2026-10-01 用户两条批注：悬停文案撤掉 + 两颗控件纵向对齐 ═══════════════════════════════════ */
+test('⑧ 「连拍」药丸不许再挂悬停文案（用户要的是对话里回答，不是线上给用户看）', () => {
+  /* 用户原话：「而且你现在这些连拍按钮鼠标放上去为什么有那么长的提示啊，那些文案你应该在
+     对话里面回答我呀，你放到线上来给用户看干嘛呀。」
+     原来那条 `seriesHint` 有 110 多字、还带着没被渲染的 `**` 星号，鼠标一碰就糊一屏。 */
+  const shell = code('src/components/media/WorkbenchShell.jsx');
+  const pill = /<button[\s\S]{0,400}?media-workbench-checklist-series[\s\S]{0,400}?>/.exec(shell);
+  assert.ok(pill, '要能定位到那颗药丸的标签');
+  assert.doesNotMatch(pill[0], /\btitle=/,
+    '药丸不许有 title —— 说明性文案属于对话与注释，不属于悬停气泡');
+  assert.doesNotMatch(code('src/pages/MediaCreation/index.jsx'), /seriesHint/,
+    'seriesHint 已经没人读了：留一个看起来"有说明"实际没人看的字段，比删掉更糟');
+});
+
+test('⑨ 「连拍」药丸与「镜头」下拉必须逐像素对齐（纵向）', () => {
+  /* 用户第二次提同一件事：「然后你现在的连拍和镜头的按钮为什么没对齐呀」。
+     批 DC 续-17 修的是**横向**（未勾行的药丸往左滑 ⇒ 行改三列 grid）；
+     这次是**纵向**：药丸自带一截 `margin-top: 5px`，镜头下拉那格没有 ⇒ 每行差 5px。
+     实测（.tmp/gm-align-measure.mjs，真 WorkbenchShell.css + 真 DOM 结构）：
+     改前每行 Δtop = 5px，改后 4 行全部 Δtop = 0、Δheight = 0。 */
+  const css = code('src/components/media/WorkbenchShell.css');
+  const base = /\.media-workbench-checklist-series\s*\{([^}]*)\}/.exec(css);
+  assert.ok(base, '要能定位到药丸的基线规则');
+  assert.doesNotMatch(base[1], /margin-top/,
+    '药丸基线规则不许再自带纵向偏移（偏移只由下面那条并列规则统一给，两边一起）');
+  assert.match(css,
+    /\.media-workbench-checklist\.is-person \.media-workbench-checklist-series,\s*\n?\s*\.media-workbench-checklist\.is-person \.media-workbench-checklist-person\s*\{[^}]*margin-top:\s*0/,
+    '药丸与镜头格必须被**并列**钉在一起（同 align-self / margin-top / min-height），不许只改一边');
 });
