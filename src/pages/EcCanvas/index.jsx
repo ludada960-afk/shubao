@@ -800,6 +800,14 @@ export default function EcCanvas() {
       gap: 12,
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
+      /* 批 CY-㉛：这个面板**竖直居中于「+」**。
+         改前走默认的「顶对齐 + 放不下就上移」：面板高 728、锚点在 y=533，
+         算出来 top=228 ⇒ 面板明显比按钮高出一截、看着"偏上"，底边还压到 y=956。
+         用户 2026-09-30 逐字：「这块面板它似乎是有些偏下的，甚至是有点盖到了
+         左下角的这个功能栏的」。
+         ⚠️ 只给**这一处**加 center：派生菜单 / 图层面板等共用同一个函数，
+         它们的锚点都在别处、顶对齐才是对的（见 resolveAnchoredRight 内的注释）。 */
+      alignVertical: 'center',
     });
     setAddMenuAnchor({ position: 'fixed', left: solved.left, top: solved.top, transform: 'none' });
   }, []);
@@ -1177,8 +1185,16 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     canLongDetail: canExportLongDetail,
   });
 
-  /* 用户批注: 打开任何浮动面板时小地图自动收起, 避免互相遮挡 */
-  const floatingCanvasPanelOpen = Boolean(addNodePanel)
+  /* 用户批注: 打开任何浮动面板时小地图自动收起, 避免互相遮挡
+     ⚠️ 批 CY-㉛ 补 `addMenuOpen`：用户 2026-09-30 逐字
+        「你张开左边这个加号的面板的时候，你下面的这个功能栏的小地图。它不是会隐藏起来吗？
+          那为什么你这个小地图的按钮还亮着呀？」
+        漏掉的原因很具体：这一份清单列的是 `addNodePanel`（双击空白弹的那个「添加节点」面板），
+        而左侧「+」打开的是**另一个**浮层 `addMenuOpen`（`CanvasAddMenu`，走 addMenuAnchor 定位）。
+        两者名字相近、长得也相近，清单里只写了前者 ⇒ 用户点「+」时小地图照常亮着。
+        ⇒ 两个都要列。 */
+  const floatingCanvasPanelOpen = Boolean(addMenuOpen)
+    || Boolean(addNodePanel)
     || Boolean(canvasContextPanel)
     || taskLogOpen
     || layersPanelOpen

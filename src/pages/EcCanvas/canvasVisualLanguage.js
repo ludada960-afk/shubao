@@ -321,7 +321,7 @@ export function canvasRightPanelReserved(viewportWidth, panelWidthOverride) {
  * 返回**视口像素**的 { left, top }，调用方一律用 position:fixed 落位。
  * 纯函数、无 DOM 依赖（SSR 安全），供 portal 与内联两条路径共用同一套规则。
  */
-export function resolveAnchoredRight({ anchor = null, width = 320, height = 400, gap = 12, gutter = 12, viewportWidth = 0, viewportHeight = 0 } = {}) {
+export function resolveAnchoredRight({ anchor = null, width = 320, height = 400, gap = 12, gutter = 12, viewportWidth = 0, viewportHeight = 0, alignVertical = 'top' } = {}) {
   if (!anchor) return null;
   const vw = Number(viewportWidth) || 0;
   const vh = Number(viewportHeight) || 0;
@@ -329,9 +329,20 @@ export function resolveAnchoredRight({ anchor = null, width = 320, height = 400,
   const wanted = (Number.isFinite(anchor.right) ? anchor.right : anchor.x + (anchor.width || 0)) + gap;
   const maxLeft = Math.max(gutter, vw - width - gutter);
   const left = Math.max(gutter, Math.min(wanted, maxLeft));
-  /* ② 竖直：与锚点顶对齐；放不下就**上移**（仍在同一列），不改变左右关系。 */
+  /* ② 竖直。两种口径：
+        alignVertical: 'center'（批 CY-㉛ 新增）
+            面板**竖直居中于锚点**。左侧「+」在屏幕中间偏下（实测 y=533/1000），
+            而面板高 728 —— 改前按「顶对齐 + 放不下就上移」算出来 top=228，
+            面板中心落在 y=592、锚点中心在 y=553，看着就"偏上了 40px"，
+            底部还压到 y=956（贴近视口底）。用户 2026-09-30 说的正是这个：
+            「这块面板它似乎是有些偏下的，甚至是有点盖到了左下角的这个功能栏的」
+        alignVertical: 'top'（**默认值，旧行为，一字未改**）
+            与锚点顶对齐，放不下就上移。派生菜单 / 图层面板等沿用它，避免影响别处。 */
   const maxTop = Math.max(gutter, vh - height - gutter);
-  const top = Math.max(gutter, Math.min(Number(anchor.y) || 0, maxTop));
+  const anchorTop = Number(anchor.y) || 0;
+  const top = alignVertical === 'center'
+    ? Math.max(gutter, Math.min(anchorTop + ((anchor.height || 0) - height) / 2, maxTop))
+    : Math.max(gutter, Math.min(anchorTop, maxTop));
   /* ③ 报告是否发生了回夹 —— 供测试断言「没有向左翻」 */
   return { left, top, clampedRight: wanted > maxLeft };
 }
