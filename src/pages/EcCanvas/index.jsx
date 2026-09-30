@@ -99,7 +99,7 @@ import { markStaleDownstream } from './canvasGraphEngine.js';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
 /* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + 连线@引用合一的纯函数（无入边节点回退旧并集, 与 P0 无图契约逐字节一致）*/
 import { collectRunInputs, instantiateWorkflowTemplate, legacyComposerSourceIds, markP3PendingNodes, mergeGraphMentionSources } from './workflowTemplates.js';
-import { readCanvasVisibleViewport } from './canvasVisibleViewport.js';
+import { useCanvasVisibleViewport } from './canvasVisibleViewport.js';
 import { migrateMentionsToEdges } from './mentionEdgeMigration.js';
 import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
@@ -1232,15 +1232,21 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
   const focusedNodeIds = hoveredNodeId ? getCanvasFocusIds(hoveredNodeId, connections) : null;
-  /* ═══ 批 CY-㉚：小地图视窗框必须按**真正看得见的**画布尺寸算 ══════════════════════════════
-     详见 `canvasVisibleViewport.js` 顶部的完整事故记录：一句话版是
-     `clientWidth`（1524）是**布局宽**，而右面板是靠 `margin-right`（476）让位的，
-     两者相差 45.4%；改前把布局宽当可见宽喂给了小地图，于是视窗框探进看不见的那块，
-     关掉面板又涨回来 —— 用户报的「右边缩小一点点 / 再多出一点点」。 */
-  const canvasVisibleViewportSize = readCanvasVisibleViewport(
-    containerRef.current,
-    { width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900 },
-  );
+  /* ═══ 批 CY-㊴：小地图视窗框必须按**提交之后**的可见画布尺寸算 ══════════════
+     详见 `canvasVisibleViewport.js` 顶部的完整事故记录（两个缺陷叠在一起，
+     单独修任何一个都还是错，所以两处必须一起改）：
+       ① 函数内部把 margin 又减了一遍（476 被减两次）—— 已改成量 border box；
+       ② **接线**：原来在组件体里直接调用它，也就是**在 render 期间读 DOM**，
+          量到的是**上一次提交**的布局。实测（1600×1000、右栏开）：
+            面板开（真宽 1124）时框宽 65.44px = 按 1600 算的（应为 45.97）
+            面板关（真宽 1600）时框宽 26.50px = 按  648 算的（应为 65.44）
+          ⇒ 「框慢一拍、而且慢的那一拍还是错的」，正是用户说的「被截断」。
+     ⚠️ 这一行**只是消费**，测量实现放在 `canvasVisibleViewport.js` 的 hook 里：
+       `test/canvas-port-geometry` 与 `test/ec-canvas-state` 各有一条断言，禁止画布页
+     订阅容器尺寸（守的是「端口/连线几何不许来自 DOM 实测」）。
+       把测量留在画布页会被它们判成回归 —— 与其改别人的判据，不如让画布页
+       **一处 DOM 实测都没有**，两条门禁的意图同时被满足。 */
+  const canvasVisibleViewportSize = useCanvasVisibleViewport(containerRef);
   /* ═══ 批 CY-㉙：@ 菜单**不得列出整张画布的图** ════════════════════════════════════════════
      用户 2026-09-30 逐字（电商套图那张）：
        「然后你这里为什么@ 按钮是能生效的呢……他现在能够艾特到一个完全跟当前节点不相关的
