@@ -102,6 +102,8 @@ import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTermi
 /* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + 连线@引用合一的纯函数（无入边节点回退旧并集, 与 P0 无图契约逐字节一致）*/
 import { collectRunInputs, instantiateWorkflowTemplate, legacyComposerSourceIds, markP3PendingNodes, mergeGraphMentionSources } from './workflowTemplates.js';
 import { useCanvasVisibleViewport, useCanvasStageRect } from './canvasVisibleViewport.js';
+/* 批 CY-㊴ 之十八：每个节点一套稳定回调 —— 这是让节点组件 React.memo 真正生效的前提 */
+import { createPrunableNodeHandlerCache, pruneNodeHandlerCache } from './canvasNodeHandlers.js';
 import { migrateMentionsToEdges } from './mentionEdgeMigration.js';
 import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
@@ -6425,6 +6427,75 @@ const handlePointerUp = useCallback((e) => {
     }
   }, [canvasMediaFields, clearUploadProgress, dispatch, enqueuePendingProjectAssetImports, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, makeUploadReporter, nodes, result, showToast]);
 
+  /* ═══ 批 CY-㊴ 之十八（2026-10-01）：每个节点一套**稳定**的回调 ═══════════════════
+     要让节点组件 React.memo 真正生效，光包一层 memo 没用 —— 渲染循环里传给每个节点的
+     回调绝大多数是内联箭头：
+         onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
+         onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+         onContextMenu={(e, n) => setContextMenu({ … })}
+     每个箭头**每次渲染都是新函数** ⇒ memo 永远判定 props 变了，永远不生效。
+     （实测 7 个节点分支共 120 个 prop，内联箭头就有十几处。）
+
+     ⚠️ 不用「把箭头挪进 useCallback、依赖里塞 node.id」：那是**给每个节点注册一个 hook**，
+     违反 Hooks 规则（数量随节点数变化），而且依赖一变照样要重建。
+     这里是**按 node.id 缓存一个回调包**，包里每个箭头都走 ref 去取真实实现，
+     所以底层 handler 换了也不用重建 —— 引用永远稳定。
+
+     包里的实现统一写成 (nodeId, …) 形式，由缓存把 nodeId 插在第一个参数。
+
+     ⚠️⚠️ 这四行**必须显式换位**，不能把 handler 直接丢进去当实现：
+       缓存调的是 \`impl(nodeId, event, side)\`，
+       而 \`handlePortPointerDown\` 的签名是 \`(event, nodeId, side)\` —— nodeId 在**第二个**。
+       直接传 ⇒ 它收到 \`event = nodeId\`（一个字符串）、\`nodeId = event\`（一个事件对象）。
+       症状：点「+」派生菜单**打不开**（\`handlePortPointerDown\` 拿事件对象当 id 去查节点，查不到）。
+       这个 bug 是被 \`test/canvas-popover-live-anchored-0920\`（实机点派生菜单）抓到的，
+       构建与所有静态门禁都发现不了 —— 所以下面每一条都手写换位，不图省事。 */
+  const nodeHandlerImplRef = useRef({});
+  nodeHandlerImplRef.current = {
+    onPortPointerDown: (nodeId, event, side) => handlePortPointerDown(event, nodeId, side),
+    onPortPointerUp: (nodeId, event, side) => handlePortPointerUp(event, nodeId, side),
+    onPortClick: (nodeId, event, side) => handlePortClick(event, nodeId, side),
+    onResizeStart: (nodeId, event, corner) => handleNodeResizeStart(event, nodeId, corner),
+    onContextMenu: (nodeId, event, node) => setContextMenu({ x: event.clientX, y: event.clientY, node: node || nodeById.get(nodeId) }),
+    onDoubleClickImage: (nodeId, node) => {
+      const target = node || nodeById.get(nodeId);
+      const url = target?.localPreviewUrl || target?.url;
+      if (url) openImagePreview({ url, label: target?.name || target?.displayLabel || '图片预览' });
+    },
+    onPreviewSource: (nodeId, node) => {
+      const target = node || nodeById.get(nodeId);
+      const url = target?.localPreviewUrl || target?.url;
+      if (url) openImagePreview({ url, label: target?.name || '商品素材' });
+    },
+    onHoverChange: (nodeId, nodeIdOrNull) => setHoveredNodeId(nodeIdOrNull),
+    /* 「替换」原来也是内联箭头 `() => handleToolAction(replaceAction, node)` ——
+       它是条件渲染（有就传箭头、没就传 null），但**有**的时候依然每次新建引用，
+       等于白包 memo。改成由缓存按 nodeId 反查 node 与 action。 */
+    onReplaceMedia: nodeId => {
+      const action = getCanvasAction('replace-media');
+      const target = nodeById.get(nodeId);
+      if (action && target) return handleToolAction(action, target);
+      return undefined;
+    },
+    /* 素材分组节点的「输出」端口 side 恒为 'out'，所以单独给一个固定 side 的包装，
+       免得为了固定一个常量再写一遍换位。 */
+    onOutputPortPointerDown: (nodeId, event) => handlePortPointerDown(event, nodeId, 'out'),
+  };
+  const nodeHandlersRef = useRef(null);
+  nodeHandlersRef.current ||= createPrunableNodeHandlerCache(
+    [
+      'onPortPointerDown', 'onPortPointerUp', 'onPortClick', 'onResizeStart',
+      'onContextMenu', 'onDoubleClickImage', 'onPreviewSource', 'onHoverChange',
+      'onReplaceMedia', 'onOutputPortPointerDown',
+    ],
+    nodeHandlerImplRef,
+  );
+  /* 节点被删掉之后，把它的回调包从缓存里清掉 ——
+     否则这是个只增不减的 Map，用户开着一张画布删来删去几轮内存会慢慢涨。 */
+  useEffect(() => {
+    pruneNodeHandlerCache(nodeHandlersRef.current.cache, new Set(nodes.map(node => node.id)));
+  }, [nodes]);
+
   const removeComposerSource = useCallback((composerId, sourceId) => {
     const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);
     setNodes(previous => previous.map(node => node.id === composerId
@@ -7990,17 +8061,20 @@ const handlePointerUp = useCallback((e) => {
               const workflowPortUp = (event, side) => handlePortPointerUp(event, node.id, side);
               const workflowContext = event => setContextMenu({ x: event.clientX, y: event.clientY, node });
               if (node.kind === 'source_group') {
+                const h = nodeHandlersRef.current(node.id);
                 return <StudioSourceNode
                   key={node.id}
                   node={node}
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
-                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
-                  onPortClick={event => handlePortClick(event, node.id)}
-                  onHoverChange={setHoveredNodeId}
-                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={preview => openImagePreview({ url: preview.url, label: node.name || '商品素材' })}
+                  /* 批 CY-㊴ 之十八：这几处原来也是内联箭头，同样会让 memo 失效。
+                     「输出」端口固定是 out，所以用缓存里另一个固定 side 的包装。 */
+                  onPortPointerDown={h.onOutputPortPointerDown}
+                  onPortClick={h.onPortClick}
+                  onHoverChange={h.onHoverChange}
+                  onContextMenu={h.onContextMenu}
+                  onDoubleClick={h.onPreviewSource}
                 />;
               }
               if (node.kind === 'layer-group') {
@@ -8038,6 +8112,10 @@ const handlePointerUp = useCallback((e) => {
               }
               if (node.kind === 'image' || node.kind === 'output') {
                 const replaceAction = getCanvasAction('replace-media');
+                /* 批 CY-㊴ 之十八：这七处原来是内联箭头，每次渲染都产生新函数
+                   ⇒ StudioImageNode 的 React.memo 永远判定 props 变了。
+                   改成从"按 node.id 缓存的回调包"里取，引用跨渲染稳定。 */
+                const h = nodeHandlersRef.current(node.id);
                 return <StudioImageNode
                   key={node.id}
                   node={node}
@@ -8050,17 +8128,17 @@ const handlePointerUp = useCallback((e) => {
                   /* 批 CY-㊴：side 必须透传。改前两侧都写死 'out'，
                      于是 handlePortPointerUp 的 `side !== 'in'` 直接丢弃 ——
                      用户看到左边也有加号，但把线拉过去连不上。 */
-                  onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
-                  onPortPointerUp={(event, side) => handlePortPointerUp(event, node.id, side)}
-                  onPortClick={(event, side) => handlePortClick(event, node.id, side)}
+                  onPortPointerDown={h.onPortPointerDown}
+                  onPortPointerUp={h.onPortPointerUp}
+                  onPortClick={h.onPortClick}
                   connectActive={Boolean(connectingFromNodeId) && connectingFromNodeId !== node.id}
                   snapActive={connectSnapNodeId === node.id}
-                  onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+                  onResizeStart={h.onResizeStart}
                   canDerive={canDeriveFromCanvasSource(node)}
-                  onHoverChange={setHoveredNodeId}
-                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={node => openImagePreview({ url: node.localPreviewUrl || node.url, label: node.name || node.displayLabel || '图片预览' })}
-                  onReplace={replaceAction.canRun(node) ? () => handleToolAction(replaceAction, node) : null}
+                  onHoverChange={h.onHoverChange}
+                  onContextMenu={h.onContextMenu}
+                  onDoubleClick={h.onDoubleClickImage}
+                  onReplace={replaceAction.canRun(node) ? h.onReplaceMedia : null}
                   onImageReady={handleImagePreviewReady}
                   /* 批 CY-⑭：这一支（image / output = **上传 + 生成的图片结果**）以前**根本没接**
                      onNaturalSize，所以框永远按请求里的比例画。接上。 */

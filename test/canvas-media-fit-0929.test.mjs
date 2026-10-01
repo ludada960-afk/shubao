@@ -105,12 +105,14 @@ test('量到真实尺寸的通路**每一处都接上了**（事故：函数写�
     '图片 / 生成结果节点必须接上 onNaturalSize —— 断链的正是这一处');
 
   /* (c) CanvasGenerationNode 必须在**签名里**声明并往下传 */
-  assert.match(code, /function CanvasGenerationNode\(\{[\s\S]*?onNaturalSize = null/, 'CanvasGenerationNode 签名必须声明 onNaturalSize');
+  /* 2026-10-01（批 CY-㊴ 之十八）：节点组件改名成 *View 并以 memo 导出，
+     所以签名判据要跟着改名字 —— 守的仍然是"签名里必须声明 onNaturalSize"这件事。 */
+  assert.match(code, /function CanvasGenerationNodeView\(\{[\s\S]*?onNaturalSize = null/, 'CanvasGenerationNode 签名必须声明 onNaturalSize');
   assert.match(code, /onLoadedMetadata=\{event => \{[\s\S]*?videoWidth[\s\S]*?onNaturalSize\?\./,
     '视频必须用 onLoadedMetadata 的 videoWidth/videoHeight 走同一条通路');
 
   /* (d) CanvasImageNode 一直在发这个事件，链路两头都要在 */
-  assert.match(code, /function CanvasImageNode\(\{[\s\S]*?onNaturalSize,/, 'CanvasImageNode 必须保留 onNaturalSize 形参');
+  assert.match(code, /function CanvasImageNodeView\(\{[\s\S]*?onNaturalSize,/, 'CanvasImageNode 必须保留 onNaturalSize 形参');
   assert.match(code, /onNaturalSize\?\.\(node\.id, \{ naturalWidth, naturalHeight \}\)/,
     '图片 onLoad 必须把真实尺寸发出去');
 });

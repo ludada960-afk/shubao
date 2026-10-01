@@ -445,7 +445,9 @@ test('right-side image generation reuses the independent image composer with sou
 
 test('contextual composers expose fixed product controls without model selectors or destructive close buttons', () => {
   const source = readFileSync(new URL('../src/pages/EcCanvas/components/CanvasStudio.jsx', import.meta.url), 'utf8');
-  assert.match(source, /export function CanvasGenerationNode/);
+  /* 2026-10-01（批 CY-㊴ 之十八）：节点组件现在是 `React.memo` 包装版，
+     判据从「必须以 export function 形式存在」改成「导出名必须存在」。 */
+  assert.match(source, /export const CanvasGenerationNode = React\.memo\(/);
   /* 2026-09-28 批 CY-⑬：清晰度不再是一颗独立的 `aria-label="清晰度"` 小药丸，
      它与画面尺寸、生成数量一起收进了「生成配置」面板（用户原话：「什么尺寸，清晰度，数量
      这些都是可以放在同一个**生成配置**里面去呀」）。
