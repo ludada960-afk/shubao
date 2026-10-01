@@ -166,6 +166,58 @@ export function selectNodesInRect(nodes, rect) {
   }).map(node => node.id);
 }
 
+/* ═══ 批 CY-㊴ 之十七（2026-10-01）：视口裁剪 ═══════════════════════════════════════
+   用户原话：「整个网站各个地方进行操作，都会有所延迟」。
+
+   画布世界是 6400×4800，而 `visibleNodes` 原来**只是个分组过滤**（按 group），
+   屏外的节点 DOM 一样全量渲染、全量重渲染。节点一多，每次交互都在为看不见的东西付钱。
+
+   这里按"节点占位是否与可视矩形相交"来筛。
+
+   ⚠️ **overscan（外扩）是必须的，不是优化**：没有它，节点在屏幕边缘**刚要进来 / 刚要出去**
+   的那一帧会突然出现 / 消失（pop）。外扩一圈让节点在真正露脸前就已经在 DOM 里。
+   经验值取一屏的 25%。
+
+   ⚠️ **相交即保留**（不是"完整在视口内"）—— 与框选那条"完整框住才选"的规则**故意相反**：
+     框选是用户主动表达"我要这些"，必须精确；
+     裁剪只是"别渲染看不见的东西"，半个身位露出来就该渲染，否则会被切一半。
+
+   ⚠️ 隐藏节点（hidden）一律不返回 —— 它们本来就不该占渲染开销。 */
+export const CANVAS_CULL_OVERSCAN_RATIO = 0.25;
+
+export function canvasViewportWorldRect(viewport, visibleSize, overscanRatio = CANVAS_CULL_OVERSCAN_RATIO) {
+  const scale = Number(viewport?.scale) > 0 ? Number(viewport.scale) : 1;
+  const width = Number(visibleSize?.width) > 0 ? Number(visibleSize.width) : 1440;
+  const height = Number(visibleSize?.height) > 0 ? Number(visibleSize.height) : 900;
+  const marginX = width * overscanRatio;
+  const marginY = height * overscanRatio;
+  /* viewport.x/y 是"世界坐标 → 屏幕"的平移量：屏幕 0 对应世界 -x/scale */
+  return {
+    left: (-Number(viewport?.x || 0) - marginX) / scale,
+    top: (-Number(viewport?.y || 0) - marginY) / scale,
+    right: (-Number(viewport?.x || 0) + width + marginX) / scale,
+    bottom: (-Number(viewport?.y || 0) + height + marginY) / scale,
+  };
+}
+
+export function canvasNodesInViewport(nodes, worldRect, pinnedIds = null) {
+  if (!worldRect) return nodes;
+  return nodes.filter(node => {
+    if (node?.hidden) return false;
+    /* ⚠️ **被"钉住"的节点一律保留**，哪怕完全在视口外。
+       因为有一类功能是**通过 DOM 查询**去找节点的 —— 例如文字编辑：
+         containerRef.current?.querySelector(`[data-canvas-node-id="${editingTextNodeId}"] [contenteditable="true"]`)
+       节点一旦被裁掉，那次查询就落空，表现为"点进去编辑，光标不出现"。
+       与其逐个去补这些例外，不如把"当前正在用的节点"全部钉住 ——
+       它们最多也就十几个，渲染开销可以忽略，却能让裁剪这件事**没有例外**。 */
+    if (pinnedIds?.has(node.id)) return true;
+    const box = canvasNodeFootprint(node);
+    if (!box) return false;
+    return box.x + box.w >= worldRect.left && box.x <= worldRect.right
+      && box.y + box.h >= worldRect.top && box.y <= worldRect.bottom;
+  });
+}
+
 export function moveSelectedNodes(nodes, selectedIds, dx, dy) {
   const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
   return nodes.map(node => ids.has(node.id) && !node.locked

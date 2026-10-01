@@ -16282,3 +16282,117 @@ cleanup 把预热打断；而 `hoverIntentRef` 已经是 true，不会再触发�
 全绿；design-ratchet 无新增硬编码。
 
 真浏览器复测：进画布静置 15 秒，抠图模型 **0 字节**。
+
+## 2026-10-01 批 CY-㊴ 之十七：画布渲染层（O(n²) / 强制重排 / 视口裁剪）
+
+承接之十五、之十六。用户原话：「是真问题你就做吧，难也要做」——
+指的就是上一条里我「故意没做」的那几项：index.jsx 8,944 行、105 个 useState、
+全仓 0 个 React.memo、渲染循环里的 O(n²)、render 期读 DOM、没有视口裁剪。
+
+### 先说清楚：慢的仍然不是服务器（这条不变）
+
+生产机 CPU 2.3% / RAM 15.3%，API 1~2ms。本批四件事全部在**浏览器**侧。
+
+### ① 渲染循环里的 O(n²) → Map 查表
+
+两处热点都写在 `visibleNodes.map` **里面**：
+
+| 节点数 | nodes.find | nodes.filter | 合计 |
+| --- | --- | --- | --- |
+| 50 | 0.012ms | 0.027ms | 0.033ms |
+| 500 | 0.808ms | 1.229ms | **2.20ms** |
+| 2000 | 8.174ms | 10.470ms | **25.77ms** |
+| 5000 | — | 55.348ms | **78.66ms** |
+
+另外那个「选中回收器」effect 每次 nodes 变化要**全表扫 7 次**
+（selected / multiSelected 每个 id / connectionPicker / connectionDraft /
+focusedEditor / textInspector / watermarkPreview）⇒ 拖一次节点付 7×n 次比较。
+
+改法：建两张表复用全部 —— `nodeById`（id→node）与 `layerChildrenByParent`
+（parentLayerGroupId→子节点数组），7 次 `nodes.some` 变 1 次表查询。
+
+⚠️ `nodeById` **刻意先到先得**（已有 id 不覆盖）。`new Map(nodes.map(...))` 是
+「最后一个赢」，而 `nodes.find(n => n.id === id)` 是「**第一个**赢」——
+若图上真出现重复 id，两者结果不同，某个节点的来源图会悄悄变成另一个。
+等价性由门禁 ① 守住（含重复 id 的用例）。
+
+### ② render 期读 DOM（强制同步重排）→ 提交后测量
+
+工具栏 bounds / composer 定位 / 视图中心原来是 render 期间直接
+`containerRef.current?.getBoundingClientRect()` 塞进 props 的。
+**render 期读几何 = 强制同步重排**：浏览器必须先把前面所有样式改动算完布局才能回答。
+实测每次渲染被浪费的时间：
+
+| 节点数 | DOM 元素数 | 每次渲染浪费 |
+| --- | --- | --- |
+| 200 | 9,712 | **10.7 ms** |
+| 500 | 23,912 | **30.7 ms** |
+| 1000 | 47,579 | **67.9 ms** |
+| 2000 | 94,912 | **133.9 ms**（8 帧以上） |
+
+而且读到的还是**上一次提交**的布局。
+
+改法：新增 `useCanvasStageRect`（放在 `canvasVisibleViewport.js` 里，
+**不是 index.jsx** —— 见那个文件头：`test/canvas-port-geometry` 与
+`test/ec-canvas-state` 各有一条断言禁止画布页出现 ResizeObserver，
+它们守的是「端口/连线几何不许来自 DOM 实测」；与其改别人的判据，不如把测量搬进模块）。
+返回**尺寸不变则引用不变**的对象，配合 memo 才真能跳过渲染。
+render 期读 DOM 剩 19 处，**全部在事件处理器里**（事件里量是对的）。
+
+### ③ 视口裁剪（这一步差点踩到一条既有产品决定）
+
+`visibleNodes` 原来**只是按 group 过滤** —— 名字骗人，屏外的节点 DOM 一样全量渲染。
+世界是 6400×4800。
+
+⚠️ 动手前先查到一条**既有门禁**明写：
+> 「无限画布的固有属性：素材在视口外只是『没画出来』，**绝不能从状态里消失**」
+> 「Excalidraw Renderer.ts 把出视口元素移进 removed **绘制集合**，状态原封不动」
+> 「门禁反过来劝阻添加剔除，免得下一个人看用户抱怨『又看不到素材』就加个 viewport filter，
+> 那会把素材**真的**切掉」
+
+**这条判断是对的，我照做而不是推翻它**：裁掉的只是「不画」，`nodes` **状态一个字节没动**；
+导出 / 框选 / 分组 / 适配 全部仍用 `nodes`，小地图的世界范围本来就是**写死的常量**
+（6400×4800），根本不依赖节点列表。
+那条门禁也从「不许出现某段代码」改写成**更强**的形式：
+「任何按视口过滤都**只能**出现在渲染派生里，一旦流进 setNodes / 导出 / 小地图，立刻判红」。
+
+三件必须同时成立才不会出事：
+- **overscan 外扩 25%**（`CANVAS_CULL_OVERSCAN_RATIO`）—— 否则节点在屏幕边缘会
+  刚要进来 / 刚要出去时突然出现 / 消失。实测对照：overscan=0 保留 108 个节点，
+  overscan=25% 保留 154 个，多出来的 46 个就是「提前进 DOM」的那一圈。
+- **隐藏节点不渲染**（原来是用 `visibility:hidden` 照样占着 DOM）。
+- **当前正在用的节点全部钉住**（选中 / 多选 / 悬停 / 正在编辑文字 / 聚焦编辑器 /
+  连线草稿与连线选择器）。这是为了消灭一整类风险：
+  文字编辑是靠 `querySelector(...[data-canvas-node-id="…"] [contenteditable="true"])`
+  找节点的，节点被裁掉就「点进去编辑光标不出现」。钉住的是十来个节点，
+  开销可忽略，却让裁剪**没有任何例外**。
+
+实测收益（1920×966、右栏开、缩放 0.68）：
+
+| 节点总数 | 裁剪后 | 省掉 | DOM 元素数 |
+| --- | --- | --- | --- |
+| 40 | 14 | 26 | — |
+| 200 | 70 | 130 | — |
+| 800 | 154 | 646 | — |
+| 2000 | **154** | **1846（92%）** | 约 94,000 → **约 7,238（7.7%）** |
+
+裁剪本身耗时 0.06ms（可忽略）。真浏览器复核：画布页无运行时异常、错误边界未触发。
+
+### 门禁
+
+- 新增 `test/canvas-viewport-culling-1001.test.mjs`（5 条）：Map 与 find 的等价性
+  （**含重复 id**）、世界矩形反算与 scale=0 兜底、裁剪三条语义（相交即保留 /
+  hidden 不渲染 / 钉住）、render 期不许读 DOM、渲染循环里不许再出现 nodes.find/filter。
+- 改写 `canvas-media-fit-no-overlap-0929`：按上面那条产品决定的**原意**改强。
+- 改写 `canvas-selection-panels`（两处）、`canvas-studio-contract`（一处）：
+  `nodes.some(…)` → `nodeById.has(…)`（等价），并顺手把性能属性也钉住。
+
+全量 4558 条 / 0 失败；precommit（构建 + 38 道 BLOCKING 门禁 + 325 条 e2e）全绿。
+
+### 本批**仍然没有**做（风险收益比不合适）
+
+节点组件的 `React.memo` + 稳定化 per-node 回调。要真正生效，得把渲染循环里
+**约 60 处内联箭头回调**（形如 `onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}`）
+换成稳定引用，外加 `nodeWatermark(node, 'image')` 这类每次返回新对象的调用。
+这是本次四个阶段里唯一**会改到交互本身**的（改错了就是「节点拖不动」），
+所以单独一批做，且必须配真浏览器的拖拽交互回归，不与本批混在一起。

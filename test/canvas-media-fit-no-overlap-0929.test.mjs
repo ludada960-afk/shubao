@@ -166,12 +166,59 @@ test('handleMediaNaturalSize 走带上限的框高公式（一条 9:16 长图不
 });
 
 test('无限画布的固有属性：素材在视口外只是「没画出来」，绝不能从状态里消失', () => {
-  // 调研结论（React Flow translateExtent 默认无限 / Excalidraw Renderer 只把出视口元素
-  // 移进 removed 绘制集合）：stage 边缘裁切不是 bug。门禁钉住「不许加视口剔除」。
-  assert.match(page, /const visibleNodes = activeFilter === '全部' \? nodes : nodes\.filter/);
-  assert.doesNotMatch(page, /const visibleNodes = nodes\.filter\([^)]*(?:viewport|containerRef)/);
-  // 也不能有任何按视口删节点的逻辑
-  assert.doesNotMatch(page, /nodes\.filter\([^)]*rectsOverlap|onlyRenderVisible/);
+  /* 调研结论（React Flow translateExtent 默认无限 / Excalidraw Renderer 只把出视口元素
+     移进 removed **绘制集合**，状态原封不动）：stage 边缘裁切不是 bug，是无限画布的固有属性。
+
+     ⚠️ 这条门禁原来的**意图**不是"不许有视口裁剪"，而是
+        「**绝不能**因为看不见就把素材从**状态**里切掉」——
+        原注释写得很清楚：「免得下一个人看用户抱怨『又看不到素材』就加个 viewport filter，
+        那会把素材**真的**切掉」。
+
+     2026-10-01（批 CY-㊴ 之十七）加了**渲染层**的视口裁剪（`visibleNodes`），
+     裁掉的只是**不画**，与 Excalidraw 的 `removed` 绘制集合是同一个口径：
+        · `visibleNodes` 只在 `visibleNodes.map(...)` 里用于渲染；
+        · `nodes` **状态**一个字节都没动；
+        · 导出 / 小地图 / 适配 / 框选 / 分组 全部仍然用 `nodes`。
+     所以下面不是把门禁放松，而是**按它的原意改写成更强的形式**：
+     从"不许出现某段代码"，变成"任何按视口过滤都**只能**出现在渲染派生里，
+     一旦流进 setNodes / 导出 / 小地图，立刻判红"。 */
+  assert.match(page, /const visibleNodes = useMemo\(\(\) => \{/,
+    'visibleNodes 必须是**渲染用的派生值**');
+  assert.match(page, /canvasNodesInViewport\(grouped, cullWorldRect, pinnedNodeIds\)/,
+    'visibleNodes 必须经过视口裁剪（渲染层，不动状态）');
+
+  /* ① 状态本身绝不能被视口过滤 */
+  assert.doesNotMatch(page, /setNodes\([^)]*canvasNodesInViewport/,
+    '❗绝不能把视口过滤的结果写回 nodes 状态 —— 那才是"把素材真的切掉"');
+  assert.doesNotMatch(page, /setNodes\([^)]*rectsOverlap|onlyRenderVisible/);
+
+  /* ② 依赖**全部**节点的地方，必须用 nodes 而不是 visibleNodes */
+  for (const [what, pattern] of [
+    ['导出', /selectDeliverableNodes\(nodes,/],
+    ['框选', /selectNodesInRect\(nodes,/],
+    ['分组框', /canvasGroupFrames\(nodes\)/],
+    ['视图适配', /fitViewport\(nodes,/],
+  ]) {
+    assert.match(page, pattern, `${what} 必须基于完整的 nodes，不能基于裁剪后的 visibleNodes`);
+  }
+  /* 小地图的世界范围是**写死的常量**（6400×4800），根本不看节点列表 ——
+     所以裁剪对它没有任何影响（这比"从 nodes 算"还要安全一层）。 */
+  assert.match(page, /const minimapWorldBounds = useMemo\(\(\) => \(\{\s*width: 6400,\s*height: 4800/,
+    '小地图世界范围必须是固定常量，不依赖任何节点列表');
+
+  /* ③ 可见性之外的东西不得参与过滤：hidden 只是"不画"，仍在状态里。
+     判据读的是 canvasState.js（裁剪函数本身住在那里，不在 index.jsx）。 */
+  const state = readFileSync(new URL('../src/pages/EcCanvas/canvasState.js', import.meta.url), 'utf8');
+  const cullFn = state.slice(
+    state.indexOf('export function canvasNodesInViewport'),
+    state.indexOf('export function moveSelectedNodes'),
+  );
+  assert.match(cullFn, /if \(node\?\.hidden\) return false;/,
+    '裁剪函数必须跳过 hidden 节点');
+  assert.match(cullFn, /pinnedIds\?\.has\(node\.id\)/,
+    '被钉住的节点必须无视视口一律保留（文字编辑靠 querySelector 找节点）');
+  assert.doesNotMatch(cullFn, /\.splice\(|\.pop\(|\.shift\(/,
+    '裁剪函数只许返回新数组，**绝不允许**改动传入的 nodes');
 });
 
 test('画布仍然只按「图层筛选 chip」过滤节点（CY-⑮ 修过的回归防护）', () => {

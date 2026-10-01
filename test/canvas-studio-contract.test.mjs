@@ -367,7 +367,16 @@ test('smart-layer generation starts collapsed and replaces its composite with re
   assert.match(interactionModel, /layerExpanded: true, hidden: true/);
   assert.match(interactionModel, /parentLayerGroupId === groupNodeId[\s\S]*?hidden: false/);
   assert.match(page, /node\.kind === ['"]layer-group['"]/);
-  assert.match(page, /layerChildren=\{nodes\.filter\(child => child\.parentLayerGroupId === node\.id\)\}/);
+  /* 2026-10-01 性能：原来是 `nodes.filter(child => child.parentLayerGroupId === node.id)`，
+     写在节点渲染循环里 ⇒ 每帧 O(n²)（2000 节点实测 10.5ms）。
+     改成查预先建好的 `layerChildrenByParent`。
+     判据从"代码长什么样"改成"查的是哪张表 + 表是怎么建的"—— 语义要求（按
+     parentLayerGroupId 取直接子节点）没变，只是取数方式换了。 */
+  assert.match(page, /layerChildren=\{layerChildrenByParent\.get\(node\.id\) \|\| noLayerChildren\}/);
+  assert.match(page, /const layerChildrenByParent = useMemo\(\(\) => \{[\s\S]*?if \(!parent\) continue;[\s\S]*?map\.set\(parent, \[node\]\)/,
+    'layerChildrenByParent 必须按 parentLayerGroupId 归组，且跳过没有父的节点');
+  assert.doesNotMatch(page.slice(page.indexOf('visibleNodes.map(')), /layerChildren=\{nodes\.filter\(/,
+    '渲染循环里不得退回全表 filter');
   assert.match(studio, /ec-canvas-layer-composite/);
   assert.match(studio, /\[\.\.\.layerChildren\]\.sort\([\s\S]*?\)\.map/);
   assert.match(page, /const groupNodeId = result\.groupNode\.id/);
