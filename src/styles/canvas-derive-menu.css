@@ -137,7 +137,7 @@
               box-shadow var(--sb-dur-fast) var(--sb-ease-out),
               background var(--sb-dur-fast) var(--sb-ease-out);
   position: relative;
-  min-height: 86px;
+  min-height: 62px;
   overflow: hidden;
 }
 .ec-canvas-derive-tile::before {
@@ -168,8 +168,8 @@
 
 /* chip: 图标芯片 */
 .ec-canvas-derive-tile .ec-canvas-derive-chip {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   border-radius: var(--sb-radius-md);

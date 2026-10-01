@@ -432,6 +432,32 @@
 .ec-canvas-media-node.is-dimmed,
 .ec-canvas-source-node.is-dimmed,
 .ec-canvas-copy-node.is-dimmed { opacity: .25; }
+/* 批 CY-㊴（2026-10-01）：图片加载失败的可见落点。
+   用户原话：「有时候图片上传上去就是显示不出来呀。偶尔会出现这种情况。这是你的问题呀」
+   之前这张图没有 onError —— 失败时界面上什么都不渲染，是个白框，既分不清是"还在加载"
+   还是"加载失败"，也没有任何办法恢复。间歇性尤其糟：草稿重载时持久图可能还没可读。
+   ⚠️ 颜色一律走既有 token —— 棘轮门禁（design-ratchet）只允许硬编码色**减少**，
+      本次不引入任何新的 hex。 */
+.ec-canvas-media-failed {
+  position: absolute; inset: 0;
+  display: grid; place-content: center; justify-items: center; gap: 4px;
+  padding: 10px; text-align: center;
+  background: repeating-linear-gradient(45deg, var(--canvas-bg) 0 8px, var(--canvas-surface) 8px 16px);
+  color: var(--canvas-muted);
+}
+.ec-canvas-media-failed strong { font-size: 12px; font-weight: 700; color: var(--canvas-ink); }
+.ec-canvas-media-failed span {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px;
+}
+.ec-canvas-media-failed button {
+  margin-top: 2px; height: 24px; padding: 0 10px;
+  border: 1px solid var(--canvas-hairline); border-radius: 6px;
+  background: var(--canvas-surface); color: var(--canvas-ink);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.ec-canvas-media-failed button:hover { background: var(--canvas-bg); }
+
 .ec-canvas-media-frame { position: relative; width: 100%; overflow: hidden; border-radius: 8px 7px 0 0; background: #f2f3f5; }
 .ec-canvas-media-frame img { pointer-events: none; -webkit-user-drag: none; }
 .ec-canvas-media-node footer { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 8px 7px; border-top: 1px solid #eef0f2; }
@@ -453,9 +479,15 @@
   min-width: 24px;
   flex: 0 0 24px;
   margin: 0 4px;
-  vertical-align: -6px;
   box-shadow: none;
   pointer-events: none;
+  /* ★ 真正的元凶（批 CY-㊴ 定位）：基础规则 `.ec-canvas-node-port` 上有
+     `top: 50% + transform: translateY(-50%)`。改成 `position: static` 之后
+     `top` 确实不生效了，但 **transform 依然生效** —— -50% × 24px = -12px，
+     实测偏差 11.9px，与之完全吻合。
+     前两次我只去动 `vertical-align`（那也是猜的），没碰它，所以"改了还是歪"。
+     ⇒ 这里必须显式 `transform: none`。 */
+  transform: none;
   z-index: auto;
   cursor: default;
 }
