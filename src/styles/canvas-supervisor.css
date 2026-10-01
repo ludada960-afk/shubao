@@ -512,6 +512,20 @@
    数值其实是对的（框宽/画布宽两态都是 0.0409），是小地图画的是 6400 宽的世界、
    而画布只有 1920，框天然只占约 1/4，框外那片和框内画得一样清楚，
    于是读起来像渲染被切掉。⇒ 用遮罩把它明确成「窗外」。 */
+/* 批 CY-㊴（2026-10-01）：画布右边被右侧面板压住的那一段。
+   用户连着三次反馈「小地图依然会被派生框遮住一部分」「素材图的右边为什么还是比较窄」——
+   之前两次都把实心框改窄 + 给框外加压暗，等于把"被遮住"画成了"窗外"，方向就错了。
+   现在：实心框 = 看得见的部分；紧接其右再画一段**斜纹**的"被面板压住"，
+   两段合起来正好是画布的完整宽度，一眼能看出右边被盖了多宽。 */
+.ec-canvas-minimap-covered {
+  position: absolute;
+  border: 1px dashed rgba(78, 205, 196, 0.55);
+  border-left: 0;
+  border-radius: 0 4px 4px 0;
+  background: repeating-linear-gradient(135deg, rgba(78, 205, 196, 0.22) 0 3px, rgba(78, 205, 196, 0.06) 3px 6px);
+  pointer-events: none;
+}
+
 .ec-canvas-minimap-viewport {
   position: absolute;
   border: 1px solid rgba(78, 205, 196, 0.7);

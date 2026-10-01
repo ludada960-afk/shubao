@@ -379,6 +379,16 @@ export function CanvasMinimap({
   const stage = viewportSize && Number(viewportSize.width) > 0 && Number(viewportSize.height) > 0
     ? { width: Number(viewportSize.width), height: Number(viewportSize.height) }
     : { width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900 };
+  /* ═══ 批 CY-㊴（2026-10-01）：把「被右侧面板遮住的那一条」**画出来** ══════════════
+     用户连续三次反馈（逐字）：
+       「感觉还是一样啊，小地图依然会被派生框遮住一部分呀，素材图的右边为什么还是比较窄呢」
+       「这个派生面板在你的小地图里依然是被遮蔽的元素呀，你根本没解决呀」
+     我前面两次都搞错了方向：一直在把实心框**改窄**（让它等于看得见的部分），
+     还加了一层"框外压暗"的遮罩 —— 那等于把"被遮住"画成了"窗外"。
+     用户要的是：画布右边被面板盖住的那一段**在框里要看得见，并且看得出它是被遮住的**。
+     ⇒ 实心框 = 看得见的部分；紧接在它右边再画一段**斜纹**的"被面板压住"，
+       两段合起来正好是画布的完整宽度。 */
+  const coveredWidth = Math.max(0, Number(viewportSize?.coveredWidth) || 0);
   const safeScale = Math.max(0.01, Number(viewport.scale) || 1);
   const rawVisibleRect = {
     x: toMapX(-viewport.x / safeScale),
@@ -394,6 +404,10 @@ export function CanvasMinimap({
     x: Math.min(canvasWidth - visibleW, Math.max(0, rawVisibleRect.x)),
     y: Math.min(canvasHeight - visibleH, Math.max(0, rawVisibleRect.y)),
   };
+  /* 被面板压住的那一段：紧接在实心框右边，宽度按同样的世界→小地图比例换算 */
+  const coveredW = coveredWidth > 0
+    ? Math.max(0, Math.min(canvasWidth - (visibleRect.x + visibleW), (coveredWidth / safeScale) * scale))
+    : 0;
 
   function handlePointerDown(event) {
     setIsDragging(true);
@@ -493,6 +507,21 @@ export function CanvasMinimap({
             height: visibleRect.h,
           }}
         />
+        {/* 被右侧面板压住的那一段：和实心框同高、紧接其右，斜纹填充。
+            画出来之后，"画布右边被面板盖住" 在小地图里是**看得见的**，
+            而不是"框忽然变窄了"（用户连着三次反馈的就是这个观感）。 */}
+        {coveredW > 0 && (
+          <div
+            className="ec-canvas-minimap-covered"
+            aria-hidden="true"
+            style={{
+              left: Math.max(0, visibleRect.x) + visibleW,
+              top: Math.max(0, visibleRect.y),
+              width: coveredW,
+              height: visibleRect.h,
+            }}
+          />
+        )}
       </div>
     </div>
   );

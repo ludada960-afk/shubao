@@ -48,8 +48,11 @@ test('① 右栏打开：宽度就是 border box 宽，**不得再减 margin**�
 });
 
 test('② 右栏关闭：宽度就是整行宽', () => {
-  const got = readCanvasVisibleViewport(el(1600, 892), undefined, rectOf(1600, 892));
-  assert.deepEqual(got, { width: 1600, height: 892 });
+  const got = readCanvasVisibleViewport(el(1600, 892), undefined, rectOf(1600, 892), () => 0);
+  /* 批 CY-㊴（2026-10-01）：多一个 coveredWidth —— 右侧面板遮住的那一段要**单独报出来**
+     （小地图要把它画成斜纹；用户 10-01 连着三次反馈「小地图依然会被派生框遮住一部分」）。
+     这里面板没开 ⇒ 遮住宽度 0。 */
+  assert.deepEqual(got, { width: 1600, height: 892, coveredWidth: 0 });
 });
 
 test('③ 关键性质：框宽必须**跟着**可见画布宽一起变，且比例一致', () => {
@@ -67,35 +70,44 @@ test('③ 关键性质：框宽必须**跟着**可见画布宽一起变，且比
   assert.ok(open.width / closed.width > 0.6, '不得退回到"再减一次 margin"那个 0.405');
 });
 
-test('④ margin 无论多大都不参与计算（这是本次事故的核心，不是四边都要扣）', () => {
-  /* 旧版第④条叫「四边 margin 都要扣」，并断言 1000−10−20=970。**那条判据是错的**：
+test('④ margin **不许从宽度里减掉**（事故核心）；但可以被**单独报出来**', () => {
+  /* 旧版第④条叫「四边 margin 都要扣」并断言 1000−10−20=970 —— **那条判据是错的**：
      margin 不在 border box 里，扣它等于凭空少一块。
-     这里反过来钉：哪怕某天有人给舞台加了 9999px 的 margin，可见宽也不许变。 */
+     这里钉住的是**原则**（不是四边相减、扣减），并区分两件不同的事：
+
+       ✗ 宽度 = borderBox − margin            （批 CY-㉚ 的老 bug，已修）
+       ✓ 宽度 = borderBox                     （看得见的部分）
+       ✓ 另外报出 coveredWidth = margin 宽度   （批 CY-㊴ 10-01：小地图要画出"被面板遮住的那一段"）
+
+     哪怕某天有人给舞台加了 9999px 的 margin，**宽度也不许变**。 */
   const withHugeMargin = { clientWidth: 1000, clientHeight: 800 };
-  const got = readCanvasVisibleViewport(withHugeMargin, undefined, rectOf(1000, 800));
-  assert.deepEqual(got, { width: 1000, height: 800 },
-    '函数不得读 getComputedStyle / margin（源码里出现就是错）');
+  const got = readCanvasVisibleViewport(withHugeMargin, undefined, rectOf(1000, 800), () => 9999);
+  assert.equal(got.width, 1000, 'margin 再大也不许从宽度里减（这是本次事故的核心）');
+  assert.equal(got.height, 800);
+  assert.equal(got.coveredWidth, 9999, '但被遮住的宽度要单独报出来，供小地图画斜纹段');
+
   const code = stripBlockComments(source);
-  assert.doesNotMatch(code, /margin(Left|Right|Top|Bottom)/,
-    '本函数不再解析任何 margin —— 出现即回归批 CY-㉚ 那个错误假设');
-  assert.doesNotMatch(code, /getComputedStyle/,
-    '本函数不再读计算样式：border box 已经包含了"看得见"的全部信息');
+  assert.doesNotMatch(code, /width\s*[-+]=[^;]*num\(|clientWidth\s*-\s*num/,
+    '宽度计算里不得再出现减 margin 的写法');
+  assert.doesNotMatch(code, /marginTop|marginBottom|marginLeft/,
+    '上下左的 margin 与"被面板遮住"无关，不该再被读取');
 });
 
 test('⑤ 拿不到有效值时兜底，绝不能返回 0（0 会让视窗框整个消失）', () => {
+  const F = { width: 1440, height: 900 };
   assert.deepEqual(
-    readCanvasVisibleViewport(null, { width: 1440, height: 900 }),
-    { width: 1440, height: 900 },
-    '没有容器时用兜底',
+    { ...readCanvasVisibleViewport(null, F) },
+    { width: 1440, height: 900, coveredWidth: 0 },
+    '没有容器时用兜底（coveredWidth 无从谈起 ⇒ 0）',
   );
   assert.deepEqual(
-    readCanvasVisibleViewport(el(0, 0), { width: 1440, height: 900 }, rectOf(0, 0)),
-    { width: 1440, height: 900 },
+    { ...readCanvasVisibleViewport(el(0, 0), F, rectOf(0, 0)) },
+    { width: 1440, height: 900, coveredWidth: 0 },
     '尺寸为 0 时也要兜底',
   );
   assert.deepEqual(
-    readCanvasVisibleViewport(el(0, 0), { width: 1440, height: 900 }),
-    { width: 1440, height: 900 },
+    { ...readCanvasVisibleViewport(el(0, 0), F) },
+    { width: 1440, height: 900, coveredWidth: 0 },
     '连 getBoundingClientRect 都没有的元素也要兜底，不许抛',
   );
 });
