@@ -469,6 +469,9 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [hovered, setHovered] = useState(false);
+  /* 2026-10-01：抽成具名变量，下面要判"有没有图"（草稿可能没存下这张图）。
+     原来是内联的 `node.localPreviewUrl || node.url`，在 JSX 里散着用了好几处。 */
+  const imageSrc = node.localPreviewUrl || node.url || '';
 
   return (
     <div
@@ -503,7 +506,17 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid var(--sb-brand-600)', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
       <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--sb-brand-600)', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
       <div style={{ position: 'relative', width: '100%', borderRadius: '8px 8px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
-        {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
+        {/* 2026-10-01：本地草稿不再存 base64（理由见 canvasDraftRepository 顶部注释），
+            所以刷新后"当时还没传完"的节点会**没有** src。原来这里会永远显示
+            SkeletonCard —— 一个转不完的加载态，看起来像"还在加载"。
+            现在如实说明：这张图当时没传完，重新上传即可。 */}
+        {!imageSrc && (
+          <div className="ec-canvas-media-failed">
+            <strong>这张素材当时没传完</strong>
+            <span>重新上传原图即可继续使用</span>
+          </div>
+        )}
+        {!loaded && !error && imageSrc && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
           <div style={{ width: '100%', height: node.h, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fef2f2' }}>
             <div style={{ fontSize: 24, opacity: 0.45 }}>!</div>
@@ -520,7 +533,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
         )}
         <ResponsiveImage
           key={retryKey}
-          src={node.localPreviewUrl || node.url}
+          src={imageSrc}
           alt={node.label}
           variant="canvas"
           sizes={`${Math.ceil(node.w)}px`}
@@ -605,6 +618,13 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
     </svg>
   );
 }
+
+/* ═══ 2026-10-01 性能：这三类指针状态下**不做**快照/持久化 ═══════════════════════
+   拖动、缩放、抠图这三类操作会按帧产生大量中间态；每一次中间态都去算一遍
+   createCanvasSnapshot（12 个图片节点实测 59ms 同步占用）等于把主线程点着。
+   用一个常量表达这个集合，别再散落成三处字面量 —— 加一种模式时容易漏改。 */
+const TRANSIENT_POINTER_KINDS = new Set(['drag', 'resize', 'layer-extract']);
+const isTransientPointer = kind => TRANSIENT_POINTER_KINDS.has(kind);
 
 function ConnectionDraftLine({ draft, nodes }) {
   const pointer = draft?.pointer || draft?.world;
@@ -2008,14 +2028,30 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   }, [result.id, result._saveKey, state.creationLaunch]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !canvasSaveKeyRef.current || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
-    const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
-    const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
+    if (!draftReadyRef.current || !canvasSaveKeyRef.current || TRANSIENT_POINTER_KINDS.has(pointerMode?.kind)) return undefined;
+    /* ═══ 2026-10-01 性能：把 createCanvasSnapshot 移进 setTimeout ═════════════════
+       原来长这样（用户原话：「我在水印面板进行操作，都要延迟一会才会生效」）：
+           const snapshot = createCanvasSnapshot({...});   ← 同步跑在 effect 主体里
+           const timer = setTimeout(() => saveCanvasDraft(key, snapshot), 350);
+       那个 350ms **只推迟了写 localStorage，推迟不了已经跑完的那次快照**。
+       实测（用仓库里真实的 createCanvasSnapshot 跑的，见 RTK 性能批）：
+         12 个图片节点 → 中位 59 ms 同步占用；20 个 → 102 ms。
+       浏览器一帧只有 16.7ms ⇒ 光这一行，单次交互就掉 3~6 帧。
+
+       守卫只挡了 ['drag','resize','layer-extract']，于是**平移、框选、滚轮缩放、
+       改水印全部照跑**；滚轮缩放还是 rAF 节流的（每秒最多 60 次），足以把主线程打满。
+
+       现在快照在 setTimeout 里面算 ⇒ 防抖终于防抖了：连续操作只在停下 350ms 后
+       算一次，中间那些中间态一次都不算。 */
+    const timer = setTimeout(() => {
+      const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
+      saveCanvasDraft(canvasSaveKeyRef.current, snapshot);
+    }, 350);
     return () => clearTimeout(timer);
   }, [connections, nodes, pendingProjectAssetImports, pointerMode?.kind, viewport]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || result.browserQa || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
+    if (!draftReadyRef.current || result.browserQa || isTransientPointer(pointerMode?.kind)) return undefined;
     const fingerprint = canvasWorkOutputFingerprint(nodes);
     if (!fingerprint || fingerprint === workOutputFingerprintRef.current) return undefined;
     const baseImages = canvasOutputImages(result);
@@ -2054,15 +2090,22 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   }, [canvasSession]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || canvasSessionBusy || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
+    if (!draftReadyRef.current || canvasSessionBusy || isTransientPointer(pointerMode?.kind)) return undefined;
     const projectId = result.projectId;
     const baseVersionId = result.resultVersionId || result.sourceVersionId;
     if (!projectId || !baseVersionId) return undefined;
-    const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
-    const fingerprint = JSON.stringify(snapshot);
-    if (fingerprint === remoteSnapshotRef.current) return undefined;
+    /* ═══ 2026-10-01 性能：这里原来是全画布**最贵**的一处 ════════════════════════
+       原来：createCanvasSnapshot（深拷贝）+ JSON.stringify（再整棵树序列化一遍）
+       都**同步跑在 effect 主体里**，1200ms 的防抖只推迟了网络请求，推迟不了它们。
+       实测 12 个图片节点：clone+stringify 中位 59ms，这里还要再 string 一次 ⇒ ~120ms，
+       而这 120ms 是**每一次** nodes/viewport 变动都要付的（改水印、平移、缩放…）。
 
+       现在两件事都挪进 setTimeout：防抖窗口内无论触发多少次，中间态一次都不算，
+       只在真正安静下来之后算一次。语义不变（还是把最新状态存下去）。 */
     remoteSaveTimerRef.current = setTimeout(async () => {
+      const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
+      const fingerprint = JSON.stringify(snapshot);
+      if (fingerprint === remoteSnapshotRef.current) return;
       const persistenceGeneration = canvasPersistenceGenerationRef.current;
       setCanvasSessionBusy(true);
       try {

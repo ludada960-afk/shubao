@@ -16060,3 +16060,155 @@ design-ratchet 无新增硬编码（进度条配色全走已有 token）。
 · 进度条：420×61 可见、填充比 0.208、百分比 "20.8%"、水平居中、不出屏。
 
 提交 `8caf886e`（worktree 处于 detached HEAD，与本 worktree 前几次提交同状态）。
+
+## 2026-10-01 批 CY-㊴ 之十五：全局延迟（用户：「整个网站各个地方进行操作都会有延迟」）
+
+用户原话（两条，是本次全部工作的起点）：
+① 「为什么我感觉我在整个网站各个地方进行操作，都会有所延迟，就比如说，我上传某个素材到画布、
+    我在水印面板进行操作，都要延迟一会才会生效，我只是举了例子，我们似乎全局都存在这些延迟的情况，
+    体验非常的差啊」
+② 「我现在服务器的配置是非常高的，我不明白为什么这么好的服务器都没办法让线上的体验达到最佳呢？」
+
+### 先说结论：慢的**不是服务器**
+
+生产机实测：`cpu: 2.3% | ram 15.3%|`，`/health` 直接打 express **0.59ms 中位**，
+所有 API 1~2ms，715KB 的 JS 走 nginx 回环 **5.3ms（135MB/s）**。SQLite 是 WAL、
+`synchronous=NORMAL`、表都很小。**服务端算力不是瓶颈** —— 这一点必须先钉死，
+否则会一直往"加机器/加内存"上想。
+
+真正的两处：**① 响应根本没压缩；② 每次交互都在主线程上同步做几十毫秒的活。**
+
+### 根因一：nginx 压了个寂寞（最大一处浪费）
+
+`/etc/nginx/nginx.conf` 里 `gzip on` 是有的，但 **`gzip_types ...` 那一行被注释掉了**，
+于是只有默认的 `text/html` 会压缩。线上实测（**显式声明 Accept-Encoding 之后**）：
+
+| 资源 | content-length | content-encoding |
+| --- | --- | --- |
+| `/` | 2,670 | **gzip** ✅（唯一被压的） |
+| `/assets/index-*.js` | **715,693** | 无 ❌ |
+| `/assets/style-*.css` | **864,374** | 无 ❌ |
+| `/api/video/capabilities` | 15,143 | 无 ❌ |
+
+首屏那两个文件压后是 251KB + 138KB ⇒ **1.58MB 变 389KB，每次冷启动白传 1.2MB**。
+最近 3000 个请求里 JS 36.4MB + API JSON 35.8MB + CSS 13.5MB = **71% 的字节是可压的文本**。
+
+修法：把 gzip_* 写进 **server 块**（不是 nginx.conf）—— 因为**部署脚本管的是
+`scripts/nginx/shuimg.cn.conf`**，写进 nginx.conf 下次部署不会带上，改动就悄悄丢了。
+改完在服务器上 `nginx -t` 验过才提交。
+
+⚠️ **踩过的坑：nginx 注释是 `#`，不是 `/* */`。** 我第一版写了 5 段 `/* */`，
+`nginx -t` 会直接失败（好在部署脚本会跑 nginx -t，当场就能发现）。
+
+### 根因二：静态资源漏了 webp，每次打开页面都重拉
+
+线上实测：`/images/logo.png` → 1 年 immutable ✅；`/images/logo-icon.webp`
+→ `no-cache, must-revalidate` ❌。而这个站点的图**几乎全是 .webp**（图库缩略图、首页入口图）。
+原来那个 location 的扩展名清单里没有 webp/avif/wasm/onnx —— 顺带一提，
+13MB 的 onnxruntime wasm 和 4.4MB 的 u2netp onnx 也一直在走 no-cache。
+
+顺带修掉一个格式问题：原配置是 `expires 1y;` **加** `add_header Cache-Control "public, immutable"`，
+前者自己就会发一个 `Cache-Control: max-age=…` ⇒ 响应里**两个** Cache-Control 头（实测确认）。
+现在合成一行 `"public, max-age=31536000, immutable"`。
+
+### 根因三：每次交互都在主线程上同步做 13~76ms 的活（用户说的"延迟一会才生效"）
+
+`src/pages/EcCanvas/index.jsx` 里有两处 `createCanvasSnapshot`，而它是
+`durableCanvasValue(clone(nodes))`，`clone` 就是 `JSON.parse(JSON.stringify(nodes))`。
+上传过的图还挂在 `url`/`localPreviewUrl` 上时，一棵树 6~25MB，于是：
+**序列化十几 MB 的 base64 → 再解析回来 → 再走一遍全树**，而算出来的 `url`
+下一步就被 `sanitizeCanvasSnapshotMedia` **丢掉了**（快照只留 durable 地址）。
+⇒ 全画布最贵的一步，产出被扔。
+
+更糟的是**两处都同步跑在 effect 主体里**：
+- `index.jsx:2012` 本地草稿：`createCanvasSnapshot` 在 `setTimeout` **外面**，
+  那个 350ms 只推迟了写 localStorage，推迟不了已经跑完的快照；
+- `index.jsx:2084` 远端会话：快照 + 又一次 `JSON.stringify` 做指纹，都在 timer 外面。
+守卫只挡了 `['drag','resize','layer-extract']`，于是**平移、框选、滚轮缩放、改水印全部照跑**。
+滚轮缩放还是 rAF 节流的（每秒最多 60 次）⇒ 足以把主线程打满。
+
+用**仓库里真实的** `createCanvasSnapshot` 测（不是拍脑袋估）：
+
+| 节点数 | 改前中位 | 改后中位 | 快照体积改前 → 改后 |
+| --- | --- | --- | --- |
+| 4 | 13.0 ms | **2.4 ms** | — |
+| 8 | 34.3 ms | **5.0 ms** | — |
+| 12 | 46.7 ms | **7.2 ms** | 6.25 MB → 2 KB |
+| 20 | 75.7 ms | **12.0 ms** | 10.42 MB → 3 KB |
+
+三处改动：
+1. **两个 `createCanvasSnapshot` 挪进 `setTimeout`** ⇒ 防抖终于防抖了，
+   窗口内的中间态一次都不算。**语义不变**（还是把最新状态存下去）。
+2. **删掉快照里的 `clone`**。删得掉的依据：`durableCanvasValue` 对数组走 `map`、
+   对对象走 `Object.fromEntries(Object.entries(...))`，**每一层都是新对象**，
+   本来就完成了深度重建；剩下的只有字符串/数字这类不可变原始值。
+   等价性由 `test/canvas-snapshot-perf-1001.test.mjs` **逐字节 JSON 比对**守住。
+3. **`localPreviewUrl` 补进 `MEDIA_URL_KEYS`**。它按定义就是"本地预览"，
+   却漏在清洗集合外面 ⇒ 快照里留着一整份 base64。
+
+⚠️ **第 3 条一改就踩出一个真回归**（已修，且已用门禁钉住）：清掉 `localPreviewUrl` 之后，
+判断"这张图是不是真没了"的原判据只看 `assetRef`（`!stableUrl`），
+于是**已经有 durable `url` 的节点被误标成 `unavailable`**，界面上会冒出
+「媒体尚未归档到项目素材库」—— 而它明明有图。
+改法：判据补上"**还剩不剩可用的媒体地址**"，而不是只看有没有 assetRef。
+
+### 顺带发现并修掉的静默数据丢失
+
+`saveCanvasDraft` 是 `JSON.stringify` + `localStorage.setItem`，而
+`catch { return false }` 是**静默**的。真浏览器实测：
+
+| 图片节点 | JSON 体积 | 结果 |
+| --- | --- | --- |
+| 1 | 1.0 MB | ✅ |
+| 4 | 4.2 MB | ✅ |
+| 8 | 8.3 MB | ❌ QuotaExceededError |
+| 12 | 12.5 MB | ❌ QuotaExceededError |
+
+⇒ **画了 8 张以上图的用户，草稿从来没被存下来过**，刷新就没了，自己却完全不知道。
+一张 400KB JPEG 转 data URL 约 546K 字符，而同一个字符串在 `url` 和
+`localPreviewUrl` 两个字段各存一份（JSON 体积直接翻倍）。
+
+改法：本地草稿**不存 data URL**。它是"临时预览"，上传一完成就被
+`swapNodeToDurableUrl` 换成 `/api/generated-assets/…`；它不承担素材本体的职责
+（那是远端 canvas session 的事，没动）。**存不下的草稿等于没有草稿** ——
+宁可让"还在上传中"的那个节点丢一张预览，也不能让整份草稿（所有节点的位置、连线、文字）一起丢。
+改后 20 张图也只有 3KB，0ms，永远存得下。
+代价写进注释：刷新后仍在上传中的节点显示占位（"这张素材当时没传完"）而不是那张图 ——
+这本来就是事实（服务端手里确实还没有），比静默丢整份草稿诚实。
+
+### 门禁
+
+- `test/canvas-snapshot-perf-1001.test.mjs`（6 条）—— 核心是 ①「去掉 clone 之后
+  快照输出必须与旧算法**逐字节相同**」（不靠"看起来差不多"），
+  ②-补 钉住上面那个 `unavailable` 回归，④ 卡性能量级。
+- `nginx-html-cache-0913.test.mjs` 改写：Cache-Control 只许一行、扩展名清单必须含
+  webp/wasm、新增 gzip_types 判据。
+- `video-studio-contract.test.mjs`：64m → 512m。
+- `video-upload-limit-and-message-1001.test.mjs` ②：改成"client_max_body_size 只许一处"。
+
+⚠️ **门禁自己踩的坑（同一个坑第三次了，值得单列）**：拿正则去匹配置时**必须先剥注释**。
+我这次在 nginx 配置里写了几段解释性的 `#` 注释，注释里出现了 `expires 1y`、
+`gzip_types` 这些字样，于是「不许再出现 expires 1y」判成了我自己的注释里有、
+「gzip_types 缺了 text/css」匹配到了注释里那句"被注释掉了"。
+（design-ratchet.mjs 早就为 CSS 写过 stripComments；这次是 nginx 版。已在测试里加 stripComments。）
+
+### 结果
+
+全量 4548 条 / 0 失败（比上批 +8）；precommit（构建 + 38 道 BLOCKING 门禁）全绿；
+design-ratchet 无新增硬编码。
+
+真浏览器复核：
+- 草稿：4/8/12/20 张图全部 ✅ 存下，1~3 KB，0ms。
+- 快照：20 节点 12ms（改前 76ms），3 KB（改前 10.42MB）。
+
+### 本批**没有**做的（要另外立项，别混在一起）
+
+- `index.jsx` 是 8,944 行的单组件、105 个 `useState`、**全仓 0 个 `React.memo`**、
+  124 个 `useCallback` 对 9 个 `useMemo`、渲染循环里有 `nodes.find`（O(n²)）、
+  4 处 render 期 `getBoundingClientRect`、以及**完全没有视口裁剪**
+  （`visibleNodes` 只是个分组过滤，屏外的节点 DOM 一样全量渲染）。
+  这些确实都是真问题，但**动它们是重构不是优化**，要单独一批、单独验。
+- 主 chunk 699KB 原始 / 251KB gzip；ORT wasm 13MB。路由级拆包与 wasm 的按需加载也还没做。
+- nginx 的 `access_log` 用的是默认格式，**没有 `$request_time`/`$upstream_response_time`**，
+  下次再遇到"慢"仍然无法从日志定位。补 `log_format` 要动 nginx.conf 的 http 块，
+  而部署脚本目前不管那个文件 —— 要先让部署脚本一起管，否则同样是"改了下次部署就丢"。
