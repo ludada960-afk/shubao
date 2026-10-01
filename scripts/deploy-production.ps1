@@ -17,7 +17,12 @@ param(
   # 仅在「部署机是机房来源 + 域名未备案 + Cloudflare 仅 DNS」时使用 —— 那种组合下
   # 腾讯云会拦机房来源访问该域名，这些校验**物理上不可能跑通**，硬拦只会让部署永远失败。
   # 跳过的项会逐条列出并告警；**必须在大陆视角复跑**（见 scripts/verify-* 与迁移手册第七节）。
-  [switch]$SkipPublicChecks
+  [switch]$SkipPublicChecks,
+  # 跳过「本次提交必须包含上一次已上线发布」的前置检查。
+  # 只在**故意回滚 / 从分叉分支救火**时用 —— 正常发布永远不许开。
+  # 那次事故见 RTK「批 DC 续-36」：两条线从分叉的历史部署到同一个生产环境，
+  # 谁后部署谁覆盖，**覆盖之后没有任何告警**。
+  [switch]$SkipForwardOnlyCheck
 )
 
 $ErrorActionPreference = "Stop"
@@ -407,6 +412,68 @@ function Add-SkippedPublicCheck {
   Write-Warning "跳过公网校验「$Name」：按 -SkipPublicChecks 处理（部署机为机房来源时公网域名不可达）。需在大陆视角复跑。"
 }
 
+# ═══ 只进不退（forward-only）前置检查 ═════════════════════════════════════════════════════
+# 背景（2026-10-01 真实事故，见 RTK「批 DC 续-36」）：
+#   两条线从**分叉的历史**部署到同一个生产环境 —— 本分支 01:01 发了 A，另一条线 01:19 从
+#   一个 **detached 工作树**发了 B（它不在任何分支上，且不含 A 的任何提交）。
+#   产物整个被换掉 ⇒ A 十分钟前刚上线的修复**静默消失**，用户为此第三次发截图。
+#   而当时**没有任何告警**：部署脚本只看"自己这次成不成功"，不看"有没有把上一次顶掉"。
+#
+# 判据：本次要发布的提交，必须是**上一次已上线发布号**那个提交的**后代**。
+#   · 是后代 ⇒ 只增不减，可以发。
+#   · 不是后代 ⇒ 这次发出去会把上一次上线的改动**删掉**，拒绝。
+#
+# ⚠️ 三条刻意的设计（都为了「只要不出问题就行」）：
+#   ① **验不出来就放行**：上一次发布号对应的提交在本机仓库里不存在（别人机器发的），
+#      只能告警、不能拦 —— 拿一条查不了的规则去挡线上发布，是拿线上换严谨。
+#   ② **有逃生口**：`-SkipForwardOnlyCheck`。故意回滚 / 从分叉分支救火时用，
+#      并在输出里留下「这次跳过了只进不退检查」的明确记录。
+#   ③ **只读**：全程只读服务器上一个目录名 + 本地 `git merge-base`，不写任何东西。
+function Get-LastDeployedCommitSha {
+  param(
+    [Parameter(Mandatory = $true)][string]$BackupRoot
+  )
+  $listing = Invoke-BoundedSshCapture -Command "ls -1 '$BackupRoot' 2>/dev/null | sort | tail -1" -TimeoutSeconds 30
+  $name = $listing.Trim()
+  if (-not $name) { return '' }
+  # 发布号形如 20261001-095750-c8e8ba1d —— 取末段短 sha，再在本仓库里补全。
+  if ($name -notmatch '-([0-9a-f]{7,40})$') { return '' }
+  $short = $Matches[1]
+  $full = (& git -C $script:repoPath rev-parse --verify "$short^{commit}" 2>$null)
+  if ($LASTEXITCODE -ne 0 -or -not $full) { return "short:$short" }
+  return $full.Trim()
+}
+
+function Assert-ReleaseIsForwardOnly {
+  param(
+    [Parameter(Mandatory = $true)][string]$ThisCommit,
+    [Parameter(Mandatory = $true)][string]$BackupRoot
+  )
+  if ($SkipForwardOnlyCheck) {
+    Write-Warning "已跳过「只进不退」前置检查（-SkipForwardOnlyCheck）：本次发布可能覆盖上一次上线的改动，且不会有任何告警。"
+    $script:skippedPublicChecks.Add('只进不退前置检查（-SkipForwardOnlyCheck）')
+    return
+  }
+  $previous = Get-LastDeployedCommitSha -BackupRoot $BackupRoot
+  if (-not $previous) {
+    Write-Warning "读不到上一次发布号（服务器 $BackupRoot 为空或格式不认识）—— 无法验证只进不退，本次放行。"
+    return
+  }
+  if ($previous.StartsWith('short:')) {
+    Write-Warning "上一次发布是 $previous，本机仓库里没有这个提交（可能是别的机器发的）—— 验不了，只放行。"
+    return
+  }
+  $ancestor = (& git -C $script:repoPath merge-base --is-ancestor $previous $ThisCommit)
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "只进不退 OK：本次 $(git -C $script:repoPath rev-parse --short $ThisCommit) 是上一次上线 $(git -C $script:repoPath rev-parse --short $previous) 的后代。"
+    return
+  }
+  throw ("本次提交 $(git -C $script:repoPath rev-parse --short $ThisCommit) **不是**上一次上线 $(git -C $script:repoPath rev-parse --short $previous) 的后代。" +
+    "`n发出去会把上一次上线的改动从生产环境**删掉**（2026-10-01 就出过这件事：两条线从分叉的历史部署到同一个环境，谁后部署谁覆盖）。" +
+    "`n先合并：git merge $previous" +
+    "`n若确实要故意回滚 / 从分叉分支救火，加 -SkipForwardOnlyCheck 并知会另一条线。")
+}
+
 function Invoke-EcommerceProductionVerification {
   param(
     [Parameter(Mandatory = $true)]
@@ -488,6 +555,10 @@ if ($hasNanoGatewayKey) {
   if ($LASTEXITCODE -ne 0) { throw "Nano Banana credential format validation failed" }
 }
 
+$script:repoPath = $RepoPath
+# ⚠️ 放在**最前面**：这条检查要是在跑完 10 分钟的构建与单测之后才发现问题，
+# 那 10 分钟就白花了；更糟的是"先备份再发现发不出去"，把生产搞成半截状态。
+Assert-ReleaseIsForwardOnly -ThisCommit $commit -BackupRoot "$RemoteDir/deploy-backups"
 Write-Host "Building $commit..."
 Push-Location $repo
 try {
