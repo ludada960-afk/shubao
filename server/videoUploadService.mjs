@@ -8,11 +8,22 @@ import { Server } from '@tus/server';
 const DEFAULT_PATH = '/api/video/uploads';
 const RESULT_PATH = '/api/video/upload-results/';
 const DEFAULT_EXPIRATION_MS = 24 * 60 * 60 * 1000;
+/* ═══ 批 CY-㊴（2026-10-01）：视频 50MB → **300MB**、音频 15 → 100MB ══════
+   用户截图里那条 413 "Maximum size exceeded" 就是这里来的。
+   50MB 对视频来说太小 —— 手机随手拍一段就上百 MB，于是"上传视频传不上去"。
+   图片 10MB 不动（��是本来的约定）。
+   ⚠️ 这份 LIMITS 现在也通过 /api/video/capabilities 对外公布（见下方 export），
+      前端上传前会拿它做拦截 ⇒ 边界只有**一处真相**，不用两边各写一个数字。 */
 const LIMITS = Object.freeze({
   image: 10 * 1024 * 1024,
-  video: 50 * 1024 * 1024,
-  audio: 15 * 1024 * 1024,
+  video: 300 * 1024 * 1024,
+  audio: 100 * 1024 * 1024,
 });
+
+/** 供 /api/video/capabilities 对外公布，前端据此在上传前就拦（不传原文 tus 报错） */
+export function mediaUploadLimits() {
+  return { ...LIMITS };
+}
 const CONTENT_TYPES = Object.freeze({
   image: new Set(['image/jpeg', 'image/png', 'image/webp']),
   video: new Set(['video/mp4', 'video/webm', 'video/quicktime']),

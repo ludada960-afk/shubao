@@ -15848,6 +15848,62 @@ grid gap）；图片侧 `.visual-panel-section-heading { margin-bottom:12px }`�
 QA 画布里唯一失败的是夹具 `superhero.png`（`natural 0×0`）。
 用户那张是 `images.jiff` —— 浏览器可能解不了该格式，而节点失败时**是一片空白，
 连"加载失败"都不显示**。需要用户提供文件名/后缀才能定位。
+
+
+## 2026-10-01 · 批 CY-㊴ 之十一：sticky 全站失效的根因（**只定位，未改**）
+
+承接上一条：分类页签加了 `position: sticky` 但真机不生效。往下查的结果比预想的大 ——
+**顶栏的吸顶从来没生效过**，而且是一个全站级的既有问题。
+
+### 实测（1920×966、真实滚轮、滚 1200px）
+
+| | 改前 top | 改后 top |
+| --- | --- | --- |
+| `.app-topbar`（**本来就写着** `position:sticky; top:0`） | -1200 | -1200 |
+| `.media-hub-tabs`（本批新加的 sticky） | -1040 | -1040 |
+
+⇒ 顶栏那条 CSS 是**一直没生效**的，不只是新加的页签。
+
+### 根因链
+
+1. 真正在滚的是 **`html`**（实测 `window.scrollY` / `documentElement.scrollTop` 都在变，
+   `body.scrollTop` 恒为 0）。
+2. 但 `<body>` 上带着**行内样式** `overflow: hidden` ⇒ body 成了一个**不滚动的滚动容器**，
+   sticky 元素的"最近滚动祖先"因此被锁在 body 上，压根不动。
+3. 所以 `position: sticky` 在这个应用里**处处失效**，不只是这一处。
+
+### 定位到哪一步了
+
+- CSS 层面**改不动它**：`body{overflow-x}` 在 `design-tokens.css`（hidden）与
+  `theme.css`（clip）各有一条，实测计算值是 `overflowX/X = hidden`。
+  我试过把 design-tokens 那条改成 `clip`（`clip` 不创建滚动容器，`theme.css` 用的也正是它），
+  **计算值仍是 hidden** —— 因为真正生效的不是它。（这条改动已回退，没上线。）
+- 加了三种陷阱（`style.overflow =` 赋值、`setProperty('overflow')`、`style.cssText =`）
+  **一次都没抓到**；挂 `MutationObserver` 才抓到：**2202ms** 时 body 的 style 属性变成
+  `overflow: hidden`，之后**再没被恢复**。
+  写入路径绕过了上面三种 ⇒ 它不是在页面脚本里用常规 CSSOM 写的
+  （2.2s 这个时点也正好是首屏数据回来、某个面板挂上的时刻）。
+- 仓库里有多处"弹窗打开时锁 body 滚动"：`useModalScrollLock.js`（共享计数 + `resetPageScrollLock`
+  安全阀，写得是对的）、`NoteModal.jsx`、`LoginDialog.jsx`（这两个是**各自存/各自恢复**的旧写法，
+  正是 `useModalScrollLock` 注释里点名的"叠开时互相把 hidden 当原值 → 页面永久锁死"那个病）。
+
+### 为什么**没有**直接改
+
+这是一个**全站级**的滚动契约改动，且真正写入方还没抓到（三种陷阱都绕过）。
+在没有确定写入方的情况下改 `body`/`html` 的 overflow，等于用一个猜测去动全站滚动行为 ——
+按本仓纪律（判据/改动都要有证据），这一条**只定位、不动手**，写在这里等下一任带着完整信息去做。
+
+### 下一步该怎么查
+
+1. 在 `useModalScrollLock` / `NoteModal` / `LoginDialog` 三个入口各打一条
+   「加锁 / 释放 + 剩余计数」的日志，复现首页加载，看 2.2s 时**谁加了锁、计数有没有归零**。
+   九成是某个锁在首屏某个面板挂上时 acquire 了、卸载时没 release（组件被 keep-alive
+   或条件渲染路径漏了 cleanup）。
+2. 找到泄漏点后**先修泄漏**（计数归零/补 cleanup），而不是先把 body 的 overflow 放开 ——
+   锁泄漏本身就是 bug（用户会碰到"页面滚不动"）。
+3. 泄漏修好、`body` 的行内 `overflow` 回到空之后，`position: sticky` 会**自动**开始生效，
+   顶栏与本页签都不用再动。
+4. 顺手全站扫一遍还有谁写着 `position: sticky` —— 它们大概率也一直没用上。
 ## 批 DC 续-35 · 做同款不再写死 image2（逐案例记录）+ 撤掉连拍悬停文案 / 修纵向对齐（`b88ed934`）
 
 用户 2026-10-01 三条批注（一条是回头纠正上一批的，一条是新提的两条 UI）。
