@@ -122,9 +122,21 @@
 /* tile: 14 个动作卡片 */
 .ec-canvas-derive-tile {
   display: grid;
-  grid-template-rows: auto auto auto;
-  gap: var(--sb-space-1);
-  padding: 10px 9px 9px;
+  /* ⚠️ 2026-10-01 用户批注：「你这四个按钮还是很大呀。我不是跟你说了吗？里面没有多少信息的���，
+     你按钮就要相应的去做适配啊，你现在整个面板都做这么大，但实际上里面的内容又很空旷。」
+     批 CY-㊴ 把描述收起来（走 hover 的 title）之后，卡片里只剩「图标 + 标题 + 价格」，
+     而它还在按"图标 + 标题 + **两行描述**"那个更早的形态竖着排三行 ⇒ 大片留白。
+     实测（真 CSS + 真 DOM 结构量出来的）：
+       改前 190×**101.3**px；只把 `min-height` 从 86 调到 64 ⇒ 97.3px（几乎没用，
+       因为真正撑高的是三行竖排，不是 min-height）。
+     ⇒ 改成**图标与标题同一行**、价格单独一行：实测降到 **65px**（↓36%）。 */
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "chip copy"
+    "meta  meta";
+  align-items: start;
+  gap: var(--sb-space-1) 8px;
+  padding: 9px 10px 8px;
   border: 1px solid var(--sb-border-subtle);
   border-radius: 12px;
   background: var(--sb-surface-card);
@@ -137,7 +149,9 @@
               box-shadow var(--sb-dur-fast) var(--sb-ease-out),
               background var(--sb-dur-fast) var(--sb-ease-out);
   position: relative;
-  min-height: 86px;
+  /* 86px 是为"图标 + 标题 + 两行描述"那个更早形态留的；描述已收起、且改成两行布局，
+     再留这个下限就等于凭空多出 20px 空档（实测 101 → 65）。 */
+  min-height: 0;
   overflow: hidden;
 }
 .ec-canvas-derive-tile::before {
@@ -166,6 +180,10 @@
 .ec-canvas-derive-tile:active { transform: translateY(0); }
 .ec-canvas-derive-tile:focus-visible { outline: 2px solid var(--sb-surface-inverse); outline-offset: 2px; }
 
+/* 下面三个格子落到上面 grid-template-areas 声明的位置 */
+.ec-canvas-derive-tile .ec-canvas-derive-chip { grid-area: chip; }
+.ec-canvas-derive-tile .ec-canvas-derive-copy { grid-area: copy; }
+.ec-canvas-derive-tile .ec-canvas-derive-meta { grid-area: meta; }
 /* chip: 图标芯片 */
 .ec-canvas-derive-tile .ec-canvas-derive-chip {
   width: 30px;

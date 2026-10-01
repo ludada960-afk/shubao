@@ -58,6 +58,14 @@ import {
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+/* ⚠️ 2026-10-01 用户批注：「然后你这个切换主题的按钮点了是没有任何反应的呀。你没有去���理吗？」
+   真因：右键菜单那一档 `case 'toggle-theme'` 调的是**本组件自己的 React state**
+   （下面 `const [themeMode, setThemeMode] = useState(...)`），而那个 state
+   **全组件没有任何地方读** —— 真正落地主题的是 `utils/themeMode.js`（写 localStorage
+   + `<html data-theme>`，ThemeSwitcher 与 main.jsx 用的都是它）。
+   两边同名：一边是"没人读的状态"、一边是"真正生效的函数"，于是点下去毫无反应。
+   ⇒ 显式导入那两个纯函数，本地 state 只用来让菜单显示"当前是第几档"。 */
+import { applyThemeToDocument, readStoredThemeMode, writeStoredThemeMode } from '../../utils/themeMode.js';
 import CanvasLibraryModal from './components/CanvasLibraryModal.jsx';
 import CanvasAssetPickerModal from './components/CanvasAssetPickerModal.jsx';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset, deleteCanvas,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
@@ -127,6 +135,7 @@ import { selectDeliverableNodes } from './canvasAssetProvenance.js';
 import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
 import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
+import { exportDestinationLabel, recallExportDirectory, rememberExportDirectory } from './exportDestinationMemory.js';
 import { deliveryNameFor, looksLikeContentHash } from './deliveryNameModel.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import { quoteBillingAction } from '../../services/billing.js';
@@ -1006,7 +1015,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
   const [snapEnabled, setSnapEnabled] = useState(false);
-  const [themeMode, setThemeMode] = useState('auto');
+  /* 只用于**显示**当前是第几档；真正落地主题的是 utils/themeMode.js。
+     初始值从 localStorage 读 —— 原来写死 'auto'，用户明明切到 dark，
+     刷新后菜单又显示 auto（点一下就会"跳回"一个用户没选过的档）。 */
+  const [themeMode, setThemeMode] = useState(() => readStoredThemeMode() || 'auto');
 
   useEffect(() => {
     const requestedTab = state.canvasEntryTab;
@@ -4316,10 +4328,30 @@ const handlePointerUp = useCallback((e) => {
         return;
       }
       dispatchExportDelivery({ type: 'destination-ready', destination });
+      /* 记住他刚选的文件夹（用户 2026-10-01：「下次导出不需要再让他去选」）。
+         只对 directory 策略有意义；记不住不影响本次导出，所以不 await 到 UI。 */
+      if (destination?.strategy === 'directory') rememberExportDirectory(destination.handle);
     } catch (error) {
       dispatchExportDelivery({ type: 'error', error: error.message || '无法选择保存位置' });
     }
   };
+
+  /* 打开导出弹窗时先把上次那个文件夹接回来。
+     `requestPermission` 必须在**用户手势**里调用，浏览器不允许后台弹权限框，
+     所以这里只做无手势的 queryPermission；拿不到就照旧显示「选择保存位置」，
+     由用户点一下「选择保存位置」时顺带恢复权限（见 handleChooseExportDestination 之前的那次尝试）。 */
+  useEffect(() => {
+    if (!exportOpen) return;
+    let cancelled = false;
+    recallExportDirectory().then(handle => {
+      if (cancelled || !handle) return;
+      dispatchExportDelivery({
+        type: 'destination-ready',
+        destination: { strategy: 'directory', handle, name: handle.name || '上次的文件夹', restored: true },
+      });
+    });
+    return () => { cancelled = true; };
+  }, [exportOpen]);
 
   const handleStartExport = async () => {
     const { deliverables: exportNodes, excludedSources } = exportScope;
@@ -8483,7 +8515,13 @@ const handlePointerUp = useCallback((e) => {
                 setNodes(prev => autoArrangeCanvasNodes(prev, connections || []));
                 break;
               case 'toggle-snap': setSnapEnabled(v => !v); break;
-              case 'toggle-theme': setThemeMode(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'auto' : 'dark'); break;
+              case 'toggle-theme': {
+                const next = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark';
+                setThemeMode(next);
+                writeStoredThemeMode(next);
+                applyThemeToDocument(next);
+                break;
+              }
               case 'undo': {
                 const current = { nodes };
                 const previous = historyRef.current.undo(current);
@@ -8710,7 +8748,11 @@ const handlePointerUp = useCallback((e) => {
         /* 批 CY-⑭：遮罩 z-index 原来写死 10005（同 10004 那一族，越权压在 Toast 之上）→ 走权威阶梯。 */
         <div style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modalScrim, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{/* 「保存为 N 张图片」的数字要**高亮**：用户多框几张，这里得立刻变，
+                 不高亮的话他察觉不到这一行会随选择变化（用户 2026-10-01 原话）。 */}
+              {exportCopy.saveAs
+                ? <>{exportCopy.saveAs.before}<b style={{ color: '#1f2937', fontSize: 13, fontWeight: 800, margin: '0 2px' }}>{exportCopy.saveAs.count}</b>{exportCopy.saveAs.after}</>
+                : exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
             {/* 批 CY-㊴：零张时**不渲染任何选项**（旧版无条件渲染一条
                 「导出 ${total} 张图片」，于是弹窗里赫然写着「导出 0 张图片」——
                 用户 9-30 截图里就有这句）。零张时改为说明"怎么才能导出"。 */}
@@ -8740,7 +8782,7 @@ const handlePointerUp = useCallback((e) => {
               </div>
             </div>}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 'var(--sb-radius-pill)', padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
-            {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDelivery.destination.name}</div>}
+            {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDestinationLabel(exportDelivery.destination)}{exportDelivery.destination.restored && <span style={{ marginLeft: 6, color: '#6b7280' }}>（上次用的，点「更改保存位置」可换）</span>}</div>}
             {(exportDelivery.status === 'preparing' || exportDelivery.status === 'writing') && <div style={{ marginBottom: 12, fontSize: 12, color: '#475569' }}>{exportDelivery.status === 'preparing' ? '正在校验图片' : '正在写入文件'} · {exportDelivery.progress.completed}/{exportDelivery.progress.total}</div>}
             {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>{exportDelivery.result?.verification === 'filesystem' ? '已验证写入' : '已开始下载'} {exportDelivery.result?.count || 0} 张图片{exportDelivery.result?.verification === 'filesystem' ? `到 ${exportDelivery.destination?.name || '所选位置'}` : '，请在浏览器下载列表确认'}</div>}
             {exportDelivery.status === 'cancelled' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#f8fafc', color: '#64748b', fontSize: 12 }}>已取消选择保存位置，导出配置仍保留。</div>}

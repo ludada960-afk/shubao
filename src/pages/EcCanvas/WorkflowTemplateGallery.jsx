@@ -11,7 +11,7 @@ import { fetchWorkflowTemplates, likeWorkflowTemplate, workflowSlotIds } from '.
 const OVERLAY = { position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' };
 const PANEL = { position: 'relative', width: 'min(960px, 96vw)', maxHeight: '90vh', overflow: 'auto', borderRadius: 20, background: '#fff', boxShadow: '0 24px 60px rgba(15,23,42,.32)', border: '1px solid rgba(15,23,42,.06)' };
 const TAB = { padding: '6px 12px', borderRadius: 'var(--sb-radius-pill)', border: '1px solid rgba(15,23,42,.08)', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
-const TAB_ACTIVE = { ...TAB, background: 'var(--sb-brand-600)', color: '#fff', borderColor: 'var(--sb-brand-600)' };
+const TAB_ACTIVE = { ...TAB, background: 'var(--sb-info)', color: '#fff', borderColor: 'var(--sb-info)' };
 const CARD = { borderRadius: 12, border: '1px solid rgba(15,23,42,.08)', background: '#fff', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'all .18s ease' };
 
 /* 图缩略: 按节点 bbox 等比缩放进 216x120, 槽位琥珀虚线, 连线带箭头。零外部依赖。*/
@@ -46,9 +46,9 @@ function TemplateGraphThumb({ graph }) {
     if (kind === 'audio') return { fill: 'rgba(13,148,136,.10)', stroke: '#5eead4' };
     if (kind === 'text') return { fill: 'rgba(37,99,235,.08)', stroke: '#bfdbfe' };
     if (node?.isSlot || node?.slot) return { fill: 'rgba(245,158,11,.12)', stroke: '#f59e0b' };
-    return { fill: 'rgba(124,58,237,.08)', stroke: 'var(--sb-brand-200)' };
+    return { fill: 'rgba(37,99,235,.08)', stroke: 'var(--sb-info)' };
   };
-  return <svg viewBox={'0 0 ' + viewW + ' ' + viewH} width="100%" height={viewH} style={{ display: 'block', background: 'linear-gradient(135deg,#f8fafc,var(--sb-brand-50))' }} aria-label="模板图缩略">
+  return <svg viewBox={'0 0 ' + viewW + ' ' + viewH} width="100%" height={viewH} style={{ display: 'block', background: 'linear-gradient(135deg,#f8fafc,#eff4fb)' }} aria-label="模板图缩略">
     <defs>
       <marker id="wf-thum-arrow" viewBox="0 0 8 8" refX={7} refY={4} markerWidth={5} markerHeight={5} orient="auto-start-reverse">
         <path d="M 0 0 L 8 4 L 0 8 z" fill="#cbd5e1" />
@@ -95,7 +95,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
      就是"19 个类目 chip + 解锁方式四档"的形态。我们的服务端本来就有 `category` 字段
      （`/api/workflow-templates?category=`），所以类目**从已加载的列表里现算**即可 ——
      不额外加一次请求，也永远不会出现"chips 里有一个空类目"这种假选项。 */
-  const [category, setCategory] = useState('全部');
+  /* 2026-10-01：`category` 状态随那一行 chip 一起去掉了（见下面 shown 的注释）。 */
 
   /* 拉列表: 精选 = public（按 usage/like 真数排序）; 我的 = mine=email（需登录）; 分类 = public + category。*/
   const load = useCallback(async key => {
@@ -169,15 +169,11 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
   /* 类目 chip 从**已加载的列表**里现算（不额外发请求、也不会出现空类目）。
      ⚠️ 这两个 hook/derive 必须在下面那句 `if (!open) return null` **之前** —— 早退之后调用 hook
      会变成条件调用（React 直接报 "Rendered fewer hooks than expected"）。 */
-  const categories = useMemo(
-    () => ['全部', ...new Set(templates.map(item => String(item?.category || '').trim()).filter(Boolean))],
-    [templates],
-  );
-  const shown = category === '全部'
-    ? templates
-    : templates.filter(item => String(item?.category || '').trim() === category);
-  /* 换页签时把类目重置（"我的"里的类目与公开库不一定重合，留着会筛出空列表） */
-  useEffect(() => { setCategory('全部'); }, [tab]);
+  /* 2026-10-01：类目 chip 那一行按用户口径**整行去掉**了（与上面的 tab 功能重复，
+     截图里就是「全部 / image / video」与「图像 / 视频」并排两套），
+     所以 `category` / `categories` / `setCategory` 一并删除 —— 留着会是一个
+     永远等于「全部」的筛选状态：看起来能筛，其实永远不过滤。 */
+  const shown = templates;
 
   if (!open) return null;
 
@@ -197,7 +193,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
       <div style={{ padding: '18px 20px 12px', borderBottom: '1px solid rgba(15,23,42,.06)' }}>
         {/* 9-13 用户批注：标题右侧小字与关闭按钮重叠 —— 给关闭按钮留出安全区，并把文案缩短 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 40 }}>
-          <Workflow size={18} style={{ color: 'var(--sb-brand-600)', flex: '0 0 auto' }} />
+          <Workflow size={18} style={{ color: 'var(--sb-info)', flex: '0 0 auto' }} />
           <strong style={{ fontSize: 16, color: '#0f172a', flex: '0 0 auto' }}>工作流模板</strong>
           <span style={{ marginLeft: 'auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: '#64748b' }}>一键铺开 · 拖图即跑</span>
         </div>
@@ -207,25 +203,26 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
             docs/design/89 §9.2 的结论是"主入口是画布 + 画布内有集合页"，但**这颗按钮在任何形态下都该在**：
             集合页里最该有的第二个动作就是"我什么都不挑，直接开干"。
             行为：关掉集合页 → 走画布既有的 `handleNew`（就地清空成空白画布，与顶栏「新建画布」同一条链路）。 */}
+        {/* ⚠️ 2026-10-01 用户批注：「像这个工作流的模板这里你为什么左上角的这个标签，这里会有两套
+            标签呀。他们不是功能重复了吗？下面这一套你要去掉呀。」
+            真因：上面一行是 tab（精选/我的/图像/视频），下面那行是 category，
+            而 category 是从 `item.category` 现算的 —— 那几个模板的 category 字面值就是
+            `image` / `video`，于是下面那行渲染成「全部 / image / video」，
+            和上面的「图像 / 视频」**是同一件事**（截图里就是并排两套）。
+            ⇒ 按用户口径去掉下面那一整行；「共 N 套」挪到上面一行的右侧，不丢信息。
+            ⚠️ 同时把这一屏的紫色换成画布的蓝：用户原话「我们现在的导航栏…都是黑色的，
+              然后整个画布的视觉语言好像是蓝色的，那你这个工作流模板既然在画布里面，
+              为什么你用的是紫色的视觉语言啊？」—— 它就在画布里，不该另起一套颜色。 */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12, alignItems: 'center' }}>
           <button type="button" onClick={() => setTab('featured')} style={tab === 'featured' ? TAB_ACTIVE : TAB}><Star size={12} />精选</button>
           <button type="button" onClick={() => setTab('mine')} style={tab === 'mine' ? TAB_ACTIVE : TAB}><Layers3 size={12} />我的</button>
           <button type="button" onClick={() => setTab('image')} style={tab === 'image' ? TAB_ACTIVE : TAB}>图像</button>
           <button type="button" onClick={() => setTab('video')} style={tab === 'video' ? TAB_ACTIVE : TAB}><Video size={12} />视频</button>
-          {onNewBlank && <button type="button" onClick={() => onNewBlank()} style={{ ...TAB, marginLeft: 'auto', borderColor: 'var(--sb-brand-600)', color: 'var(--sb-brand-700)', fontWeight: 700 }} data-canvas-control="true">
+          <span style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: 11, color: '#94a3b8' }}>共 {shown.length} 套</span>
+          {onNewBlank && <button type="button" onClick={() => onNewBlank()} style={{ ...TAB, borderColor: 'var(--sb-info)', color: 'var(--sb-info)', fontWeight: 700 }} data-canvas-control="true">
             <Plus size={12} />新建空白画布
           </button>}
         </div>
-        {/* 类目 chip（照知渔那一屏的形态）：从已加载列表现算；只有一个类目时不渲染这一行（不做无意义的筛选） */}
-        {categories.length > 2 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }} role="group" aria-label="按类目筛选模板">
-          {categories.map(name => <button key={name} type="button" data-canvas-control="true"
-            onClick={() => setCategory(name)}
-            aria-pressed={category === name}
-            style={category === name ? { ...TAB, background: 'var(--sb-brand-50)', borderColor: 'var(--sb-brand-200)', color: 'var(--sb-brand-700)' } : TAB}>
-            {name}
-          </button>)}
-          <span style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: 11, color: '#94a3b8' }}>共 {shown.length} 套</span>
-        </div>}
       </div>
 
       {loading ? <div style={{ padding: '24px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -277,7 +274,7 @@ export default function WorkflowTemplateGallery({ open, onClose, onInstantiate, 
                 <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>铺开只放节点、不产生费用；生成时按目录计费</p>
                 <button type="button" disabled={busy || likeBusy.has(slug)}
                   onClick={() => void instantiate(template)}
-                  style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (p3Gate ? 'rgba(100,116,139,.35)' : 'rgba(124,58,237,.35)'), background: p3Gate ? '#f8fafc' : 'var(--sb-brand-600)', color: p3Gate ? '#64748b' : '#fff', fontSize: 12, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (p3Gate ? 'rgba(100,116,139,.35)' : 'rgba(124,58,237,.35)'), background: p3Gate ? '#f8fafc' : 'var(--sb-info)', color: p3Gate ? '#64748b' : '#fff', fontSize: 12, fontWeight: 700, cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                   {busy ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />铺开中…</> : p3Gate ? '铺开到画布（待 P3 · 暂不可运行）' : '一键同款 · 铺开到画布'}
                 </button>
               </div>

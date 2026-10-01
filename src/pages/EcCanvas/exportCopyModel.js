@@ -55,9 +55,23 @@ export function exportDialogCopy({ count = 0, excludedCount = 0, longDetail = fa
     ? '把选中的详情图按下面这个顺序拼成一张长图'
     : total === 0
       ? '这张画布上没有可导出的生成结果'
-      : single
-        ? '保存为一张图片'
-        : `${excludedCount > 0 ? `已排除 ${excludedCount} 张原始素材，` : ''}选择保存位置后按原文件名逐张写入`;
+      : excludedCount > 0
+        ? `已排除 ${excludedCount} 张原始素材，选择保存位置后按原文件名逐张写入`
+        : '';
+
+  /* ═══ 2026-10-01 用户批注 ══════════════════════════════════════════════════════════════════
+     「你这里保存为 N 张图片，你这句话也好像没有进行过任何的设计。就比如说多少张图片的这个
+       位置。你为什么用的是『一』呢，肯定要用阿拉伯数字呀。而且也肯定是要把它**高亮**起来呀。
+       因为用户他如果选了多张图片的话，他这里肯定是得动态的进行变化和调整的呀。……所以你不高亮
+       起来的话，用户很难察觉到他这里是有变化的呀。」
+
+     改前两处都不合格：
+       · 单张写的是「保存为**一**张图片」—— 汉字『一』；
+       · 多张时副标题**整句换掉**（"选择保存位置后按原文件名逐张写入"），
+         于是「一共几张」这句话在用户多选之后**直接消失**，更谈不上"动态变化"。
+     ⇒ 一律输出结构化的 saveAs：{ before, count, after }，count 由 UI 高亮。
+       张数取**实际可交付张数**（total）：用户在画布上多框几张，它立刻跟着变。 */
+  const saveAs = longDetail || total === 0 ? null : { before: '保存为 ', count: total, after: ' 张图片' };
 
   /* ⚠️ total === 0 时**不渲染任何选项**：旧版无条件 push 一条
      `导出 ${total} 张图片`，于是弹窗里赫然写着「导出 0 张图片」。
@@ -103,5 +117,5 @@ export function exportDialogCopy({ count = 0, excludedCount = 0, longDetail = fa
       hints.push('想把多张图拼成一张长图：多选素材后点工具条上的「合成长图」，还能调整拼接顺序。');
     }
   }
-  return { total, single, title, subtitle, options, longDetailVisible, hints };
+  return { total, single, title, subtitle, saveAs, options, longDetailVisible, hints };
 }
