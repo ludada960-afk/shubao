@@ -4875,6 +4875,9 @@ app.get('/api/video/capabilities', (req, res) => {
     loading: false,
     ...videoGeneration.capabilities(),
     uploadMode: videoPlatformFlags.VIDEO_PLATFORM_TUS_UPLOAD ? 'tus' : 'direct',
+    /* 批 CY-㊴：把上传体积上限一并公布，前端才能在**上传前**就拦，
+       而不是等服务端 413 再把 tus 的英文原文甩给用户。 */
+    uploadLimits: mediaUploadLimits(),
     workbenchEnabled: videoWorkbenchRollout.enabledForRequest(req, request => authenticateContentRequest(request, {
       sessionTokens: contentSessionTokens,
       authorizeEmail: authorizeAccountEmail,

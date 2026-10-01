@@ -4,6 +4,44 @@ import { createApiError } from './apiError.js';
 
 const RETRY_DELAYS = [0, 1000, 3000, 5000, 10000];
 
+/* ═══ 批 CY-㊴（2026-10-01）：上传体积上限 ═══════════════════════════════════════
+   用户截图里那条红字 `POST /api/video/uploads → 413, "Maximum size exceeded"` 就是它：
+   服务端上限 50MB，手机拍一段就超了；而且 tus 的英文原文被当成 toast 直接甩给用户。
+   权威值来自 /api/video/capabilities 的 uploadLimits（服务端 videoUploadService 的 LIMITS），
+   下面这份只是"接口没回来之前"的兜底，两边刻意写成同一个数。 */
+const MEDIA_UPLOAD_LIMIT_FALLBACK = Object.freeze({
+  image: 10 * 1024 * 1024,
+  video: 300 * 1024 * 1024,
+  audio: 100 * 1024 * 1024,
+});
+
+const KIND_LABEL = { image: '图片', video: '视频', audio: '音频' };
+
+export function formatMediaSize(bytes) {
+  const mb = Number(bytes || 0) / 1024 / 1024;
+  return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : Math.round(mb) + ' MB';
+}
+
+/** 超过上限就**上传前**拦下，并给一句人话（不再等服务端 413）。 */
+export function describeUploadTooLarge(file, kind, limits = MEDIA_UPLOAD_LIMIT_FALLBACK) {
+  const cap = Number(limits?.[kind] || 0);
+  const size = Number(file?.size || 0);
+  if (!cap || !size || size <= cap) return null;
+  const label = KIND_LABEL[kind] || '素材';
+  return `${label}「${file.name || '未命名'}」有 ${formatMediaSize(size)}，超过单文件上限 ${formatMediaSize(cap)}。`
+    + '请压缩后再传，或换一个更小的文件。';
+}
+
+function readableUploadError(error, kind) {
+  const status = Number(error?.status || error?.statusCode || 0);
+  const raw = String(error?.message || error || '');
+  if (status === 413 || /Maximum size exceeded/i.test(raw)) {
+    const label = KIND_LABEL[kind] || '素材';
+    return `${label}体积超过服务端上限，请压缩后再传。`;
+  }
+  return raw;
+}
+
 export function createImmediateMediaPreview(file, urlApi = globalThis.URL) {
   const startedAt = globalThis.performance?.now?.() ?? Date.now();
   const url = file && urlApi?.createObjectURL ? urlApi.createObjectURL(file) : '';
@@ -34,6 +72,18 @@ async function fetchUploadResult(uploadUrl) {
 }
 
 export function createVideoAssetUpload(file, kind, callbacks = {}) {
+  /* 批 CY-㊴（2026-10-01）：**上传前**就拦体积。
+     用户原话：「为什么我上传视频上传不了呢？」—— 截图里那条
+     `413 / "Maximum size exceeded"` 是传到一半才被服务端打回来的，
+     白等一轮；而且 tus 的英文原文被当成 toast 直接甩给用户。
+     现在超限立刻给一句中文（含具体上限与怎么减小），不去打这个请求。 */
+  const tooLarge = describeUploadTooLarge(file, kind, callbacks.limits);
+  if (tooLarge) {
+    const error = Object.assign(new Error(tooLarge), { status: 413, code: 'MEDIA_TOO_LARGE' });
+    callbacks.onState?.('error');
+    callbacks.onError?.(error);
+    return { promise: Promise.reject(error), abort() {} };
+  }
   if (callbacks.resumable === false) {
     const controller = new AbortController();
     let settled = false;
@@ -108,7 +158,12 @@ export function createVideoAssetUpload(file, kind, callbacks = {}) {
         if (settled) return;
         settled = true;
         callbacks.onState?.('error');
-        reject(error);
+        /* 批 CY-㊴：413 换成中文，不再把 tus 原文（"unexpected response while creating
+           upload… Maximum size exceeded"）甩到界面上。 */
+        reject(Object.assign(new Error(readableUploadError(error, kind)), {
+          status: Number(error?.status || 0),
+          cause: error,
+        }));
       },
       async onSuccess() {
         if (settled) return;

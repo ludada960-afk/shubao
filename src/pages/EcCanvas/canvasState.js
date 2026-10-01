@@ -1,3 +1,7 @@
+/* 批 CY-㊴：框选要按"节点真实占位"判（含 footer），不再用写死的 +60。
+   这条 import 只为 selectNodesInRect 服务，别把它挪去别处。 */
+import { canvasNodeFootprint } from './canvasMediaFitModel.js';
+
 export function getCanvasPointerIntent({ tool = 'select', button = 0, altKey = false, spaceKey = false, isInteractive = false } = {}) {
   if (isInteractive) return 'ignore';
   if (button === 1) return 'pan';
@@ -135,11 +139,22 @@ export function selectNodesInRect(nodes, rect) {
   const right = Math.max(rect.x, rect.x + rect.w);
   const top = Math.min(rect.y, rect.y + rect.h);
   const bottom = Math.max(rect.y, rect.y + rect.h);
-  return nodes.filter(node => {
-    const nodeRight = node.x + (node.w || 0);
-    const nodeBottom = node.y + (node.h || 0) + 60;
-    return nodeRight >= left && node.x <= right && nodeBottom >= top && node.y <= bottom;
-  }).map(node => node.id);
+  /* ═══ 批 CY-㊴（2026-10-01）：用**节点真实占位**判定，不再 +60 ═════════════════
+     用户原话：「为什么我这里选中了所有的素材，你虽然框选中所有的素材，
+       但你这个拖动的面积并没有覆盖完呀。这下面为什么还是漏了一些呀？」
+
+     事故：底边写的是 `node.y + node.h + 60` —— 一个**写死的 60px**。
+     于是节点只要「盒子 + 60」碰到框就算选中，哪怕它**明显落在框外**。
+     根因是"节点占位要算上 footer"，但真值早就存在且是**34px（且按 showMeta 分支）**：
+     `canvasNodeFootprint()`（canvasMediaFitModel.js）—— 仓库里专门为这件事建的。
+     ⇒ 框选与"看到的节点"用**同一个**几何，两者不会再各说各话。 */
+  return nodes.map(node => ({ node, box: canvasNodeFootprint(node) }))
+    .filter(({ box }) => {
+      if (!box) return false;
+      return box.x + box.w >= left && box.x <= right
+        && box.y + box.h >= top && box.y <= bottom;
+    })
+    .map(({ node }) => node.id);
 }
 
 export function moveSelectedNodes(nodes, selectedIds, dx, dy) {
