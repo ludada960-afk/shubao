@@ -23,7 +23,11 @@
    就压在这儿。⇒ 上边距 16 → **6**，标题底距 6 → 4，页签上边距 14 → 10：
      标题顶沿落到顶栏下 **6px**，整块内容上提 10px、页签再上提 8px。
    ⚠️ 左右 28 / 底部 56 是批 E「视觉拉满」定下的，不动。 */
-.media-hub { display: grid; gap: 12px; padding: 6px 28px 56px; }
+/* 批 CY-㊴ 之十（2026-10-01）：横向内边距 28 → 12。
+   上下不动（6/56 是上一批按用户"标题整体上移"定下的）。
+   28 是叠加在 .media-creation 那 72px **之上**的第二层 —— 两层一起收窄，
+   每边死白 100px → 28px。 */
+.media-hub { display: grid; gap: 12px; padding: 6px 12px 56px; }
 .media-hub-head h1 { margin: 0 0 4px; font-size: 30px; line-height: 1.12; color: var(--sb-ink-1); }
 .media-hub-head p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--sb-ink-2); }
 .media-hub-empty { margin: 0; padding: 30px 0; text-align: center; font-size: 13px; color: var(--sb-ink-3); }
@@ -32,7 +36,25 @@
 /* ── 顶部快捷筛选页签（照竞品实测结构：图片页 8 档、视频页 4 档）─────────────
    每一档后面那个数字是该档的技能条数 —— 竞品没有，但"这一档里有多少个"是用户
    决定要不要点进去的第一依据，白给的信息没有理由不写。 */
-.media-hub-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 4px; }
+/* ═══ 批 CY-㊴ 之十（2026-10-01）：分类页签**吸顶** ═══════════════════════════════════
+   用户原话：「而且它滚动它的页面的时候，这个标签栏也会一直在上面形成导航栏，
+     他滚动下去依然可以看到上面的标签栏这里。我们目前是没有这样做的。」
+   实测：改前 `position: static`；顶栏 `.app-topbar` 已 sticky/top:0/高 **72**；
+   滚动容器是 `html`。⇒ 页签吸在顶栏**正下方** 72px 处。
+   毛玻璃底沿用顶栏那一档（rgba + blur 12px），不盖死渐变背景。 */
+.media-hub-tabs {
+  position: sticky;
+  top: 72px;
+  z-index: 6;
+  display: flex; flex-wrap: wrap; gap: 10px;
+  /* 负边距让它横跨满内容宽（否则左右会露出两道没被遮住的缝） */
+  margin: 10px -12px 4px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+}
 .media-hub-tabs button {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 10px 18px; border-radius: var(--sb-radius-pill);
