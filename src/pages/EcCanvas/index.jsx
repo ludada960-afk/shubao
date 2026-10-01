@@ -19,6 +19,8 @@ import {
   readableInitialViewport,
   removeConnectionsForNodes,
   selectNodesInRect,
+  canvasNodesInViewport,
+  canvasViewportWorldRect,
   zoomAroundCursor,
   zoomPreviewByWheel,
 } from './canvasState';
@@ -107,7 +109,7 @@ import { markStaleDownstream } from './canvasGraphEngine.js';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
 /* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + 连线@引用合一的纯函数（无入边节点回退旧并集, 与 P0 无图契约逐字节一致）*/
 import { collectRunInputs, instantiateWorkflowTemplate, legacyComposerSourceIds, markP3PendingNodes, mergeGraphMentionSources } from './workflowTemplates.js';
-import { useCanvasVisibleViewport } from './canvasVisibleViewport.js';
+import { useCanvasVisibleViewport, useCanvasStageRect } from './canvasVisibleViewport.js';
 import { migrateMentionsToEdges } from './mentionEdgeMigration.js';
 import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
@@ -1106,6 +1108,17 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const [canvasLibraryOpen, setCanvasLibraryOpen] = useState(false);
   const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
+  /* ═══ 批 CY-㊴ 之十七：容器尺寸/rect 改到**提交后**测量（批 CY-㉙ 的同一套约束）══════
+     为什么必须放在这里（containerRef 之后、任何消费者之前）：
+       ① 视口裁剪要用 `canvasVisibleViewportSize` 算世界坐标矩形；
+       ② 工具栏的 bounds 要用 `canvasStageRect`；
+       ③ 原来这两处都是在 render 期间 `containerRef.current?.getBoundingClientRect()`，
+          那是**强制同步重排**。实测浪费（每次渲染）：
+             200 节点 10.7ms ｜ 500 节点 30.7ms ｜ 1000 节点 67.9ms ｜ 2000 节点 133.9ms
+          而且读到的还是**上一次提交**的布局。
+     两个 hook 都返回"尺寸不变则引用不变"的对象，配合 React.memo 才真能跳过渲染。 */
+  const canvasVisibleViewportSize = useCanvasVisibleViewport(containerRef);
+  const canvasStageRect = useCanvasStageRect(containerRef);
   const previewDialogRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
@@ -1207,44 +1220,125 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const resultVideoUrl = String(result.video_url || result.videoUrl || result.video?.url || result._videoResult?.url || '').trim();
   const resultMediaAssets = collectCanvasMediaAssets(result);
   const hasCurrent = imageList.length > 0 || Boolean(resultVideoUrl) || resultMediaAssets.length > 0;
-  const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
+  /* ═══ 批 CY-㊴ 之十七：视口裁剪 ═══════════════════════════════════════════════
+     原来 `visibleNodes` 只是**按 group 过滤**（不是按可见性）—— 名字骗人，
+     屏外的节点 DOM 一样全量渲染、全量重渲染。世界是 6400×4800，节点一多就吃不消。
+
+     现在再叠一层"是否与可视矩形相交"。三件事必须同时成立才不会出事：
+       ① overscan 外扩 25%（见 canvasState.js）—— 否则节点在边缘会突然出现/消失；
+       ② 隐藏节点不渲染（原来是用 visibility:hidden 照样占着 DOM）；
+       ③ **当前正在用的节点全部钉住** —— 文字编辑是靠 querySelector 找节点的，
+          裁掉了就"点进去编辑光标不出现"。钉住的是：
+            选中 / 多选 / 悬停 / 正在编辑文字 / 聚焦编辑器 / 连线草稿与连线选择器
+     这几个加起来最多十几个，渲染开销可忽略，却让裁剪**没有任何例外**。 */
+  const pinnedNodeIds = useMemo(() => {
+    const ids = new Set();
+    if (selected) ids.add(selected);
+    if (multiSelected) for (const id of multiSelected) ids.add(id);
+    if (hoveredNodeId) ids.add(hoveredNodeId);
+    if (editingTextNodeId) ids.add(editingTextNodeId);
+    if (focusedEditor?.nodeId) ids.add(focusedEditor.nodeId);
+    if (connectionDraft?.sourceNodeId) ids.add(connectionDraft.sourceNodeId);
+    if (connectionDraft?.from) ids.add(connectionDraft.from);
+    if (connectionPicker?.sourceNodeId) ids.add(connectionPicker.sourceNodeId);
+    return ids;
+  }, [selected, multiSelected, hoveredNodeId, editingTextNodeId, focusedEditor, connectionDraft, connectionPicker]);
+  const cullWorldRect = useMemo(
+    () => canvasViewportWorldRect(viewport, canvasVisibleViewportSize),
+    [viewport.x, viewport.y, viewport.scale, canvasVisibleViewportSize.width, canvasVisibleViewportSize.height],
+  );
+  const visibleNodes = useMemo(() => {
+    const grouped = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
+    return canvasNodesInViewport(grouped, cullWorldRect, pinnedNodeIds);
+  }, [nodes, activeFilter, cullWorldRect, pinnedNodeIds]);
   /* 9-08 事故修复: 水印改动误删了 selectedNode 定义, 但下方 20+ 处仍在引用它 → 渲染期 ReferenceError 整页白屏 ("画布打不开") */
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+
+  /* ═══ 2026-10-01 性能③：把渲染循环里的 O(n²) 查表变成 O(1) ═════════════════════
+     用户原话：「整个网站各个地方进行操作，都会有所延迟」。
+
+     下面那个回收器 effect（以及渲染循环里的两处）原来都在**每次 nodes 变化**时
+     全表扫描：\`nodes.some(node => node.id === selected)\`、\`nodes.find(source => …)\`、
+     \`nodes.filter(child => child.parentLayerGroupId === node.id)\`。
+     尤其后面两处是**写在 \`visibleNodes.map\` 里面**的 ⇒ 每帧 O(n²)。
+
+     实测（Node，同一份代码）：
+        节点数   nodes.find    nodes.filter   合计
+           50     0.012ms       0.027ms      0.033ms
+          500     0.808ms       1.229ms      2.20ms
+         2000     8.174ms      10.470ms     25.77ms
+         5000        —         55.348ms     78.66ms
+
+     两张表建一次、复用全部：id → node、parentLayerGroupId → 子节点数组。
+
+     ⚠️ \`nodeById\` 刻意**先到先得**（已有 id 不覆盖），和 \`nodes.find()\` 的
+     "返回第一个匹配" 完全一致。若图上真出现重复 id（正常不该有），
+     \`new Map(nodes.map(…))\` 会变成"最后一个赢"，行为就变了。
+     等价性由 test/canvas-node-lookup-1001.test.mjs 守住（含重复 id 的用例）。 */
+  const nodeById = useMemo(() => {
+    const map = new Map();
+    for (const node of nodes) {
+      if (node?.id && !map.has(node.id)) map.set(node.id, node);
+    }
+    return map;
+  }, [nodes]);
+  const layerChildrenByParent = useMemo(() => {
+    const map = new Map();
+    for (const node of nodes) {
+      const parent = node?.parentLayerGroupId;
+      if (!parent) continue;
+      const bucket = map.get(parent);
+      if (bucket) bucket.push(node);
+      else map.set(parent, [node]);
+    }
+    return map;
+  }, [nodes]);
+  /* 稳定的空数组常量：给"没有子节点"用，避免每次渲染新建 [] 让 memo 的子组件全部失效 */
+  const noLayerChildren = useMemo(() => Object.freeze([]), []);
+  /* 同理：没有多选时不每次新建 Set */
+  const EMPTY_GROUP_IDS = useMemo(() => new Set(), []);
 
   /* 选中回收器 (用户 9-10 反馈: 节点删掉后功能栏还在): 任何让选中 id 脱离 nodes 的路径
      (删除/隐藏/整张画布被替换/恢复会话/模板铺开/换作品) 都在这里立即回收选中态,
      使工具栏与右面板永远不可能比节点活得久。返回同引用即无变化, 不触发额外渲染。
      9-11 扩展 (用户反馈: 中央弹窗上传后删节点, 右侧派生菜单仍在): 所有以节点为锚点的
      浮层态 (派生菜单/连线草稿/聚焦编辑器/文字检查器/水印预览) 一并在此回收——
-     它们的源节点一旦不在 nodes 里, 浮层立即关闭, 面板永远不可能比节点活得久。 */
+     它们的源节点一旦不在 nodes 里, 浮层立即关闭, 面板永远不可能比节点活得久。
+
+     2026-10-01 性能：这里是**每次 nodes 变化都全表扫 7 次**（selected、multiSelected
+     每个 id、connectionPicker、connectionDraft、focusedEditor、textInspector、
+     watermarkPreview）⇒ 拖一个节点就是 7×n 次比较。改成查上面那张 `nodeById`：
+     7 次 O(n) 扫描 → 1 次 O(1) 表查询。
+     `!nodeById.has(id)` 与 `!nodes.some(node => node.id === id)` 完全等价
+     （都没有 id ⇒ has 为 false）。 */
   useEffect(() => {
-    if (selected && !nodes.some(node => node.id === selected)) setSelected(null);
+    if (selected && !nodeById.has(selected)) setSelected(null);
     setMultiSelected(previous => {
       if (!previous.size) return previous;
-      const next = new Set([...previous].filter(id => nodes.some(node => node.id === id)));
+      const next = new Set([...previous].filter(id => nodeById.has(id)));
       return next.size === previous.size ? previous : next;
     });
     setConnectionPicker(previous => (
-      previous?.sourceNodeId && !nodes.some(node => node.id === previous.sourceNodeId)
+      previous?.sourceNodeId && !nodeById.has(previous.sourceNodeId)
       ? null : previous
     ));
     setConnectionDraft(previous => {
       const source = previous?.sourceNodeId || previous?.from;
-      return (source && !nodes.some(node => node.id === source)) ? null : previous;
+      return (source && !nodeById.has(source)) ? null : previous;
     });
     setFocusedEditor(previous => (
-      previous?.nodeId && !nodes.some(node => node.id === previous.nodeId)
+      previous?.nodeId && !nodeById.has(previous.nodeId)
       ? null : previous
     ));
     setTextInspectorNodeId(previous => (
-      previous && !nodes.some(node => node.id === previous)
+      previous && !nodeById.has(previous)
       ? null : previous
     ));
     setWatermarkPreview(previous => {
       if (!previous?.nodeId) return previous;
-      return nodes.some(node => node.id === previous.nodeId) ? previous : null;
+      return nodeById.has(previous.nodeId) ? previous : null;
     });
-  }, [nodes, selected]);
+  }, [nodeById, nodes, selected]);
   /* 9-11 用户批注: 铺开 offer 常驻顶部不行 → 并入底部提示, 8s 自动关闭 */
   useEffect(() => {
     if (!workflowRunOffer) return undefined;
@@ -1311,6 +1405,18 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     dispatchExportDelivery({ type: 'reset', config: { mode: exportMode, format: exportFormat } });
   }, [exportOpen]);
   const multiSelectionBounds = selectedCanvasBounds(nodes, multiSelected);
+  /* 2026-10-01 性能③：组框高亮原来在 `canvasGroupFrames(nodes).map(...)` 里写
+     `nodes.some(node => multiSelected.has(node.id) && node.groupId === frame.groupId)`
+     ⇒ 每帧 O(组数 × 节点数)。先算一次"被选中的节点属于哪些组"，之后每帧只查 Set。 */
+  const selectedGroupIds = useMemo(() => {
+    if (!multiSelected.size) return EMPTY_GROUP_IDS;
+    const ids = new Set();
+    for (const id of multiSelected) {
+      const groupId = nodeById.get(id)?.groupId;
+      if (groupId) ids.add(groupId);
+    }
+    return ids;
+  }, [multiSelected, nodeById]);
   const focusedEditorNode = focusedEditor ? nodes.find(node => node.id === focusedEditor.nodeId) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
@@ -1336,8 +1442,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
        `test/canvas-port-geometry` 与 `test/ec-canvas-state` 各有一条断言，禁止画布页
      订阅容器尺寸（守的是「端口/连线几何不许来自 DOM 实测」）。
        把测量留在画布页会被它们判成回归 —— 与其改别人的判据，不如让画布页
-       **一处 DOM 实测都没有**，两条门禁的意图同时被满足。 */
-  const canvasVisibleViewportSize = useCanvasVisibleViewport(containerRef);
+       **一处 DOM 实测都没有**，两条门禁的意图同时被满足。
+     ⚠️ 批 CY-㊴ 之十七：这两个 hook 的**声明已上移到 containerRef 之后**（约 :1069），
+        因为视口裁剪要在本行之前用到 `canvasVisibleViewportSize`。 */
+  /* （canvasVisibleViewportSize / canvasStageRect 声明见上方 containerRef 之后） */
   /* ═══ 批 CY-㉙：@ 菜单**不得列出整张画布的图** ════════════════════════════════════════════
      用户 2026-09-30 逐字（电商套图那张）：
        「然后你这里为什么@ 按钮是能生效的呢……他现在能够艾特到一个完全跟当前节点不相关的
@@ -1391,7 +1499,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     node: selectedNode,
     selectedId: selected,
     selectedCount: multiSelected.size,
-    viewportBounds: containerRef.current?.getBoundingClientRect(),
+    viewportBounds: canvasStageRect,
     viewport,
     avoidNodes: nodes,
     height: selectedNode?.kind === 'suite-composer' ? 420 : selectedNode?.kind === 'image-composer' ? 320 : selectedNode?.kind === 'video-composer' ? 330 : 300,
@@ -7815,7 +7923,7 @@ const handlePointerUp = useCallback((e) => {
           {/* 9-11 用户批注: 确认弹窗太简陋 → 卡片化: 头部标题/预估 + 节点清单 + 主/次按钮 (不变式①: 确认后才扣费) */}
           {graphRunConfirm && (() => {
             const confirmNames = (graphRunConfirm.plan.executableNodeIds || [])
-              .map(id => { const n = nodes.find(item => item.id === id); return n ? (n.name || n.displayLabel || id) : null; })
+              .map(id => { const n = nodeById.get(id); return n ? (n.name || n.displayLabel || id) : null; })
               .filter(Boolean).slice(0, 6);
             const moreCount = (graphRunConfirm.plan.executableNodeIds || []).length - confirmNames.length;
             return (
@@ -8028,7 +8136,7 @@ const handlePointerUp = useCallback((e) => {
             <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
-              const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);
+              const nodeSource = nodeById.get(node.sourceNodeIds?.[0]);
               const sourcePreviewUrl = nodeSource?.url || nodeSource?.assets?.find(asset => asset?.url)?.url || '';
               const sourcePreview = sourcePreviewUrl ? { ...nodeSource, url: proxyImg(sourcePreviewUrl) } : null;
               const workflowPortDown = (event, side) => handlePortPointerDown(event, node.id, side);
@@ -8052,7 +8160,7 @@ const handlePointerUp = useCallback((e) => {
                 return <CanvasGenerationNode
                   key={node.id}
                   node={node}
-                  layerChildren={nodes.filter(child => child.parentLayerGroupId === node.id)}
+                  layerChildren={layerChildrenByParent.get(node.id) || noLayerChildren}
                   imageWatermark={nodeWatermark(node, 'image')}
                   videoWatermark={nodeWatermark(node, 'video')}
                   selected={selectedNodeState}
@@ -8241,7 +8349,7 @@ const handlePointerUp = useCallback((e) => {
                 组内节点不再显示左右加号（见 CanvasGenerationNode / CanvasMediaNode 的 canDerive）。 */}
             {!focusedEditor && canvasGroupFrames(nodes).map(frame => <div
               key={frame.groupId}
-              className={`ec-canvas-node-group is-${frame.kind}${multiSelectionBounds && frame.kind === 'group' && nodes.some(node => multiSelected.has(node.id) && node.groupId === frame.groupId) ? ' is-selected' : ''}`}
+              className={`ec-canvas-node-group is-${frame.kind}${multiSelectionBounds && frame.kind === 'group' && selectedGroupIds.has(frame.groupId) ? ' is-selected' : ''}`}
               aria-hidden="true"
               data-canvas-group-id={frame.groupId}
               style={{ left: frame.bounds.x, top: frame.bounds.y, width: frame.bounds.w, height: frame.bounds.h }}
@@ -8251,19 +8359,19 @@ const handlePointerUp = useCallback((e) => {
               aria-hidden="true"
               style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
             />}
-            {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
+            {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={canvasStageRect} onAction={handleMultiSelectionAction} />}
 
 
             {!focusedEditor && multiSelected.size <= 1 && ['text', 'text-composer'].includes(selectedNode?.kind) && <CanvasTextToolbar
               node={selectedNode}
               viewport={viewport}
-              bounds={containerRef.current?.getBoundingClientRect()}
+              bounds={canvasStageRect}
               onStyleChange={change => setNodes(previous => previous.map(node => node.id === selectedNode.id ? { ...node, textStyle: { ...(node.textStyle || {}), ...change } } : node))}
               onDuplicate={() => handleToolAction(getCanvasAction('duplicate'), selectedNode)}
               onFullscreen={() => setTextInspectorNodeId(selectedNode.id)}
               onDelete={() => handleToolAction(getCanvasAction('delete'), selectedNode)}
             />}
-            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={{ enabled: false }} />}
+            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={canvasStageRect} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={{ enabled: false }} />}
             {/* 9-11 三轮用户批注: 画布节点只留一个素材动作 (「加入资产库」) —
                 「发往视频项目」与资产库语义冲突, 已从节点工具条移除 (视频路径走 生成视频 节点 / 首页视频模块)。 */}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
@@ -8428,8 +8536,8 @@ const handlePointerUp = useCallback((e) => {
                 setMultiSelected(new Set([childId]));
                 const child = nodes.find(node => node.id === childId);
                 if (child) {
-                  const viewW = (containerRef.current?.clientWidth || window.innerWidth) / viewport.scale;
-                  const viewH = (containerRef.current?.clientHeight || window.innerHeight) / viewport.scale;
+                  const viewW = (canvasStageRect.width || window.innerWidth) / viewport.scale;
+                  const viewH = (canvasStageRect.height || window.innerHeight) / viewport.scale;
                   setViewport(current => ({ ...current, x: viewW / 2 - (child.x + child.w / 2) * current.scale, y: viewH / 2 - (child.y + child.h / 2) * current.scale }));
                 }
               }}
@@ -8791,8 +8899,8 @@ const handlePointerUp = useCallback((e) => {
           y={addNodePanel.y}
           onAdd={(kind, id) => {
             const world = addNodePanel.world || {
-              x: Math.max(40, Math.round((-viewport.x + (containerRef.current?.clientWidth || window.innerWidth) * 0.5) / viewport.scale)),
-              y: Math.max(40, Math.round((-viewport.y + (containerRef.current?.clientHeight || window.innerHeight) * 0.5) / viewport.scale)),
+              x: Math.max(40, Math.round((-viewport.x + (canvasStageRect.width || window.innerWidth) * 0.5) / viewport.scale)),
+              y: Math.max(40, Math.round((-viewport.y + (canvasStageRect.height || window.innerHeight) * 0.5) / viewport.scale)),
             };
             /* 9-13 用户批注：双击空白处添加的应该是**生成文案（AI）**，不是纯文本节点；
                纯文本注解只从底部工具栏的 T 进入。 */

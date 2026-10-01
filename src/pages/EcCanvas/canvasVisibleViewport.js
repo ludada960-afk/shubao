@@ -150,3 +150,84 @@ export function useCanvasVisibleViewport(elementRef) {
   }, [elementRef, fallback]);
   return size;
 }
+
+/* ═══ 批 CY-㊴ 之十七（2026-10-01）：提交后的容器 **rect**（给工具栏定位用）══════════
+   上面那个 hook 只给 width/height/coveredWidth（给小地图算视窗框够用了）。
+   但工具栏要的是完整 rect（left/top/width/height），而画布里原来是在 **render 期间**
+   直接 `containerRef.current?.getBoundingClientRect()` 塞进 props 的。
+
+   为什么那是真问题（实测，按节点数）：
+     节点数   DOM 元素数   每次渲染被浪费的时间
+       200     9,712        10.7 ms
+       500    23,912        30.7 ms
+      1000    47,579        67.9 ms
+      2000    94,912       133.9 ms   （8 帧以上）
+
+   render 期间读几何 = **强制同步重排**：浏览器必须先把前面所有样式改动算完布局，
+   才能回答这一次查询。读三次就是三次。画布节点一多，每次交互都在反复付这笔钱。
+
+   而且它读到的还是**上一次提交**的布局（与本文件头缺陷② 同一个坑）。
+
+   本 hook 把测量搬进 useLayoutEffect（提交后、绘制前）并订阅尺寸变化，
+   **返回的对象在尺寸不变时保持同一个引用** —— 这样配合 React.memo，
+   工具栏在"只是挪了个节点、舞台没变"时会真正跳过重渲染。
+   （放这个文件而不是 index.jsx：见文件头"为什么这套接线不写在 index.jsx 里"
+     —— 那两条门禁禁止 index.jsx 里出现 ResizeObserver。） */
+export function readCanvasStageRect(element, fallback = { left: 0, top: 0, width: 1440, height: 900 }) {
+  if (!element) return { ...fallback };
+  const rect = typeof element.getBoundingClientRect === 'function' ? element.getBoundingClientRect() : null;
+  const width = Number(rect?.width) || Number(element.clientWidth) || 0;
+  const height = Number(rect?.height) || Number(element.clientHeight) || 0;
+  return {
+    left: Number(rect?.left) || 0,
+    top: Number(rect?.top) || 0,
+    width: width > 0 ? width : fallback.width,
+    height: height > 0 ? height : fallback.height,
+  };
+}
+
+export function useCanvasStageRect(elementRef) {
+  const fallback = useMemo(
+    () => ({ left: 0, top: 0, width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900 }),
+    [],
+  );
+  const [rect, setRect] = useState(fallback);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const next = readCanvasStageRect(elementRef.current, fallback);
+      /* 同值返回同一个对象 —— 这是让下游 React.memo 真正生效的关键：
+         每次都 new 一个 {left,top,width,height} 会让所有消费者每帧都重渲染。 */
+      setRect(prev => (
+        prev.left === next.left && prev.top === next.top
+        && prev.width === next.width && prev.height === next.height
+          ? prev
+          : next
+      ));
+    };
+    measure();
+    const element = elementRef.current;
+    if (!element) return undefined;
+    const onTransitionEnd = event => { if (event?.propertyName === 'margin-right') measure(); };
+    element.addEventListener('transitionend', onTransitionEnd);
+    /* 窗口整体移动也会改 left/top（画布在页内偏移、滚动条出现…） */
+    const onWindowChange = () => measure();
+    globalThis.addEventListener?.('resize', onWindowChange);
+    globalThis.addEventListener?.('scroll', onWindowChange, true);
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        element.removeEventListener('transitionend', onTransitionEnd);
+        globalThis.removeEventListener?.('resize', onWindowChange);
+        globalThis.removeEventListener?.('scroll', onWindowChange, true);
+      };
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => {
+      element.removeEventListener('transitionend', onTransitionEnd);
+      globalThis.removeEventListener?.('resize', onWindowChange);
+      globalThis.removeEventListener?.('scroll', onWindowChange, true);
+      observer.disconnect();
+    };
+  }, [elementRef, fallback]);
+  return rect;
+}
