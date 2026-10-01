@@ -79,24 +79,32 @@ export default function TaskSidebar() {
   useLayoutEffect(() => {
     if (inline) { setFloatBottom(86); return undefined; }
     let observer = null;
+    let presence = null;
     let timer = null;
     let tries = 0;
+    const FALLBACK = 86;
+    const apply = next => setFloatBottom(current => (Math.abs(current - next) > 1 ? next : current));
     const sync = () => {
       const minimap = document.querySelector('.ec-canvas-minimap');
-      if (!minimap) return false;
+      /* ═══ 批 CY-㊴（2026-10-01）：小地图**不在**时必须复位，不能停在旧值上 ═══
+         用户截图里这个按钮压在小地图上。改前 `sync()` 在找不到小地图时直接 return false，
+         而调用方（轮询超时后那次 attach）又是另一条分支 —— 于是"小地图关掉再打开"
+         之后，按钮会一直停在上一次**开着**时算出来的偏移，看起来就压住了。
+         ⇒ 找不到就复位到 FALLBACK（找不到时是**找得到**才谈得上有小地图）。 */
+      if (!minimap) { apply(FALLBACK); return false; }
       const rect = minimap.getBoundingClientRect();
-      const next = Math.max(72, Math.round(window.innerHeight - rect.top + 12));
-      setFloatBottom(current => (Math.abs(current - next) > 1 ? next : current));
+      apply(Math.max(72, Math.round(window.innerHeight - rect.top + 12)));
       return true;
     };
     /* ⚠️ 画布是**异步**挂上来的：第一次渲染时 `.ec-canvas-minimap` 往往还不存在
        （实测就是这样 —— 提前 return 的话按钮会一直停在 86 上，依旧压着小地图）。
        所以先轮询等它出现（最多 5 秒），再挂 ResizeObserver（小地图可被拖拽改尺寸）。 */
     const attach = () => {
-      const minimap = document.querySelector('.ec-canvas-minimap');
-      if (!minimap) { setFloatBottom(86); return; }
       sync();
-      observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
+      const minimap = document.querySelector('.ec-canvas-minimap');
+      observer = typeof ResizeObserver === 'function' && minimap
+        ? new ResizeObserver(sync)
+        : null;
       observer?.observe(minimap);
     };
     if (!sync()) {
@@ -107,10 +115,18 @@ export default function TaskSidebar() {
     } else {
       attach();
     }
+    /* ⚠️ ResizeObserver **只对尺寸变化触发**；而小地图的**开/关**改的是它**在不在**，
+       面板开合改的是**位置**。这两类都不触发它 —— 这就是用户看到错位的原因。
+       ⇒ 另挂一个 childList 观察：小地图挂载/卸载/换位都重算一次。 */
+    if (typeof MutationObserver === 'function' && document.body) {
+      presence = new MutationObserver(() => { attach(); });
+      presence.observe(document.body, { childList: true, subtree: true });
+    }
     window.addEventListener('resize', sync);
     return () => {
       if (timer) clearInterval(timer);
       observer?.disconnect();
+      presence?.disconnect();
       window.removeEventListener('resize', sync);
     };
   }, [inline]);
