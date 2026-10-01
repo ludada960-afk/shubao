@@ -939,7 +939,16 @@
 .ec-canvas-suite-controls { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid #edf0f3; background: #fff; }
 .ec-canvas-suite-control { position: relative; min-width: 0; }
 .ec-canvas-suite-control > button { height: 32px; max-width: 190px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; color: #4f5762; font: 10px inherit; white-space: nowrap; cursor: pointer; }
-.ec-canvas-suite-control > button strong { overflow: hidden; color: #252a31; font-size: 11px; white-space: nowrap; }
+/* 批 CY-㊴（2026-10-01）：`strong` 收窄成**直接子元素**。
+   原来是 `.ec-canvas-suite-control > button strong`（strong 是后代）——
+   那条是**旧单行按钮**时代写的；换成两行摘要触发器之后，
+   `.ec-canvas-config-trigger` 里的 `<strong>` 成了**孙节点**，被这条误伤，
+   于是「套图方案」「商品规格」的值字号变成 11px，
+   而**同一个面板**里「技能」「生成配置」还是 12px（它们的祖先是 `.ec-canvas-parameter-item`，
+   压根不匹配这条）⇒ 同一个面板内部两种字号。
+   实测：套图侧 两颗 11/700 + 两颗 12/700；文案/图片/视频三侧全是 12/700。
+   收窄成 `> button > strong` 后回到该规则的原意，旧写法不受影响。 */
+.ec-canvas-suite-control > button > strong { overflow: hidden; color: #252a31; font-size: 11px; white-space: nowrap; }
 .ec-canvas-suite-control > button:hover, .ec-canvas-suite-control > button.is-active { border-color: var(--canvas-command); color: var(--canvas-command); background: #f5f8ff; }
 .ec-canvas-suite-control > button.is-adjusted { border-color: #7567e8; color: #5547c8; background: #f4f2ff; box-shadow: 0 0 0 2px rgba(117,103,232,.10); }
 .ec-canvas-suite-control > button > small { padding: 2px 4px; border-radius: 4px; color: #fff; background: #6557dc; font-size: 11px; font-weight: 800; line-height: 1; }
@@ -1735,9 +1744,19 @@
   order: 2;
   /* 提示语是**最低优先级**：参数行要固定槽位宽度，就必须先拿到确定的行宽。
      span 用 flex: 0 1 <小基数> + 大 shrink，空间不够时它先让位（文字自身可省略），
-     行则用 flex-basis:0 + grow:1 拿到稳定宽度 —— 这样槽位宽才不随提示语/模型名浮动。 */
-  flex: 0 1 0;
-  min-width: 0;
+     行则用 flex-basis:0 + grow:1 拿到稳定宽度 —— 这样槽位宽才不随提示语/模型名浮动。
+
+     ⚠️ 批 CY-㊴（2026-10-01）：这里原来是 `flex: 0 1 0`，**与上面自己写的意图不一致** ——
+     `0 1 0` 三段依次是 grow/shrink/basis，grow 是 **0**（注释说的是 1）。
+     于是 span 被压成 **0 宽**；而另一条 `.ec-canvas-composer-footer > span` 给的是
+     `white-space: normal` ⇒ 文字**逐字换行**，一行一个字。
+     实测（1600×1000、视频生成面板）：该 span **0 宽 × 136 高**，
+     footer 整体 152 高 —— 用户原话「那你视频生成下面为什么还是有大量空白呢」。
+
+     ⇒ 改回注释声明的意图：basis 取内容宽度（`0 1 auto`），并给一个 min-width 兜底 ——
+       宁可被压缩后省略，也不许退化成逐字换行。 */
+  flex: 0 1 auto;
+  min-width: 7em;
 }
 .ec-canvas-composer-footer > button.ec-canvas-composer-cta { order: 3; flex: 0 0 auto; margin-left: auto; }
 
@@ -2592,13 +2611,16 @@
    .ec-canvas-video-controls > .ec-canvas-parameter-item 走的是 grid + gap:4px
    （原来放的是原生 select）；触发器自带标题行，所以这里只需把按钮拉满槽宽、
    并撤掉那条只对 select 生效的 32px 高度。 */
-.ec-canvas-video-controls > .ec-canvas-parameter-item > .ec-canvas-config-trigger {
-  height: var(--cvl-control-compact, 32px);
-  padding: 0 6px;
-  gap: 4px;
-}
-/* 两行在 32px 里刚好：small 11×1.2 + strong 12×1.2 = 27.6，gap 收到 0，上下各留 2。 */
-.ec-canvas-video-controls > .ec-canvas-parameter-item > .ec-canvas-config-trigger .ec-canvas-config-trigger-copy {
-  gap: 0;
-}
+/* 批 CY-㊴（2026-10-01）：**视频侧的这条专属覆盖已删除**，四个板块的模型/配置/技能
+   触发器统一到同一档（27.2 高 / 两行间距 2px）。
+
+   为什么删：先量了 `.ec-canvas-video-controls` 那一行的**全部**直接子元素 ——
+     ec-canvas-video-field（@ 引用按钮）  24.5×24.5
+     ec-canvas-parameter-item ×3（三颗触发器）  高 21.8
+   旧注释宣称的「与同行控件同基线」在真实布局里**不成立**：24.5 既不是 27.2 也不是 32，
+   那一行本来就没有统一基线。而文案/图片/套图三侧的 @ 按钮同样是 24.5 挨着 27.2 的触发器。
+   ⇒ 删掉例外，四侧一致（与批 CY-㊴-③ 同一原则：不把三个合规的拉去迁就一个例外）。
+
+   ⚠️ test/canvas-control-slot-width-0917 曾要求视频侧是 32px，本批同步更新了它：
+      那条断言的**依据**（与同行控件同基线）经实测不成立，判据随之改。 */
 
