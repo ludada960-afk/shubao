@@ -38,21 +38,39 @@ import { createVideoOutbox } from './videoOutbox.mjs';
 /* 2026-09-18 总统筹拍板：视频方案是收了钱的，必须真的影响产出。
    本模块把结构化方案编译进 prompt/negativePrompt（服务端权威，客户端绕不过）。 */
 import { assertVideoPlanConfirmed, compileVideoRequest, hashVideoPlan } from './videoPlanCompiler.mjs';
+/* 批 CY-㊴ 之十四（2026-10-01）：上传体积上限与格式白名单的**唯一真相**。
+   原来本文件自己写了一份（视频 50MB），tus 那份却是 300MB —— 于是文件整个传完
+   才在最后一步被拒。详见 server/mediaUploadLimits.mjs 的文件头。 */
+import {
+  MEDIA_UPLOAD_CONTENT_TYPES,
+  MEDIA_UPLOAD_LIMITS,
+  formatMediaSize,
+  isSupportedMediaContentType,
+} from './mediaUploadLimits.mjs';
 
 const FINAL_STATUSES = new Set(['completed', 'failed', 'needs_review', 'reconciling']);
 const ACTIVE_STATUSES = new Set(['queued', 'submitting', 'processing']);
 const RATIOS = new Set(['21:9', '16:9', '4:3', '1:1', '3:4', '9:16']);
-const INPUT_LIMITS = Object.freeze({ image: 10 * 1024 * 1024, video: 50 * 1024 * 1024, audio: 15 * 1024 * 1024 });
+/* 批 CY-㊴ 之十四（2026-10-01）：原来这里是**另一份**上限（视频 50MB），
+   而 videoUploadService 的 tus 前两道关读的是 300MB ⇒ 整个文件传完，
+   最后一块 PATCH 触发 onUploadFinish → 走下面的 importUploadedAsset → 撞上 50MB → 413。
+   用户看到的"等了非常久才失败"就是它。现在与 tus 那份共用同一个上限与同一句提示。 */
+const INPUT_LIMITS = MEDIA_UPLOAD_LIMITS;
+const KIND_LABEL = Object.freeze({ image: '图片', video: '视频', audio: '音频' });
 const OUTPUT_LIMIT = 100 * 1024 * 1024;
 const CIRCUIT_MIN_SAMPLES = 5;
 const CIRCUIT_WINDOW = 20;
 const CIRCUIT_COOLDOWN_MS = 15 * 60 * 1000;
 const SUBMISSION_REVIEW_TTL_MS = 30 * 60 * 1000;
-const CONTENT_TYPES = Object.freeze({
-  image: new Set(['image/jpeg', 'image/png', 'image/webp']),
-  video: new Set(['video/mp4', 'video/webm', 'video/quicktime']),
-  audio: new Set(['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav', 'audio/webm']),
-});
+const CONTENT_TYPES = MEDIA_UPLOAD_CONTENT_TYPES;
+const contentTypeAllowed = (kind, type) => isSupportedMediaContentType(kind, type);
+
+/** 413 的统一口径：多大、上限多少、怎么办（批 CY-㊴ 之十四） */
+function mediaTooLarge(kind, bytes) {
+  const label = KIND_LABEL[kind] || '素材';
+  return `${label}有 ${formatMediaSize(bytes)}，超过单文件上限 ${formatMediaSize(INPUT_LIMITS[kind])}。`
+    + '请压缩后再传，或换一个更小的文件。';
+}
 
 function clean(value, max = 1200) {
   return String(value || '').trim().slice(0, max);
@@ -597,9 +615,9 @@ export function createVideoGeneration({
   async function uploadAsset({ ownerEmail, kind, contentType, buffer, publicBaseUrl }) {
     if (!Object.hasOwn(INPUT_LIMITS, kind)) throw httpError(400, 'VIDEO_ASSET_KIND_INVALID', '素材类型不支持');
     const normalizedType = clean(contentType, 100).toLowerCase().split(';')[0];
-    if (!CONTENT_TYPES[kind].has(normalizedType)) throw httpError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
+    if (!contentTypeAllowed(kind, normalizedType)) throw httpError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
     if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > INPUT_LIMITS[kind]) {
-      throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件大小不符合要求');
+      throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', mediaTooLarge(kind, buffer?.length));
     }
     const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
     if (!normalizedOwner) throw httpError(401, 'VIDEO_ASSET_OWNER_REQUIRED', '登录已失效，请重新登录');
@@ -624,13 +642,13 @@ export function createVideoGeneration({
   async function importUploadedAsset({ ownerEmail, kind, contentType, sourcePath, bytes, sha256, publicBaseUrl }) {
     if (!Object.hasOwn(INPUT_LIMITS, kind)) throw httpError(400, 'VIDEO_ASSET_KIND_INVALID', '素材类型不支持');
     const normalizedType = clean(contentType, 100).toLowerCase().split(';')[0];
-    if (!CONTENT_TYPES[kind].has(normalizedType)) throw httpError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
+    if (!contentTypeAllowed(kind, normalizedType)) throw httpError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
     const normalizedOwner = clean(ownerEmail, 320).toLowerCase();
     if (!normalizedOwner) throw httpError(401, 'VIDEO_ASSET_OWNER_REQUIRED', '登录已失效，请重新登录');
     const size = Number(bytes);
     const sourceInfo = await stat(sourcePath);
     if (!Number.isSafeInteger(size) || size <= 0 || size > INPUT_LIMITS[kind] || sourceInfo.size !== size) {
-      throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件大小不符合要求');
+      throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', mediaTooLarge(kind, size));
     }
     const normalizedSha256 = clean(sha256, 64).toLowerCase();
     if (!/^[a-f0-9]{64}$/.test(normalizedSha256)) throw httpError(422, 'VIDEO_ASSET_CHECKSUM_INVALID', '素材文件校验失败');
@@ -2156,14 +2174,14 @@ export function createVideoGeneration({
   };
 }
 
-export async function readRequestBuffer(req, maxBytes) {
+export async function readRequestBuffer(req, maxBytes, kind = 'video') {
   const declared = Number(req.headers['content-length'] || 0);
-  if (declared > maxBytes) throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件过大');
+  if (declared > maxBytes) throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', mediaTooLarge(kind, declared));
   const chunks = [];
   let bytes = 0;
   for await (const chunk of req) {
     bytes += chunk.length;
-    if (bytes > maxBytes) throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件过大');
+    if (bytes > maxBytes) throw httpError(413, 'VIDEO_ASSET_SIZE_INVALID', mediaTooLarge(kind, bytes));
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);

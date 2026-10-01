@@ -239,6 +239,17 @@
 .ec-canvas-pending-imports-action { display: inline-flex; align-items: center; gap: var(--cvl-sp1, 4px); min-height: var(--cvl-control-compact, 32px); flex: 0 0 auto; padding: 0 10px; border: 0; border-radius: 6px; background: var(--canvas-command, var(--sb-brand-600)); color: #fff; font-size: 12px; font-weight: 750; cursor: pointer; }
 .ec-canvas-pending-imports-action:disabled { opacity: .55; cursor: wait; }
 .ec-canvas-pending-imports-action:hover:not(:disabled) { background: #fff1c9; }
+/* 批 CY-㊴ 之十四（2026-10-01）：素材上传进度条。
+   用户原话：「等了非常久它才弹出来这个提示」「上传通道不太流畅」——
+   300MB 视频要传好几分钟，以前这段时间屏幕上**一个数字都没有**，只有转圈。
+   配色全部走已有 token（不新增硬编码，design-ratchet 棘轮不许涨）。 */
+.ec-canvas-upload-progress { position: fixed; z-index: 10002; left: 50%; bottom: 76px; width: min(420px, calc(100vw - 24px)); box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 10px 13px; transform: translateX(-50%); border: 1px solid var(--canvas-hairline); border-radius: 8px; background: var(--canvas-surface); color: var(--canvas-ink); box-shadow: var(--ec-shadow-3); font-size: 12px; font-weight: 700; }
+.ec-canvas-upload-progress-head { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
+.ec-canvas-upload-progress-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ec-canvas-upload-progress-figure { flex: 0 0 auto; color: var(--canvas-muted); font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ec-canvas-upload-progress-track { position: relative; height: 6px; overflow: hidden; border-radius: var(--sb-radius-pill)px; background: var(--canvas-bg); }
+.ec-canvas-upload-progress-fill { height: 100%; border-radius: inherit; background: var(--canvas-command); transition: width 180ms linear; }
+.ec-canvas-upload-progress-percent { color: var(--canvas-muted); font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .ec-canvas-pending-imports-action:disabled { cursor: wait; opacity: .65; }
 .ec-canvas-zoom-controls { left: 12px; bottom: 14px; align-items: center; gap: 1px; padding: 3px; border-radius: var(--ec-radius-sm); }
 .ec-canvas-bottom-toolbar .ec-canvas-icon-button,
@@ -2399,6 +2410,7 @@
 /* ── 全局 toast / 待处理提示：永远最上层，不受弹窗影响 ── */
 .ec-canvas-toast { z-index: var(--cvl-z-globalToast, 90); }
 .ec-canvas-pending-imports { z-index: var(--cvl-z-globalToast, 90); }
+.ec-canvas-upload-progress { z-index: var(--cvl-z-globalToast, 90); }
 .ec-canvas-workflow-offer { z-index: var(--cvl-z-globalToast, 90); }
 
 /* ═══════════════════════════════════════════════════════════════════════════

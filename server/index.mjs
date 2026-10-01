@@ -199,6 +199,8 @@ import {
 } from './videoGeneration.mjs';
 import { createWorksRetentionService } from './worksRetention.mjs';
 import { createVideoUploadService } from './videoUploadService.mjs';
+/* 批 CY-㊴ 之十四（2026-10-01）：上传体积上限的单一真相，直传与 tus 共用同一份。 */
+import { mediaUploadLimits } from './mediaUploadLimits.mjs';
 import { createVideoReconciliation } from './videoReconciliation.mjs';
 import { readVideoPlatformFlags } from './config.mjs';
 import { createVideoPlanningService } from './videoPlanning.mjs';
@@ -5109,9 +5111,12 @@ app.post('/api/plan-preview', authenticatePlanPreviewRequest, async (req, res) =
 app.post('/api/video/assets', authenticateVideoRequest, async (req, res) => {
   try {
     const kind = String(req.headers['x-video-asset-kind'] || '').trim().toLowerCase();
-    const limits = { image: 10 * 1024 * 1024, video: 50 * 1024 * 1024, audio: 15 * 1024 * 1024 };
+    /* 批 CY-㊴ 之十四（2026-10-01）：原来这里是**第三份**内联上限（视频 50MB）。
+       直传通道（VIDEO_PLATFORM_TUS_UPLOAD 关掉时走这里）会被它卡在 50MB，
+       与 tus 那份 300MB 对不上。现在与另外两处共用 mediaUploadLimits。 */
+    const limits = mediaUploadLimits();
     if (!limits[kind]) return res.status(400).json({ error: '素材类型不支持' });
-    const buffer = await readRequestBuffer(req, limits[kind]);
+    const buffer = await readRequestBuffer(req, limits[kind], kind);
     const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
     const publicBaseUrl = `${proto}://${req.get('host')}`;
     const asset = await videoGeneration.uploadAsset({

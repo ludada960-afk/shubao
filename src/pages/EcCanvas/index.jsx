@@ -878,6 +878,13 @@ export default function EcCanvas() {
   const [zoomImg, setZoomImg] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [toast, setToast] = useState(null);
+  /* ═══ 批 CY-㊴ 之十四（2026-10-01）：素材上传进度 ═══════════════════════════════
+     用户原话：「等了非常久它才弹出来这个提示」「上传通道不太流畅」。
+     以前整条上传链路**一个数字都不给**：只有 setPromptLoading(true) 转圈，
+     300MB 视频要传好几分钟，屏幕上什么都不变 —— 用户既不知道在传、也不知道传到哪，
+     唯一的信号是最后那条（当时还是英文的）报错。
+     现在按字节实时报进度，并把「已传 / 总量 / 百分比」显式写出来。 */
+  const [uploadProgress, setUploadProgress] = useState(null);
   /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能状态 */
   const [saveStatus, setSaveStatus] = useState('saved');
   const [lastSavedAt, setLastSavedAt] = useState(null);
@@ -1344,6 +1351,40 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       setToast(null);
     }, 3000);
   }, []);
+
+  /* 批 CY-㊴ 之十四：上传进度。
+     百分比**不四舍五入到整数**再显示 —— 5MB 一块的 tus 在慢网上 1% 要好几秒，
+     取整会让进度条长时间"卡住不动"，反而更像坏了。保留一位小数。 */
+  const formatUploadBytes = bytes => {
+    const value = Number(bytes || 0);
+    if (!(value > 0)) return '0 MB';
+    return value >= 1024 * 1024 * 1024
+      ? `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`
+      : `${(value / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  /** 造一个给 uploadVideoAsset 用的 callbacks：把字节进度写进 uploadProgress */
+  const makeUploadReporter = useCallback((name, index = 0, total = 1) => ({
+    onState(state) {
+      if (state === 'completed' || state === 'error' || state === 'cancelled') setUploadProgress(null);
+    },
+    onProgress({ bytesUploaded = 0, bytesTotal = 0 } = {}) {
+      const percent = bytesTotal > 0 ? Math.min(100, (bytesUploaded / bytesTotal) * 100) : 0;
+      setUploadProgress({
+        name: name || '素材',
+        index,
+        total,
+        bytesUploaded,
+        bytesTotal,
+        percent,
+        /* 一位小数：慢网下 1% 可能要好几秒，取整看起来就是"卡住了" */
+        percentText: percent >= 99.95 ? '99.9' : percent.toFixed(1),
+      });
+    },
+  }), []);
+
+  /** 包一层 try/finally，保证任何结局都不会留下一个永远转不掉的进度条 */
+  const clearUploadProgress = useCallback(() => setUploadProgress(null), []);
 
   /* P7 方案入画布：发射图的装配并入下面「从草稿/会话重建」的同一个效应。
      9-12 三次反馈后的真因（本地 QA 通道实测）：本函数原先声明在 showToast 之前，
@@ -5904,7 +5945,7 @@ const handlePointerUp = useCallback((e) => {
       mediaReplaceTargetRef.current = null;
       setPromptLoading(true);
       try {
-        const asset = { ...(await uploadVideoAsset(files[0], 'video')), name: files[0].name };
+        const asset = { ...(await uploadVideoAsset(files[0], 'video', makeUploadReporter(files[0].name, 0, 1))), name: files[0].name };
         if (!asset?.url) { showToast('视频上传结果为空，请重试', 'error'); return; }
         setNodes(previous => previous.map(node => node.id === targetId ? {
           ...node,
@@ -5926,6 +5967,7 @@ const handlePointerUp = useCallback((e) => {
       } catch (error) {
         showToast(error?.message || '替换视频素材失败，请重试', 'error');
       } finally {
+        clearUploadProgress();
         setPromptLoading(false);
       }
       return;
@@ -5934,7 +5976,9 @@ const handlePointerUp = useCallback((e) => {
     setPromptLoading(true);
     try {
       const assets = [];
-      for (const file of files) assets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      for (const [index, file] of files.entries()) {
+        assets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))), name: file.name });
+      }
       let projectContext = null;
       try {
         projectContext = await ensureCanvasMediaProject(files[0]?.name || 'Canvas 视频项目');
@@ -5985,6 +6029,7 @@ const handlePointerUp = useCallback((e) => {
     } catch (error) {
       showToast(error.message || '视频上传失败，请重试', 'error');
     } finally {
+      clearUploadProgress();
       setPromptLoading(false);
     }
   };
@@ -5999,7 +6044,9 @@ const handlePointerUp = useCallback((e) => {
     setPromptLoading(true);
     try {
       const assets = [];
-      for (const file of files) assets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
+      for (const [index, file] of files.entries()) {
+        assets.push({ ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, files.length))), name: file.name });
+      }
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
@@ -6037,6 +6084,7 @@ const handlePointerUp = useCallback((e) => {
     } catch (error) {
       showToast(error.message || '音频上传失败，请重试', 'error');
     } finally {
+      clearUploadProgress();
       setPromptLoading(false);
     }
   };
@@ -6106,9 +6154,13 @@ const handlePointerUp = useCallback((e) => {
       const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
       const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
       const videoAssets = [];
-      for (const file of videoFiles) videoAssets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      for (const [index, file] of videoFiles.entries()) {
+        videoAssets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length))), name: file.name });
+      }
       const audioAssets = [];
-      for (const file of audioFiles) audioAssets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
+      for (const [index, file] of audioFiles.entries()) {
+        audioAssets.push({ ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length))), name: file.name });
+      }
       let projectContext = null;
       if (persistedAssets.length || videoAssets.length || audioAssets.length) {
         try {
@@ -6226,8 +6278,12 @@ const handlePointerUp = useCallback((e) => {
       showToast(`已连接 ${uploadedNodes.length} 个素材`, 'success');
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
+    } finally {
+      /* 批 CY-㊴ 之十四：这个 handler 原来**没有 finally**。加了上传进度之后，
+         任何一条失败路径都会把进度条永久留在屏幕上（一个永远转不完的 47%）。 */
+      clearUploadProgress();
     }
-  }, [canvasMediaFields, dispatch, enqueuePendingProjectAssetImports, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, nodes, result, showToast]);
+  }, [canvasMediaFields, clearUploadProgress, dispatch, enqueuePendingProjectAssetImports, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, makeUploadReporter, nodes, result, showToast]);
 
   const removeComposerSource = useCallback((composerId, sourceId) => {
     const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);
@@ -8909,6 +8965,33 @@ const handlePointerUp = useCallback((e) => {
             <RefreshCw size={15} aria-hidden="true" />
             {pendingProjectAssetImportsBusy ? '处理中' : '重试处理'}
           </button>
+        </div>
+      )}
+
+      {/* ═══ 批 CY-㊴ 之十四（2026-10-01）：素材上传进度 ═══════════════════════════
+          以前整条上传链路一个数字都不给，300MB 视频传好几分钟屏幕纹丝不动
+          （用户原话：「上传通道不太流畅」「等了非常久它才弹出来这个提示」）。
+          这里显式给出文件名、已传/总量、百分比。 aria-live 让读屏也能听到。 */}
+      {uploadProgress && (
+        <div className="ec-canvas-upload-progress" role="status" aria-live="polite">
+          <div className="ec-canvas-upload-progress-head">
+            <span className="ec-canvas-upload-progress-name" title={uploadProgress.name}>{uploadProgress.name}</span>
+            <span className="ec-canvas-upload-progress-figure">
+              {uploadProgress.total > 1 ? `${uploadProgress.index + 1}/${uploadProgress.total} · ` : ''}
+              {formatUploadBytes(uploadProgress.bytesUploaded)} / {formatUploadBytes(uploadProgress.bytesTotal)}
+            </span>
+          </div>
+          <div
+            className="ec-canvas-upload-progress-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Number(uploadProgress.percent.toFixed(1))}
+            aria-label={`${uploadProgress.name} 上传进度`}
+          >
+            <div className="ec-canvas-upload-progress-fill" style={{ width: `${uploadProgress.percent}%` }} />
+          </div>
+          <span className="ec-canvas-upload-progress-percent">{uploadProgress.percentText}%</span>
         </div>
       )}
 
