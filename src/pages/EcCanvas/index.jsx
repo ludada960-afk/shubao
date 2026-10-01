@@ -1029,6 +1029,42 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const selectedKind = nodes.find(node => node.id === selected)?.kind;
     setWatermarkMaterial(WATERMARK_VIDEO_KINDS.includes(selectedKind) ? 'video' : 'image');
   }, [nodes, selected, watermarkPanelOpen, dismissAllCanvasSurfacesExcept]);
+  /* ═══ 2026-10-02 用户批注：「我这里点击了你左下角的这个功能栏的三个不同的按钮。为什么他们都能
+     同时触发呀？他们同时都触发并且存在在一起的话，那岂不就互相的堆叠，互相的遮挡了吗？
+     **按理说我点击其中某一个的话，另外一个就应该关掉呀**」
+
+     病根不是"忘了关"，是**三颗按钮里只有一颗走了互斥**：水印那顆调了
+     `dismissAllCanvasSurfacesExcept('watermarkPanelOpen')`（批 CY-⑭ 加的），
+     而「图层」与「小地图」只是 `setX(!x)` —— 于是它们能同时开着，
+     三块面板又都停靠在左下角这一带（批 CY-㊴ 之十三/十四刚把图层也搬到这里），
+     于是**互相压在一起**。
+
+     ⇒ 两个 handler 都改成与水印**同一条**路径：先判开合 → 关掉其它浮层 → 再开自己。
+
+     ⚠️ **小地图不在 `canvasSurfaceDismiss` 登记册里**（它是常驻 HUD，不是"临时浮层"，
+        而且点空白不该把它收掉）。所以关它只能**显式** `setMinimapOpen(false)` ——
+        这正是上面水印那条 handler 已经在用的写法（`dismissAllCanvasSurfacesExcept` 之后
+        还跟了一句 `setMinimapOpen(false)`）。
+        ⚠️ **不要**为了"看起来统一"就把 minimapOpen 塞进登记册并标 `blank: true`：
+           那会让「点画布空白」顺手把用户的地图也关了，是没人要求的行为变更。
+        同理，开小地图时走 `dismissCanvasSurfaces('blank')`（全关）而不是 Except ——
+        因为它自己没有登记 key，没法"排除自己"。
+
+     ⚠️ 不要在 setState 的 updater 里调别的 setter（渲染期重算 ⇒ 副作用执行多次），
+        与上面水印那条同一个坑。 */
+  const handleToggleLayersPanel = useCallback(() => {
+    if (layersPanelOpen) { setLayersPanelOpen(false); return; }
+    dismissAllCanvasSurfacesExcept('layersPanelOpen');
+    setMinimapOpen(false);
+    setLayersPanelOpen(true);
+  }, [layersPanelOpen, dismissAllCanvasSurfacesExcept]);
+
+  const handleToggleMinimap = useCallback(() => {
+    if (minimapOpen) { setMinimapOpen(false); return; }
+    dismissCanvasSurfaces('blank');
+    setMinimapOpen(true);
+  }, [minimapOpen, dismissCanvasSurfaces]);
+
   /* 用户 9-05 反馈: 小地图必须展示"我们处于大画布的哪个部分" —
      固定一个大世界窗口 (以世界原点为中心 ±4200x±3000), 节点与当前视口框
      都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
@@ -1095,6 +1131,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const mediaReplaceTargetRef = useRef(null);
   /* 4c183cd4 续命 画布总监督 2026-08-30 - 音频上传 ref + 撤销/重做 history */
   const audioUploadRef = useRef(null);
+  /* 2026-10-02：底部工具栏那颗「上传素材」用的**统一**文件选择器（三类都收）。 */
+  const materialUploadRef = useRef(null);
   const historyRef = useRef(null);
   if (!historyRef.current) historyRef.current = createCanvasHistory();
   const objectClipboardRef = useRef(null);
@@ -6180,6 +6218,37 @@ const handlePointerUp = useCallback((e) => {
     canvasDropActiveRef.current = false;
     setCanvasDropActive(false);
   }, []);
+  /* ═══ 2026-10-02 用户批注：底部那颗按钮要**一个入口收所有素材** ════════════════════════
+     「既然现在下面居中的这个功能栏它只有四个按钮，那它就没有分上传图片，上传视频，上传音频
+       这些不同的功能渠道呀。**我觉得它应该合成成一个单独的上传素材的一个按钮。
+       就是这个按钮，它应该可以上传任意素材上来才对。把我们现在的图片，视频，音频他们的逻辑都传给他。**」
+
+     ⇒ 把「按 MIME 分发到三条既有上传链路」这段从拖拽那条里**提出来共用**，
+        拖拽与那颗新按钮走**同一个**函数 —— 否则两条入口迟早会走岔
+        （这正是批 DC 续-36 记的"两套逻辑互相打架"）。
+        ⚠️ 数量上限沿用拖拽那条原有的口径（图 8 / 视频 4 / 音频 4），不在这里另发明一套。
+
+     ⚠️⚠️ **必须定义在拖拽 handler「之前」**：拖拽那条的依赖数组 `[uploadCanvasMaterials]`
+        是**渲染期**求值的，而 `const` 在自己那行之前处于 TDZ ⇒ 定义在后会整页崩
+        （"Cannot access 'x' before initialization"）。
+        本仓已踩过两次同样的坑（批 续-9 那次是 2906 条测试全绿仍然整页白屏）。 */
+  const uploadCanvasMaterials = useCallback(async (files = []) => {
+    const list = Array.from(files || []).filter(Boolean);
+    if (!list.length) return;
+    const images = list.filter(file => file.type?.startsWith('image/')).slice(0, 8);
+    const videos = list.filter(file => file.type?.startsWith('video/')).slice(0, 4);
+    const audios = list.filter(file => file.type?.startsWith('audio/')).slice(0, 4);
+    if (!images.length && !videos.length && !audios.length) {
+      showToast('只支持上传图片、视频或音频文件', 'info');
+      return;
+    }
+    /* 合成最小假 event 复用既有上传链路（它们只读 event.target.files 与 event.target.value） */
+    const asEvent = batch => ({ target: { files: batch, value: '' } });
+    if (images.length) await handleCanvasSourceUpload(asEvent(images));
+    if (videos.length) await handleCanvasVideoUpload(asEvent(videos));
+    if (audios.length) await handleCanvasAudioUpload(asEvent(audios));
+  }, [handleCanvasAudioUpload, handleCanvasSourceUpload, handleCanvasVideoUpload, showToast]);
+
   const handleCanvasDrop = useCallback(async event => {
     const dropped = [...(event.dataTransfer?.files || [])];
     event.preventDefault();
@@ -6189,19 +6258,8 @@ const handlePointerUp = useCallback((e) => {
     /* 拖进来一律是"新增"，绝不接管"替换素材"那个上下文 ——
        否则用户以为在加素材，实际上把某个节点换掉了。 */
     mediaReplaceTargetRef.current = null;
-    const images = dropped.filter(file => file.type?.startsWith('image/')).slice(0, 8);
-    const videos = dropped.filter(file => file.type?.startsWith('video/')).slice(0, 4);
-    const audios = dropped.filter(file => file.type?.startsWith('audio/')).slice(0, 4);
-    if (!images.length && !videos.length && !audios.length) {
-      showToast('只支持把图片、视频或音频文件拖进画布', 'info');
-      return;
-    }
-    /* 合成最小假 event 复用既有上传链路（它们只读 event.target.files 与 event.target.value） */
-    const asEvent = list => ({ target: { files: list, value: '' } });
-    if (images.length) await handleCanvasSourceUpload(asEvent(images));
-    if (videos.length) await handleCanvasVideoUpload(asEvent(videos));
-    if (audios.length) await handleCanvasAudioUpload(asEvent(audios));
-  }, [handleCanvasAudioUpload, handleCanvasSourceUpload, handleCanvasVideoUpload, showToast]);
+    await uploadCanvasMaterials(dropped);
+  }, [uploadCanvasMaterials]);
 
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
@@ -7582,6 +7640,32 @@ const handlePointerUp = useCallback((e) => {
           <input ref={videoUploadRef} type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={handleCanvasVideoUpload} style={{ display: 'none' }} />
           {/* 9-13 用户批注：音频入口点了没反应 —— 根因是这个 input 从来没渲染过（只有 ref 没有元素） */}
           <input ref={audioUploadRef} type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm" multiple onChange={handleCanvasAudioUpload} style={{ display: 'none' }} />
+          {/* 2026-10-02 用户批注：底部那颗按钮要**一个入口收所有素材**。
+              刻意**不复用**上面三个 input：它们的 `accept` 各自锁死一种类型，
+              而这一颗三类都要收；选中后由 `uploadCanvasMaterials` 按 MIME 分发
+              （与拖拽走同一个函数）。`event.target.value` 每次清空，
+              否则同一个文件第二次就选不中了 —— 这是 `<input type=file>` 的老毛病。
+
+              ⚠️⚠️ `accept` 这里**逐个类型写全**，**不写** `image/*,video/*,audio/*`：
+              仓库里不少门禁用 `replace(/\/\*[\s\S]*?\*\//g,'')` 剥注释，
+              而属性值里那个「斜杠星号」会被当成**注释开始**，一路吞到后面某个
+              「星号斜杠」。我第一版就是写成三个通配的，结果多出一个起点、
+              把配对弄乱 ⇒ `canvas-surface-dismiss-0929` 整段 `onAddMenuToggle`
+              被吞掉，那条门禁直接判红（原文 @370952 → 剥后 @-1，整段消失）。
+              上面 video / audio 两个 input **本来就是逐个扩展名写的** ——
+              这里跟着它们的口径走，顺带把这颗地雷拆掉。 */}
+          <input
+            ref={materialUploadRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm"
+            multiple
+            onChange={(event) => {
+              const picked = Array.from(event.target.files || []);
+              event.target.value = '';
+              uploadCanvasMaterials(picked);
+            }}
+            style={{ display: 'none' }}
+          />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
             onAddMenuToggle={() => {
@@ -7646,7 +7730,7 @@ const handlePointerUp = useCallback((e) => {
           <CanvasBottomToolbar
             activeTool={activeTool}
             onToolChange={setActiveTool}
-            onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
+            onUpload={() => { materialUploadRef.current?.click(); setActiveTool('select'); }}
             onText={() => handleAddTextNode()}
           />
           {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 (整个面板跟 tab=assets + 底部"添加图片/视频" 完全重复)
@@ -7697,7 +7781,7 @@ const handlePointerUp = useCallback((e) => {
                 aria-label="图层"
                 title="图层"
                 aria-pressed={layersPanelOpen}
-                onClick={() => setLayersPanelOpen(open => !open)}
+                onClick={handleToggleLayersPanel}
               ><Layers3 size={15} /></button>
               {/* 9-11 用户批注: 与其他图标按钮同款 —— 纯图标 + 悬停提示, 不显示「运行」文字;
                   未就绪(单选)不高亮, 多选成链才 is-active; 提示告知「选中 2 个以上节点」。 */}
@@ -7716,7 +7800,7 @@ const handlePointerUp = useCallback((e) => {
                 aria-label="小地图"
                 title="小地图"
                 aria-pressed={minimapOpen || undefined}
-                onClick={() => setMinimapOpen(!minimapOpen)}
+                onClick={handleToggleMinimap}
               ><MapIcon size={15} /></button>
               <button
                 type="button"
