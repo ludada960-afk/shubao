@@ -74,13 +74,92 @@ test('⑤ 防回退：clampCanvasPickerPosition 不得再被派生菜单使用�
   assert.doesNotMatch(callSite, /clampCanvasPickerPosition\(/, '派生菜单不得再调用世界坐标版本的 clamp');
 });
 
-test('⑥ 图层面板同样必须锚在触发元素上（不再钉在画布左缘）', () => {
-  /* 实测（修复前）：图层面板左缘 72，而触发按钮（底部「图层」）在 775 ——
-     面板出现在离触发元素 700px 外的画布左边。根因是 CSS 写死 left:72px。 */
-  assert.match(chrome, /anchorRect = null/, 'CanvasLayersPanel 必须接收触发元素矩形');
-  assert.match(chrome, /resolveAnchoredRight\(\{/, '必须复用共用定位规则');
-  assert.match(chrome, /data-anchored-right/, '必须有可断言的锚定标记');
-  assert.match(index, /anchorRect=\{layersPanelOpen \?/, '打开时必须量触发按钮的视口矩形');
+test('⑥ 图层面板：几何**与水印面板同源**（贴底靠左），不再向右展开 —— 2026-10-01 推翻 09-20 口径', () => {
+  /* 用户 2026-10-01 原话（逐字）：
+     「你这个图层按钮为什么打开之后的面板是这么高呀？照理说应该是当前画布里面有多少素材，
+       它就张开多少……当只有一个素材的时候，它应该整块都出现在最下面呀。它整体应该是
+       **吸附在图层这个按钮上面**的，而不是悬空的。然后当素材更多的时候，他就慢慢的往上面去延展呀。
+       还有就是你这个图层为什么没有往左边靠呢？……你看一下下面不是有一个**水印面板**吗？
+       他是比较靠左一些的，你要照他那样子往左边靠一些，然后只要不遮住那个加号和生成进度那两个按钮就行了」
+
+     ⚠️ 这条**推翻了本文件 2026-09-20 的口径**（当时 ⑥ 写的是「必须锚在触发元素上向右展开」）。
+       推翻的理由**不是**「右展开不好」，而是**前提已经不成立**：
+       09-20 那条的实测依据是「触发按钮在 x=775，而面板出现在 x=72 —— 离触发元素 700px 外」。
+       而批 CY-㊴ 之十三（`b163a327`，已上线 `20261001-183428-3481d8a4`）把「图层」入口从
+       **底部 dock** 搬到了**左下角缩放条的 trailing 槽** —— 触发元素现在就在左边，
+       贴底靠左才是对的，向右展开反而会把面板甩到画面中间（用户说的「悬空」）。
+
+     ⇒ 判据从「有没有走共用右展开规则」改成「**几何与水印面板同源**」——
+       这正是用户那句「你要照他那样子」。钉**同源**比钉某一行写法耐改：
+       两个面板一起微调时它不会红，而任何一边单独漂移它都会红。 */
+
+  const code = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, '');
+  const css = read('src/pages/EcCanvas/EcCanvas.css');
+  const wmCss = read('src/styles/canvas-watermark-panel.css');
+
+  /* 取**顶层**那条基线规则。不要用「第一个匹配」—— 批 CY-㊴ 之三踩过：
+     `[data-density="compact"] .xxx` 这类更具体的覆盖规则会被先命中，把值读错。
+     这里显式要求该规则之前**括号是平的**（不在任何 @media / 嵌套块里）。 */
+  const baseRule = (source, selector) => {
+    const at = source.indexOf(selector + ' {');
+    if (at < 0) return '';
+    const before = source.slice(0, at);
+    const depth = (before.match(/\{/g) || []).length - (before.match(/\}/g) || []).length;
+    if (depth !== 0) return '';   // 落在嵌套块里，不是基线
+    const open = source.indexOf('{', at);
+    return source.slice(open + 1, source.indexOf('}', open));
+  };
+  const layers = baseRule(css, '.ec-canvas-layers-panel');
+  const wm = baseRule(wmCss, '.ec-wm-panel');
+  assert.ok(layers, '要能定位到图层面板的顶层基线规则');
+  assert.ok(wm, '要能定位到水印面板的顶层基线规则');
+
+  /* ① 同源的核心：左右与贴底方式必须与水印面板一致（用户「照他那样子往左边靠一些」）。
+     注意两边**允许**有差别：图层面板给了 var() 兜底值、用 100% 而非 100vh
+     （它挂在画布容器内，100% 才是容器高）。所以比的是**意图**，不是逐字节相等。 */
+  for (const prop of ['position', 'left', 'width']) {
+    const pick = body => (new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)')).exec(body);
+    const a = pick(layers), b = pick(wm);
+    assert.ok(a && b, `两边都必须声明 ${prop}`);
+    assert.equal(a[1].trim(), b[1].trim(),
+      `${prop} 必须与水印面板同值（现在 图层=${a[1].trim()} / 水印=${b[1].trim()}）—— 用户要的是「照他那样子」`);
+  }
+  /* ⚠️ 这里**不能**用 `[^)]*` 去匹配 bottom 的值：`calc(var(--a, 56px) + var(--b, 14px))`
+     是**嵌套**括号，遇到第一个 `)` 就断了 —— 我第一版就是这么写的，当场判红。
+     改用「不跨分号」的 `[^;]*?`，它对嵌套括号免疫（一条声明里不会有分号）。 */
+  assert.match(layers, /bottom\s*:\s*calc\([^;]*--ec-canvas-bottombar-top[^;]*\+[^;]*--ec-canvas-panel-gap/,
+    '贴底必须由底栏偏移 + 面板间距算出，与水印面板同一个口径（否则会压到底栏上）');
+  assert.match(layers, /max-height\s*:\s*min\(720px/,
+    '高度上限必须与水印面板同一档（720px）');
+
+  /* ② 「有多少素材就张开多少」：不许再有任何 min-height 地板。
+     改前 JS 里写死 `height: max(240, …)`，一个素材也撑出 240px —— 与用户要求直接冲突。 */
+  assert.doesNotMatch(layers, /min-height/, '面板本体不许有 min-height 地板（那会让一个素材也撑出一块空白）');
+  const list = /\.ec-canvas-layer-list\s*\{([^}]*)\}/.exec(css);
+  assert.ok(list, '要能定位到图层列表规则');
+  assert.match(list[1], /min-height\s*:\s*0/, '列表的 min-height 必须是 0，高度完全由内容决定');
+
+  /* ③ 「悬空」的真凶是**内联样式压过 CSS**，不是 CSS 写错了。
+     CSS 一直贴底（改前 left:72/bottom:70），是 JS 用共用规则算出的
+     `position:fixed + left + bottom` 内联样式赢掉了它。⇒ 断掉内联几何，才是真的修好。
+     这一条必须跑在**剥掉注释**的副本上：文件里那段解释性注释提到了共用规则的名字。 */
+  const chromeCode = code(chrome);
+  assert.doesNotMatch(chromeCode, /ec-canvas-layers-panel[\s\S]{0,240}style=\{\{/,
+    '图层面板不许再挂内联几何 —— 那正是「悬空」的真凶（内联压过 class 规则）');
+  assert.doesNotMatch(chromeCode, /resolveAnchoredRight\s*\(/,
+    '图层面板不再走共用右展开规则（用户已推翻该口径）；留着调用会有人照它改一条已不生效的样式');
+  assert.doesNotMatch(chromeCode, /\bLAYERS_PANEL_WIDTH\b/,
+    'LAYERS_PANEL_WIDTH 随内联几何一起作废，留着会让人以为定位还在 JS 里');
+
+  /* ④ 前提守卫：判据成立**只因为**触发元素在左下角。
+     哪天有人把「图层」放回底部居中的 dock，贴底靠左就又不成立了 —— 这条会红。 */
+  const indexCode = code(index);
+  assert.match(indexCode, /trailing=\{[\s\S]{0,400}aria-label="图层"/,
+    '「图层」入口必须挂在左下角缩放条的 trailing 槽（这是「贴底靠左」成立的前提）');
+  const dockAt = indexCode.indexOf('<CanvasBottomToolbar');
+  assert.ok(dockAt > 0, '底部 dock 仍应存在');
+  assert.doesNotMatch(indexCode.slice(dockAt, dockAt + 900), /aria-label="图层"/,
+    '「图层」不许同时留在底部 dock —— 两处入口会让上面的前提判据变成空转');
 });
 
 /* ── 本轮新迁位点（逐位点断言：不得再各自算坐标 / 不得再调世界坐标版 clamp）───────── */

@@ -8802,9 +8802,22 @@ const handlePointerUp = useCallback((e) => {
             </div>}
             {/* 批 CY-㊴：把另外两种导出方式说出来（用户原话：「你得告诉用户，除了导出单张之外，
                 我们还可以导出多张，并且我们还可以导出合成的长图」）。 */}
-            {exportCopy.hints.length > 0 && <div style={{ display: 'grid', gap: 6, marginBottom: 14, padding: '10px 11px', borderRadius: 8, background: '#f8fafc', border: '1px solid #eef1f4' }}>
-              {exportCopy.hints.map(hint => <div key={hint} style={{ fontSize: 11.5, color: '#5b6472', lineHeight: 1.6 }}>· {hint}</div>)}
-            </div>}
+            {exportCopy.hints.length > 0 && (
+              <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#98a1ad', letterSpacing: '.02em' }}>
+                  还可以这样导出
+                </div>
+                {exportCopy.hints.map(item => (
+                  <div key={item.title} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0,1fr)', gap: 8, alignItems: 'start', padding: '9px 11px', borderRadius: 9, background: '#f8fafc', border: '1px solid #eef1f4' }}>
+                    <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', width: 18, height: 18, marginTop: 1, borderRadius: 5, background: '#e8edf6', color: '#5b6472', fontSize: 11, fontWeight: 800 }}>+</span>
+                    <span style={{ display: 'grid', gap: 2, minWidth: 0 }}>
+                      <strong style={{ fontSize: 12.5, fontWeight: 700, color: '#1f2937' }}>{item.title}</strong>
+                      <span style={{ fontSize: 11.5, color: '#5b6472', lineHeight: 1.55 }}>{item.body}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
               <div style={{ display: 'grid', gap: 6 }}>

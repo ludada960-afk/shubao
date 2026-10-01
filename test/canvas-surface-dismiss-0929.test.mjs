@@ -144,8 +144,24 @@ test('画布里不再有越权的裸 z-index 数值（10004 / 10005 / 62 一律�
 test('portal 弹层与图层面板都取 CANVAS_Z.popover（不是各自拍一个数）', () => {
   assert.match(studio, /function CanvasPopoverPortal[\s\S]*?zIndex:\s*CANVAS_Z\.popover/,
     'CanvasPopoverPortal 必须用 CANVAS_Z.popover');
-  assert.match(chrome, /panelStyle[\s\S]*?zIndex:\s*CANVAS_Z\.popover/,
-    '图层面板必须用 CANVAS_Z.popover');
+  /* ⚠️ 2026-10-01：图层面板的层级**来源换了地方**。
+     原来它在 JS 里算 `panelStyle`（内联），层级取 `CANVAS_Z.popover`；
+     现在几何整个交给 CSS（照水印面板贴底靠左），内联样式连同 `panelStyle` 一起删掉了 ——
+     那正是「悬空」的真凶（内联压过 class 规则）。
+     ⇒ 层级改由 CSS 里的 `--cvl-z-popover` 提供，与**水印面板同一个口径**
+       （上面那条已经这么查水印面板了，这里与它对齐）。
+
+     判据钉的是「层级来自权威变量、且不是裸数」，**不是**钉它必须写在 JS 里 ——
+     钉写法的话，几何一改回 CSS 就得再改一次判据，而那时行为其实是对的。 */
+  const ecCss = read('src/pages/EcCanvas/EcCanvas.css');
+  const layersRule = /\.ec-canvas-layers-panel\s*\{([^}]*)\}/.exec(ecCss);
+  assert.ok(layersRule, '要能定位到图层面板的规则');
+  assert.match(layersRule[1], /z-index:\s*var\(--cvl-z-popover/,
+    '图层面板必须走 --cvl-z-popover（与水印面板同一档），不许拍一个裸数');
+  assert.doesNotMatch(layersRule[1], /z-index:\s*\d+/,
+    '图层面板不许写死 z-index 数值');
+  /* 反向：JS 里不许再冒出那个内联层级（几何已经交回 CSS） */
+  assert.doesNotMatch(stripComments(chrome), /panelStyle/, '内联定位样式已随几何一起交回 CSS，不该复活');
   assert.match(studio, /import \{ resolveAnchoredRight, CANVAS_Z \}/, '必须真的 import 了权威表');
   /* 层级阶梯本身没被改松 */
   assert.ok(CANVAS_Z.popover < CANVAS_Z.modal, 'popover 必须在 modal 之下（用户 ③：按钮不该跟着弹窗一起抬层）');

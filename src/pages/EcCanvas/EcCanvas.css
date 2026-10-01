@@ -257,14 +257,28 @@
    跟着触发元素走，只会让它退回静态位置。
    → 正确修法（留给画布线）：让兜底也走同一套求解器（anchorRect 缺失时给一个明确的锚点），
      而不是删掉本行。判据同 RTK §3.1-10：**要锁的是「居中/不被裁」这个判据，不是某一行写法**。 */
-.ec-canvas-layers-panel { position: absolute; z-index: 95; left: 72px; bottom: 70px; width: 288px; max-height: min(460px, calc(100% - 140px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-md); background: #fff; box-shadow: var(--ec-shadow-3); }
+/* ═══ 2026-10-01 用户批注：「你这个图层按钮为什么打开之后的面板是这么高呀？照理说应该是当前画布
+   里面有多少素材，它就张开多少……当只有一个素材的时候，它应该整块都出现在最下面呀。它整体应该是
+   **吸附在图层这个按钮上面**的，而不是悬空的。然后当素材更多的时候，他就慢慢的往上面去延展呀。
+   还有就是你这个图层为什么没有往左边靠呢？……你看一下下面不是有一个**水印面板**吗？他是比较靠左
+   一些的，你要照他那样子往左边靠一些，然后只要不遮住那个加号和生成进度那两个按钮就行了。」
+
+   ⇒ 几何**照抄水印面板**（`.ec-wm-panel`：`left:60px` + `bottom: 底栏偏移` + **max-height** 上限）：
+     · 贴底 ⇒ 吸附在左下角那颗图层按钮上面，不是悬空；
+     · 只有 `max-height`、**没有 min-height** ⇒ 高度由内容决定，一个素材就那么高，素材多了往上延展；
+     · `left:60px` ⇒ 与水印面板同一档靠左。
+   ⚠️ 之前是 JS 用 `resolveAnchoredRight` 算出 `position/left/bottom` 的**内联样式**，
+     把 CSS 这套几何整个覆盖了 —— 那才是"悬空"的真凶（CSS 一直是贴底的）。 */
+.ec-canvas-layers-panel { position: absolute; z-index: var(--cvl-z-popover, 40); left: 60px; bottom: calc(var(--ec-canvas-bottombar-top, 56px) + var(--ec-canvas-panel-gap, 14px)); width: 336px; max-height: min(720px, calc(100% - var(--ec-canvas-bottombar-top, 56px) - var(--ec-canvas-panel-gap, 14px) - 96px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--canvas-hairline); border-radius: var(--ec-radius-md); background: #fff; box-shadow: var(--ec-shadow-3); }
 .ec-canvas-layers-panel > header { height: 42px; flex: 0 0 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 12px; border-bottom: 1px solid #edf0f3; }
 .ec-canvas-layers-panel > header span { display: inline-flex; align-items: center; gap: 7px; color: #31363d; font-size: 12px; }
 .ec-canvas-layers-panel button { border: 0; background: transparent; color: #69717b; }
 .ec-canvas-layers-panel > header button,
 .ec-canvas-layer-row > button:not(.ec-canvas-layer-main) { width: var(--cvl-control-compact, 32px); height: var(--cvl-control-compact, 32px); flex: 0 0 var(--cvl-control-compact, 32px); display: inline-grid; place-items: center; border-radius: 6px; }
 .ec-canvas-layers-panel button:hover { color: var(--canvas-command); background: #edf3ff; }
-.ec-canvas-layer-list { min-height: 80px; overflow: auto; padding: 6px; }
+/* min-height 去掉：面板高度**由内容决定**（用户原话「有多少素材就张开多少……只有一个素材的时候
+   它应该整块都出现在最下面」）。留着 80px 的话，一个素材也会撑出一块空白。 */
+.ec-canvas-layer-list { min-height: 0; overflow: auto; padding: 6px; }
 .ec-canvas-layer-list > p { margin: 26px 0; color: #8b929b; text-align: center; font-size: 11px; }
 .ec-canvas-layer-row { min-height: 46px; display: flex; align-items: center; gap: 2px; border-radius: 8px; }
 .ec-canvas-layer-row:hover { background: #f5f7f9; }
