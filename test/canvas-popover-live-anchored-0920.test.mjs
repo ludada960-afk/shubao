@@ -30,10 +30,13 @@ const POPOVERS = [
     triggerSel: '.ec-canvas-node-port:not(.is-input)',
   },
   {
+    /* ⚠️ 2026-10-01：「图层」入口从**底部 dock**搬到**左下角缩放条**（用户批注
+       「你这个图层为什么点击之后会弹到上面去呀？……你还不如把它放到左下角的那个栏里面」），
+       这条门禁钉的正是入口位置，必须跟着搬 —— 否则它会安静地少测一个浮层。 */
     name: '图层面板',
-    clickSel: '.ec-canvas-bottom-toolbar button[aria-label*="图层"]',
+    clickSel: '.ec-canvas-zoom-controls button[aria-label*="图层"]',
     popSel: '.ec-canvas-layers-panel',
-    triggerSel: '.ec-canvas-bottom-toolbar button[aria-label*="图层"]',
+    triggerSel: '.ec-canvas-zoom-controls button[aria-label*="图层"]',
   },
 ];
 

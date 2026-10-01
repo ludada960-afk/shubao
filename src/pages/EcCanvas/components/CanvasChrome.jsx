@@ -127,24 +127,25 @@ export function CanvasLeftRail({ addMenuOpen = false, onAddMenuToggle }) {
   </aside>;
 }
 
-export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText, layersOpen = false, onLayers }) {
+export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText }) {
   const tools = [
     { id: 'select', label: '选择工具：拖拽框选 / Shift+点击多选', icon: MousePointer2 },
     { id: 'hand', label: '抓手', icon: Hand },
     { id: 'image', label: '添加图片', icon: ImageUp, onClick: onImage },
     { id: 'text', label: '添加文本', icon: Type, onClick: onText },
-    { id: 'layers', label: '图层', icon: Layers3, onClick: onLayers },
+    /* ⚠️ 2026-10-01 用户批注：「你这个图层为什么点击之后会弹到上面去呀？我感觉其实这个按钮
+       放到中间的下面这里会不会其实不太好？因为他打开的那个面板在中间其实不怎么好。
+       你还不如把它放到左下角的那个栏里面。」
+       ⇒ 「图层」从底部 dock 移出，改挂在**左下角缩放条**的 trailing 槽（见 index.jsx），
+         面板锚点也换成那颗按钮 ⇒ 面板落在左下角这一带，不再跑到画面中间。 */
   ];
   return <div className="ec-canvas-bottom-dock">
     <div className="ec-canvas-bottom-toolbar" role="toolbar" aria-label="画布工具">
       {tools.map(tool => <IconButton
         key={tool.id}
         label={tool.label}
-        active={tool.id === 'layers' ? layersOpen : activeTool === tool.id}
-        onClick={() => {
-          if (tool.id !== 'layers') onToolChange?.(tool.id);
-          tool.onClick?.();
-        }}
+        active={activeTool === tool.id}
+        onClick={() => { onToolChange?.(tool.id); tool.onClick?.(); }}
       ><tool.icon size={18} /></IconButton>)}
     </div>
   </div>;

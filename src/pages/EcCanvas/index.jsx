@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
+import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
   Upload, Type, Video, Wand2, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
@@ -7301,6 +7301,25 @@ const handlePointerUp = useCallback((e) => {
     /* 资产库是页签式全屏弹窗，同样算"弹窗打开" */
     assetLibraryTab: tab === 'assets' && state.logged,
   });
+
+  /* ⚠️ 2026-10-01 用户批注：「而且你这个生成过程的这个按钮为什么会跟他在同一层呢。
+     这个按钮不是应该暗下去吗？」（截图里是工作流模板弹窗打开着）
+     真因是**两套层级表根本不可比**：
+       · 画布弹窗走画布自己的表 —— `CANVAS_Z.modalScrim 70 / modal 71`；
+       · 「生成过程」那颗按钮走应用外壳的表 —— `TaskSidebar` 用 `--sb-z-panel` = **40000000**。
+     40000000 > 71 ⇒ 它永远浮在所有画布弹窗之上，遮罩压不到它，于是既不暗、
+     看上去还跟弹窗"同一层"。
+     而且 `.is-dialog-open` 那条 CSS 也救不了：TaskSidebar 是用 `createPortal` 挂到侧栏底部
+     插槽里的，**在 `.ec-canvas-page` 之外**，选择器够不着。
+     ⇒ 把同一个状态复制到 `<html>` 上，由 CSS 把侧栏与那颗按钮一起压暗。 */
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const root = document.documentElement;
+    if (dialogOpen) root.setAttribute('data-cvl-dialog-open', 'true');
+    else root.removeAttribute('data-cvl-dialog-open');
+    return () => root.removeAttribute('data-cvl-dialog-open');
+  }, [dialogOpen]);
+
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
   const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
     option.id,
@@ -7508,8 +7527,6 @@ const handlePointerUp = useCallback((e) => {
             onToolChange={setActiveTool}
             onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
             onText={() => handleAddTextNode()}
-            layersOpen={layersPanelOpen}
-            onLayers={() => setLayersPanelOpen(open => !open)}
           />
           {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 (整个面板跟 tab=assets + 底部"添加图片/视频" 完全重复)
               用户原话 8-30: "你必须把这些重复的东西都给拿掉"
@@ -7524,7 +7541,14 @@ const handlePointerUp = useCallback((e) => {
           <CanvasLayersPanel
             open={layersPanelOpen}
             anchorRect={layersPanelOpen ? (() => {
-              const btn = containerRef.current?.querySelector('.ec-canvas-bottom-toolbar button[aria-label*="图层"]');
+              /* ⚠️ 2026-10-01：锚点跟着入口一起搬了。
+                 原来按钮在**底部 dock**（`.ec-canvas-bottom-toolbar`），面板按同一口径定位，
+                 于是落在画面中间偏右；用户要它回**左下角**那个栏（见 CanvasZoomControls 的 trailing）。
+                 两个选择器都留着：入口搬过来之前的老标记删干净了，但留一个兜底免得
+                 「按钮改名/改类名 ⇒ 面板静默失去锚点」这种哑失败。 */
+              const btn = containerRef.current?.querySelector(
+                '.ec-canvas-zoom-controls button[aria-label*="图层"], .ec-canvas-bottom-toolbar button[aria-label*="图层"]',
+              );
               const r = btn?.getBoundingClientRect?.();
               return r ? { x: r.left, y: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom } : null;
             })() : null}
@@ -7542,6 +7566,18 @@ const handlePointerUp = useCallback((e) => {
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
             trailing={<>
+              {/* ⚠️ 2026-10-01 用户批注：「你这个图层为什么点击之后会弹到上面去呀？……
+                 你还不如把它放到左下角的那个栏里面。」
+                 ⇒ 「图层」入口从底部 dock 搬到这里（左下角缩放条的 trailing 槽），
+                   CanvasLayersPanel 的锚点也跟着换到这颗按钮，面板就落在左下角这一带。 */}
+              <button
+                type="button"
+                className={`ec-canvas-icon-button ${layersPanelOpen ? 'is-active' : ''}`}
+                aria-label="图层"
+                title="图层"
+                aria-pressed={layersPanelOpen}
+                onClick={() => setLayersPanelOpen(open => !open)}
+              ><Layers3 size={15} /></button>
               {/* 9-11 用户批注: 与其他图标按钮同款 —— 纯图标 + 悬停提示, 不显示「运行」文字;
                   未就绪(单选)不高亮, 多选成链才 is-active; 提示告知「选中 2 个以上节点」。 */}
               {multiSelected.size >= 1 && (
