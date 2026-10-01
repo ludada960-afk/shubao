@@ -1735,9 +1735,19 @@
   order: 2;
   /* 提示语是**最低优先级**：参数行要固定槽位宽度，就必须先拿到确定的行宽。
      span 用 flex: 0 1 <小基数> + 大 shrink，空间不够时它先让位（文字自身可省略），
-     行则用 flex-basis:0 + grow:1 拿到稳定宽度 —— 这样槽位宽才不随提示语/模型名浮动。 */
-  flex: 0 1 0;
-  min-width: 0;
+     行则用 flex-basis:0 + grow:1 拿到稳定宽度 —— 这样槽位宽才不随提示语/模型名浮动。
+
+     ⚠️ 批 CY-㊴（2026-10-01）：这里原来是 `flex: 0 1 0`，**与上面自己写的意图不一致** ——
+     `0 1 0` 三段依次是 grow/shrink/basis，grow 是 **0**（注释说的是 1）。
+     于是 span 被压成 **0 宽**；而另一条 `.ec-canvas-composer-footer > span` 给的是
+     `white-space: normal` ⇒ 文字**逐字换行**，一行一个字。
+     实测（1600×1000、视频生成面板）：该 span **0 宽 × 136 高**，
+     footer 整体 152 高 —— 用户原话「那你视频生成下面为什么还是有大量空白呢」。
+
+     ⇒ 改回注释声明的意图：basis 取内容宽度（`0 1 auto`），并给一个 min-width 兜底 ——
+       宁可被压缩后省略，也不许退化成逐字换行。 */
+  flex: 0 1 auto;
+  min-width: 7em;
 }
 .ec-canvas-composer-footer > button.ec-canvas-composer-cta { order: 3; flex: 0 0 auto; margin-left: auto; }
 
