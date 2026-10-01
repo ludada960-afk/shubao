@@ -63,16 +63,18 @@ test('① 上传体积上限只有一份真相：三处必须共用 mediaUploadL
 
 test('② nginx 必须比应用宽松：它不能先于应用返回 413（那是一张英文 HTML 错误页）', async () => {
   /* 用户看到"英文"的另一个来源：nginx 抢先拒绝时给的是 HTML 错误页，
-     既不是中文也没有"上限是多少"。必须保证**应用**永远是第一个拒绝的地方。 */
+     既不是中文也没有"上限是多少"。必须保证**应用**永远是第一个拒绝的地方。
+     ⚠️ 2026-10-01 性能批：这条判据原来查的是 `/api/` 块里的那份，现已**只保留
+     server 级一处**（两处各写一个数字，早晚只改一处 —— 上传上限就栽在这上面）。 */
   const { MEDIA_UPLOAD_LIMITS } = await import('../server/mediaUploadLimits.mjs');
-  const apiBlock = nginx.match(/location \^~ \/api\/ \{[\s\S]*?\n    \}/);
-  assert.ok(apiBlock, '找不到 /api/ 的 location 块');
-  const bodySize = apiBlock[0].match(/client_max_body_size\s+(\d+)([mk])/);
-  assert.ok(bodySize, '/api/ 块里必须有 client_max_body_size');
+  const occurrences = nginx.match(/client_max_body_size\s+\d+[mk]/g) || [];
+  assert.equal(occurrences.length, 1,
+    `client_max_body_size 必须**只有一处**（server 级），实际 ${occurrences.length} 处：${occurrences.join(' / ')}`);
+  const bodySize = occurrences[0].match(/(\d+)([mk])/);
   const unit = bodySize[2] === 'k' ? 1024 : 1024 * 1024;
   const nginxBytes = Number(bodySize[1]) * unit;
   assert.ok(nginxBytes > MEDIA_UPLOAD_LIMITS.video,
-    `nginx 的上限（${bodySize[0]}）必须大于应用上限（300MB），`
+    `nginx 的上限（${occurrences[0]}）必须大于应用上限（300MB），`
     + '否则 nginx 会先返回它自己的 413 HTML —— 用户看到的是英文错误页，不是中文提示');
 });
 
