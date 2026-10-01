@@ -16212,3 +16212,73 @@ design-ratchet 无新增硬编码。
 - nginx 的 `access_log` 用的是默认格式，**没有 `$request_time`/`$upstream_response_time`**，
   下次再遇到"慢"仍然无法从日志定位。补 `log_format` 要动 nginx.conf 的 http 块，
   而部署脚本目前不管那个文件 —— 要先让部署脚本一起管，否则同样是"改了下次部署就丢"。
+
+## 2026-10-01 批 CY-㊴ 之十六：画布挂载即自动下 18MB（抠图模型）+ 两处常驻轮询
+
+接上一条（之十五）继续查"还慢在哪"。上一条解决的是**每次交互**的同步开销与**首屏体积**；
+这一条解决的是**进画布就白付的 18MB**，以及两条常驻的后台轮询。
+
+### 根因一：抠图模型在画布挂载后约 1.8 秒就自动下载 —— 约 18MB
+
+`index.jsx` 里那个 effect 原来是：
+    requestIdleCallback(prewarm, { timeout: 1800 })
+无条件预热。而 `prewarm` 会走完一整条链：
+`new Worker` → worker 里 import `onnxruntime-web/wasm` → 拉
+`ort-wasm-simd-threaded-*.wasm`（**13,479,978 字节**）→ 再拉
+`/models/u2netp-v1.onnx`（**4,574,861 字节**）→ 对 4.5MB 算 SHA-256 →
+`InferenceSession.create(..., { graphOptimizationLevel: 'all' })`。
+
+实测（Chromium，14 秒窗口）：**画布一进去就传了 16,325 KB，其中 13,164 KB 是那个 wasm**。
+wasm 在模块层面**本来就是懒加载**的（单独的 chunk），是这条 effect 主动去把它拉下来。
+而**绝大多数人根本不会用抠图** —— 为一个可能一辈子不点的功能先赔 18MB 和一段主线程哈希。
+
+改法：预热改由**真实意图**触发 —— 用户第一次把指针放到一张图上（`hoveredNodeId` 非空）。
+真正点「抠图」的那条路径（:3158 的 `handleCanvasSegmentation`）**本来就会自己调
+prewarm**，所以第一次点击的等待时间不变；变的只是"不用抠图的人不用付这 18MB"。
+`saveData`（省流量模式）依旧完全不下；离开画布会中止预热。
+
+改后真浏览器复测：静置 15 秒，wasm/onnx **一个字节都没下**。
+
+⚠️ **我自己在这一步引入过一个 bug，已修并用门禁钉住**：effect 里写了
+`return () => controller.abort()`。依赖是 `hoveredNodeId`，指针一移开就变 null ⇒ 触发
+cleanup 把预热打断；而 `hoverIntentRef` 已经是 true，不会再触发第二次
+⇒ **用户第一次抠图永远冷启动 18MB**。改成不返回 cleanup，中止只交给"卸载画布"那个 effect。
+
+### 根因二：没有任务时仍每 15 秒轮询，且每次都触发重渲染
+
+`src/store/taskStore.jsx:166` 原来 `hasActiveTasks ? 3000 : 15000`。
+"没有活跃任务"**不等于**"没有新任务"（用户可能在别的标签页/设备发起生成），
+所以不能直接停。折中：退到 **60 秒**一次，有活跃任务时保持 3 秒不变。
+顺带说明为什么它有代价：每次 tick 都 dispatch 一个**新数组**的
+`HYDRATE_DURABLE_TASKS`，会触发所有订阅者重渲染。
+
+### 根因三：能力配置（静态）每次上传都重拉
+
+`src/services/video.js` 的 `fetchVideoCapabilities()` 原来没有缓存 ——
+用户连传 4 个素材就是 4 次一模一样的请求。改成模块级缓存 + 5 分钟 TTL，
+**失败不写缓存**（这样服务端改了配置，重试一次就能拿到新的），并留了 `force` 参数。
+
+### 门禁
+
+新增 `test/canvas-segmentation-prewarm-1001.test.mjs`（5 条），其中 ② 专门钉住上面那个
+"指针移开把预热打断"的 bug；④ 钉 15 秒→60 秒；⑤ 钉能力配置必须缓存。
+⚠️ 读源码的判据**必须先剥注释**（这次又是同一个坑：我在 index.jsx 里写的解释性注释
+里正好含有 `requestIdleCallback(prewarm` 这段原文，于是"不许再出现它"判成了我自己注释里有）。
+**这是同一个坑第三次**：nginx 那次、这次、以及之前测 JSX 注释那次。已在测试里 stripComments。
+
+### 一个**环境**问题（不是代码问题，但会让人误判成"改坏了"）
+
+`npm run precommit` 第 3 步 `scripts/media-workbench-e2e.mjs` 监听**写死的 4197**。
+本机同时有**另一个 worktree（gm-b4）在跑同一个脚本**，两边抢 4197 ⇒
+我这边 `EADDRINUSE: 127.0.0.1:4197` 直接失败。
+那个脚本支持 `SHUBO_E2E_PORT` 覆盖端口（`scripts/media-workbench-e2e.mjs:45`）。
+用 `set SHUBO_E2E_PORT=4271 && npm run precommit` 复跑即通过，
+单独跑该脚本：**325 条断言全绿**。
+⇒ 以后并行开多个 worktree 时，precommit 前先设一个自己的端口，别去抢 4197。
+
+### 结果
+
+全量 4553 条 / 0 失败（比上批 +5）；precommit（构建 + 38 道 BLOCKING 门禁 + 325 条 e2e）
+全绿；design-ratchet 无新增硬编码。
+
+真浏览器复测：进画布静置 15 秒，抠图模型 **0 字节**。

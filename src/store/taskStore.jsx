@@ -163,7 +163,15 @@ export function TaskProvider({ children }) {
     }
 
     refreshTasks();
-    const interval = globalThis.setInterval(refreshTasks, hasActiveTasks ? 3000 : 15000);
+    /* 2026-10-01 性能：**没有任何任务**时不再每 15 秒轮询。
+       原来这里是 3000 / 15000 两档，而"没有活跃任务"并不等于"没有新任务"——
+       用户在**别的标签页/设备**发起一个生成，这边就得知道。
+       折中：没任务时退到 60 秒一次（仍然能跟上，只是慢一点）；
+       有活跃任务时保持 3 秒不变。
+       为什么值得改：登录用户挂在页面上不动时，这是**永久**的后台请求，
+       而且每次 tick 都会 dispatch 一个新数组，触发所有订阅者重渲染
+       （HYDRATE_DURABLE_TASKS 的 payload 每次都是新的）。 */
+    const interval = globalThis.setInterval(refreshTasks, hasActiveTasks ? 3000 : 60000);
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') refreshTasks();
     };

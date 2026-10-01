@@ -15,8 +15,21 @@ async function request(path, options = {}) {
   return response.json();
 }
 
-export function fetchVideoCapabilities() {
-  return request('/api/video/capabilities');
+/* 2026-10-01 性能：能力配置是**静态**的（模型表、价格档、上传上限），却原来每次
+   uploadVideoAsset 都重新拉一次 —— 用户连传 4 个素材就是 4 次同样的请求。
+   改成：模块级缓存 + 失败不缓存（这样改配置后重试一次就能拿到新的）。
+   5 分钟 TTL 是保守取值：真要立刻生效，刷新页面即可。 */
+const CAPABILITIES_TTL_MS = 5 * 60 * 1000;
+let capabilitiesCache = null;
+let capabilitiesCacheAt = 0;
+
+export async function fetchVideoCapabilities({ force = false } = {}) {
+  const fresh = capabilitiesCache && (Date.now() - capabilitiesCacheAt) < CAPABILITIES_TTL_MS;
+  if (!force && fresh) return capabilitiesCache;
+  const capabilities = await request('/api/video/capabilities');
+  capabilitiesCache = capabilities;
+  capabilitiesCacheAt = Date.now();
+  return capabilities;
 }
 
 export function listVideoJobs() {
