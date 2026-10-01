@@ -86,14 +86,24 @@ export default function TaskSidebar() {
     const apply = next => setFloatBottom(current => (Math.abs(current - next) > 1 ? next : current));
     const sync = () => {
       const minimap = document.querySelector('.ec-canvas-minimap');
-      /* ═══ 批 CY-㊴（2026-10-01）：小地图**不在**时必须复位，不能停在旧值上 ═══
-         用户截图里这个按钮压在小地图上。改前 `sync()` 在找不到小地图时直接 return false，
-         而调用方（轮询超时后那次 attach）又是另一条分支 —— 于是"小地图关掉再打开"
-         之后，按钮会一直停在上一次**开着**时算出来的偏移，看起来就压住了。
-         ⇒ 找不到就复位到 FALLBACK（找不到时是**找得到**才谈得上有小地图）。 */
-      if (!minimap) { apply(FALLBACK); return false; }
+      /* ═══ 批 CY-㊴（2026-10-01，第二次修正）：目标是"**别互相遮挡**" ════════
+         用户原话：「他现在生成进度的按钮会跟小地图互相遮挡，我要你挪在小地图上面呀，避免遮挡。」
+
+         我第一版只做了"跟着小地图走"，那**不保证不遮挡**，而且有两个具体原因会让它压上去：
+
+         ① 旧算法里的 `Math.max(72, …)`：**这个下限只会把按钮往小地图的带子里推**。
+            小地图实测占距底 **70~250px**，`72` 正好落在里面。
+            ⇒ 去掉它。算出来多少就是多少（按钮高 46，小地图顶沿之上留 12，本来就够）。
+         ② 小地图**不在**时复位到 `FALLBACK = 86` —— 而 86 **同样落在小地图的带子里**；
+            小地图稍后一出现，按钮就先压上去了。
+            ⇒ 小地图不在时**保持上一次算好的值**（那本来就是"在小地图上方"的位置），
+              而不是回落到一个会撞车的数字。首屏还没有值时才用 86
+              （非画布页没有小地图，86 正确），MutationObserver 会在小地图挂载时立刻纠正。
+
+         两处都不再有任何"魔法数字"把按钮往小地图身上推。 */
+      if (!minimap) return false;
       const rect = minimap.getBoundingClientRect();
-      apply(Math.max(72, Math.round(window.innerHeight - rect.top + 12)));
+      apply(Math.round(window.innerHeight - rect.top + 12));
       return true;
     };
     /* ⚠️ 画布是**异步**挂上来的：第一次渲染时 `.ec-canvas-minimap` 往往还不存在
