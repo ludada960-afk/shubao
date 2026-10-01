@@ -233,6 +233,14 @@
   margin-top: 1px;
   min-height: 14px;
 }
+/* ⚠️ 2026-10-01 用户批注：「你这两个箭头又是怎么回事？为什么四个卡片里面有的箭头在左边，
+   有的箭头在右边呢？你这又是没有搞明白吗？」
+   根因是**量出来的**，不是猜的：这一行 `justify-content: space-between`，
+   而箭头左右的位置**取决于有没有价格徽标** ——
+     有徽标 → 子元素 [徽标, 箭头] 两个，space-between 把箭头推到右边（实测距卡片右边 10px）；
+     无徽标 → 子元素只剩 [箭头] 一个，**没有可分布的空间** ⇒ 贴到左边（实测 166px）。
+   ⇒ 箭头自己 `margin-left: auto`，两种情况都靠右；价格徽标继续靠左。 */
+.ec-canvas-derive-tile .ec-canvas-derive-meta svg { margin-left: auto; }
 .ec-canvas-derive-tile .ec-canvas-derive-meta em {
   padding: 1px 6px;
   border-radius: var(--sb-radius-pill);
