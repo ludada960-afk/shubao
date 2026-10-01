@@ -2007,10 +2007,16 @@ try {
       /* ⚠️ 2026-09-28 批 DC 续-7：「模型选择」不再是 `<select>`，上面那圈 selectOption **够不到它** ——
          不补这一步的话，每条技能的模型都停在默认档，下面那条
          「扫描里真的覆盖到了"换成别的模型"的技能」会**空转通过**（generated 里一个非默认都没有）。
-         这里补回原来 selectOption 顺带做到的事：挑**第二档**模型（与旧循环同口径）。 */
+         ⚠️⚠️ 2026-10-01：原来这里点的是**固定第 2 档**（`rows[1]`），那隐含假设
+         「第 2 档 ≠ 当前默认」。批 CY-㊲ 把模型**按厂商归拢**之后，第 2 档恰好**就是**
+         默认的 GPT Image 2.5 ⇒ 点它等于没点 ⇒ 那条自证**真的空转了**（合并后立刻判红，
+         这是它该有的行为：判据没坏，是被合并打破的假设）。
+         ⇒ 改成点**第一个不等于当前选中项**的档位（选中态有 `aria-pressed` 语义标记）。
+         与排序无关：换默认、换厂商归拢、插新模型，都不会再让它变空转。 */
       await page.evaluate(() => {
         const rows = [...document.querySelectorAll('.media-field-model-list .sb-opt')];
-        if (rows.length > 1) rows[1].click();
+        const picked = rows.find(row => row.getAttribute('aria-pressed') !== 'true');
+        if (picked) picked.click();
       });
       await page.evaluate(() => {
         document.querySelectorAll('.media-workbench-fields .media-field-segmented').forEach(group => {
