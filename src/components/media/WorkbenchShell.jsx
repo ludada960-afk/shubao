@@ -270,12 +270,13 @@ export default function WorkbenchShell({
                     ⇒ 改成"点一下＝这张和下一张一组"，**跨空档从根上不存在**。
                     `is-start` 标出"组的开头"那一张（深一档底色 + 一个小三角），
                     跟着来的那一张是普通 `is-on` —— 两张一眼能看出是一对。 */}
-                {/* ⚠️⚠️ 2026-10-01 用户批注：「而且你现在这些连拍按钮鼠标放上去为什么有那么长的提示啊，
-                    那些文案你应该在对话里面回答我呀，你放到线上来给用户看干嘛呀。」
-                    ⇒ 这颗药丸**故意没有 title**。原来那条 `section.seriesHint` 有 110 多字
-                    （还带着没被渲染的 `**` 星号），鼠标一碰就糊一屏原生气泡。
-                    连拍怎么用是**对话里的说明**，不是悬停气泡；机制本身写在
-                    skillRun.skillSeriesClause 与 MediaCreation 的注释里，供维护者读。 */}
+                {/* 2026-10-01 用户两次批注的落点：
+                    第一版：「那些文案你应该在对话里面回答我呀，你放到线上来给用户看干嘛呀」
+                            ⇒ 我把title 整个删了。**那是矫枉过正**。
+                    第二版：「我是说你连拍的这句悬停文案太啰嗦了呀，你要精简，不用讲那么多的，
+                            用户会感到不适的」
+                            ⇒ 用户要的是**短**，不是**没有**。这一句 10 个字，原来 110 多字。
+                    门禁 ⑧ 把"短"钉成 ≤16 字 —— 免得下一批又有人往里塞一段说明。 */}
                 {section.series && (
                   <button
                     type="button"
@@ -284,6 +285,7 @@ export default function WorkbenchShell({
                       + (section.seriesStarts?.includes(item.name) ? ' is-start' : '')}
                     aria-pressed={section.seriesNames?.includes(item.name) || false}
                     disabled={!on}
+                    title="与相邻几张连成同机位"
                     onClick={() => section.onToggleSeries?.(item.name)}
                   >
                     连拍

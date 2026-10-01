@@ -541,15 +541,22 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
 });
 
 /* ═══ 2026-10-01 用户两条批注：悬停文案撤掉 + 两颗控件纵向对齐 ═══════════════════════════════════ */
-test('⑧ 「连拍」药丸不许再挂悬停文案（用户要的是对话里回答，不是线上给用户看）', () => {
-  /* 用户原话：「而且你现在这些连拍按钮鼠标放上去为什么有那么长的提示啊，那些文案你应该在
-     对话里面回答我呀，你放到线上来给用户看干嘛呀。」
-     原来那条 `seriesHint` 有 110 多字、还带着没被渲染的 `**` 星号，鼠标一碰就糊一屏。 */
+test('⑧ 「连拍」药丸的悬停文案必须**短**（用户要精简，不是要没有）', () => {
+  /* 用户两次批注，第二次把第一次纠正了 —— 这一条要照着**第二次**做：
+       第一次：「那些文案你应该在对话里面回答我呀，你放到线上来给用户看干嘛呀」
+       第二次：「我是说你连拍的这句悬停文案太啰嗦了呀，你要精简，不用讲那么多的，
+                用户会感到不适的」
+     我第一版把 title 整个删了 —— 那是**矫枉过正**，用户要的是「短」。
+     ⇒ 判据钉住长度，而不是"有还是没有"：说明性长文塞进悬停气泡就是这条要拦的病。 */
   const shell = code('src/components/media/WorkbenchShell.jsx');
   const pill = /<button[\s\S]{0,400}?media-workbench-checklist-series[\s\S]{0,400}?>/.exec(shell);
   assert.ok(pill, '要能定位到那颗药丸的标签');
-  assert.doesNotMatch(pill[0], /\btitle=/,
-    '药丸不许有 title —— 说明性文案属于对话与注释，不属于悬停气泡');
+  const title = /\btitle="([^"]*)"/.exec(pill[0]);
+  assert.ok(title, '药丸应当有一句 title（用户要的是精简，不是取消）');
+  assert.ok(title[1].length <= 16,
+    `title 有 ${title[1].length} 字，超过 16 —— 用户批注「太啰嗦了…用户会感到不适」。原文：${title[1]}`);
+  assert.doesNotMatch(title[1], /\*\*|。|，/,
+    '悬停气泡里不许出现 Markdown 标记或长句标点（原生 title 不会渲染 Markdown）');
   assert.doesNotMatch(code('src/pages/MediaCreation/index.jsx'), /seriesHint/,
     'seriesHint 已经没人读了：留一个看起来"有说明"实际没人看的字段，比删掉更糟');
 });
