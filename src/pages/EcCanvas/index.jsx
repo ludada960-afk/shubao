@@ -6663,7 +6663,20 @@ const handlePointerUp = useCallback((e) => {
      core/magic 桶全空 → 右面板只剩标题"从当前素材继续创作 9 项"、动作按钮全部不渲染,
      用户看不到任何派生动作 (即"右面板怎么东西都不见了").
      去掉覆盖, 保留各动作自身 group, 9 项按 5 core + 4 magic 正确分桶渲染. */
+  /* ═══ 批 CY-㊴（2026-10-01）：右栏**去掉「生成文案」** ═══════════════════════════════
+     用户逐字：「"反推提示词"和"生成文案"我觉得只保留反推提示词就好，你把生成文案去掉吧，
+       然后右边的面板就只有4个核心常用功能了，你就把他们重新适配一下，让UI整体更舒服一点」
+
+     为什么删得掉（原先它是和"反推提示词"摆在一起的）：
+       · 「反推提示词」= 从这张图反推**画面提示词**（喂给生图模型），在节点工具条上；
+       · 「生成文案」= 从这张图生成**营销文案**，在右栏派生菜单里。
+         两者名字听着一样、放在两个面板里，用户分不清哪个是哪个。
+       · 真正写文案的路径没丢：**画布上「生成文案」节点**仍在（双击空白处那一项、
+         以及文案 composer 面板都照旧），只是右栏这一个"从素材派生文案"的入口收掉了。
+     ⇒ 4 个核心项：图片生成 / 电商套图 / 上传视频 / 生成视频。 */
+  const DERIVE_MENU_HIDDEN_IDS = useMemo(() => new Set(['text-generation']), []);
   const portCreationActions = CANVAS_CREATION_OPTIONS
+    .filter(option => !DERIVE_MENU_HIDDEN_IDS.has(option.id))
     .filter(option => !(option.videoOnly && selectedNode?.kind !== 'video'))
     .map(option => {
       const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
