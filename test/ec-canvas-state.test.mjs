@@ -247,7 +247,13 @@ test('clicking an image output port opens the derive picker without requiring a 
   assert.match(canvasSource, /setConnectionPicker\(\{\s*sourceNodeId:\s*nodeId,\s*anchorRect:/,
     '点击加号必须把触发元素的视口矩形作为锚点传给派生菜单');
   assert.match(canvasSource, /const rect = portEl\?\.getBoundingClientRect\?\.\(\)/, '锚点必须来自触发元素的实测矩形');
-  assert.match(canvasSource, /onPortClick=\{event => handlePortClick\(event, node\.id\)\}/);
+  /* 2026-10-01（批 CY-㊴ 之十八）：素材分组节点的点端口改走稳定缓存。
+     守的是"仍然打到 handlePortClick 并带上节点 id"，而不是必须写成内联箭头。 */
+  assert.match(canvasSource, /onPortClick=\{h\.onPortClick\}/);
+  assert.match(canvasSource, /onPortClick: \(nodeId, event, side\) => handlePortClick\(event, nodeId, side\)/,
+    '缓存里的 onPortClick 必须把节点 id 换到正确位置');
+  assert.match(canvasSource, /onPortClick=\{h\.onPortClick\}/,
+    '素材分组节点的点端口必须接上');
 });
 
 test('selecting a derivable image opens its adjacent quick action menu', () => {

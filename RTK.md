@@ -17113,3 +17113,85 @@ render 期读 DOM 剩 19 处，**全部在事件处理器里**（事件里量是
 换成稳定引用，外加 `nodeWatermark(node, 'image')` 这类每次返回新对象的调用。
 这是本次四个阶段里唯一**会改到交互本身**的（改错了就是「节点拖不动」），
 所以单独一批做，且必须配真浏览器的拖拽交互回归，不与本批混在一起。
+
+## 2026-10-01 批 CY-㊴ 之十八：节点组件 React.memo + 稳定回调（**踩到一个真事故**）
+
+承接之十七。用户要的是「难也要做」，这一条就是剩下那件最难、也最危险���：
+把节点组件 memo 化。它**会改到交互本身**，所以单独一批做，而且必须配实机回归。
+
+### ① 为什么"只包 memo"是白包
+
+渲染循环里传给每个节点的回调绝大多数是**内联箭头**：
+
+    onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
+    onPortPointerUp={(event, side) => handlePortPointerUp(event, node.id, side)}
+    onPortClick={(event, side) => handlePortClick(event, node.id, side)}
+    onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+    onContextMenu={(e, n) => setContextMenu({ … })}
+    onDoubleClick={node => openImagePreview({ … })}
+    onReplace={replaceAction.canRun(node) ? () => handleToolAction(replaceAction, node) : null}
+
+每个箭头**每次渲染都是新函数** ⇒ memo 永远判定 props 变了，永远不生效。
+实测统计：7 个节点分支共 120 个 prop，内联箭头十几处；光 video 一个分支就有
+38 个 prop、40 个内联箭头。（`onReplace` 尤其阴——它是**条件**的，
+「不能做替换时传 null」看着像没问题，但**能**做的时候照样每次新建引用。）
+
+⚠️ **不要**用「把箭头挪进 useCallback、依赖里塞 node.id」：那是给每个节点注册一个 hook，
+违反 Hooks 规则（数量随节点数变化），而且依赖一变照样要重建。
+做法是 `canvasNodeHandlers.js`：**按 node.id 缓存一个回调包**，
+包里每个箭头都走 ref 去取真实实现 ⇒ 底层 handler 换了也不用重建，引用永远稳定。
+节点删掉时 `pruneNodeHandlerCache` 清掉，不留只增不减的 Map。
+
+### ② ⚠️ 真的出了一个事故，而且只有实机门禁抓到
+
+我把 `handlePortPointerDown` 等四个 handler **直接**当实现传进缓存。缓存调的是
+`impl(nodeId, event, side)`，而它们的签名是 `(event, nodeId, side)` —— nodeId 在**第二个**。
+于是它们收到「event = 节点 id 字符串、nodeId = 事件对象」。
+
+**症状：点节点上的「+」派生菜单打不开。**
+
+抓它的是 `test/canvas-popover-live-anchored-0920`（实机点开菜单再量位置）。
+构建绿、全部静态门禁绿、4558 条单测全绿 —— 只有**真点一下**才知道。
+我当时用 `git stash` 跑了改动前的同一门禁确认基线是绿的，才敢断定是自己引入的。
+
+修法：那四行改成显式换位 `(nodeId, event, side) => handlePortPointerDown(event, nodeId, side)`。
+并补两道门禁：
+· `test/canvas-node-memo-1001` ⑦：从源码里解析每个实现的形状，断言
+  handler 收到的确实是「缓存给的第 2 个参数在前、nodeId 在后」。
+· 同文件 ⑧：断言那条**实机**门禁存在且真的在点派生菜单（少测即假绿，
+  这正是它自己失败信息里写的那句话）。
+
+⇒ 这条经验值得单列：**memo 化 / 抽公共回调时，"实机点一下"是不可省的**。
+签名错位对静态检查是完全不可见的。
+
+### ③ 顺带修好的：素材分组节点那一支也接上缓存
+
+`source_group` 分支原来还有五处内联箭头（`onPortPointerDown`/`onPortClick`/
+`onHoverChange`/`onContextMenu`/`onDoubleClick`），同样会让 memo 失效，
+已一并换成缓存包（输出端口 side 恒为 'out'，所以另给了
+`onOutputPortPointerDown` 这个固定 side 的包装）。
+
+### ④ 因为导出形态变了，改写的既有门禁（守的**实质**没变）
+
+节点组件从 `export function X` 改成 `function XView` + `export const X = React.memo(XView)`
+（**导出名不变**，index.jsx 的 import 与大部分契约门禁都不用动）。受影响的 6 处：
+`canvas-dead-entry-points` / `canvas-media-fit-0929`（两处签名）/
+`canvas-port-geometry` / `canvas-studio-contract` /
+`composer-ports-and-template-head` / `ec-plan-launch-wiring` /
+`canvas-ui-consistency` / `ec-canvas-state`。
+它们原来判的是"必须以 export function 形式存在"或"必须写成内联箭头"，
+现在改成判**实质**：「导出名存在」「仍然接到 handleToolAction」——
+后者尤其重要，因为内联箭头恰恰是让 memo 失效的那种写法，不该再被当成判据。
+
+### 新增门禁
+
+- `test/canvas-node-handlers-1001`（6 条）：同 id 拿到同一个函数、不同 id 各自带自己的 id、
+  **底层 handler 换了实现后引用仍稳定**、参数透传、删节点后能清缓存、实现缺失必须立刻报错。
+- `test/canvas-node-memo-1001`（9 条）：六个组件都 memo 化且导出名不变、
+  image 分支不得再有内联箭头、底层重建后引用不变、缓存会清理、
+  不许在 map 里按节点调 hook、**参数换位**、实机门禁必须在、子组件调用形状对上。
+
+### 结果
+
+全量 4572 条 / 0 失败；实机门禁（`canvas-popover-live-anchored-0920`）恢复为绿；
+design-ratchet 无新增硬编码。

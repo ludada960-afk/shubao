@@ -22,6 +22,14 @@ test('Canvas derives port geometry from node rectangles without viewport-bound D
   assert.match(canvasSource, /transform: `translate\(\$\{viewport\.x\}px, \$\{viewport\.y\}px\) scale\(\$\{viewport\.scale\}\)`[\s\S]*?<ConnectionLines connections=\{connections\}/,
     '必须存在一个被平移+缩放的内容层，且 ConnectionLines 在它里面（连线才能跟着画布一起变换）');
   assert.doesNotMatch(canvasSource, /function ConnectionLines\(\{[^}]*viewport/);
-  assert.match(canvasSource, /<StudioImageNode[\s\S]*?onDoubleClick=\{node => openImagePreview/);
-  assert.match(canvasSource, /<StudioSourceNode[\s\S]*?onDoubleClick=\{preview => openImagePreview/);
+  /* 2026-10-01（批 CY-㊴ 之十八）：双击预览改走「按 node.id 缓存的稳定回调」，
+     所以这里守的是**仍然接到了预览能力**，而不是必须写成内联箭头 ——
+     后者恰恰是会让 React.memo 失效的写法。 */
+  assert.match(canvasSource, /<StudioImageNode[\s\S]*?onDoubleClick=\{h\.onDoubleClickImage\}/);
+  assert.match(canvasSource, /onDoubleClickImage:\s*\(nodeId, node\) => \{[\s\S]*?openImagePreview\(/,
+    '图片节点双击仍必须打开预览');
+  assert.match(canvasSource, /onPreviewSource:\s*\(nodeId, node\) => \{[\s\S]*?openImagePreview\(/,
+    '素材节点双击仍必须打开预览');
+  assert.match(canvasSource, /onDoubleClick=\{h\.onPreviewSource\}/,
+    'StudioSourceNode 的双击预览必须接上');
 });

@@ -1308,7 +1308,7 @@ function layerCompositeOrder(layer = {}) {
    `index.jsx` 从 2026-08-13 起就一直往这里传，组件签名不接、也不往下传，于是图片框
    永远按「请求里的比例」画，真实比例被丢掉（用户看到的上下/左右白边与「被截断」）。
    现在补上，并且给视频补一条 `onLoadedMetadata` 通路（以前全仓没有一处读 videoWidth）。 */
-export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, onNaturalSize = null, canDerive = false, connectActive = false, snapActive = false }) {
+function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, onNaturalSize = null, canDerive = false, connectActive = false, snapActive = false }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -1436,7 +1436,7 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
 
 /* P7 方案入画布: 设计方案 = 画布对象 (可生成/可换一套/可应用到画布), 不是独立整页。
    计费不变式①: 生成/刷新方案都走 ec_direction_analysis / ec_direction_refresh 报价扣费 (handler 在 index.jsx)。 */
-export function CanvasDirectionNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onHoverChange, onAutoHeight, onGenerate, onRefresh, onApply }) {
+function CanvasDirectionNodeView({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onHoverChange, onAutoHeight, onGenerate, onRefresh, onApply }) {
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const hasPlan = directions.length > 0;
   const busy = node.status === 'processing';
@@ -2351,7 +2351,17 @@ function MaterialWatermarkOverlay({ kind, watermark, width = 1, height = 1 }) {
 
 export { MaterialWatermarkOverlay };
 
-export function CanvasImageNode({
+/* ═══ 批 CY-㊴ 之十八（2026-10-01）：节点组件一律 React.memo ═══════════════════════
+   画布上动一个节点会重渲染**整棵树**；没有 memo 的话，画布上每一个节点都会跟着
+   重新执行一遍（实测每节点约 47 个元素）。
+
+   ⚠️ memo 只在 props 引用**都没变**时才跳过渲染。所以 index.jsx 那边必须同时
+   把内联箭头换成"按 node.id 缓存的稳定回调"（canvasNodeHandlers.js）——
+   只包 memo 而不换箭头，等于白包（每次渲染 props 里的函数都是新的）。
+
+   这里把函数改名成 *View，导出的是 memo 包装版；这样**导出名不变**，
+   index.jsx 的 import 与既有的契约门禁都不用动。 */
+function CanvasImageNodeView({
   node,
   imageWatermark,
   selected = false,
@@ -2467,7 +2477,7 @@ export function CanvasImageNode({
   </article>;
 }
 
-export function CanvasSourceNode({
+function CanvasSourceNodeView({
   node,
   selected = false,
   dimmed = false,
@@ -2509,7 +2519,7 @@ export function CanvasSourceNode({
   </article>;
 }
 
-export function CanvasTextNode({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart, onAutoHeight }) {
+function CanvasTextNodeView({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart, onAutoHeight }) {
   const isComposing = useRef(false);
   const boardRef = useRef(null);
   const editSeedRef = useRef('');
@@ -2583,7 +2593,7 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
   </article>;
 }
 
-export function CanvasAudioNode({
+function CanvasAudioNodeView({
   node,
   selected = false,
   dimmed = false,
@@ -2619,3 +2629,18 @@ export function CanvasAudioNode({
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
+
+/* ═══ 批 CY-㊴ 之十八（2026-10-01）：节点组件一律 React.memo ═════════════════════
+   画布上动一个节点会重渲染**整棵树**；没有 memo，画布上每个节点都会跟着重新执行一遍
+   （实测每节点约 47 个元素）。
+   ⚠️ memo 只在 props 引用都没变时才跳过渲染，所以 index.jsx 那边必须同时把内联箭头
+     换成「按 node.id 缓存的稳定回调」（canvasNodeHandlers.js）—— 只包 memo 而不换箭头
+     等于白包：每次渲染 props 里的函数都是新的。
+   函数改名成 *View、导出 memo 包装版 ⇒ **导出名不变**，index.jsx 的 import 与既有
+   契约门禁都不用动。 */
+export const CanvasGenerationNode = React.memo(CanvasGenerationNodeView);
+export const CanvasDirectionNode = React.memo(CanvasDirectionNodeView);
+export const CanvasImageNode = React.memo(CanvasImageNodeView);
+export const CanvasSourceNode = React.memo(CanvasSourceNodeView);
+export const CanvasTextNode = React.memo(CanvasTextNodeView);
+export const CanvasAudioNode = React.memo(CanvasAudioNodeView);
