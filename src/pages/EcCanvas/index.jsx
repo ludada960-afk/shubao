@@ -1083,6 +1083,9 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-12 用户批注：带设计方案进来后应**自动生成方案**（不用再点一次）；这里记下待自动生成的方案节点 id */
   const autoPlanNodeRef = useRef('');
   const segmentationAbortRef = useRef(new Map());
+  /* 2026-10-01 性能：抠图预热的 AbortController（由"首次悬停到图上"触发，
+     不再是挂载即自动下 18MB —— 详见下面那个 effect 的注释）。 */
+  const segmentationPrewarmAbortRef = useRef(null);
   const workflowProcessRef = useRef(null);
   const workflowGenerateRef = useRef(null);
   const graphRunAbortRef = useRef(null);
@@ -2158,25 +2161,44 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     cleanupLegacyCanvasStorage(localStorage);
   }, []);
 
+  /* ═══ 2026-10-01 性能：抠图模型**不许**再自动下载 ═══════════════════════════════
+     原来这里在**挂载后约 1.8 秒**就无条件预热：
+         requestIdleCallback(prewarm, { timeout: 1800 })
+     而 prewarm 会：new Worker → worker 里 import onnxruntime-web/wasm →
+     拉 ort-wasm-simd-threaded-*.wasm（**13,479,978 字节**）→ 再拉
+     /models/u2netp-v1.onnx（4,574,861 字节）→ 对 4.5MB 算 SHA-256 →
+     InferenceSession.create。
+     实测（Chromium，14 秒窗口）：画布一进去就传输了 **16,325 KB，其中 13,164 KB
+     是那个 wasm**；算上 onnx 合计约 18MB。**而绝大多数人根本不会用抠图** ——
+     为一个可能一辈子不点的功能，先赔上 18MB 和一段主线程哈希时间。
+
+     改法：预热改由**真实意图**触发 —— 用户第一次把指针放到一张图上
+     （hoveredNodeId 非空）。这是"他正在看图、接下来可能要抠"的最好信号。
+     而真正点「抠图」的那条路径（handleCanvasSegmentation 里 :3158）**本来就会
+     自己调 prewarm**，所以第一次点击的等待时间不变，只是绝大多数人不用再付这 18MB。
+     saveData 的用户依旧完全不下。 */
+  const hoverIntentRef = useRef(false);
   useEffect(() => {
+    if (!hoveredNodeId || hoverIntentRef.current) return undefined;
+    hoverIntentRef.current = true;
     if (result.browserQa || globalThis.navigator?.connection?.saveData) return undefined;
     const controller = new AbortController();
-    const prewarm = () => {
-      void canvasSegmentationRuntime.prewarm({ signal: controller.signal }).catch(() => {});
-    };
-    const idleId = typeof globalThis.requestIdleCallback === 'function'
-      ? globalThis.requestIdleCallback(prewarm, { timeout: 1800 })
-      : globalThis.setTimeout(prewarm, 900);
-    return () => {
-      controller.abort();
-      if (typeof globalThis.cancelIdleCallback === 'function') globalThis.cancelIdleCallback(idleId);
-      else globalThis.clearTimeout(idleId);
-    };
-  }, [result.id, result.browserQa]);
+    segmentationPrewarmAbortRef.current = controller;
+    void canvasSegmentationRuntime.prewarm({ signal: controller.signal }).catch(() => {});
+    /* ⚠️ 这里**故意不 return cleanup**。指针移开时 hoveredNodeId 变 null，
+       依赖变化会跑 cleanup —— 一旦在这里 abort，预热就被打断，而
+       hoverIntentRef 已经是 true，不会再触发第二次 ⇒ 抠图永远冷启动。
+       真正的中止交给下面那个「卸载画布时」的 effect，它只跑一次。 */
+    return undefined;
+  }, [hoveredNodeId, result.browserQa]);
 
   useEffect(() => () => {
     for (const controller of segmentationAbortRef.current.values()) controller.abort();
     segmentationAbortRef.current.clear();
+    /* 2026-10-01：预热也是一条会发 18MB 请求的线，离开画布就得停，
+       否则用户开一次画布就走，白下 18MB。 */
+    segmentationPrewarmAbortRef.current?.abort();
+    segmentationPrewarmAbortRef.current = null;
   }, []);
 
   useEffect(() => {
