@@ -362,7 +362,11 @@ export function CanvasDeriveMenu({ actions = [], anchorRect = null, title = '引
         const bucket = bucketMap[group.id];
         if (!bucket || !bucket.length) return null;
         return <div key={group.id} className={`ec-canvas-derive-bucket is-${group.id}`} role="group" aria-label={group.label}>
-          <div className="ec-canvas-derive-bucket-label"><span>{group.label}</span></div>
+          {/* 批 CY-㊴（2026-10-01）：**去掉这一层的分组标题**。
+             用户原话：「你上面已经有一个标题了呀，下面为什么还要加这个核心常用这四个字呢？
+               干嘛要搞两个标题呀？我觉得没有必要呀。下面这个标题就不要了。」
+             面板头已经有「引用当前素材生成 · N 项」+ aria-label 说明了分组含义，
+             再来一个「核心常用」纯属重复。aria-label 保留（读屏仍能知道分组）。 */}
           <div className="ec-canvas-derive-grid">
             {bucket.map(action => {
               const Icon = DERIVE_ICONS[action.id] || Sparkles;
@@ -2373,6 +2377,19 @@ export function CanvasImageNode({
   connectActive = false,
   snapActive = false,
 }) {
+  /* 批 CY-㊴（2026-10-01）：图片加载失败要有**可见、可恢复**的落点。
+     之前这张图没有 onError —— 失败时界面上什么都不渲染，就是一个白框，
+     用户分不清"还在加载"还是"加载失败"，也没法恢复（他只能刷新或重传）。
+     retryKey 用来给 src 加 cache-busting，点「重试」重新拉一次。 */
+  const [imgFailed, setImgFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+  const mediaSrc = `${node.localPreviewUrl || node.url || ''}${retryKey ? `?retry=${retryKey}` : ''}`;
+  /* 换图（替换素材 / 换 url）要把失败态清掉，否则会一直停在"加载失败"上。 */
+  const lastSrcRef = useRef(mediaSrc);
+  if (lastSrcRef.current !== mediaSrc) {
+    lastSrcRef.current = mediaSrc;
+    if (imgFailed) { setImgFailed(false); setRetryKey(0); }
+  }
   /* 9-16（图15~19）：打组后的组内节点不显示左右加号（绑定元素不改变这一点） */
   const inCanvasGroup = canvasGroupKindOf(node.groupId) === 'group';
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
@@ -2389,22 +2406,43 @@ export function CanvasImageNode({
     onMouseLeave={() => onHoverChange?.(null)}
   >
     <div className="ec-canvas-media-frame" style={{ height: node.h }}>
-      <ResponsiveImage
+      {!imgFailed && <ResponsiveImage
         /* 9-11 用户批注#2: 本地预览优先 — 持久 url 尚未解码成功前用本地 data URI 兜底, 不再空白闪屏 */
-        src={node.localPreviewUrl || node.url}
+        src={mediaSrc}
         alt={node.name || node.displayLabel || '图片'}
         variant="canvas"
         sizes={`${Math.ceil(node.w)}px`}
         ratio={node.ratio}
         style={{ width: '100%', height: '100%' }}
         imgStyle={{ objectFit: 'contain', objectPosition: 'center', transform: `rotate(${Number(node.rotation) || 0}deg) ${node.flipX ? 'scaleX(-1)' : ''} ${node.flipY ? 'scaleY(-1)' : ''}`.trim() }}
+        onError={() => setImgFailed(true)}
         onLoad={event => {
+          setImgFailed(false);
           const naturalWidth = Number(event.naturalWidth || event.currentTarget?.naturalWidth);
           const naturalHeight = Number(event.naturalHeight || event.currentTarget?.naturalHeight);
           if (naturalWidth > 0 && naturalHeight > 0) onNaturalSize?.(node.id, { naturalWidth, naturalHeight });
           onImageReady?.(node.id);
         }}
-      />
+      />}
+      {imgFailed && (
+        /* ═══ 批 CY-㊴（2026-10-01）：图片加载失败**必须有可见、可恢复的落点** ═══════
+           用户原话：「有时候图片上传上去就是显示不出来呀。偶尔会出现这种情况。
+             这是你的问题呀，你要去解决」
+           事故：`<ResponsiveImage>` 之前**没有 onError** —— 加载失败时界面上什么都不渲染，
+           就是一个白框：既分不清是"还在加载"还是"加载失败"，也没有任何办法恢复。
+           "偶尔"尤其糟：草稿重载时持久图可能还没可读，之后就一直空着。
+           ⇒ 失败时显示「加载失败 + 文件名 + 重试」，重试用 cache-busting 换 src 重新拉。 */
+        <div className="ec-canvas-media-failed" role="alert">
+          <strong>图片加载失败</strong>
+          <span>{node.name || node.displayLabel || '未命名素材'}</span>
+          <button
+            type="button"
+            data-canvas-control="true"
+            onPointerDown={event => event.stopPropagation()}
+            onClick={event => { event.stopPropagation(); setImgFailed(false); setRetryKey(value => value + 1); }}
+          >重试</button>
+        </div>
+      )}
       <MaterialWatermarkOverlay kind="image" watermark={imageWatermark} width={node.w || 1} height={node.h || 1} />
     </div>
     {node.showMeta !== false && <footer>
