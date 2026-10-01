@@ -35,27 +35,50 @@ test('① 生成面板的提示语不许被压成 0 宽（0 宽 + normal 换行 
     '必须有一条给 min-width 兜底：宁可被压缩后省略，也不许逐字换行');
 });
 
-test('② 小地图视窗框必须有「框外遮罩」（让窗外读起来像窗外，而不是像被截断）', () => {
-  /* 数值本身是对的（框宽/画布宽两态都是 0.0409、宽高比精确匹配、0.00% 误差）。
-     问题在观感：小地图画的是 6400×4800 的世界、画布只有 1920 宽，
-     框天然只占约 1/4，框外那片与框内画得一样清楚 ⇒ 读起来像渲染被切掉。
-     用户两次反馈「右边还是被截断」「派生面板在小地图里依然是被遮蔽的元素」。 */
-  const box = supCss.match(/\.ec-canvas-minimap-viewport \{([^}]*)\}/);
-  assert.ok(box, '找不到 .ec-canvas-minimap-viewport');
-  assert.match(box[1], /box-shadow:\s*0 0 0 9999px/, '视窗框要用一圈巨大外阴影把框外压暗');
+test('② 小地图必须把「被右侧面板遮住的那一段」画出来，且是**一个盒子**', () => {
+  /* 事实先说清：实心框的**数值**一直是对的（框宽/画布宽两态都是 0.0409、宽高比精确匹配）。
+     但用户三次说「小地图依然会被派生框遮住一部分」「素材图的右边为什么还是比较窄」
+     「这个派生面板在你的小地图里依然是被遮蔽的元素呀」——
+     他要的是：画布右边被面板盖住的那一段**在框里要看得见，并且看得出它是被遮住的**。
+     ⚠️ 我前两次都把方向搞反了：先把实心框改窄，再给框外加压暗 ——
+     那等于把「被遮住」画成了「窗外」，越修越像"框被切掉了"。
+     ⚠️ 第三版画成两个 div 拼起来，也被退回：
+     「你这很明显是加了一层样式上去啊，看起来很割裂啊……不要这样割裂式的去组装」
+     ⇒ 现在只有一个 div，宽度 = 看得见的 + 被遮住的（= 画布完整宽度），
+       被遮住那段靠同一层背景的斜纹区分。实测两态总宽都是 65.44。 */
+  const geo = read('src/pages/EcCanvas/canvasVisibleViewport.js');
+  assert.match(geo, /coveredWidth/, '取数函数必须把「被遮住的宽度」一起报上来');
+  assert.match(geo, /marginRight/, '被遮住的宽度来自面板让位的 margin-right');
+
+  const panel = read('src/pages/EcCanvas/components/CanvasContextMenuPanel.jsx');
+  assert.doesNotMatch(panel, /ec-canvas-minimap-covered/,
+    '不许再画第二个盒子 —— 拼起来就是用户说的「割裂」');
+  assert.match(panel, /width:\s*visibleW \+ coveredW/,
+    '一个盒子的宽度 = 看得见的 + 被遮住的（合起来是画布的完整宽度）');
+  assert.match(panel, /'--covered-w'/, '被遮住那段的宽度用 CSS 变量交给同一层背景');
+
+  const supCss = read('src/styles/canvas-supervisor.css');
+  const cov = supCss.match(/\.ec-canvas-minimap-viewport \{([^}]*)\}/);
+  assert.ok(cov, '缺少 .ec-canvas-minimap-viewport 样式');
+  assert.match(cov[1], /repeating-linear-gradient/,
+    '被遮住那段用同一层背景的斜纹 —— 一眼看得出那是被遮住的');
+  assert.match(cov[1], /var\(--covered-w/,
+    '斜纹宽度由 --covered-w 限定，而不是另加一个盒子');
   const canvas = supCss.match(/\.ec-canvas-minimap-canvas \{([^}]*)\}/);
   assert.ok(canvas, '找不到 .ec-canvas-minimap-canvas');
   assert.match(canvas[1], /overflow:\s*hidden/,
-    '小地图画布必须 overflow:hidden —— 否则那圈巨大阴影会糊到卡片外面去');
+    '小地图画布必须 overflow:hidden —— 否则框外那圈巨大阴影会糊到卡片外面去');
 });
 
-test('③ 视窗框的数值判据不变（这次改的是观感，不是几何）', () => {
-  /* 防止"为了加遮罩顺手把框算错"：框的宽必须仍由可见画布尺寸驱动。 */
+test('③ 视窗框的数值判据不变（斜纹段是"加"出来的，不是把实心框改回去）', () => {
+  /* 防止"为了画出被遮住的部分、把实心框又改回整宽"——那正是批 CY-㉚ 的老 bug。 */
   const geo = read('src/pages/EcCanvas/canvasGeometry.js');
   assert.match(geo, /getNodePortCenter/, '端口中心仍是几何真源');
   const vp = read('src/pages/EcCanvas/components/CanvasContextMenuPanel.jsx');
   assert.match(vp, /w:\s*\(stage\.width \/ safeScale\) \* scale/,
-    '视窗框宽度必须由 stage.width（可见画布宽）驱动，不是硬编码也不是 margin 推算');
+    '实心框宽度仍由 stage.width（**看得见**的画布宽）驱动');
+  assert.match(vp, /\(coveredWidth \/ safeScale\) \* scale/,
+    '斜纹段宽度才用 coveredWidth（被面板遮住的那部分）');
   assert.doesNotMatch(vp, /marginRight|margin-right/,
-    '取可见宽度时不得再参与 margin 减法（那是批 CY-㊴-① 的根因，已修）');
+    '取宽度时不得直接参与 margin 减法（那是批 CY-㉚ 的根因）');
 });

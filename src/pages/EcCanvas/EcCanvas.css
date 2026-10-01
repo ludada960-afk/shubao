@@ -438,6 +438,28 @@
 .ec-canvas-media-node footer strong { overflow: hidden; color: #20242a; font-size: var(--ec-canvas-action-font); font-weight: 700; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-media-node footer span { overflow: hidden; color: #7b8490; font-size: var(--ec-canvas-meta-font); line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-node-port { position: absolute; z-index: 9; right: -32px; top: 50%; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; transform: translateY(-50%); border: 1px solid #d8dde4; border-radius: 50%; background: #fff; color: #4b5563; box-shadow: 0 3px 10px rgba(15, 23, 42, .14); cursor: crosshair; transition: opacity 140ms ease-out, color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out; }
+/* 批 CY-㊴（2026-10-01）：右栏提示里那个 + 号，复用画布端口的同一套外观。
+   用户原话：「这个+号的图标明显是歪的，向下歪了呀，
+     你不是应该跟真正画布上的+号图标一致才对嘛」
+   根因：它原本是**文本字符** `<strong>+</strong>`，坐在文字基线上；
+   而画布上那个是 30px 圆钮里的 SVG 图标（DerivePort 用的 `Plus`）—— 不是同一种东西。
+   这里只改定位（内联、垂直居中、不可点），尺寸/边框/圆角/颜色全部继承 .ec-canvas-node-port。 */
+.ec-canvas-node-port.is-hint {
+  position: static;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  flex: 0 0 24px;
+  margin: 0 4px;
+  vertical-align: -6px;
+  box-shadow: none;
+  pointer-events: none;
+  z-index: auto;
+  cursor: default;
+}
+
 .ec-canvas-node-port:hover:not(:disabled) { color: #fff; background: var(--canvas-command); border-color: var(--canvas-command); transform: translateY(-50%) scale(1.06); }
 /* 批 CY-㊴（2026-09-30）：拖线时被吸住的输入加号。用户原话：「给一个吸附的能力，
    让它可以吸附上去」—— 吸住了必须**看得见**，否则用户不知道系统认了哪个。 */

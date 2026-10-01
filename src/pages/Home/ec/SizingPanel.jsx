@@ -37,7 +37,10 @@ import {
 function RatioShape({ w, h, active }) {
   return (
     <svg width={w+2} height={h+2} viewBox={`0 0 ${w+2} ${h+2}`} style={{ flexShrink: 0 }}>
-      /* 选中 = 品牌色（原则 6.1 合法场合①），未选中 = 中性描边。 */
+      {/* 选中 = 品牌色（原则 6.1 合法场合①），未选中 = 中性描边。
+          ⚠️ 原来这里是裸的块注释（斜杠星号），在 JSX 里会被当成**文本子节点** ——
+          SVG 里浏览器不画裸文本节点，所以这一处**恰好没露出来**，但它是同一个缺陷。
+          门禁 jsx-bare-comment-1001 就是为这类加的：它不靠"肉眼看没露"来判断。 */}
       <rect x={1} y={1} width={w} height={h} rx={2}
         fill={active ? 'var(--sb-brand)' : 'none'}
         stroke={active ? 'var(--sb-brand)' : 'var(--sb-border-strong)'} strokeWidth={1.5} />

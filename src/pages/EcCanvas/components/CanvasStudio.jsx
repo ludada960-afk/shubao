@@ -367,9 +367,21 @@ export function CanvasDeriveMenu({ actions = [], anchorRect = null, title = '引
             {bucket.map(action => {
               const Icon = DERIVE_ICONS[action.id] || Sparkles;
               const priceBadge = action.priceLabel && action.priceLabel !== '免费' ? action.priceLabel : '';
-              return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
+              return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" title={action.description} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
                 <span className="ec-canvas-derive-chip"><Icon /></span>
-                <span className="ec-canvas-derive-copy"><strong>{action.label}</strong><small>{action.description}</small></span>
+                {/* ⚠️⚠️ 2026-10-01 用户批注：「什么情况啊，你为什么还是把这些暴露出来啊，
+                    不是说鼠标放上去按钮再显示提示文案吗，你现在怎么还乱码了呀」
+                    —— 这条注释原来写的是**裸的**斜杠星号。JSX 里那不是注释，
+                    它被当成**文本子节点**渲染出来，于是整段内部批注变成了卡片上显示的文案，
+                    看上去就是"乱码"。必须写成花括号包起来的形式。
+                    门禁 `jsx-bare-comment-1001` 用 esbuild 扫 src 下全部 jsx：
+                    它把「裸注释会变成字符串子节点」这件事变成可判定的，不再靠肉眼。
+
+                    ⚠️ 描述**怎么藏**是批 CY-㊴ 的决定（保留 `<small aria-hidden>`、
+                    由 CSS `display:none` 收起），门禁 canvas-right-panel-hint-1001 钉着它。
+                    我第一版把 `<small>` 直接删了，那会让那条门禁变红 —— 已改回他们的做法：
+                    元素留着（读屏仍拿得到）、界面上不显示、完整句子走 hover 的 `title`。 */}
+                <span className="ec-canvas-derive-copy" title={action.description}><strong>{action.label}</strong><small aria-hidden="true">{action.description}</small></span>
                 <span className="ec-canvas-derive-meta">{priceBadge ? <em>{priceBadge}</em> : null}<ArrowUpRight size={14} /></span>
               </button>;
             })}
