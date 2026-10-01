@@ -189,6 +189,10 @@
       而纯函数按 480 算，两个数字对不上 —— 那是既有的一处漂移，不该由这一批顺手改掉）。
    ⚠️ 9-13「面板不盖住画布内容」那条初衷没有作废：只有当"完整让位"会吃掉超过 38% 时才收窄，
      窄屏下宁可面板盖住画布右侧一小块（画布可以平移），也不能把画布本体压到失去主导。 */
+/* 批 CY-㊴：拖文件进画布时的高亮（用户 9-30：「为什么是拖不了的呢？视频也是呀」）。
+   只描边不遮罩 —— 遮罩会把画布内容挡住，用户反而看不清自己拖到哪儿了。 */
+.ec-canvas-stage.is-drop-active { outline: 2px dashed var(--canvas-command); outline-offset: -10px; }
+
 .ec-canvas-stage.has-right-panel {
   margin-right: min(calc(var(--canvas-right-panel-width, 480px) + var(--cvl-right-panel-margin, 28px)), 38vw);
 }
@@ -435,6 +439,9 @@
 .ec-canvas-media-node footer span { overflow: hidden; color: #7b8490; font-size: var(--ec-canvas-meta-font); line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .ec-canvas-node-port { position: absolute; z-index: 9; right: -32px; top: 50%; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; transform: translateY(-50%); border: 1px solid #d8dde4; border-radius: 50%; background: #fff; color: #4b5563; box-shadow: 0 3px 10px rgba(15, 23, 42, .14); cursor: crosshair; transition: opacity 140ms ease-out, color 140ms ease-out, background 140ms ease-out, transform 140ms ease-out; }
 .ec-canvas-node-port:hover:not(:disabled) { color: #fff; background: var(--canvas-command); border-color: var(--canvas-command); transform: translateY(-50%) scale(1.06); }
+/* 批 CY-㊴（2026-09-30）：拖线时被吸住的输入加号。用户原话：「给一个吸附的能力，
+   让它可以吸附上去」—— 吸住了必须**看得见**，否则用户不知道系统认了哪个。 */
+.ec-canvas-node-port[data-port-active="true"] { color: #fff; background: var(--canvas-command); border-color: var(--canvas-command); transform: translateY(-50%) scale(1.22); box-shadow: 0 0 0 4px color-mix(in srgb, var(--canvas-command) 26%, transparent); }
 .ec-canvas-node-port:disabled { cursor: not-allowed; opacity: .35 !important; }
 .ec-canvas-resize-handle { position: absolute; z-index: 10; width: 10px; height: 10px; padding: 0; border: 2px solid #fff; border-radius: 4px; background: var(--canvas-command); box-shadow: 0 0 0 1px var(--canvas-command); }
 .ec-canvas-resize-handle.is-nw { left: -6px; top: -6px; cursor: nwse-resize; }

@@ -53,9 +53,34 @@ test('多张时标题写清张数，且不再出现「电商」二字', () => {
 });
 
 test('一张都没有时要说实话，不要显示「导出 0 张」', () => {
+  /* ⚠️ 2026-09-30 批 CY-㊴：这条门禁**加强**了。
+     原版只断言了 title 与 subtitle，漏掉了真正被用户看见的那句 ——
+     `options[0].label` 在 count=0 时被拼成了「导出 0 张图片」，就显示在弹窗里
+     （用户 9-30 截图里就是它）。本条现在把 options 一并钉住：零张时**一条选项都不给**。 */
   const none = exportDialogCopy({ count: 0 });
   assert.equal(none.title, '没有可导出的图片');
   assert.match(none.subtitle, /没有可导出的生成结果/);
+  assert.deepEqual(none.options, [], '零张时不渲染任何选项按钮（否则就会出现「导出 0 张图片」）');
+  assert.ok(!JSON.stringify(none).includes('0 张图片'), '整个返回值里都不许出现「0 张图片」');
+  /* 零张时正确的做法是告诉用户"怎么才能导出"，而不是留一个点不动的按钮 */
+  assert.ok(none.hints.length > 0, '零张时要给出下一步指引');
+  assert.match(none.hints.join('\n'), /选中|框选/, '指引必须说清楚怎么才能导出');
+});
+
+test('必须告诉用户：除了单张，还能多选导出、还能拼长图（用户 9-30 逐字点名）', () => {
+  /* 用户原话：「只有一个导出按钮，我觉得也是可以的，但是你得告诉用户，
+     除了导出单张之外，我们还可以导出多张，并且我们还可以导出合成的长图。」 */
+  const one = exportDialogCopy({ count: 1 });
+  const hints = one.hints.join('\n');
+  assert.match(hints, /Shift|框选/, '单张场景必须告诉用户怎么一次导出多张');
+  assert.match(hints, /长图/, '单张场景必须告诉用户能拼长图（长图选项在这一档是隐藏的）');
+  /* 凑得齐长图时，长图本身就是可点的选项 ⇒ 不必再重复提示 */
+  const stitchable = exportDialogCopy({ count: 4, canLongDetail: true });
+  assert.equal(stitchable.hints.filter(h => /长图/.test(h)).length, 0, '长图已经是可点选项了，不要再重复提示');
+  assert.ok(stitchable.hints.some(h => /选中|框选/.test(h)), '但仍然要说明可以只导出其中几张');
+  /* 在长图那一档里就别再推销"怎么拼长图"了 —— 用户已经在里面了 */
+  const inLong = exportDialogCopy({ count: 4, canLongDetail: true, longDetail: true });
+  assert.deepEqual(inLong.hints, [], '长图档内不再给提示');
 });
 
 test('画布里那句「电商图片交付 / 导出整套图片」必须真的删干净了', () => {

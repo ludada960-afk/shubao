@@ -42,6 +42,44 @@ export function cubicEdgePath(from = {}, to = {}) {
   return `M ${numeric(from.x)} ${numeric(from.y)} C ${middle} ${numeric(from.y)}, ${middle} ${numeric(to.y)}, ${numeric(to.x)} ${numeric(to.y)}`;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   拖线时的**吸附**（批 CY-㊴）
+   ──────────────────────────────────────────────────────────────────────────────
+   用户 2026-09-30 逐字：
+     「你应该允许他手动拉到任意一个素材的左边或者右边的加号这里时
+       **给一个吸附的能力，让它可以吸附上去**，然后创建成连接。」
+
+   为什么必须写成**纯模型**函数、而不是拿 DOM 量：
+     ① `test/canvas-port-geometry` 与 `test/ec-canvas-state` 明确禁止画布页用
+        ResizeObserver / 渲染期端口中心做几何 —— 那次事故（批 CY-㉕/㉖）就是
+        "DOM 实测的端口中心在缩放平移后全错位"。
+     ② 端口中心本来就有一个纯模型口径 `getNodePortCenter`（连线端点用的就是它），
+        吸附必须与**连线端点同一个口径**，否则"吸上了但线没接上"。
+
+   半径按**世界坐标**给，调用方负责用当前缩放换算（这样低缩放下吸附范围
+   在屏幕上才是恒定的 ~40px，不会越缩越小）。
+   ══════════════════════════════════════════════════════════════════════════ */
+export const CANVAS_SNAP_RADIUS = 44;
+
+export function pickCanvasConnectionSnapTarget(nodes = [], pointer = null, {
+  fromId = '',
+  radius = CANVAS_SNAP_RADIUS,
+  accept = null,
+} = {}) {
+  if (!pointer || !Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return null;
+  let best = null;
+  for (const node of nodes || []) {
+    if (!node || node.id === fromId || node.hidden) continue;
+    /* accept 让调用方把"类型不兼容"这类规则挡在外面（互斥矩阵见 canvasQuantvExtensions） */
+    if (typeof accept === 'function' && !accept(node)) continue;
+    const center = getNodePortCenter(node, 'input');
+    const distance = Math.hypot(center.x - pointer.x, center.y - pointer.y);
+    if (!Number.isFinite(distance) || distance > radius) continue;
+    if (!best || distance < best.distance) best = { nodeId: node.id, node, center, distance };
+  }
+  return best;
+}
+
 export function layoutAssetLanes({ sourceNode = {}, assets = [] } = {}) {
   const buckets = new Map(LANE_ORDER.map(group => [group, []]));
   assets.forEach(asset => buckets.get(LANE_ORDER.includes(asset.group) ? asset.group : '素材').push(asset));

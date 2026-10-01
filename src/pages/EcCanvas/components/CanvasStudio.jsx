@@ -1290,7 +1290,7 @@ function layerCompositeOrder(layer = {}) {
    `index.jsx` 从 2026-08-13 起就一直往这里传，组件签名不接、也不往下传，于是图片框
    永远按「请求里的比例」画，真实比例被丢掉（用户看到的上下/左右白边与「被截断」）。
    现在补上，并且给视频补一条 `onLoadedMetadata` 通路（以前全仓没有一处读 videoWidth）。 */
-export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, onNaturalSize = null, canDerive = false }) {
+export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, onNaturalSize = null, canDerive = false, connectActive = false, snapActive = false }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -1401,12 +1401,17 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       onPointerDown={event => event.stopPropagation()}
       onClick={(event) => { event.stopPropagation(); onReplace(); }}
     ><ImagePlus size={13} />替换</button>}
-    {/* 9-15（复核 9-13）用户决定：**生成前无加号、生成结果必须有加号**。
-        结果未落入框内（未生成/失败）时不渲染左右加号；结果在框内（canvasGenerationBoxHasResult）
-        才渲染输入锚点 + 输出加号，点开行为与结果节点一致（派生菜单/连线）。
-        不再在 text-composer / suite-composer 控制盒上挂加号。 */}
-    {nodeHasResult && <DerivePort side="input" visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />}
-    {nodeHasResult && <DerivePort visible={selected} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />}
+    {/* 9-15（复核 9-13）用户决定：**输出加号等结果，入加号随时可接**。
+        右侧输出加号（"从这张图继续派生"）仍然只在结果落框后出现（canvasGenerationBoxHasResult），
+        这个判断本身没错 —— 没有结果确实无从派生。
+        ⚠️ 2026-09-30 批 CY-㊴ 修正的是**左侧输入加号**：它被同一道 `nodeHasResult` 门控住了，
+        而 text-composer / suite-composer 更是恒为 false ⇒ 这两类框**永远**没有任何端口。
+        用户 9-30 实测：「他为什么不能够跟我们当前的任意节点创建连接呢？」
+        —— 他要的就是往一个**还没出结果的生成框**里再送一份素材共同创作。
+        ⇒ 输入锚点无条件渲染（它表达的是"上游可以接进来"，与本框有没有结果无关）；
+           输出加号维持原语义。两条判据各司其职，不再共用一个门。 */}
+    <DerivePort side="input" visible={selected || connectActive} active={snapActive} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+    {nodeHasResult && <DerivePort visible={selected || connectActive} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
@@ -1790,7 +1795,14 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
           （实测：其余四项标题顶 825，技能内容顶 852，差 27px）。
           修法：把技能放进**同一结构**的 <label> 里（标题「技能」在上、控件在下），
           与其余四项共用同一套 label/select 样式，不再单独排版。 */}
-      <label className="ec-canvas-video-field">技能<CanvasSkillControl node={node} onChange={change} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="video" /></label>
+      {/* ═══ 批 CY-㊴（2026-09-30）：去掉外面那层「技能」文字 ═══════
+          用户原话：「而且你这个技能的这个按钮上面怎么还有一个技能呀？」
+          9-17 那批把技能包进 <label> 是为了和另外四项同一结构（标题在上、控件在下），
+          但另外四项是**裸 select**、没有自带标题，而 CanvasSkillControl 的触发器
+          title 本身就是「技能」——于是渲染成「技能 / ⚡ 技能 ▾」，同一个词上下各一份。
+          图片侧（:1019 / :1188）一直是直接渲染控件、没有这层 label，所以只有视频面板中招。
+          ⇒ 与图片侧对齐：控件自带标题与值，这里不再重复写一遍。 */}
+      <CanvasSkillControl node={node} onChange={change} activeSurface={activeSurface} onSurfaceChange={onSurfaceChange} onOpenSkillLibrary={onOpenSkillLibrary} domain="video" />
       {/* ═══ 批 CY-㉘：删掉「声音」开关（用户 2026-09-30 逐字：「最右边这个声音你要把它拿掉啊，
           我们现在首页的视频生成都早就没有这个功能了」）。
           删的是**开关**，不是能力：`generateAudio` 缺省仍是 true，
@@ -1800,7 +1812,32 @@ export function CanvasVideoComposer({ node, position,  sources = [], mentionSour
     {planOpen && <section className="ec-canvas-video-plan" aria-label="生成前方案"><header><div><strong>素材分析与生成前方案</strong><small>{plan.analyzed ? '真实素材分析已完成 · 已结算 1 AI 积分' : '补齐输入后进行真实分析'}</small></div><button type="button" data-canvas-control="true" aria-label="关闭生成方案" onClick={() => setPlanOpen(false)}><X size={14} /></button></header><div className="ec-canvas-video-plan-summary"><strong>{plan.laneLabel}</strong><span>{plan.output.ratio} · {plan.output.duration} 秒 · {plan.output.resolution.toUpperCase()}</span></div><div className="ec-canvas-video-plan-beats">{plan.beats.map(beat => <article key={`${beat.time}-${beat.label}`}><span>{beat.time}</span><strong>{beat.label}</strong><small>{beat.detail}</small></article>)}</div>{plan.risks?.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.risks.map((item, index) => <span key={`${item}-${index}`}>风险：{item}</span>)}</div>}{plan.blockers.length > 0 && <div className="ec-canvas-video-plan-errors">{plan.blockers.map(item => <span key={item.code}>{item.title}：{item.detail}</span>)}</div>}<button type="button" data-canvas-control="true" className="ec-canvas-video-plan-confirm" disabled={!plan.ready || !plan.analyzed} onClick={confirmPlan}><Check size={14} />确认方案</button></section>}
     <div className="ec-canvas-composer-footer">
       {node.error ? <div className="ec-canvas-composer-error" role="alert"><span>{node.error}</span></div> : <span>{node.progressLabel || (estimate ? `${formatCanvasPoints(estimate.points)} 积分 / 次 · 确认方案后扣费` : `生成前方案 ${CANVAS_PLAN_ANALYSIS_POINTS} 积分 · 确认方案后扣费`)}</span>}
-      <div className="ec-canvas-video-actions"><button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>{planning ? '正在分析素材' : node.planReviewed ? '方案已确认' : analyzedPlan ? '查看生成方案' : `分析并生成方案 · ${CANVAS_PLAN_ANALYSIS_POINTS} 积分`}</button><button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.planReviewed || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>{loading ? '生成中' : <><Clapperboard size={15} />生成视频{estimate && <span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span>}</>}</button></div>
+      <div className="ec-canvas-video-actions">
+        {/* ═══ 批 CY-㊴（2026-09-30）：两个生成按钮改为**互斥**，与首页同一口径 ═══════
+            用户原话：「为什么会有两个生成按钮呢？一个是分析并生成方案，一个是生成视频。
+              你首页那边生成视频的这个板块明明只有一个按钮呀。」
+            改前：两个按钮**无条件同时渲染**，第二个只是被 disabled 置灰 ——
+            用户看到的是「两个都摆在那儿，其中一个点不动」，读出来的就是「有两个生成按钮」，
+            而且置灰按钮不解释为什么灰（他没确认方案），用户只会当成坏了。
+            首页（VideoStudio/index.jsx:2569）早就是互斥的：
+              未确认方案 → 只有「分析并生成方案」
+              已确认方案 → 「查看方案」（次）+「开始生成」（主）
+            ⇒ 这里照首页同一口径改：**任何时刻只有一个主按钮**。
+                右侧那个「生成视频」在没有已确认方案时压根不渲染（不是置灰）。 ═══ */}
+        {!node.planReviewed
+          ? <button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>
+            {planning ? '正在分析素材' : analyzedPlan ? '查看生成方案' : `分析并生成方案 · ${CANVAS_PLAN_ANALYSIS_POINTS} 积分`}
+          </button>
+          : <>
+            <button type="button" data-canvas-control="true" className="ec-canvas-video-plan-trigger" disabled={planning} onClick={openPlan}>
+              {planning ? '正在分析素材' : analyzedPlan ? '查看生成方案' : '方案已确认'}
+            </button>
+            <button type="button" data-canvas-control="true" className="shubao-gen-cta ec-canvas-composer-cta" disabled={loading || planning || !String(node.prompt || '').trim() || !materialsReady || !node.videoPlan} onClick={event => { event.stopPropagation(); onGenerate?.(); }}>
+              {loading ? '生成中' : <><Clapperboard size={15} />开始生成{estimate && <span className="shubao-gen-cta-points">{formatCanvasPoints(estimate.points)} 积分</span>}</>}
+            </button>
+          </>
+        }
+      </div>
     </div>
 
   </section>;
@@ -2245,28 +2282,35 @@ export function CanvasFocusedEditor({ mode, node, options = {}, onOptionChange, 
   </div>;
 }
 
-function DerivePort({ visible, disabled, onPointerDown, onPointerUp, onClick, side = 'output' }) {
+function DerivePort({ visible, disabled, onPointerDown, onPointerUp, onClick, side = 'output', active = false }) {
   /* disabled 不再真正禁用 (禁用按钮点了毫无反馈 = 用户眼中的"死按钮"),
      改为 data-disabled 半透明, 点击时由 handler 弹出原因提示。
      9-11 用户批注: 节点左右都要有加号 — side='input' 是左侧输入锚点 (上游素材从此接入,
-     连线端点与加号中心重叠, 见 canvasGeometry.CANVAS_PORT_CENTER_OFFSET), 仅视觉锚点不建连线。 */
+     连线端点与加号中心重叠, 见 canvasGeometry.CANVAS_PORT_CENTER_OFFSET)。 */
   const isInput = side === 'input';
-  /* 9-11 三轮用户批注: 左侧加号点了没反应 → 与右侧加号完全同一套功能 (点开派生菜单)。 */
+  /* ═══ 2026-09-30 批 CY-㊴：side 必须**透传**给 handler ═══════════════════════
+     事故：两侧的 `onPointerUp` 都被父组件写死成 `'out'`，于是
+     `handlePortPointerUp` 的 `if (side !== 'in') return;` 直接把它丢掉 ——
+     用户看到的现象是「左边也有个加号，但把线拉过去连不上」。
+     这里把 side 按 handler 认的口径（'in' / 'out'）传出去。 */
+  const handlerSide = isInput ? 'in' : 'out';
+  /* active = 拖线时"吸附候选"高亮（批 CY-㊴，用户要的是"拉到加号上吸附上去"）。 */
   return <button
     type="button"
     className={isInput ? 'ec-canvas-node-port is-input' : 'ec-canvas-node-port'}
     data-canvas-control="true"
     data-canvas-port-role={isInput ? 'input' : 'output'}
+    data-port-active={active ? 'true' : undefined}
     aria-label={isInput ? '从当前素材继续创作' : '从当前素材继续创作'}
     title={disabled ? '素材处理完成后可继续创作' : '继续创作'}
     data-disabled={disabled ? true : undefined}
     tabIndex={visible ? 0 : -1}
-    style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
-    onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event); }}
+    style={{ opacity: visible || active ? 1 : 0, pointerEvents: visible || active ? 'auto' : 'none' }}
+    onPointerDown={event => { event.stopPropagation(); onPointerDown?.(event, handlerSide); }}
     /* pointerup 必须冒泡到 stage: 否则连接草稿残留, 画布卡在 connect 模式,
        表现为"加号没反应 + 之后所有素材拖不动" (用户 9-04 反馈) */
-    onPointerUp={event => onPointerUp?.(event)}
-    onClick={event => { event.stopPropagation(); onClick?.(event); }}
+    onPointerUp={event => onPointerUp?.(event, handlerSide)}
+    onClick={event => { event.stopPropagation(); onClick?.(event, handlerSide); }}
   ><Plus size={16} /></button>;
 }
 
@@ -2308,6 +2352,12 @@ export function CanvasImageNode({
   canDerive = true,
   onReplace = null,
   onImageReady = null,
+  /* 批 CY-㊴：拖线期间的端口可见性与吸附高亮。
+     · connectActive：正在从别处拉线 ⇒ **所有**节点的输入加号都要亮出来可点，
+       否则未选中节点的端口是 pointer-events:none，线根本落不上去（用户 9-30 实测）。
+     · snapActive：本节点的输入端口正是当前吸附候选。 */
+  connectActive = false,
+  snapActive = false,
 }) {
   /* 9-16（图15~19）：打组后的组内节点不显示左右加号（绑定元素不改变这一点） */
   const inCanvasGroup = canvasGroupKindOf(node.groupId) === 'group';
@@ -2360,8 +2410,8 @@ export function CanvasImageNode({
     ><ImagePlus size={13} />替换</button>}
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
     {/* 9-11 用户批注: 左右都有加号 — 左侧 = 输入锚点 (上游接入), 右侧 = 输出加号 (继续创作/拉线) */}
-    <DerivePort side="input" visible={presentation.handlesVisible} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
-    <DerivePort visible={presentation.handlesVisible} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+    <DerivePort side="input" visible={presentation.handlesVisible || connectActive} active={snapActive} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
+    <DerivePort visible={presentation.handlesVisible || connectActive} disabled={!node.url || !canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
   </article>;
 }
 

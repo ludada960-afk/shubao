@@ -55,10 +55,56 @@ export const IMAGE_MODELS = Object.freeze([
   }),
 ]);
 
+/* ═══ 批 CY-㊲（2026-09-30）：**同厂商的模型排在一起**（用户批注 图3）══════════════════════
+   用户原话：「你现在的生图模型也排序排的不对呀。你为什么没有把同类型的模型给排在一起呢？
+   你现在把**不同厂商的模型都打混乱了**呀。你应该跟**视频生成那边的模型面板一样**，
+   就是尽可能的把同样的模型给排在一起。然后这个问题**肯定不只是首页这边存在**。
+   你像现在各个 skill 的子页面以及**画布里面的模型选择器**里面肯定也存在同样的问题的。
+   你都要去解决掉。」
+
+   实测（就是他那张截图里的顺序）：改前 brand 序列是
+     openai → gemini → gemini → openai → openai → openai → gemini → midjourney
+   ⇒ GPT Image 2 与 GPT Image 2.5 两个变体被 Nano Banana 劈开、MDKJ 又插在中间。
+
+   对齐的视频侧实现：`videoModelRows.js` 的 `buildVideoModelRows` 按 `family` 归拢
+   （Seedance 一家、MiniMax 一家、通义万相一家…），用户点名的就是它。
+
+   ⚠️ **只排序，不加"家族标题行"**：批 BR-2 已按用户原话把视频侧那种
+      「分类完把名字都当标题再各自做一行」删掉了（「都没必要」）。
+      这次是**同样的口径**——把同厂商的**挨在一起**，但不凭空多出一行标题。
+
+   ⚠️ 为什么写在**目录这一层**而不是各个面板里：用户明说这个问题遍布
+      首页 / skill 子页 / 画布模型选择器。三个地方各自排一次，早晚会再漂回去；
+      而它们**全都读这一个数组** ⇒ 在这里排一次，三处一起对。
+   （`test/image-model-family-expansion-0913` 等门禁也正是靠"读声明源"来防漂移的。）
+
+   家族顺序用**首次出现顺序**（stable）而不是写死一张表：
+   目录里谁排第一，谁的家族就排第一 —— 加新模型时不必记得同步一张顺序表。 */
+export function sortImageModelsByFamily(models = []) {
+  const order = new Map();
+  for (const model of Array.isArray(models) ? models : []) {
+    if (!model) continue;
+    const family = model.brand || model.family || 'other';
+    if (!order.has(family)) order.set(family, order.size);
+  }
+  return [...(Array.isArray(models) ? models : [])]
+    .filter(Boolean)
+    .sort((a, b) => {
+      const fa = order.get(a.brand || a.family || 'other') ?? order.size;
+      const fb = order.get(b.brand || b.family || 'other') ?? order.size;
+      /* 同家族内**保持目录里的原序**（Array#sort 在 V8 是稳定的，
+         但显式写出来是为了让"同厂原有顺序不变"这条意图不依赖引擎实现）。 */
+      return fa === fb ? 0 : fa - fb;
+    });
+}
+
 /** 可对用户展示的模型。
  *  9-13：五档新模型已按用户要求直接上线（用户自己在线上跑真实生成验收）。
- *  pending 机制保留：将来要临时下线某档，给它加回 pending 标记即可，前后端都不用改。 */
-export const SELECTABLE_IMAGE_MODELS = Object.freeze(IMAGE_MODELS.filter(model => model.pending !== true));
+ *  pending 机制保留：将来要临时下线某档，给它加回 pending 标记即可，前后端都不用改。
+ *  批 CY-㊲：这里**按厂商归拢**后再冻结（首页 / skill 子页 / 画布选择器读的都是它）。 */
+export const SELECTABLE_IMAGE_MODELS = Object.freeze(
+  sortImageModelsByFamily(IMAGE_MODELS.filter(model => model.pending !== true)),
+);
 
 /* ═══ 2026-09-30 用户 2026-09-30 拍板：**全局默认模型换成 GPT Image 2.5 Sunburst** ═══════════════════
    原话：「把默认都换成 2.5 吧，**这是长期比较好的做法**，你可以全局去调整这个事情。」

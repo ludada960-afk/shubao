@@ -45,22 +45,29 @@ export function exportDialogCopy({ count = 0, excludedCount = 0, longDetail = fa
 
   const title = longDetail
     ? '合成详情长图'
-    : single
-      ? '导出这张图片'
-      : total > 1
-        ? `导出 ${total} 张图片`
-        : '没有可导出的图片';
+    : total === 0
+      ? '没有可导出的图片'
+      : single
+        ? '导出这张图片'
+        : `导出 ${total} 张图片`;
 
   const subtitle = longDetail
     ? '把选中的详情图按下面这个顺序拼成一张长图'
-    : single
-      ? '保存为一张图片'
-      : total > 1
-        ? `${excludedCount > 0 ? `已排除 ${excludedCount} 张原始素材，` : ''}只导出生成出来的图片`
-        : '这张画布上没有可导出的生成结果';
+    : total === 0
+      ? '这张画布上没有可导出的生成结果'
+      : single
+        ? '保存为一张图片'
+        : `${excludedCount > 0 ? `已排除 ${excludedCount} 张原始素材，` : ''}选择保存位置后按原文件名逐张写入`;
 
-  const options = [
-    {
+  /* ⚠️ total === 0 时**不渲染任何选项**：旧版无条件 push 一条
+     `导出 ${total} 张图片`，于是弹窗里赫然写着「导出 0 张图片」。
+     那条门禁（export-and-adaptive-ratio-0929）标题就是「一张都没有时要说实话，
+     不要显示『导出 0 张』」，但当时只断言了标题/副标题、没断言选项文案，
+     于是这句从缝里漏了过去 —— 本轮用户截图里就有它。
+     零张时正确做法是**说清楚怎么才能导出**，见下面的 hints。 */
+  const options = [];
+  if (total > 0) {
+    options.push({
       mode: 'images',
       label: longDetail
         ? '改为逐张导出'
@@ -68,9 +75,8 @@ export function exportDialogCopy({ count = 0, excludedCount = 0, longDetail = fa
           ? '导出这张图片'
           : `导出 ${total} 张图片`,
       description: single ? '保存为一张图片' : '选择保存位置，按原文件名逐张写入',
-    },
-  ];
-  /* 单图场景**整块不渲染**长图选项（改前是"渲染出来但置灰"，用户照样会读它、照样困惑）。 */
+    });
+  }
   if (longDetailVisible) {
     options.push({
       mode: 'long-detail',
@@ -78,5 +84,24 @@ export function exportDialogCopy({ count = 0, excludedCount = 0, longDetail = fa
       description: canLongDetail ? '按下方顺序无缝拼接为一张长图' : `至少需要 ${LONG_DETAIL_MIN} 张已生成的详情图`,
     });
   }
-  return { total, single, title, subtitle, options, longDetailVisible };
+
+  /* ═══ 2026-09-30 批 CY-㊴：把另外两种导出方式**说出来** ══════════════════════
+     用户原话：
+       「我觉得拿走也不一定是坏事，就是只有一个导出按钮，我觉得也是可以的，
+         **但是你得告诉用户，除了导出单张之外，我们还可以导出多张，
+         并且我们还可以导出合成的长图**这样。」
+
+     ⇒ 不再加第二个按钮（CY-⑭「单图场景整块隐藏长图项」那条判断本身没错，
+       错在它只做了减法、没做加法：用户读到的正是「只剩一个按钮、没人告诉我还能多选」）。
+       这里改成**在选项下面用一句话把另外两条路讲清楚**，并且说清怎么走。 */
+  const hints = [];
+  if (!longDetail) {
+    hints.push(total <= 1
+      ? '想一次导出多张：在画布上按住 Shift 点选或拖拽框选多张素材，再点导出即可。'
+      : '也可以只导出其中几张：在画布上点选或框选要导出的素材后再点导出。');
+    if (!longDetailVisible) {
+      hints.push('想把多张图拼成一张长图：多选素材后点工具条上的「合成长图」，还能调整拼接顺序。');
+    }
+  }
+  return { total, single, title, subtitle, options, longDetailVisible, hints };
 }

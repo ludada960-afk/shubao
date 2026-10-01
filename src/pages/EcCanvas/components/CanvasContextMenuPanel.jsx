@@ -464,6 +464,11 @@ export function CanvasMinimap({
             <div
               key={node.id}
               className="ec-canvas-minimap-node"
+              /* 批 CY-㊴：与画布上的节点元素用同一个 id 挂钩，好让实机门禁逐个核对
+                 「用户看得见的每个节点都必须落在视窗框内」（用户 9-30 逐字：
+                 「当前我们用户能够看到的所有内容，它都应该成为这个视窗」）。
+                 纯属性、无视觉影响；缺了它那条判据只能靠顺序猜映射。 */
+              data-canvas-node-id={node.id}
               data-kind={node.kind}
               style={{
                 left: toMapX(node.x),

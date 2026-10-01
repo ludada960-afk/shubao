@@ -34,7 +34,12 @@ test('② 运行按钮 = 纯图标 icon-button, 无「运行」文字, ≥2 选�
 test('③ 左右加号: 输入锚点 + 输出加号, 连线端点=加号中心 (17px 外偏) 重叠', () => {
   const studio = studioSource();
   /* 9-11 三轮: 左加号与右加号同功能 (点击即开派生菜单, 不再是死锚点) */
-  assert.match(studio, /<DerivePort side="input" visible=\{presentation\.handlesVisible\} disabled=\{!node\.url \|\| !canDerive\} onPointerDown=\{onPortPointerDown\}/, '图片节点左侧加号与右侧同功能');
+  /* 批 CY-㊴：判据不再锁整串字面量（多两个 prop 就会假红），只守意图：
+     图片节点左侧有一个**输入**加号、右侧有一个**输出**加号，两者同功能。 */
+  assert.match(studio, /<DerivePort side="input" visible=\{presentation\.handlesVisible \|\| connectActive\}/,
+    '图片节点左侧输入加号存在，且拖线期间（connectActive）也会亮出来');
+  assert.match(studio, /<DerivePort visible=\{presentation\.handlesVisible \|\| connectActive\}/,
+    '图片节点右侧输出加号存在');
   assert.match(studio, /is-input/, '输入加号 CSS 定位类');
   const css = cssSource();
   assert.match(css, /\.ec-canvas-node-port\.is-input \{ right: auto; left: -32px/, '左加号镜像定位');

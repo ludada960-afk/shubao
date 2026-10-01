@@ -349,14 +349,45 @@ export function createCanvasGenerationService({
         try {
           if (!job.providerJobId) {
             const resolvedInputs = [];
+            /* ═══ 批 CY-㊴（2026-09-30）：**不再静默吞掉读不出来的参考图** ═══════════════
+               事故（用户 2026-09-30 转述朋友账号 240485042@qq.com 的内测反馈）：
+                 「当他把两个素材连到一起去进行生成图片的时候…最终生成出来的效果，
+                   它会变成完全是第一张图的样子。也就是说他根本就没有参考这两张图
+                   去进行新的生成…这个问题并不是每次都会出现，好像是偶尔会出现。」
+
+               根因就在这个 catch：读第二张失败时**什么都不做**（既不抛、也不记），
+               于是请求照发，但 `inputAssets` 里只剩第一张 —— 上游拿到的就是单图，
+               产出自然"完全是第一张图的样子"。
+               "偶尔出现"也对得上：只有当那张参考图的 URL 恰好读不出来时才会发生。
+
+               而且它比"少参考了一张图"更糟：用户**以为**两张图都参与了，
+               却拿到一个只用了第一张的结果，还要为此付一次积分。
+
+               ⇒ 改成：任何一张输入读不出来都**立刻失败**，并说清是哪几张。
+                 这与批 CY-㉙ 的口径一致（「不要让用户以为那些图会参与本次生成」）。 */
+            const unreadableInputs = [];
             for (const input of request.visualInputs) {
               try {
                 resolvedInputs.push(await imageInputReader.read(input));
               } catch (error) {
-                if (input === request.visualInputs[0]) throw error;
+                unreadableInputs.push(input);
               }
             }
-            if (request.visualInputs.length && resolvedInputs.length === 0) throw invalidRequest('读取原图失败');
+            if (unreadableInputs.length) {
+              /* 落一条服务端日志：光有用户文案不够排查，得知道是哪张 URL、什么错 */
+              console.error('[canvas/regenerate] 输入图读取失败：', {
+                requestId: request.requestId,
+                ownerEmail: request.ownerEmail,
+                total: request.visualInputs.length,
+                unreadable: unreadableInputs.length,
+                firstUrl: String(unreadableInputs[0]).slice(0, 200),
+              });
+              throw invalidRequest(
+                unreadableInputs.length === request.visualInputs.length
+                  ? '原图读取失败，请重新上传素材后再试'
+                  : `有 ${unreadableInputs.length} 张参考图读取失败，本次已停止（不会只用剩下的图生成）`,
+              );
+            }
             const referenceNote = resolvedInputs.length > 1
               ? request.creationIntent === 'visual'
                 ? `Image 0 is the primary subject or composition reference. Images 1 through ${resolvedInputs.length - 1} are indexed visual references; borrow only compatible identity, composition, palette, texture, or style cues.`

@@ -107,8 +107,20 @@ test('「开一个关一个」接在三个真实入口上', () => {
     '水印面板');
   assert.match(page, /const handleComposerSurfaceChange = useCallback\(next => \{[\s\S]{0,200}?dismissAllCanvasSurfacesExcept\('activeComposerSurface'\)/,
     '生成框弹层');
-  assert.match(page, /const openConnectionPickerForNode[\s\S]{0,2000}?dismissAllCanvasSurfaces\('blank'\)/,
-    '派生菜单');
+  /* ⚠️ 2026-09-30 批 CY-㊳：这一条原来断言的是 `dismissAllCanvasSurfaces('blank')`，
+     也就是**不排除自己**。那与本测试自己的标题「开一个先关其它：**自己除外**」矛盾，
+     另外三个入口用的也全是 Except 那一支 —— 四条里只有这一条是例外。
+     真实后果（Chromium 实测，.p4-canvas.mjs，两次构建对照）：
+       改前：上传一张素材后 `derive: {present: false}` —— **面板根本没渲染**；
+       改后：`derive: {present: true, shown: true, 480×316}`。
+     机理：openConnectionPickerForNode 先 `setConnectionPicker({...})` 把面板打开，
+     紧接着又调 `dismissAllCanvasSurfaces('blank')`，而 dismissCanvasSurfaces 的 switch
+     里正有 `case 'connectionPicker': setConnectionPicker(null)`；
+     React 把同一批 setState 合并、后写的赢 ⇒ **面板开了又在同一个 tick 里被自己关掉**。
+     这正是用户图4-①的原话：「我现在在画布里面随便上传一个素材，
+     为什么右边的这个面板没有张开呢？」⇒ 判据改为 Except，与另外三条同口径。 */
+  assert.match(page, /const openConnectionPickerForNode[\s\S]{0,2000}?dismissAllCanvasSurfacesExcept\('connectionPicker'\)/,
+    '派生菜单：开自己之前要收掉**别的**浮层，但不能把自己也收掉（否则面板开了又立刻被关）');
   /* ⚠️ 不许在 setState 的 updater 里面调别的 setter —— updater 会被 React 渲染期重算 */
   assert.ok(!/setAddMenuOpen\(open => \{[^}]*dismissAllCanvasSurfaces/.test(page),
     '不得在 setState updater 里做副作用（会被 React 重算执行多次）');

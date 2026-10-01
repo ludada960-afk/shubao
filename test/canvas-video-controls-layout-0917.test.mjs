@@ -34,10 +34,17 @@ test('① 每一项都有标题（技能不再是没有标题的光板按钮）'
   for (const group of ['清晰度', '画幅', '时长']) {
     assert.ok(new RegExp('<CanvasConfigGroup title="' + group + '">').test(block), group + ' 必须在生成配置面板里');
   }
-  /* 技能仍然是 <label>技能<CanvasSkillControl/></label>，不是裸组件 */
-  assert.ok(/<label className="[^"]*">技能<CanvasSkillControl/.test(block),
-    '技能必须包在带标题的 label 里（与其余项同结构）');
-  assert.ok(!/(^|\n)\s*<CanvasSkillControl/.test(block), '技能不得再以裸组件形式直接排在进行里');
+  /* 技能必须有标题 —— ⚠️ 2026-09-30 批 CY-㊴：判据从"包在 <label> 里"改成"有标题"，
+     理由就是本文件上方自己写的那句原则：「要的是『每一项都必须有标题』，
+     **不是**『每一项都必须写成 <label> + <select>』那个具体写法」。
+     用户 2026-09-30 逐字：「而且你这个技能的这个按钮上面怎么还有一个技能呀？」
+     —— 9-17 加的那层 <label>技能</label>，和 CanvasSkillControl 触发器**自带的 title="技能"**
+     叠在一起，渲染成「技能 / ⚡ 技能 ▾」，同一个词上下各一份。
+     ⇒ 原则（有标题）仍然满足，删掉的是那个**重复**的外层文字。 */
+  assert.ok(/<CanvasSkillControl/.test(block), '技能控件必须在（它自带标题行 + 当前值）');
+  assert.ok(/title="技能"/.test(studio), 'CanvasSkillControl 的触发器标题必须是「技能」（这才是"有标题"的真身）');
+  assert.ok(!/<label[^>]*>技能<CanvasSkillControl/.test(block),
+    '不许再在外面套一层写死「技能」的 label —— 同一个词会显示两次');
   /* 这一行不许再出现原生 <select>（批 CY-⑬ 的根因：22px 高、无箭头、系统外观） */
   assert.ok(!/<select[\s>]/.test(block.replace(/\/\*[\s\S]*?\*\//g, '')), '视频行不许再有原生 <select>');
 });

@@ -26,13 +26,37 @@ test('normal export includes deliverables and excludes user source assets', () =
     { id: 'derived', kind: 'image', provenance: 'derived', status: 'ready', url: '/derived.png' },
     { id: 'text', kind: 'text', text: 'copy' },
   ];
+  /* 整张画布导出：仍然排除原始素材（批 CY-⑭ 引入 excludedSources 的初衷 ——
+     电商套图交付不能把用户原图混进交付清单）。这条语义**不变**。 */
   const all = selectDeliverableNodes(nodes, new Set());
   assert.deepEqual(all.deliverables.map(node => node.id), ['generated', 'derived']);
   assert.deepEqual(all.excludedSources.map(node => node.id), ['source']);
 
+  /* ⚠️ 2026-09-30 批 CY-㊴：**用户明确选中的原图必须能导出**。
+     旧断言在这里写的是 `['generated']` + 原图进 excludedSources ——
+     那正是用户报的那个 bug 的镜像：「我明明已经选中这张图片了，你为什么说只能导出零张图片呢？」
+     （他截图里弹窗写的就是「导出 0 张图片」，而他是点单张图的下载按钮进来的。）
+     ⇒ 明确选中 ⇒ 导出它；未选中（整张画布）⇒ 才排除。 */
   const selected = selectDeliverableNodes(nodes, new Set(['source', 'generated']));
-  assert.deepEqual(selected.deliverables.map(node => node.id), ['generated']);
-  assert.deepEqual(selected.excludedSources.map(node => node.id), ['source']);
+  assert.deepEqual(selected.deliverables.map(node => node.id), ['source', 'generated'],
+    '明确选中的原图也要导出 —— 用户点了它就是想导它');
+  assert.deepEqual(selected.excludedSources.map(node => node.id), [], '明确选中时不再有"被排除"项');
+
+  /* 只选生成结果时，行为与旧版一致（不能因为放宽就把 excludedSources 弄丢） */
+  const onlyGenerated = selectDeliverableNodes(nodes, new Set(['generated', 'derived']));
+  assert.deepEqual(onlyGenerated.deliverables.map(node => node.id), ['generated', 'derived']);
+});
+
+test('导出范围里绝不包含视频/音频/文本节点（放宽的是"原图"，不是"什么都导")', () => {
+  const nodes = [
+    { id: 'video', kind: 'video', status: 'ready', url: '/clip.mp4' },
+    { id: 'audio', kind: 'audio', status: 'ready', url: '/vo.mp3' },
+    { id: 'text', kind: 'text', text: '卖点' },
+    { id: 'empty', kind: 'image', provenance: 'source', status: 'generating', url: '' },
+  ];
+  /* 明确选中它们 ⇒ 仍然一张都导不出（交付链路只写图片文件） */
+  const picked = selectDeliverableNodes(nodes, new Set(['video', 'audio', 'text', 'empty']));
+  assert.deepEqual(picked.deliverables.map(node => node.id), [], '视频/音频/文本/未就绪节点都不进导出清单');
 });
 
 test('Canvas export no longer packages JSON or loops automatic anchor downloads', () => {
