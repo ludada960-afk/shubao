@@ -15976,3 +15976,87 @@ footer 34px 且按 showMeta 分支），判定更准了。
 门禁：新增 `task-button-follows-minimap-1001`（3 条）。
 
 上线 `20261001-170442-65e638b3`，全量 4535 条 / 0 失败。
+
+## 2026-10-01 批 CY-㊴ 之十四：视频上传「传很久才失败」+「报错是英文」
+
+用户原话（两条）：
+① 「我刚刚尝试了一下上传视频。等了非常久它才弹出来这个提示，然后素材上传不上来。
+    也就是说现在的上传通道是不太流畅的。」
+② 「而且还有就是你的提示，为什么都是英文呢？肯定要用中文来回答呀。」
+
+### 根因一：同一个上限写了三份，上次只改了一份（这是「等很久」的真正原因）
+
+| 位置 | 视频上限 | 谁在用 |
+| --- | --- | --- |
+| `server/videoUploadService.mjs` `LIMITS` | 300MB | tus 建上传时校验 + `maxSize` |
+| `server/videoGeneration.mjs` `INPUT_LIMITS` | **50MB** | `importUploadedAsset` —— 在 `onUploadFinish` 里 |
+| `server/index.mjs` `/api/video/assets` | **50MB** | 直传通道（内联字面量） |
+
+tus 的前两道关读 300MB ⇒ 5MB 一块把整个文件**全部传完**；
+最后一块 PATCH 才触发 `onUploadFinish` → `importUploadedAsset` 撞上仍是 50MB 的
+`INPUT_LIMITS` → 413。所以用户看到的就是"传了很久很久，最后才失败"。
+**上次只把 videoUploadService 那份从 50 改成 300，另外两份没动。**
+
+修法：新建 `server/mediaUploadLimits.mjs` 作**唯一真相**（上限 + CONTENT_TYPES 一起），
+三处都从它取。门禁 ① 守的是**结构**（三处都不许再出现内联字面量），不是"数字一样大" ——
+否则下一个人照样能改一处漏两处。
+
+### 根因二：readableUploadError 从来没生效过（这是「英文」的真正原因）
+
+读 `node_modules/tus-js-client/lib.esm/error.js` 确认：`DetailedError` 把状态码与
+响应体挂在 `originalResponse`（`getStatus()`/`getBody()`）上，**error 本身没有 `.status`**。
+上次只判 `error.status` ⇒ 恒为 0 ⇒ 两条分支都不命中 ⇒ 兜底 `return raw`
+⇒ 整段 tus 原文（含内部 URL）原样上屏。
+
+改成四级：状态码从 `originalResponse` 读 → 服务端响应体里的中文 `error` 优先 →
+按状态码给中文 → 只有"确实是中文**且**没裹着英文外壳"才原样放行。
+
+⚠️ 这里有个反直觉的坑，**只查"含中文"会被骗**：tus 原文里**嵌着我们自己的中文**
+（`response text: {"error":"素材文件大小不符合要求"}` 那一小段），
+所以"含中文"为真却仍是一整段英文外壳 —— 必须同时排除英文外壳，否则 URL 一起漏出去。
+（这条已作为门禁 ③ 的一个用例固定住：模拟 nginx HTML 拒绝 + message 内嵌中文。）
+
+### 根因三：nginx 会先于应用拒绝
+
+`scripts/nginx/shuimg.cn.conf` 的 `client_max_body_size 64m`（server 级历史遗留）
+小于应用上限 ⇒ nginx 先返回它自己的 **413 HTML 错误页**（英文，既没有"上限是多少"
+也没有"怎么缩小"）。现在 `location ^~ /api/` 下单独给 512m，
+让**应用**永远是第一个拒绝的地方。只加在 /api/ 里，静态资源不受影响。
+
+### 另外两件用户点名的事
+
+· **画布路径把服务端公布的上限丢了**：`uploadVideoAsset` 调
+  `uploadVideoAssetResumable(file, kind)` 不带 callbacks ⇒ `limits` 是 `undefined`
+  ⇒ 前端"上传前拦截"一直拿兜底常量在拦。现在透传 `capabilities.uploadLimits`。
+· **上传全程零反馈**：只有 `setPromptLoading(true)` 转圈。300MB 视频要传好几分钟，
+  用户原话「上传通道不太流畅」。现在按字节实时显示文件名/已传/总量/百分比；
+  百分比**保留一位小数**（取整会让慢网看起来像卡死）。
+  拖拽上传那个 handler 原来**没有 finally** —— 加了进度后任何失败都会留下
+  一个永远转不完的 47%，已补。
+
+### 门禁
+
+`test/video-upload-limit-and-message-1001.test.mjs` 5 条。③ 是**行为**测试：
+把用户截图里那条真实 tus 报错按真实形状造出来跑一遍，断言吐出的是中文、
+不含英文骨架、不含内部 URL。**已做红测证明**：改动前同一输入吐出的就是那整段英文。
+
+### 探针踩的两个坑（下次直接照抄）
+
+① vite 把 `/api` 代理**写死到 :3001**，而 3001 上常驻着别的会话的后端。
+   自起后端若端口撞了会**静默死掉**，而 `waitForHealth` 因为老进程还在而立刻"成功"
+   ⇒ 探到的是**旧代码**（我一度以为 `uploadLimits` 没生效，模块却是好的）。
+   修法：自起后端用**独立端口** + `page.route` 把浏览器的 `/api` 改道过去。
+   另：`startDevServer` 自起时用的是 5190-5229 里的**随机端口**，不是 5173。
+
+### 结果
+
+全量 4540 条 / 0 失败；precommit（构建 + 38 道 BLOCKING 门禁）全绿；
+design-ratchet 无新增硬编码（进度条配色全走已有 token）。
+
+实机探针（真浏览器 + 真后端）：
+· `/api/video/capabilities.uploadLimits.video` = 314572800（300MB）✅
+· 超限提示：「视频「测试视频.mp4」有 305 MB，超过单文件上限 300 MB。请压缩后再传，或换一个更小的文件。」
+  （中文、含真实上限、无英文、无内部 URL）
+· 进度条：420×61 可见、填充比 0.208、百分比 "20.8%"、水平居中、不出屏。
+
+提交 `8caf886e`（worktree 处于 detached HEAD，与本 worktree 前几次提交同状态）。
