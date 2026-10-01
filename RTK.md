@@ -15904,3 +15904,33 @@ QA 画布里唯一失败的是夹具 `superhero.png`（`natural 0×0`）。
 3. 泄漏修好、`body` 的行内 `overflow` 回到空之后，`position: sticky` 会**自动**开始生效，
    顶栏与本页签都不用再动。
 4. 顺手全站扫一遍还有谁写着 `position: sticky` —— 它们大概率也一直没用上。
+
+
+## 2026-10-01 · 两条待确认（用户澄清后仍未动手，先记清各自卡在哪）
+
+**① 框选「没有完整选中」**
+上一批我改的是 `selectNodesInRect` 里写死的 `+60`（换成 `canvasNodeFootprint`，
+footer 34px 且按 showMeta 分支），判定更准了。
+但用户这次说的是**另一个语义**：现在只要**部分相交**就算选中，而他要的是「**完整**选中」。
+`test/canvas-interaction-model.test.mjs` 里有一条门禁明确锁着现语义：
+「marquee selection includes **intersecting** nodes only」——
+改成"必须完全框住"要推翻这条约定。**属产品口径，未擅自改。**
+
+**② 「生成进度」那个单独按钮**
+用户澄清指的是 `.task-sidebar`（aria=打开任务列表、position:fixed、z 4e7），
+**不是**缩放条、也不是底部居中那排 dock。
+它本来就该在小地图上方：`TaskSidebar.jsx:88` 量出小地图的实时顶沿 + 12px 摆上去。
+
+本机实测（1920×966，真实渲染）：
+  生成进度按钮  y 658..704
+  小地图        y 716..896   ⇒ 差 12px，**在位、不重叠**
+  缩放条        y 910..952
+
+用户截图里那个按钮压在小地图上 ⇒ 与本机实测不一致。
+可疑点（**未验证**）：同步只挂了 `ResizeObserver`（只对**尺寸**变化触发），
+小地图**开/关**引起的**位移**不会触发重新同步 ⇒ 一开一关就错位。
+需先复现再改（补 childList 观察 / resize 重算）。本批预算不够，**未动**。
+
+另：`Home.css:1909` 那条 `.task-sidebar { bottom: 72px !important }` 位于
+`@media (max-width: 639px)` 内，桌面（1920）不命中，**不是**元凶 ——
+但它在小屏上确实会压掉 JS 算出来的值，值得顺手记一笔。
