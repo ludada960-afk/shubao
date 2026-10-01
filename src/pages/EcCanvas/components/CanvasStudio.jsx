@@ -381,6 +381,8 @@ export function CanvasDeriveMenu({ actions = [], anchorRect = null, title = '引
                     由 CSS `display:none` 收起），门禁 canvas-right-panel-hint-1001 钉着它。
                     我第一版把 `<small>` 直接删了，那会让那条门禁变红 —— 已改回他们的做法：
                     元素留着（读屏仍拿得到）、界面上不显示、完整句子走 hover 的 `title`。 */}
+                {/* 批 CY-㊴：描述默认不直接显示（两行截断读不全），hover 用原生提示给完整句子。
+                   整条描述进 title，键盘/读屏也能拿到 —— 之前它是纯视觉的。 */}
                 <span className="ec-canvas-derive-copy" title={action.description}><strong>{action.label}</strong><small aria-hidden="true">{action.description}</small></span>
                 <span className="ec-canvas-derive-meta">{priceBadge ? <em>{priceBadge}</em> : null}<ArrowUpRight size={14} /></span>
               </button>;
