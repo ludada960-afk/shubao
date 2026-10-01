@@ -207,15 +207,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ec-canvas-derive-tile .ec-canvas-derive-copy small {
-  font-size: var(--sb-text-xs);
-  color: var(--sb-ink-4);
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+/* 批 CY-㊴（2026-10-01）：描述默认**收起**。
+   用户原话：「这些按钮的描述现在都是看不全的，还不如不直接显示，鼠标放上去再显示描述吧」
+   —— 原来这里是 -webkit-line-clamp: 2，12~18 个字的描述每张都被砍成半句 + 省略号。
+   现在：默认 0 高不占位；hover 整块 tile 时用原生 title 显示完整句子（见 JSX 的 title 属性）。 */
+/* 批 CY-㊴（2026-10-01）：描述**默认收起**，hover 由原生 title 显示完整句子。
+   用户原话：「这些按钮的描述现在都是看不全的，还不如不直接显示，鼠标放上去再显示描述吧」
+   ⚠️ 第一版只在前面插了 `display: none`，而这条规则**下面原本还有**
+   `display: -webkit-box` + `-webkit-line-clamp: 2` —— 后者位置更靠后、会把它盖掉，
+   等于没改。（这已是本轮第六次"自己绊倒自己"：注释里的字面量、死声明、CRLF…）
+   ⇒ 整条规则收敛成一句 `display: none`，那些已经失效的声明不留着当误导。 */
+.ec-canvas-derive-copy small { display: none; }
 
 /* meta: 价格徽标 + 箭头 */
 .ec-canvas-derive-tile .ec-canvas-derive-meta {

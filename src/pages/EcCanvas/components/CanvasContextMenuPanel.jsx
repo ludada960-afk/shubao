@@ -404,7 +404,12 @@ export function CanvasMinimap({
     x: Math.min(canvasWidth - visibleW, Math.max(0, rawVisibleRect.x)),
     y: Math.min(canvasHeight - visibleH, Math.max(0, rawVisibleRect.y)),
   };
-  /* 被面板压住的那一段：紧接在实心框右边，宽度按同样的世界→小地图比例换算 */
+  /* 被面板压住的那一段：与实心框**合成同一个盒子**。
+     ⚠️ 批 CY-㊴（2026-10-01，第二版）：第一版画了两个盒子（实心 + 斜纹）拼在一起，
+     用户原话「你这很明显是加了一层样式上去啊，看起来很割裂啊……不要这样割裂式的去组装」。
+     ⇒ 现在只有一个 div：宽度 = 看得见的 + 被遮住的，边框连续；
+       被遮住的那段靠**同一层背景**（repeating-linear-gradient，用 --covered-w 限定宽度）
+       区分，不是另加一个盒子。 */
   const coveredW = coveredWidth > 0
     ? Math.max(0, Math.min(canvasWidth - (visibleRect.x + visibleW), (coveredWidth / safeScale) * scale))
     : 0;
@@ -503,25 +508,12 @@ export function CanvasMinimap({
           style={{
             left: Math.max(0, visibleRect.x),
             top: Math.max(0, visibleRect.y),
-            width: visibleRect.w,
-            height: visibleRect.h,
+            /* 一个盒子：看得见的 + 被面板遮住的，加起来正好是画布的完整范围 */
+            width: visibleW + coveredW,
+            height: visibleH,
+            '--covered-w': coveredW > 0 ? `${coveredW}px` : '0px',
           }}
         />
-        {/* 被右侧面板压住的那一段：和实心框同高、紧接其右，斜纹填充。
-            画出来之后，"画布右边被面板盖住" 在小地图里是**看得见的**，
-            而不是"框忽然变窄了"（用户连着三次反馈的就是这个观感）。 */}
-        {coveredW > 0 && (
-          <div
-            className="ec-canvas-minimap-covered"
-            aria-hidden="true"
-            style={{
-              left: Math.max(0, visibleRect.x) + visibleW,
-              top: Math.max(0, visibleRect.y),
-              width: coveredW,
-              height: visibleRect.h,
-            }}
-          />
-        )}
       </div>
     </div>
   );

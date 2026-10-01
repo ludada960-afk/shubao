@@ -367,9 +367,11 @@ export function CanvasDeriveMenu({ actions = [], anchorRect = null, title = '引
             {bucket.map(action => {
               const Icon = DERIVE_ICONS[action.id] || Sparkles;
               const priceBadge = action.priceLabel && action.priceLabel !== '免费' ? action.priceLabel : '';
-              return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
+              return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" title={action.description} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
                 <span className="ec-canvas-derive-chip"><Icon /></span>
-                <span className="ec-canvas-derive-copy"><strong>{action.label}</strong><small>{action.description}</small></span>
+                /* 批 CY-㊴：描述默认不直接显示（两行截断读不全），hover 用原生提示给完整句子。
+                   整条描述进 title，键盘/读屏也能拿到 —— 之前它是纯视觉的。 */
+<span className="ec-canvas-derive-copy" title={action.description}><strong>{action.label}</strong><small aria-hidden="true">{action.description}</small></span>
                 <span className="ec-canvas-derive-meta">{priceBadge ? <em>{priceBadge}</em> : null}<ArrowUpRight size={14} /></span>
               </button>;
             })}

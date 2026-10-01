@@ -35,27 +35,35 @@ test('① 生成面板的提示语不许被压成 0 宽（0 宽 + normal 换行 
     '必须有一条给 min-width 兜底：宁可被压缩后省略，也不许逐字换行');
 });
 
-test('② 小地图必须把「被右侧面板遮住的那一段」画出来（用户连着三次反馈的就是这个）', () => {
+test('② 小地图必须把「被右侧面板遮住的那一段」画出来，且是**一个盒子**', () => {
   /* 事实先说清：实心框的**数值**一直是对的（框宽/画布宽两态都是 0.0409、宽高比精确匹配）。
      但用户三次说「小地图依然会被派生框遮住一部分」「素材图的右边为什么还是比较窄」
      「这个派生面板在你的小地图里依然是被遮蔽的元素呀」——
      他要的是：画布右边被面板盖住的那一段**在框里要看得见，并且看得出它是被遮住的**。
      ⚠️ 我前两次都把方向搞反了：先把实心框改窄，再给框外加压暗 ——
      那等于把「被遮住」画成了「窗外」，越修越像"框被切掉了"。
-     ⇒ 现在：实心框 = 看得见的部分；紧接其右画一段**斜纹**的"被面板压住"，
-       两段合起来正好是画布的完整宽度（实测 45.97 + 19.47 = 65.44）。 */
+     ⚠️ 第三版画成两个 div 拼起来，也被退回：
+     「你这很明显是加了一层样式上去啊，看起来很割裂啊……不要这样割裂式的去组装」
+     ⇒ 现在只有一个 div，宽度 = 看得见的 + 被遮住的（= 画布完整宽度），
+       被遮住那段靠同一层背景的斜纹区分。实测两态总宽都是 65.44。 */
   const geo = read('src/pages/EcCanvas/canvasVisibleViewport.js');
   assert.match(geo, /coveredWidth/, '取数函数必须把「被遮住的宽度」一起报上来');
   assert.match(geo, /marginRight/, '被遮住的宽度来自面板让位的 margin-right');
 
   const panel = read('src/pages/EcCanvas/components/CanvasContextMenuPanel.jsx');
-  assert.match(panel, /ec-canvas-minimap-covered/, '小地图必须渲染"被遮住"那一段');
-  assert.match(panel, /coveredW > 0 &&/, '没有遮住时就不渲染（面板关着不该多一条）');
+  assert.doesNotMatch(panel, /ec-canvas-minimap-covered/,
+    '不许再画第二个盒子 —— 拼起来就是用户说的「割裂」');
+  assert.match(panel, /width:\s*visibleW \+ coveredW/,
+    '一个盒子的宽度 = 看得见的 + 被遮住的（合起来是画布的完整宽度）');
+  assert.match(panel, /'--covered-w'/, '被遮住那段的宽度用 CSS 变量交给同一层背景');
 
   const supCss = read('src/styles/canvas-supervisor.css');
-  const cov = supCss.match(/\.ec-canvas-minimap-covered \{([^}]*)\}/);
-  assert.ok(cov, '缺少 .ec-canvas-minimap-covered 样式');
-  assert.match(cov[1], /repeating-linear-gradient/, '必须是斜纹/条纹 —— 一眼看得出"被遮住"');
+  const cov = supCss.match(/\.ec-canvas-minimap-viewport \{([^}]*)\}/);
+  assert.ok(cov, '缺少 .ec-canvas-minimap-viewport 样式');
+  assert.match(cov[1], /repeating-linear-gradient/,
+    '被遮住那段用同一层背景的斜纹 —— 一眼看得出那是被遮住的');
+  assert.match(cov[1], /var\(--covered-w/,
+    '斜纹宽度由 --covered-w 限定，而不是另加一个盒子');
   const canvas = supCss.match(/\.ec-canvas-minimap-canvas \{([^}]*)\}/);
   assert.ok(canvas, '找不到 .ec-canvas-minimap-canvas');
   assert.match(canvas[1], /overflow:\s*hidden/,
