@@ -1464,7 +1464,11 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
            输出加号维持原语义。两条判据各司其职，不再共用一个门。 */}
     <DerivePort side="input" visible={selected || connectActive} active={snapActive} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
     {nodeHasResult && <DerivePort visible={selected || connectActive} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />}
-    <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
+    {/* 2026-10-02 用户批注：「为什么我们的视频区块他们周边都会有一个可以拉动大小的这种操作呀？
+         **视频是不需要去拉动它变形的呀，你这个功能应该取消掉，就是我们的框它是不能自己去拉动大小的，
+         用户他不能自己去拉���。**」
+         ⇒ 视频节点不给缩放手柄；图片仍给（那条要按比例裁切）。 */}
+    <ResizeHandles visible={selected && !node.locked && !isVideo} onResizeStart={onResizeStart} />
   </article>;
 }
 

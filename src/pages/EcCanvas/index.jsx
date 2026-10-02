@@ -2885,7 +2885,19 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         dy,
         preserveAspect: pointerMode.preserveAspect,
       });
-      setNodes(previous => previous.map(node => node.id === pointerMode.nodeId ? resized : node));
+      /* ⚠️ 2026-10-02 用户批注：「我刚刚只是随便拉动了一下这个视频区块。他现在已经没有办法进行
+         任何操作了，我连删除都删除不了他，而且他连上面的那个功能栏现在也出不来了。」
+      
+         病根：视频的 <video onLoadedMetadata> 是在**用户拖完之后**才触发的，而
+         handleMediaNaturalSize 无条件改写 node.h —— 节点在手底下弹回去，观感就是「拽不动、然后卡死」。
+         全仓原先**没有**任何「用户已手动缩放」的标记（userSized/manualResize 全 0 命中）。
+      
+         ⇒ 在**这里**（结果落到节点的那一行）打标记，而不是塞进 resizeCanvasNodeByHandle：
+            那个函数是纯几何、门禁钉了它的确定性返回值，塞业务字段会破坏契约（三条门禁实测因此变红）。
+            语义只是记一个事实——「用户已自己定过尺寸」，后续自动校正读��要给路。 */
+      setNodes(previous => previous.map(node => node.id === pointerMode.nodeId
+        ? { ...resized, userSized: true }
+        : node));
       return;
     }
     if (pointerMode.kind === 'layer-extract') {
@@ -3210,6 +3222,17 @@ const handlePointerUp = useCallback((e) => {
          （handleTextNodeAutoHeight），拿素材比例去改它们会把用户排好的版面推倒。 */
       if (!MEDIA_FIT_KINDS.has(node.kind)) return node;
       if (node.naturalWidth === measuredWidth && node.naturalHeight === measuredHeight) return node;
+      /* ⚠️ 2026-10-02 用户批注：「我刚刚只是随便拉动了一下这个视频区块。他现在已经没有办法进行
+         任何操作了，我连删除都删除不了他，而且他连上面的那个功能栏现在也出不来了。」
+
+         病根就在下面那行 h：视频的 <video onLoadedMetadata> 是在**用户拖完之后**才触发的，
+         而这里无条件改写 node.h —— 节点在手底下弹回去，观感就是「拽不动、然后卡死」。
+         ⚠️ 全仓原先**没有任何**「用户已手动缩放」的标记（userSized/manualResize 全 0 命中），
+            这条链路上两边一直在互相打架。
+
+         ⇒ 用户自己定过尺寸就让路：**只更新信息**（真实比例 / 真实像素 / 规格串），
+            不动他拉出来的 h。比例信息照样更新 —— 后续按比例裁切要用它。 */
+      const userSized = node.userSized === true;
       const width = Math.max(1, Number(node.w) || 240);
       /* 批 CY-⑲：`node.h` 是**图片本体**的高度（`.ec-canvas-media-frame`），
          footer 在它下面另外渲染。所以这里算出来的 height 必须夹上限 ——
