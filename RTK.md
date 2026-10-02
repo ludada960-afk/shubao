@@ -16511,3 +16511,107 @@ build 上对照一次，才能判断是 mangle 还是真没上线。）
 已做红测：把占位文案从产物里抹掉后，门禁判红（正是 ② 那条）。
 
 全量 4575 条 / 0 失败。
+
+## 2026-10-01 批 CY-㊴ 之十九：nginx 耗时日志（让「慢」可被定位）
+
+承接之十五的遗留项：`access_log` 用的是**默认格式，里面没有耗时字段**。
+上一次查全站延迟，只能临时上手加一行再手工 grep；下次再遇到又得重来，
+而且改的是 `/etc/nginx/nginx.conf` —— **部署脚本不管那个文件**，
+所以它天然落在版本管理之外：改一次，下次部署没人记得它存在，覆盖时就悄悄没了。
+
+### 为什么不直接改 nginx.conf
+
+`log_format` 只能在 **http** 上下文声明，而部署脚本只管
+`/etc/nginx/sites-available/shuimg.cn`（server 上下文）—— 写在那里 `nginx -t` 会直接失败。
+要改就得动 `nginx.conf`，那就回到"不在版本管理里"的老问题。
+
+### 解法：落在**已经被 include** 的 http 层目录里
+
+线上 `nginx.conf` 的 http 块里本来就有 `include /etc/nginx/conf.d/*.conf;`（第 59 行），
+而 `conf.d/` 本来是空的。于是新增 `scripts/nginx/00-shubao-log-format.conf`：
+
+· 落在已被 include 的目录 ⇒ **不需要改 nginx.conf 一行**
+· 由仓库版本管理（scripts/nginx/ 下）
+· 由部署脚本**安装**（跟 sites-available 那份同一个 locked step、同一个 `nginx -t`）
+· 由部署脚本**回滚**（备份 + 两条回滚路径都还原；"之前没有这个文件"时删掉而不是 cp 一个不存在的文件）
+· 文件名以 `00` 开头：conf.d 是按 glob 字典序展开的，`log_format` 必须先于用到它的 `access_log` 生效
+
+上线前先在服务器上单独 `nginx -t` 验过，确认这个文件放进 conf.d 不会破坏配置。
+
+日志格式带 `$request_time`（总耗时）/ `$upstream_response_time`（后端耗时）/
+`$upstream_connect_time`（连后端耗时）/ `$bytes_sent`（压缩后实际下发字节）。
+前两个相减就是 nginx 与网络的开销；`$bytes_sent` 可以直接验证 gzip 到底生效没。
+
+### 门禁
+
+新增 `test/nginx-timing-log-1001`（5 条）：
+① log_format 必须落在会被 include 的 http 层目录、且真的被启用（只定义不启用等于没做）；
+② 文件名必须排在字母类文件之前；
+③ 部署脚本必须打包 + 安装 + 在 `nginx -t` **之前**装（否则语法错会被 reload 掩盖）；
+④ 回滚必须还原**两份**配置（只还原一份 ⇒ nginx 与线上状态不一致，而 `nginx -t` 不会提醒你）；
+⑤ 站点配置里 client_max_body_size 仍然只许有一处（不要把两件事混在一个文件里）。
+
+另：用 PowerShell 的 Parser 静态校验了 deploy-production.ps1 —— 改部署脚本而语法坏掉，
+会**让之后每一次部署都失败**，那比这次改动本身严重得多。
+
+## 2026-10-01 批 CY-㊴ 之十九（续）：CSS 按 chunk 拆分
+
+承接之十九的第二个遗留项：首屏体积。
+
+### 根因：JS 拆了，CSS 没拆
+
+`App.jsx` 里 15 个路由**全是 `React.lazy`** 的，但 `vite.config.js` 里
+`build.cssCodeSplit: false` —— 于是 `src` 下 **62 个** CSS 文件被合成**一个**
+**844 KB** 的样式表，而且它就写在 `index.html` 里 ⇒ **每一页都要先下完它**，
+包括首页根本用不到的 VideoStudio(135KB) / EcCanvas(188KB) / Home(179KB)。
+「首屏 844 KB 的 CSS」里有很大一部分是用户这一辈子都不会打开的页面。
+
+### 改法与实测（对着**真实构建产物**量的，不是看配置）
+
+改成 `cssCodeSplit: true`，产物从 1 个 CSS 变成 13 个。逐路由量「首屏实际下了多少 CSS」：
+
+| 路由 | 拆分前 | 拆分后（gzip） | 省 |
+| --- | --- | --- | --- |
+| `/` | 844 KB / 141.8 KB | 508 KB / **88 KB** | −53 KB |
+| `/pricing` | 同上 | 149 KB / **28 KB** | **−114 KB** |
+| `/canvas` | 同上 | 339 KB / **60 KB** | −81 KB |
+| `/video` | 同上 | 508 KB / **88 KB** | −53 KB |
+
+**每个路由都变好了**，而且表从 1 张变多张可以**并行下载**，不再是一张大表挡在最前面。
+
+### FOUC（拆分唯一的真实代价）必须验，不能假设
+
+拆分的风险是懒加载路由「先渲染、后上样式」。对着真实产物（起静态服务器伺服 `dist/`，
+不是 vite dev server —— dev 会把每个 CSS 单独注入，行为与生产完全不同）实测：
+
+· `/`、`/pricing`、`/canvas`、`/video` 四个路由的首元素计算样式都是
+  `display: flex` + 正确的 `font-family` ⇒ **没有 FOUC**。
+· **客户端路由**跳转 `/pricing` 时，样式表从 7 张变 8 张 ⇒ 新增的那一张正是懒路由
+  自己的 CSS，说明「按需加载」真的在按需，而不是被提前全塞进来。
+
+⚠️ 第一版探针有两个错，都会得出**相反**的结论，已记：
+① 比"样式表**个数**"而不是**字节** —— 个数少不代表体积小。
+② 用 `page.goto` 做"导航"，那是**整页重载**（新文档），
+   把首页的 8 张表和 pricing 的 3 张表拿来比毫无意义。
+   懒加载 CSS 的问题**只在客户端路由**（不重载文档）时才会出现。
+
+### 门禁
+
+新增 `test/bundle-first-payload-1001`（3 条）：① `cssCodeSplit` 必须是 true；
+② 产物里 CSS 必须是多个文件、且 index.html 直接引用的那张不许超过 300KB；
+③ **首屏 CSS 合计不许超过 200KB** —— 这一条才是真的防"拆了但没拆掉"：
+只要有任何一个急切引入的模块把大块 CSS 拖回首屏，体积就白拆。
+已做红测：把 `cssCodeSplit` 改回 false，门禁判红。
+
+### 还没做的（下一根杠杆，需要产品决策）
+
+首页仍然要下 508 KB / 88 KB gzip。原因是 `Home/index.jsx` **静态**引入了它的
+各个子模式（XhsContentMode / EcMode / VisualCreationMode / DesignDirection /
+GallerySection / RecoveryShelf），这些模式各自的 CSS（Home 一家就 337 KB / 16 个文件）
+在首页就全下来了。
+
+把这批子模式改成懒加载，能再砍掉首页一大半 CSS —— **但这是产品决策不是性能优化**：
+用户在首页切模式时会看到一次加载（要么转圈要么短暂空白）。要不要做、怎么做，
+需要先定"切模式时希望看到什么"，不该由我在这里替他决定。
+
+全量 4580 条 / 0 失败。
