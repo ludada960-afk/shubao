@@ -22,7 +22,14 @@ param(
   # 只在**故意回滚 / 从分叉分支救火**时用 —— 正常发布永远不许开。
   # 那次事故见 RTK「批 DC 续-36」：两条线从分叉的历史部署到同一个生产环境，
   # 谁后部署谁覆盖，**覆盖之后没有任何告警**。
-  [switch]$SkipForwardOnlyCheck
+  [switch]$SkipForwardOnlyCheck,
+  # 约定的**唯一发布分支**。所有会话都必须从它部署（2026-10-02 起）。
+  # 与 -SkipDetachedDeployCheck 一起构成"根因守卫"：堵死"从 detached 工作树 / 分叉历史部署"。
+  [string]$ReleaseBranch = 'gm/release-merge-1001',
+  # 跳过"必须从具名发布分支部署"的前置检查。
+  # **正常发布永远不许开。** 只有两种情况需要：① 故意回滚救急；② 这条规则刚上线、
+  # 对方那条线还没来得及切到发布分支（过渡期，最多一两次，且要知会另一条线）。
+  [switch]$SkipDetachedDeployCheck
 )
 
 $ErrorActionPreference = "Stop"
@@ -444,15 +451,48 @@ function Get-LastDeployedCommitSha {
   param(
     [Parameter(Mandatory = $true)][string]$BackupRoot
   )
-  $listing = Invoke-BoundedSshCapture -Command "ls -1 '$BackupRoot' 2>/dev/null | sort | tail -1" -TimeoutSeconds 30
-  $name = $listing.Trim()
-  if (-not $name) { return '' }
-  # 发布号形如 20261001-095750-c8e8ba1d —— 取末段短 sha，再在本仓库里补全。
-  if ($name -notmatch '-([0-9a-f]{7,40})$') { return '' }
-  $short = $Matches[1]
-  $full = (& git -C $script:repoPath rev-parse --verify "$short^{commit}" 2>$null)
-  if ($LASTEXITCODE -ne 0 -or -not $full) { return "short:$short" }
-  return $full.Trim()
+  # ⚠️ 2026-10-02：判据的**来源**改了 —— 先看 `current` 指向的 release，
+  #    那是**当前真正在跑**的产物；`deploy-backups` 只作兜底。
+  #    为什么必须改：原来取 `ls deploy-backups | sort | tail -1`，也就是**名字最新那次备份**，
+  #    而它**未必是当前激活的**（发布失败 / 被覆盖 / 顺序错乱都会让两者不一致）。
+  #    拿"最新备份"当"上一次上线"，会把一次**并没有真正上线**的发布当成既成事实，
+  #    于是要么误拦、要么误放 —— 判据问错了对象。
+  $current = Invoke-BoundedSshCapture -Command "readlink -f '$WebRoot' 2>/dev/null" -TimeoutSeconds 30
+  $fallback = Invoke-BoundedSshCapture -Command "ls -1 '$BackupRoot' 2>/dev/null | sort | tail -1" -TimeoutSeconds 30
+  foreach ($candidate in @($current.Trim(), $fallback.Trim())) {
+    if (-not $candidate) { continue }
+    # 目录名形如 20261002-112208-ab242473 —— 取末段短 sha，再在本仓库里补全。
+    if ($candidate -notmatch '-([0-9a-f]{7,40})$') { continue }
+    $short = $Matches[1]
+    $full = (& git -C $script:repoPath rev-parse --verify "$short^{commit}" 2>$null)
+    if ($LASTEXITCODE -ne 0 -or -not $full) { continue }
+    return $full.Trim()
+  }
+  return ''
+}
+
+function Assert-DeployIsFromNamedBranch {
+  # ⚠️ 2026-10-02：**根因守卫**。2026-10-01~02 这一天发生的十几次「刚上线就没了」，
+  #    **每一次**都是有人从 `git worktree add --detach` 建的 detached 工作树部署的 ——
+  #    那类提交不在任何分支上，随时与线上分叉，而且**没有任何机制能提前发现**。
+  #    只进不退检查只能挡住"我这一边"：对方用一份**更早的脚本**发起时，它根本不在里面。
+  #    ⇒ 这里补一条与"是哪条线"无关的硬规则：**发布必须来自具名分支，且必须是约定的发布分支**。
+  #    这是目前唯一一条能把"从分叉历史部署"这件事本身堵死的检查。
+  if ($SkipDetachedDeployCheck) { return }
+  $head = ((& git -C $script:repoPath rev-parse --abbrev-ref HEAD 2>$null) -join '').Trim()
+  if (-not $head) { return }   # 读不出来就不拦（不拿查不了的规则挡线上发布）
+  if ($head -eq 'HEAD') {
+    throw ("拒绝发布：当前是 **detached HEAD**，提交不在任何分支上。" +
+      "`n这类发布正是 2026-10-01~02 那十几次「刚上线就没了」的根因 —— 从 detached 工作树部署，" +
+      "`n提交不在任何分支上，随时与线上分叉，且没有任何机制能提前发现。" +
+      "`n办法：在具名分支的工作树里做构建与发布（`git worktree add <路径> $ReleaseBranch`，**不要加 --detach**）。")
+  }
+  if ($head -ne $ReleaseBranch) {
+    throw ("拒绝发布：当前分支是 **$head**，约定的发布分支是 **$ReleaseBranch**。" +
+      "`n所有会话必须从同一条发布分支部署，否则谁后部署谁覆盖（2026-10-01~02 反复发生）。" +
+      "`n先合并再发：git checkout $ReleaseBranch && git merge <当前线上那次提交>" +
+      "`n（确需临时从别的分支发布，加 -SkipDetachedDeployCheck 并知会另一条线。）")
+  }
 }
 
 function Assert-ReleaseIsForwardOnly {
@@ -467,20 +507,16 @@ function Assert-ReleaseIsForwardOnly {
   }
   $previous = Get-LastDeployedCommitSha -BackupRoot $BackupRoot
   if (-not $previous) {
-    Write-Warning "读不到上一次发布号（服务器 $BackupRoot 为空或格式不认识）—— 无法验证只进不退，本次放行。"
-    return
-  }
-  if ($previous.StartsWith('short:')) {
-    Write-Warning "上一次发布是 $previous，本机仓库里没有这个提交（可能是别的机器发的）—— 验不了，只放行。"
+    Write-Warning "读不到当前线上发布号（服务器 $WebRoot / $BackupRoot 为空或格式不认识）—— 无法验证只进不退，本次放行。"
     return
   }
   $ancestor = (& git -C $script:repoPath merge-base --is-ancestor $previous $ThisCommit)
   if ($LASTEXITCODE -eq 0) {
-    Write-Host "只进不退 OK：本次 $(git -C $script:repoPath rev-parse --short $ThisCommit) 是上一次上线 $(git -C $script:repoPath rev-parse --short $previous) 的后代。"
+    Write-Host "只进不退 OK：本次 $(git -C $script:repoPath rev-parse --short $ThisCommit) 是当前线上 $(git -C $script:repoPath rev-parse --short $previous) 的后代。"
     return
   }
-  throw ("本次提交 $(git -C $script:repoPath rev-parse --short $ThisCommit) **不是**上一次上线 $(git -C $script:repoPath rev-parse --short $previous) 的后代。" +
-    "`n发出去会把上一次上线的改动从生产环境**删掉**（2026-10-01 就出过这件事：两条线从分叉的历史部署到同一个环境，谁后部署谁覆盖）。" +
+  throw ("本次提交 $(git -C $script:repoPath rev-parse --short $ThisCommit) **不是**当前线上 $(git -C $script:repoPath rev-parse --short $previous) 的后代。" +
+    "`n发出去会把当前线上的改动**删掉**（2026-10-01~02 反复发生：两条线从分叉的历史部署到同一个环境，谁后部署谁覆盖）。" +
     "`n先合并：git merge $previous" +
     "`n若确实要故意回滚 / 从分叉分支救火，加 -SkipForwardOnlyCheck 并知会另一条线。")
 }
@@ -569,6 +605,7 @@ if ($hasNanoGatewayKey) {
 $script:repoPath = $RepoPath
 # ⚠️ 放在**最前面**：这条检查要是在跑完 10 分钟的构建与单测之后才发现问题，
 # 那 10 分钟就白花了；更糟的是"先备份再发现发不出去"，把生产搞成半截状态。
+Assert-DeployIsFromNamedBranch
 Assert-ReleaseIsForwardOnly -ThisCommit $commit -BackupRoot "$RemoteDir/deploy-backups"
 Write-Host "Building $commit..."
 Push-Location $repo
