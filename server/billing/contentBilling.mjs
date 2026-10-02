@@ -273,6 +273,10 @@ export function createGeneratedAssetPersister({
       contentType,
       taskId: generationId,
       label,
+      /* 2026-10-03：这条是 provider 直接回的 base64 **生成结果**（xhs/plog 封面），
+         不是用户上传。persistBuffer 默认不打标识正是为了不误伤上传路径，
+         所以这里必须**显式声明**，否则这批产物既无显式标识也无隐式标识。 */
+      generated: true,
     });
     return asset.url;
   };
