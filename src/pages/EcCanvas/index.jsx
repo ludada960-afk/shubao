@@ -915,7 +915,7 @@ export default function EcCanvas() {
   const [projectAssetUploadBusy, setProjectAssetUploadBusy] = useState(false);
   const projectAssetUploadRef = useRef(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-const [minimapOpen, setMinimapOpen] = useState(true);
+const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-08 素材水印系统（用户批注重构）: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 */
   const [imageWatermark, setImageWatermark] = useState(DEFAULT_IMAGE_WATERMARK);
   const [videoWatermark, setVideoWatermark] = useState(DEFAULT_VIDEO_WATERMARK);
@@ -4144,6 +4144,27 @@ const handlePointerUp = useCallback((e) => {
     }
     if (handler.startsWith('create:')) {
       if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
+      return;
+    }
+    /* ═══ 2026-10-02 视频专属动作（用户照知渔提的：「视频跟图片生成是不同的逻辑，
+       你应该定制化的为他去开发一些功能」）═══════════════════════════════════════ */
+    if (handler === 'preview-media') {
+      /* 复用画布原有的放大预览灯箱。视频只是把 kind 带上，让灯箱按 <video> 渲染，
+         而不是另起一个弹窗（另起一个 = 两套关闭/缩放逻辑，迟早打架）。 */
+      openImagePreview({ url: node.url, kind: 'video', label: node.name || node.displayLabel || '视频预览' });
+      return;
+    }
+    if (handler === 'export-video') {
+      /* 单条视频下载：走站内现成的导出链路（同源地址，直接 <a download>）。 */
+      const url = String(node.url || '');
+      if (!url) { showToast('这条视频还没有可用的地址', 'error'); return; }
+      const href = url.startsWith('/') ? url : new URL(url, window.location.origin).toString();
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = node.name || node.displayLabel || 'video.mp4';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
       return;
     }
     if (handler === 'add-text') {
@@ -9383,8 +9404,24 @@ const handlePointerUp = useCallback((e) => {
 
       {/* 图片放大预览 */}
       {zoomImg && (
-        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
+        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '素材'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          {/* 2026-10-02：视频节点的工具栏加了「预览」，这里按 kind 分渲染。
+              **不另起一个弹窗** —— 另起一个就等于两套关闭/缩放/滚轮逻辑，迟早打架。
+              ⚠️ 视频用 `controls` 自带播放/进度/音量，**不要**再套图片那套
+                 `scale(previewScale)` 缩放 —— 缩放会和 video 的控件层互相干扰。 */}
+          {zoomImg.kind === 'video' ? (
+            <video
+              src={zoomImg.url}
+              controls
+              autoPlay
+              muted
+              playsInline
+              onClick={e => e.stopPropagation()}
+              style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8, background: '#000' }}
+            />
+          ) : (
+            <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
+          )}
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
       )}
