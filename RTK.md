@@ -17412,3 +17412,190 @@ GallerySection / RecoveryShelf），这些模式各自的 CSS（Home 一家就 3
 已全部改成 `import`。值得当成个人纪律记下来：**ESM 测试里出现 `require` 一律判可疑**。
 
 全量 4588 条 / 0 失败。
+
+### 更正：之二十一的**理由**是错的（结论侥幸成立）
+
+用户直接质疑了两点，都成立：
+
+> 「首页没有电商模式呀。首页不是只有一个图片生成和视频生成的入口吗？」
+> 「生图和生视频本来就是不同的模型吧。哪有同一批模型可以维护呀？」
+
+**是我错了。** 我是用**静态 import 图**推断的，把只在技能子页面走的代码也算进了首页。
+
+代码自己写着答案：
+
+- `src/store/AppContext.jsx:54`
+  `mode: 'video',  // video | visual ← 首页两处入口；content/ecommerce 见技能子页面与恢复链路`
+- `src/pages/Home/index.jsx:136-147`  `modeOptions` 只有两项：**视频生成 / 图片生成**
+
+浏览器实测首页默认渲染出来的 class：`video-composer` / `is-video` /
+`homepage-mode-card-visual`；`EcMode` 与 `XhsContentMode` **没有**渲染
+（`mode='video'` 时那条三元链走的是第一支）。
+
+所以「首页需要 VideoStudio 的模型」这句话**是错的**。真正的原因是：
+
+> **首页落地页的默认视图，本身就是视频工作台。**（`mode` 默认 `'video'`）
+> 那 158 KB 不是"另一个模式的可选代码"，是**首屏就要用的代码**。
+
+这也解释了为什么懒加载救不了它：默认就要渲染它，lazy 只是把同一份代码换个 chunk 边界。
+
+#### 真正可做的（查清楚之后才敢说的）
+
+首页**静态引入了几个默认不渲染的模块**，它们被 import 进来就进了首屏包、却从没渲染过：
+
+| 模块 | 默认渲染吗 | 何时才需要 |
+| --- | --- | --- |
+| `EcMode` | 否 | 技能子页面 / 恢复链路 |
+| `XhsContentMode` | 否 | 同上（`mode==='content'`） |
+| `DesignDirection` | 否 | 设计方案子页面 |
+| `RecoveryShelf` | 否 | 恢复链路 |
+
+这是**真正**的浪费，而且和 VideoStudio 那 158KB 是两回事。
+
+⚠️ 但这四个**不能**照搬"改 lazy"的写法：
+`Home/index.jsx` 与 `VideoStudio/index.jsx` 是**循环依赖**（VideoStudio 反向引用
+Home 的三个组件）。把 Home 的出边改成 lazy，若对面成环就会白屏 —— 这正是之二十一踩的坑。
+所以规矩是：**改一个、量一次、并且必须同时量"页面有没有渲染坏"**。
+
+## 2026-10-01 批 CY-㊴ 之二十一：首页 JS —— 结论是**这 158KB 不能靠懒加载拿掉**
+
+用户原话：「好的。继续」（指上一条末尾说的"要开 JS 这一批的话跟我说"）。
+
+### 做法：先建立产物→源码的映射，再动手
+
+`vite.config.js` 里 `sourcemap: false`，所以先做了一份**只用于分析**的构建
+（`dist-analysis/`，带 sourcemap，部署脚本不会碰它），把每个 chunk 还原成源码模块。
+
+首页首屏实际加载的 JS（gzip，服务器侧记录，1440×900）：
+
+| chunk | gzip | 里面是什么 |
+| --- | --- | --- |
+| `index-DIushDmy.js` | 251 KB | 入口（81 模块：Home/ui/business/billing） |
+| `index-Dg5vnfHX.js` | **158 KB** | **16× VideoStudio** + media + constant.js |
+| `index-0yYCsEBt.js` | 50 KB | 21× Home |
+| 其余 14 个 | 约 112 KB | |
+| **合计** | **571 KB** | |
+
+**EcCanvas 那一坨（526 KB raw）没有被首页拉** —— 路由懒加载是有效的。
+目标锁定在那个 158 KB。
+
+### ⚠️ 第一次差点被骗过去
+
+把 VideoStudioPage 改成 `lazy()` 之后一量：**总包 1356 → 1058 KB（"省了 298KB"）**。
+但同时 **JS 反而 +204 KB**、文件数 17 → 34，而且**图片从 659 KB 掉到 160 KB** ——
+图片掉一半这件事从懒加载的角度讲不通。
+
+于是加了一条探针专门看**页面有没有渲染坏**：
+
+    改前:  文字 594 字  DOM 768  <img> 20 张  报错 0
+    改后:  文字 106 字  DOM  63  <img>  0 张  报错 2   ← 页面直接崩了
+
+⇒ **那个"-298KB"是页面崩掉造成的假象。** 只量字节不看渲染健康度，
+这次差点就把"首页白屏"当成性能优化发上线了。
+
+### 根因：Home ⇄ VideoStudio 是**循环依赖**
+
+`VideoStudio/index.jsx` 反过来静态引用了 Home 的三个组件：
+
+    import { GroupTitle } from '../Home/ec/PanelPrimitives.jsx';
+    import { EcommerceAddCard, EcommerceImageCard } from '../Home/ec/components/EcommerceAssetCards.jsx';
+    import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
+
+环存在时改成 `lazy(() => import('../VideoStudio'))`，模块求值拿到 undefined ⇒
+`TypeError: Cannot read properties of undefined (reading 'default')` ⇒ 整页进错误边界。
+
+### 把环拆掉之后，懒加载确实能跑
+
+把那三个共用组件下沉到 `src/components/ec-shared/`（563 行，13 个文件的 import 跟着改），
+环就断了（`VideoStudio → Home` 归零）。此时再懒加载：
+
+    改前:  JS 571 KB  合计 1372 KB  | 文字 594  DOM 768  图 20  报错 0
+    改后:  JS 573 KB  合计 1470 KB  | 文字 594  DOM 772  图 20  报错 0
+
+页面**完全正常**（DOM 772 vs 768、文字一样、零报错），但
+**JS +2 KB、合计 +98 KB**。
+
+### 结论：那 158 KB 不是"VideoStudio 页面"，是**两边都要用的共享代码**
+
+懒加载只能把"页面组件本身"挪出首屏；而那 506 KB raw 里绝大部分是
+videoPlanModel / videoStudioModel / videoProjectWorkbenchModel / videoDeliveryModel /
+canvasStudioModel 等**模型层**，Home 的电商模式（EcMode → EcommerceWorkbench）
+本来就要用 —— `EcommerceWorkbench.jsx` 静态引用
+`VideoProjectDeliveryDialog` 与 `videoDeliveryModel`。
+
+拆环也换不来字节，因为**那份代码确实被首屏需要**，不是浪费。
+
+⇒ **已全部还原**（文件移动 + 懒加载都撤掉），工作区与线上 `83ec484a` 一致。
+首页 571 KB JS 属于**真实需要的代码**，不是可以随手砍掉的肥。这一条到此为止，
+除非产品上愿意改"首页电商模式与视频工作台共用同一批模型"这件事本身
+——那是架构决策，不是性能优化。
+
+### 这一条真正的收获（比省下多少 KB 更值钱）
+
+1. **"字节下降"必须配一条"页面有没有渲染坏"的探针。** 否则一次崩溃就能伪装成
+   一次优化 —— 我这次差点上当，是靠"图片从 659 掉到 160 这种说不通的变化"才起疑的。
+2. **负结果也要量、也要写下来。** "这 158KB 拿不掉"是一个有价值的结论：
+   它关掉了这条路，省下以后反复试的力气。
+3. **循环依赖是懒加载的隐形地雷**：改法看着只动一行，跑起来整页白屏。
+
+## 2026-10-01 批 CY-㊴ 之二十二：首页三个默认不渲染的模式改成懒加载（−71 KB）
+
+用户原话：「首页不是只有一个图片生成和视频生成的入口吗？」
+—— 对。这条是对**之二十一结论的修正**（那边把"电商模式"当成了首页常驻，是错的）。
+
+### 先把事实钉死（代码自己写着的）
+
+- `src/store/AppContext.jsx:54`
+  `mode: 'video',  // video | visual ← 首页两处入口；content/ecommerce 见技能子页面与恢复链路`
+- `src/pages/Home/index.jsx` 的 `modeOptions` **只有两项**：视频生成 / 图片生成
+- 浏览器实测首页渲染出来的是 `video-composer` / `is-video`，EcMode、XhsContentMode **没渲染**
+
+### 真正浪费的是这三个
+
+它们只在 `mode==='content'` 或 `'ecommerce'` 时渲染（深链进技能子页面，
+或「做同款」/ 恢复链路），**首页默认一次都不画**，却被静态 import 进了首屏包：
+
+| 组件 | 行数 | 何时才需要 | 拆出的 chunk |
+| --- | --- | --- | --- |
+| `EcMode` | 1760 | 深链进电商套图 / 恢复链路 | 44 KB |
+| `XhsContentMode` | 1954 | 小红书图文 / plog 子页面 | 66 KB |
+| `DesignDirection` | 1189 | 电商第 2 步（确认设计方案） | 34 KB |
+
+### 实测（同口径：服务器侧记录，1440×900，每变体 3 次取中位数）
+
+| | JS | CSS | 合计 | 文字 | DOM | <img> | 默认视频台 | 报错 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 改前 | 571 KB | 89 KB | 1372 KB | 594 | 716 | 20 | 有 | 0 |
+| 改后 | **500 KB** | **80 KB** | **1292 KB** | 594 | 716 | 20 | 有 | **0** |
+
+**JS −71 KB（−12%）、合计 −80 KB**，而渲染健康度**逐项一模一样**。
+
+### 两条纪律（之二十一用一次白屏换来的）
+
+① **每个 lazy 都必须包 Suspense**，否则切到那个模式时没有 fallback 直接报错。
+   我第一版改造时 `DesignDirection` 的 Suspense **漏了**，是门禁抓到的。
+   fallback 也不能是 `null` —— 那会让那块地方"啪"地缩回去再撑开，所以给了有高度、
+   带 `aria-live` 的 `ModeLoading`。
+
+② **"默认页正常"证明不了懒加载能用** —— 因为默认页根本不渲染那三个组件。
+   所以单独验了一次：把拆出来的 chunk 逐个 `import()`，看 default 是不是可用
+   （之二十一的 `Cannot read properties of undefined (reading 'default')` 就是栽在这）。
+   三个全部 `default=function`：EcMode 44KB / XhsContentMode 66KB / DesignDirection 34KB。
+
+### 顺带得到一个纪律：字节测量必须配渲染健康度
+
+之二十一里，页面崩了 → 请求变少 → 字节"降了 298KB" → 我差点当成收益上线。
+这次探针固定同时报两组数（字节 / 文字·DOM·<img>·默认视频工作台·报错），
+B 组缩水就作废 A 组结论。
+
+### 门禁
+
+新增 `test/home-lazy-modes-1001`（4 条）：三个必须 lazy 且不许再有静态 import；
+每个使用点必须落在 `<Suspense …>` 内且 fallback 是 ModeLoading（不是 null）；
+**VideoStudio 必须保持静态 import**（它是首屏必需，且 Home⇄VideoStudio 有循环依赖，
+lazy 必白屏）；首页只有两个入口、不许再冒出第三个。
+改写 `ecommerce-editor-lifecycle`：放宽"紧接着就是组件"→"组件在 Suspense 里"
+（守的实质是"返回时不卸载编辑器"，不是语法形状），并补上"三处都要有 fallback"。
+已做红测（把 DesignDirection 的 fallback 换成 null → 门禁判红）。
+
+全量 4592 条 / 0 失败；precommit 全绿。
