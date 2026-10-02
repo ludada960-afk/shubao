@@ -3,8 +3,21 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { stampImage, contentIdFor } from '../server/aigcStamp.mjs';
 
 import { validateProductionCaseManifest } from '../src/pages/Home/productionCaseManifest.js';
+
+/* 2026-10-03 P8：案例图是**我们生成**的产物，公开发布在「灵感发现 / 做同款」页，
+   同样受《标识办法》第五条约束 —— 以前这里一次都没打过标。
+   根因是本脚本把每张图 `.webp()` 重编码了一遍：sharp 默认**丢弃全部元数据**，
+   所以即便源文件带着标识，转出来的案例图也一定没有。
+
+   ⚠️ 但**用户上传的源图不能打标** —— 那不是我们生成的，打上 AIGC 属于**虚假标识**，
+      本身也是违规（与 server/generatedAssets.mjs persistBuffer 同一口径）。 */
+const USER_UPLOAD_RE = /^(source|original|upload|input|reference)[-_.]/i;
+function isUserUpload(fileName) {
+  return USER_UPLOAD_RE.test(basename(String(fileName || '')));
+}
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif']);
 const ROLE_RULES = [
@@ -130,15 +143,26 @@ async function readOptionalMetadata(inputDir) {
   return {};
 }
 
-export async function buildCover(files, outputPath) {
+export async function buildCover(files, outputPath, { contentId } = {}) {
   const layout = createMosaicLayout(files.length);
   const composites = await Promise.all(layout.map(async (tile, index) => ({
     input: await sharp(files[index]).rotate().resize(tile.width, tile.height, COVER_TILE_RESIZE_OPTIONS).webp({ quality: 90 }).toBuffer(),
     left: tile.x,
     top: tile.y,
   })));
-  await sharp({ create: { width: 1200, height: 1600, channels: 4, background: '#ffffff' } })
-    .composite(composites).webp({ quality: 90, effort: 5 }).toFile(outputPath);
+  const raw = await sharp({ create: { width: 1200, height: 1600, channels: 4, background: '#ffffff' } })
+    .composite(composites).webp({ quality: 90, effort: 5 }).toBuffer();
+  /* 封面是这些生成图拼出来的**新产物**，同样要打标。
+     ⚠️ 必须在合成**之后**打：sharp 合成时会把输入的元数据全丢掉。 */
+  await writeFile(outputPath, await stampCover(raw, contentId), 'utf8');
+}
+
+async function stampCover(raw, contentId) {
+  return stampImage(raw, {
+    contentType: 'image/webp',
+    contentId: contentId || contentIdFor('gallery-cover', 'default'),
+    sharp,
+  });
 }
 
 async function versionedCoverUrl(path, outputPath) {
@@ -146,12 +170,13 @@ async function versionedCoverUrl(path, outputPath) {
   return `${path}?v=${revision}`;
 }
 
-async function buildSingleCover(file, outputPath) {
-  await sharp(file)
+async function buildSingleCover(file, outputPath, { contentId } = {}) {
+  const raw = await sharp(file)
     .rotate()
     .resize(1200, 1600, COVER_TILE_RESIZE_OPTIONS)
     .webp({ quality: 90, effort: 5 })
-    .toFile(outputPath);
+    .toBuffer();
+  await writeFile(outputPath, await stampCover(raw, contentId), 'utf8');
 }
 
 export async function importCase(argv = process.argv.slice(2)) {
@@ -178,8 +203,17 @@ export async function importCase(argv = process.argv.slice(2)) {
     const file = sourceFiles[index];
     const outputName = String(index + 1).padStart(2, '0') + '.webp';
     const output = join(caseDir, outputName);
-    await sharp(join(inputDir, file)).rotate().resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 90, effort: 5 }).toFile(output);
+    const raw = await sharp(join(inputDir, file)).rotate().resize({ width: 2048, height: 2048, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 90, effort: 5 }).toBuffer();
+    /* 导出即打标。用户上传的源图跳过 —— 打上去就是虚假标识。 */
+    const exported = isUserUpload(file)
+      ? raw
+      : await stampImage(raw, {
+        contentType: 'image/webp',
+        contentId: contentIdFor('gallery:' + id, file),
+        sharp,
+      });
+    await writeFile(output, exported, 'utf8');
     const dimensions = await sharp(output).metadata();
     const declared = resolveImageDeclaration(file, declaredImages);
     const inferred = inferImageRole(file, index);
@@ -208,8 +242,9 @@ export async function importCase(argv = process.argv.slice(2)) {
     .map(image => join(caseDir, image.url.split('/').pop()));
   const coverStrategy = resolveCoverStrategy(productionManifest?.cover?.strategy || metadata.cover_strategy || 'auto', imported.length);
   const coverPath = join(caseDir, 'cover.webp');
-  if (coverStrategy === 'mosaic') await buildCover(coverInputs, coverPath);
-  else await buildSingleCover(coverInputs[0], coverPath);
+  const coverContentId = contentIdFor('gallery-cover:' + id, coverStrategy);
+  if (coverStrategy === 'mosaic') await buildCover(coverInputs, coverPath, { contentId: coverContentId });
+  else await buildSingleCover(coverInputs[0], coverPath, { contentId: coverContentId });
   const coverUrl = await versionedCoverUrl('/gallery/ecommerce/' + id + '/cover.webp', coverPath);
   const entry = {
     id, type: 'ecommerce', title,

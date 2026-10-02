@@ -109,6 +109,133 @@ function crc32(buf) {
   return (crc ^ -1) >>> 0;
 }
 
+/* ── WebP：写 XMP chunk（零重编码）────────────────────────────────────────────
+   为什么不能像 JPEG 那样直接用 sharp 重编码：
+   · 已发布的案例图（public/gallery/**.webp）本身就是 webp q90，再编一次是
+     **二次有损压缩**，首页/案例页的主视觉会肉眼可见地掉画质；
+   · WebP 的 XMP/EXIF 只在**扩展格式（VP8X）**下才被解码器读取。往简单格式里
+     塞一个 XMP chunk，解码器会直接忽略 —— 字节是写进去了，但**读不出来**，
+     那等于做了个假的标识。所以这里顺带把简单格式升级成 VP8X。
+
+   解码顺序（WebP 规范）：VP8X → ICCP → ANIM → ALPH → VP8/VP8L → EXIF → XMP
+   ⚠️ 动图（ANIM/ANMF）不做 —— 帧结构复杂，改写风险大于收益，直接回退重编码。 */
+
+function isWebp(buffer) {
+  return buffer.length > 16
+    && buffer.toString('latin1', 0, 4) === 'RIFF'
+    && buffer.toString('latin1', 8, 12) === 'WEBP';
+}
+
+/** 解析 RIFF 顶层 chunk；返回 [{ fourCC, data }]，data 不含 padding。 */
+function readWebpChunks(buffer) {
+  const chunks = [];
+  let offset = 12;
+  while (offset + 8 <= buffer.length) {
+    const fourCC = buffer.toString('latin1', offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + size;
+    if (dataEnd > buffer.length) break; // 截断文件，交给调用方回退
+    chunks.push({ fourCC, data: buffer.subarray(dataStart, dataEnd) });
+    offset = dataEnd + (size % 2); // 奇数长度的 chunk 有 1 字节 padding
+  }
+  return chunks;
+}
+
+/** 从 VP8(有损)/VP8L(无损) 帧头读画布尺寸 —— VP8X 必须填这个。 */
+function webpCanvasSize(frame) {
+  if (frame.length < 10) return null;
+  // 有损 VP8：3 字节帧标记 + 起始码 9d 01 2a + 2 字节宽 + 2 字节高（各 14 位有效）
+  if (frame.toString('latin1', 3, 6) === '\x9d\x01\x2a') {
+    return { width: frame.readUInt16LE(6) & 0x3fff, height: frame.readUInt16LE(8) & 0x3fff };
+  }
+  // 无损 VP8L：1 字节签名 0x2f + 14 位(width-1) + 14 位(height-1)
+  if (frame[0] === 0x2f && frame.length >= 5) {
+    const bits = frame.readUInt32LE(1);
+    return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+  }
+  return null;
+}
+
+function xmlEscape(value) {
+  return String(value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+/** 构造 XMP packet。字段名同样待与 GB 45438-2025 对齐（见文件顶部）。 */
+function buildXmpPacket(values) {
+  const attrs = Object.entries(values)
+    .map(([k, v]) => `\n      aigc:${k}="${xmlEscape(v)}"`)
+    .join('');
+  const head = `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about=""
+      xmlns:aigc="https://shubao.cn/ns/aigc/1.0/"${attrs} />
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="`;
+  const tail = '"?>';
+  /* Adobe 约定：用空格补齐到 4 字节倍数，再补 end 标记 */
+  const pad = (4 - ((Buffer.byteLength(head, 'utf8') + Buffer.byteLength(tail, 'utf8')) % 4)) % 4;
+  return Buffer.from(head + ' '.repeat(pad) + tail, 'utf8');
+}
+
+function riffChunk(fourCC, data) {
+  const head = Buffer.alloc(8);
+  head.write(fourCC, 0, 'latin1');
+  head.writeUInt32LE(data.length, 4);
+  return Buffer.concat([head, data, data.length % 2 ? Buffer.from([0]) : Buffer.alloc(0)]);
+}
+
+/**
+ * 往 WebP 里写 XMP，**不改任何像素**。
+ * @returns {Buffer|null} null = 这个文件处理不了（动图/截断/未知帧），调用方应回退重编码
+ */
+function insertWebpXmp(buffer, values) {
+  const chunks = readWebpChunks(buffer);
+  const frame = chunks.find(c => c.fourCC === 'VP8 ' || c.fourCC === 'VP8L');
+  if (!frame) return null;
+  /* 动图：帧结构是 ANMF/ANMF…，改写代价大，直接放弃零重编码 */
+  if (chunks.some(c => c.fourCC === 'ANIM' || c.fourCC === 'ANMF')) return null;
+
+  const size = webpCanvasSize(frame.data);
+  if (!size || !size.width || !size.height) return null;
+
+  const alpha = chunks.find(c => c.fourCC === 'ALPH') || null;
+  const iccp = chunks.find(c => c.fourCC === 'ICCP') || null;
+  const existingExif = chunks.find(c => c.fourCC === 'EXIF') || null;
+  const xmp = buildXmpPacket(values);
+
+  /* VP8X 首字节位序（Rsv,Rsv,ICC,ALPHA,EXIF,XMP,ANIM,Rsv） */
+  let flags = 0;
+  if (iccp) flags |= 0x20;
+  if (alpha) flags |= 0x10;
+  if (existingExif) flags |= 0x08;
+  flags |= 0x04; // XMP
+
+  const vp8x = Buffer.alloc(10);
+  vp8x[0] = flags;
+  vp8x.writeUIntLE(size.width - 1, 4, 3);
+  vp8x.writeUIntLE(size.height - 1, 7, 3);
+
+  const parts = [
+    riffChunk('VP8X', vp8x),
+    ...(iccp ? [riffChunk('ICCP', iccp.data)] : []),
+    ...(alpha ? [riffChunk('ALPH', alpha.data)] : []),
+    riffChunk(frame.fourCC, frame.data),
+    ...(existingExif ? [riffChunk('EXIF', existingExif.data)] : []),
+    riffChunk('XMP ', xmp),
+  ];
+  const body = Buffer.concat(parts);
+  const header = Buffer.alloc(12);
+  header.write('RIFF', 0, 'latin1');
+  header.writeUInt32LE(body.length + 4, 4); // +4 = 'WEBP' 四字节
+  header.write('WEBP', 8, 'latin1');
+  return Buffer.concat([header, body]);
+}
+
 /**
  * 给图片 buffer 写入隐式标识。
  * @param {Buffer} buffer 原始字节
@@ -131,7 +258,14 @@ export async function stampImage(buffer, { contentType = 'image/png', contentId,
       for (const [k, v] of Object.entries(values)) out = insertPngItxt(out, k, v);
       return out;
     }
-    /* JPEG / WebP：sharp 的 withExif 需要重编码。失败就原样返回，不阻断。 */
+    /* WebP：零重编码，升级成 VP8X 后写 XMP chunk。
+       ⚠️ 按**字节嗅探**而不是只信 content-type —— 上游给的 content-type 未必准，
+       只认声明的话，一批实际是 webp 的产物会静默漏掉标识。 */
+    if (isWebp(buffer)) {
+      const out = insertWebpXmp(buffer, values);
+      if (out) return out;
+    }
+    /* JPEG：sharp 的 withExif 需要重编码。失败就原样返回，不阻断。 */
     if (sharp && /jpeg|webp/i.test(contentType)) {
       const exif = {
         IFD0: {
@@ -213,8 +347,8 @@ export function videoFormatSupport() {
 export function formatSupport() {
   return {
     png: '零重编码（插 iTXt chunk）',
+    webp: '零重编码（升级 VP8X + 写 XMP chunk；动图回退重编码）',
     jpeg: '重编码（sharp withExif，quality 92）',
-    webp: '重编码（sharp withExif）',
     其它: '不处理，原样透传',
   };
 }
