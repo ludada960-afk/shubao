@@ -60,8 +60,24 @@ export function LoginModal() {
   /* 邀请码注册通道 (UI 先行, 后端接入时随 verify 请求提交) */
   const [inviteCode, setInviteCode] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [agreedTerms, setAgreedTerms] = useState(true);
+  /* ═══ 2026-10-02 登录合规勾选（用户定的 A 版）══════════════════════════════
+     原来只有一条「您已阅读并同意《服务条款》和《隐私政策》」，而且 **默认勾选**
+     （useState(true)）—— 等于用户不点也能登录，勾选形同虚设。
+
+     改成三条，并且**默认全不勾**。三条的分工：
+       ① 用途承诺：不用于违法/侵权/损害公共利益
+       ② 责任归属：输入与生成的合法性由本人承担
+       ③ 协议知情：用户协议 + 隐私政策
+
+     ⚠️ 措辞刻意不写「承担全部责任」——通用平台写这么宽泛显得像甩锅，
+        且与《生成式AI暂行办法》第11条（不得收集非必要个人信息）这类
+        服务方义务混在一起，责任会变得不可执行。
+        也没有照抄同行的「仅用于自身电商经营」——薯包是通用平台，不是电商专用。 */
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [agreedUse, setAgreedUse] = useState(false);       // ① 用途承诺
+  const [agreedLiability, setAgreedLiability] = useState(false); // ② 责任归属
   const [termsInvalid, setTermsInvalid] = useState(false);
+  const agreedAll = agreedTerms && agreedUse && agreedLiability;
   /* 手机号 / 邮箱双通道：手机号为面向市场的首选通道（短信通道开通后即可直接使用） */
   const [loginChannel, setLoginChannel] = useState('email');
   const [phone, setPhone] = useState('');
@@ -157,7 +173,7 @@ export function LoginModal() {
 
   // ── 密码登录/注册 ──────────────────────────────────────────
   const handlePasswordLogin = async () => {
-    if (!agreedTerms) { setTermsInvalid(true); setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
+    if (!agreedAll) { setTermsInvalid(true); setErr('请先勾选并同意全部三项后再继续'); return; }
     const acc = account.trim().toLowerCase();
     if (!acc) { setErr('请输入邮箱地址'); return; }
     if (!password) { setPasswordErr('请输入密码'); return; }
@@ -195,7 +211,7 @@ export function LoginModal() {
   };
 
   const handlePasswordRegister = async () => {
-    if (!agreedTerms) { setTermsInvalid(true); setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》'); return; }
+    if (!agreedAll) { setTermsInvalid(true); setErr('请先勾选并同意全部三项后再继续'); return; }
     const acc = account.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(acc)) { setErr('请输入正确的邮箱地址'); return; }
     if (password.length < 8) { setPasswordErr('密码至少 8 位'); return; }
@@ -228,9 +244,9 @@ export function LoginModal() {
   const handleVerify = async (explicitCode) => {
     /* 自动提交时本帧的 code 还是旧值，必须用输入组件回传的完整验证码 */
     const codeValue = String(explicitCode ?? code).trim();
-    if (!agreedTerms) {
+    if (!agreedAll) {
       setTermsInvalid(true);
-      setErr('请先阅读并勾选同意《用户服务协议》和《隐私政策》');
+      setErr('请先勾选并同意全部三项后再继续');
       return;
     }
     if (codeValue.length < 6) {
@@ -422,10 +438,31 @@ export function LoginModal() {
           {oauthProviders.some(p => p.id === 'github') && <button type="button" className="ld-oauth-btn" onClick={handleGithubLogin}><FaGithub size={16} /> GitHub 登录</button>}
         </div>
 
-        <label className={'ld-terms' + (termsInvalid ? ' is-invalid' : '')}>
-          <input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setTermsInvalid(false); }} />
-          <span>您已阅读并同意<a href="/terms" target="_blank" rel="noreferrer">《服务条款》</a>和<a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a></span>
-        </label>
+        {/* ═══ 2026-10-02 合规勾选三条（A 版）══════════════════════════════════════
+            分工：① 用途承诺 ② 责任归属 ③ 协议知情。
+            三条全勾才能登录；任一未勾 → 高亮 + 提示。
+            ⚠️ 没有照抄同行的「仅用于自身电商经营」——薯包是通用平台，不是电商专用。*/}
+        <fieldset className={'ld-consent' + (termsInvalid ? ' is-invalid' : '')}>
+          <legend>请勾选确认，方可登录</legend>
+
+          <label className="ld-consent-item">
+            <input type="checkbox" checked={agreedUse}
+              onChange={e => { setAgreedUse(e.target.checked); if (agreedTerms && agreedLiability) setTermsInvalid(false); }} />
+            <span>我承诺上传的素材与提示词不用于违反法律法规、侵犯他人合法权益或损害社会公共利益的用途</span>
+          </label>
+
+          <label className="ld-consent-item">
+            <input type="checkbox" checked={agreedLiability}
+              onChange={e => { setAgreedLiability(e.target.checked); if (agreedTerms && agreedUse) setTermsInvalid(false); }} />
+            <span>我知悉输入内容与生成内容的合法性及相关责任由本人承担</span>
+          </label>
+
+          <label className="ld-consent-item">
+            <input type="checkbox" checked={agreedTerms}
+              onChange={e => { setAgreedTerms(e.target.checked); if (agreedUse && agreedLiability) setTermsInvalid(false); }} />
+            <span>我已阅读并同意<a href="/terms" target="_blank" rel="noreferrer">《用户协议》</a>与<a href="/privacy" target="_blank" rel="noreferrer">《隐私政策》</a></span>
+          </label>
+        </fieldset>
       </div>
     </LoginDialog>
   );
