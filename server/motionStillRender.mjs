@@ -18,6 +18,7 @@
      **不动**既有链路（避免把已经跑通的去字幕/高清那条带歪）。 */
 
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import { mkdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
@@ -135,7 +136,10 @@ export async function renderMotionStill({
   const targetWidth = evenSize(targetHeight * ratio);
   const dir = outDir || join(process.cwd(), 'server', 'video-assets', 'output');
   await mkdir(dir, { recursive: true });
-  const outPath = resolve(dir, `motion-${Date.now()}-${chosen.id}.mp4`);
+  /* 2026-10-03 P6：原来只有 {Date.now()} + preset，**完全可枚举** ——
+     /api/motion-still/:name 又没有鉴权，等于谁的动效视频都能被遍历下载。
+     加一段 crypto.randomUUID 前缀使其不可猜（uuid 要 import crypto）。 */
+  const outPath = resolve(dir, `motion-${Date.now()}-${crypto.randomUUID()}-${chosen.id}.mp4`);
 
   /* ⚠️ 先放大两倍再交给 zoompan：直接在目标尺寸上做亚像素缩放会"抖"（画面边缘一跳一跳）。
      2 倍是实测够用的档位，再高只是白烧 CPU。 */

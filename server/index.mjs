@@ -4503,9 +4503,14 @@ app.post('/api/motion-still', async (req, res) => {
 });
 
 /* 成片的下载/播放口：文件名白名单（与 ec-temp-img 同一条纪律，不许拼出目录穿越） */
+/* 2026-10-03 P6：这条路由原本**无鉴权**，配合可枚举的文件名，
+   等于任何人都能遍历下载他人的动效视频。加登录校验 —— 与站内其它资产路由一致。
+   ⚠️ 文件名白名单同步放宽到允许 uuid 的连字符（原本就只有字母数字_.-，
+      uuid 的连字符本就在其中，这里一并把长度上限收紧，避免超长名探测）。 */
 app.get('/api/motion-still/:name', (req, res) => {
+  if (!req._userEmail) return res.status(401).json({ error: '请先登录', code: 'AUTH_REQUIRED' });
   const name = String(req.params.name || '');
-  if (!/^[a-z0-9][a-z0-9_.-]*\.mp4$/i.test(name)) return res.status(404).end();
+  if (name.length > 128 || !/^[a-z0-9][a-z0-9_.-]*\.mp4$/i.test(name)) return res.status(404).end();
   const fp = resolve(MOTION_OUT_DIR, name);
   if (!fs.existsSync(fp)) return res.status(404).end();
   res.type('video/mp4').sendFile(fp);
