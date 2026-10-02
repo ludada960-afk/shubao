@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 /* AIGC 隐式标识（《标识办法》第五条三要素）。见 server/aigcStamp.mjs 顶部的法条与待核项。 */
 import { stampImage, contentIdFor } from './aigcStamp.mjs';
+/* AIGC 显式标识（《标识办法》第四条(二)：画面适当位置的显著提示标识）。这一步会重编码。 */
+import { applyVisibleLabel } from './aigcVisibleLabel.mjs';
 import { link, mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { resolve, basename } from 'node:path';
 /* aigcStamp 写 JPEG/WebP 元数据时要用（PNG 走零重编码的 chunk 插入，用不到它）。 */
@@ -126,11 +128,17 @@ export function createGeneratedAssetStore({
     if (declaredLength > maxBytes) throw new Error('生成图片文件过大');
     if (!buffer.length || buffer.length > maxBytes) throw new Error('生成图片文件过大或为空');
 
-    /* ═══ AIGC 隐式标识：注入必须在 assetNameFor 之前 ═══════════════════════
-       文件名是内容的 sha256，注入后字节变了哈希就变；顺序反了会触发下面的完整性校验失败。 */
-    const stampedBuffer = await stampImage(buffer, {
+    /* ═══ AIGC 标识：显式（画进像素）→ 隐式（写元数据）═══════════════════════
+       《标识办法》第四条(二)要画面上的显著提示标识，第五条要文件元数据标识，
+       两者是**并列**义务。隐式那步是零重编码的，所以放最后做最省。
+
+       ⚠️ contentId 必须在**重编码前**定：显式标识会改字节，
+          注入后哈希就变了（文件名 = 内容的 sha256）。 */
+    const contentId = contentIdFor(taskId, mimeType + ':' + buffer.length);
+    const labeledBuffer = await applyVisibleLabel(buffer, { contentType: mimeType, sharp });
+    const stampedBuffer = await stampImage(labeledBuffer, {
       contentType: mimeType,
-      contentId: contentIdFor(taskId, mimeType + ':' + buffer.length),
+      contentId,
       sharp,
     });
     const fileName = assetNameFor(stampedBuffer, extension);
@@ -154,24 +162,38 @@ export function createGeneratedAssetStore({
     return asset;
   }
 
-  async function persistBuffer({ buffer, contentType = 'image/png', taskId = '', label = '' } = {}) {
+  async function persistBuffer({ buffer, contentType = 'image/png', taskId = '', label = '', generated = false } = {}) {
     if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error('生成图片内容为空');
     if (!MIME_EXTENSIONS[contentType]) throw new Error('生成图片类型不受支持');
     if (buffer.length > maxBytes) throw new Error('生成图片文件过大');
     const extension = MIME_EXTENSIONS[contentType];
-    /* ⚠️ 这条路径**不打** AIGC 标识 ——
-       persistBuffer 同时服务两类东西：
+
+    /* ⚠️ 这条路径**默认不打**任何 AIGC 标识 ——
+       persistBuffer 是条**混合**路径，同时服务两类东西：
          · ecommerce-original / ecommerce-preview → **用户上传**（assetUpload.mjs）
          · canvas_crop / canvas_annotation / canvas_replace_text → 用户素材的派生编辑
        用户上传的照片不是我们生成的，打上 AIGC 属于**虚假标识**，那本身也是违规；
        而 test/ecommerce-asset-upload.test.mjs:104 断言的
        `assert.deepEqual(storedOriginal.buffer, originalBytes)` 正是这条契约。
-       ⇒ 只有 downloadAndPersist（上游 URL 下载的生成结果）打标识。 */
-    const fileName = assetNameFor(buffer, extension);
+
+       但它**也**服务真正的生成结果：provider 直接回 base64 的那些
+       （xhs 封面 / plog 封面，server/billing/contentBilling.mjs:271）。
+       那批以前是既没显式也没隐式标识 —— 一个合规缺口。
+
+       ⇒ 解法不是「按路径猜」，而是让调用方**显式声明** generated: true。
+          猜错的代价是给用户自己的照片打上"AI 生成"，那比漏标更糟。 */
+    let out = buffer;
+    if (generated === true) {
+      const contentId = contentIdFor(taskId, contentType + ':' + buffer.length);
+      out = await applyVisibleLabel(buffer, { contentType, sharp });
+      out = await stampImage(out, { contentType, contentId, sharp });
+    }
+
+    const fileName = assetNameFor(out, extension);
     await mkdir(root, { recursive: true });
     const filePath = resolve(root, fileName);
     const tempPath = resolve(root, `.${fileName}.${crypto.randomUUID()}.tmp`);
-    await writeFile(tempPath, buffer, { flag: 'wx' });
+    await writeFile(tempPath, out, { flag: 'wx' });
     try {
       try {
         await link(tempPath, filePath);
