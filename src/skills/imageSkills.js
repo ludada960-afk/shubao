@@ -16,7 +16,7 @@
    ⚠️ brief 是这个 skill 的**提示词模板**：{{字段key}} 会被工作台填进去。
       新增 skill 仍然只需要加一条声明，不写页面、不写控件。 */
 
-import { SELECTABLE_IMAGE_MODELS, imageModelResolutions } from '../services/imageModelCatalog.js';
+import { SELECTABLE_IMAGE_MODELS, imageModelResolutions, DEFAULT_IMAGE_MODEL as CATALOG_DEFAULT_IMAGE_MODEL } from '../services/imageModelCatalog.js';
 import { ADAPTIVE_RATIO, LAYOUT_FAMILY_NONE } from './skillRun.js';
 
 export const SKILL_COMPLEXITIES = ['simple', 'standard', 'heavy'];
@@ -35,9 +35,14 @@ export const FIELD_KINDS = ['select', 'segmented', 'cards', 'stepper', 'textarea
    这里只做两件事：把目录摊成 options、把「哪些模型不支持 4K」摊成 optionsFrom 的映射表。
    两张表**都是从目录算出来的**，不手写：目录里改了档位/上限，界面跟着变。 */
 const MODEL_OPTIONS = SELECTABLE_IMAGE_MODELS.map(model => ({ value: model.id, label: model.label }));
-/* 默认档 = 目录第一档（GPT Image 2，通用主力，也是唯一有真实出图记录的那一档）。
-   门禁 test/image-model-selection-0921.test.mjs 断言它 === skillRun.DEFAULT_IMAGE_MODEL。 */
-const DEFAULT_MODEL_ID = SELECTABLE_IMAGE_MODELS[0].id;
+/* 默认档 = **目录里声明的默认**（2026-09-30 起是 GPT Image 2.5 Sunburst）。
+   ⚠️ 原来是 `SELECTABLE_IMAGE_MODELS[0].id`，也就是「**目录里排第一的那一档**」——
+     把「默认是谁」和「菜单里谁排第一」这两件事**绑在了一起**：以后有人为了排序
+     动了目录第一项，默认档就跟着静默变了。
+   ⇒ 改成直接取 `DEFAULT_IMAGE_MODEL`，两者解耦；门禁
+     test/image-model-selection-0921.test.mjs ② 也从「目录第一项 === 默认」改成
+     「声明的默认 === skillRun.DEFAULT_IMAGE_MODEL」。 */
+const DEFAULT_MODEL_ID = CATALOG_DEFAULT_IMAGE_MODEL;
 /* 只收「档位不全」的模型（目前只有 Midjourney：上游只有 1K/2K）。
    全支持 1K/2K/4K 的模型不进表 —— 没限制就不写限制，免得将来目录改了三处对不上。 */
 const MODEL_RESOLUTION_LIMITS = Object.fromEntries(

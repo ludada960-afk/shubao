@@ -25,7 +25,7 @@ import TryOnPlanPanel from './ec/TryOnPlanPanel';
 import { PANEL_WIDTH_TABLE, SPACING, resolvePanelWidth } from './ec/panelVisualLanguage.js';
 import EcommerceWorkbench from './ec/EcommerceWorkbench';
 import EcProfileRail from './ec/EcProfileRail.jsx';
-import { generationUnits, IMAGE_MODELS, normalizeImageModel } from '../../services/imageModelCatalog.js';
+import { generationUnits, IMAGE_MODELS, normalizeImageModel, DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 /* 9-13 用户批注：底部「商品档案」入口已删（资产库已覆盖），ProductChip 不再渲染 */
 import { deriveEffectiveSmartOverrides, summarizeCommerceConfiguration } from './ec/workbenchState.js';
 import { uploadEcommerceAssets } from '../../services/api.js';
@@ -436,14 +436,14 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
   /* — 生图设置（分辨率/品质/创意度/反向提示词/种子） — */
   const [genSettings, setGenSettings] = useState({
     resolution: '2K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     negativePrompt: ''
   });
 
   /* 9-12 用户批注：首页「下一步」必须先算好积分给用户看，且**随配置实时变化**
      （改模型/清晰度/张数都要跟着变）。口径 = 每张积分 × 张数，与后端 generationUnits 同源。 */
   const planPoints = (() => {
-    const model = normalizeImageModel(genSettings.imageModel || 'image2');
+    const model = normalizeImageModel(genSettings.imageModel || DEFAULT_IMAGE_MODEL);
     const resolution = String(genSettings.resolution || '2K').toUpperCase();
     const unitsPerImage = generationUnits(model, resolution) || 0;
     /* 9-12 用户批注：默认整套（如 1白底+3主图+1素材+5详情=10 张）必须按整套张数算积分，
@@ -597,7 +597,7 @@ export default function EcMode({ ecStep, setEcStep, onStepChange, recoveryCheckp
     const effectiveSizing = {
       smart: sizing.smart !== false,
       resolution: genSettings.resolution,
-      imageModel: genSettings.imageModel || 'image2',
+      imageModel: genSettings.imageModel || DEFAULT_IMAGE_MODEL,
       contentType: commerceContext.contentType,
       images: resolveSizingImages(commerceContext.platform, {
         ...sizing,
@@ -1647,7 +1647,7 @@ onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); 
                       return { text: '文案策划', isSmart: false };
                     }
                     case 'settings': {
-                      const { resolution = '2K', imageModel = 'image2' } = genSettings;
+                      const { resolution = '2K', imageModel = DEFAULT_IMAGE_MODEL } = genSettings;
                       const modelLabel = imageModel === 'nano-banana-pro' ? 'Nano Pro' : imageModel === 'nano-banana-2' ? 'Nano 2' : 'Image 2';
                       return { text: `${modelLabel}·${resolution}`, isSmart: false };
                     }

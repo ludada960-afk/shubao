@@ -7,6 +7,7 @@ import { formatCanvasShotName, resolveShotPrefix } from '../../constants/canvasN
      （同首页那套口径）：渲染时由 `withAdaptiveRatioOption` 把这一档注入到列表最前面。
      这里只改**默认值**，不动那份尺寸名单。 */
 import { ADAPTIVE_RATIO } from './canvasAdaptiveRatio.js';
+import { DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 
 /* ═══════ 4c183cd4 续命 P-B 画布节点电影分镜命名 ═══════
    资深美工视角: 「素材 1」「图片 1」无法体现镜头/声轨/画面职责
@@ -417,7 +418,7 @@ export function createCanvasImageComposerNode({ x = 0, y = 0, sourceNodeId = '',
     prompt: '',
     ratio: ADAPTIVE_RATIO,
     resolution: '2K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     count: 1,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
   };
@@ -437,7 +438,7 @@ export function createCanvasTextComposerNode({ x = 0, y = 0, sourceNodeId = '', 
     prompt: '',
     ratio: ADAPTIVE_RATIO,
     resolution: '2K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     count: 1,
     sourceNodeIds: sourceNodeId ? [sourceNodeId] : [],
     textStyle: {
@@ -484,7 +485,7 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
     suiteType: '完整套图',
     ratio: ADAPTIVE_RATIO,
     resolution: '2K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     language: '中文',
     count: 6,
     skuMode: '默认SKU',
@@ -501,7 +502,7 @@ export function createCanvasSuiteComposerNode({ x = 0, y = 0, sourceNodeId = '',
       productParams: { category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' },
       skus: [],
       copywriting: { plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' },
-      genSettings: { imageModel: 'image2', resolution: '2K', negativePrompt: '' },
+      genSettings: { imageModel: DEFAULT_IMAGE_MODEL, resolution: '2K', negativePrompt: '' },
     },
   };
 }

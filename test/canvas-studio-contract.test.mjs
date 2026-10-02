@@ -27,6 +27,8 @@ import {
   normalizeCanvasCropRect,
   updateCanvasAnnotation,
 } from '../src/pages/EcCanvas/canvasInlineEditorModel.js';
+/* 2026-09-30 换默认图片模型（image2 → 2.5 Sunburst）后，下面几处期望值跟着走常量。 */
+import { DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 
 test('node presentation makes hover, selection and relation focus explicit', () => {
   assert.deepEqual(getCanvasNodePresentation({ selected: false, hovered: false, focusActive: false }), {
@@ -126,7 +128,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     prompt: '',
     ratio: ADAPTIVE_RATIO,
     resolution: '2K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     count: 1,
     sourceNodeIds: ['image-1'],
   });
@@ -155,7 +157,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
     suiteType: '完整套图',
     ratio: ADAPTIVE_RATIO,
     resolution: '2K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     language: '中文',
     count: 6,
     skuMode: '默认SKU',
@@ -178,7 +180,7 @@ test('image and ecommerce generation start as content-only canvas nodes beside t
       productParams: { category: '', size: '', baseColor: '', accentColor: '', material: '', craft: '' },
       skus: [],
       copywriting: { plan: '', sellingPoints: '', qc: '', details: '', maintenance: '' },
-      genSettings: { resolution: '2K', imageModel: 'image2', negativePrompt: '' },
+      genSettings: { resolution: '2K', imageModel: DEFAULT_IMAGE_MODEL, negativePrompt: '' },
     },
   });
 });
@@ -197,7 +199,7 @@ test('text generation starts as an editable document body and keeps source refer
     prompt: '',
     ratio: ADAPTIVE_RATIO,
     resolution: '2K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     count: 1,
     sourceNodeIds: ['image-1'],
     textStyle: {

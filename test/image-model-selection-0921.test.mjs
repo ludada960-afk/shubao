@@ -69,14 +69,20 @@ test('① 模型选择只出现在知渔有这一格的页面上（逐字段实�
 test('② 选项与默认档都来自那一份目录（首页模型挑选器同源，不另立第二份）', () => {
   const ids = SELECTABLE_IMAGE_MODELS.map(model => model.id);
   assert.ok(ids.length >= 2, '目录里至少要有多于一档可选模型，否则"模型选择"没有意义');
-  assert.equal(SELECTABLE_IMAGE_MODELS[0].id, DEFAULT_IMAGE_MODEL,
-    '目录第一档必须就是运行层默认的 image2（界面显示什么，就跑什么）');
+  /* ⚠️ 2026-09-30 改判：默认档**不再**要求等于「目录里排第一的那一档」。
+     原来 `imageSkills.js` 写的是 `SELECTABLE_IMAGE_MODELS[0].id`，把
+     「默认是谁」和「菜单里谁排第一」绑成了一件事 —— 以后谁为了排序动了目录第一项，
+     默认档就跟着静默变了。
+     ⇒ 现在默认由目录**显式声明**（`DEFAULT_IMAGE_MODEL`），两者解耦。 */
+  assert.equal(DEFAULT_IMAGE_MODEL, 'image2-5-sunburst',
+    '默认档 = GPT Image 2.5 Sunburst（用户 2026-09-30 拍板：「把默认都换成 2.5，这是长期比较好的做法」）');
+  assert.ok(ids.includes(DEFAULT_IMAGE_MODEL), '默认档必须在可选目录里（否则界面上选不到、却按它跑）');
   for (const skill of skillsWithModelField()) {
     const field = modelFieldOf(skill);
     assert.deepEqual(field.options.map(option => option.value), ids, skill.id + '：选项必须逐档等于目录');
     assert.deepEqual(field.options.map(option => option.label), SELECTABLE_IMAGE_MODELS.map(model => model.label),
       skill.id + '：档位文案也来自目录，页面不许自己写一份');
-    assert.equal(field.default, DEFAULT_IMAGE_MODEL, skill.id + '：默认档 = 目录第一档');
+    assert.equal(field.default, DEFAULT_IMAGE_MODEL, skill.id + '：默认档 = 目录声明的默认');
   }
   /* 反向自证：目录里加一档，界面必须跟着多一档（否则就是"目录改了界面没改"） */
   const synthetic = { ...skillsWithModelField()[0], fields: [{ ...modelFieldOf(skillsWithModelField()[0]), options: [...SELECTABLE_IMAGE_MODELS, { id: 'x' }].map(m => ({ value: m.id, label: m.label })) }] };

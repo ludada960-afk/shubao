@@ -302,8 +302,13 @@ export default function TaskSidebar() {
         /* 让位左侧常驻导航（用户 9-18 批注 #1 新增侧栏）：--sb-app-sidebar-w 由 .app-shell 提供，
            没有侧栏的页面（画布）回落到 0，浮层位置与从前完全一致。 */
         left: 'calc(var(--sb-app-sidebar-w, 0px) + 16px)',
-        /* 画布页由上面那个 effect 量出小地图的实时顶沿，摆在它**上方 12px**；其余页面 86。 */
-        bottom: floatBottom,
+        /* 画布页由上面那个 effect 量出小地图的实时顶沿，摆在它**上方 12px**；其余页面 86。
+           ⚠️ 2026-10-01：小地图现在会把这根 `--ec-canvas-hud-clearance` **发布**出来
+           （见 CanvasMinimap 的 useLayoutEffect），所以这里优先读它 —— 没有轮询窗口。
+           原来只有下面那段 250ms 轮询去 `getBoundingClientRect`，而小地图是**异步**挂上来的，
+           头几秒按钮还停在写死的 86 上，**正好压在小地图上**（实测 1280×800 重叠 46×46）。
+           变量不存在（离开画布 / 小地图关掉 / 老逻辑没跑）时回落到算出来的 floatBottom。 */
+        bottom: `var(--ec-canvas-hud-clearance, ${floatBottom}px)`,
         zIndex: 'var(--sb-z-panel)',
         display: 'flex',
         alignItems: 'flex-end',

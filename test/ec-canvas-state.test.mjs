@@ -459,10 +459,19 @@ test('project library imports distinguish local recovery from remote archive fai
 });
 
 test('double-click image preview is a keyboard-accessible dialog', () => {
-  assert.match(canvasSource, /role="dialog" aria-modal="true" aria-label=\{`\$\{zoomImg\.label \|\| '图片'\}大图预览`\}/);
-  assert.match(canvasSource, /button type="button" aria-label="关闭大图预览"/);
-  assert.match(canvasSource, /bindNonPassiveWheel\(previewDialogRef\.current, handlePreviewWheel\)/);
-  assert.match(canvasSource, /transform:\s*`scale\(\$\{previewScale\}\)`/);
+  /* ⚠️ 2026-10-02：aria-label 判据**不再钉那个兜底词**。
+     原来钉的是 `zoomImg.label || '图片'`。视频节点的工具栏加了「预览」之后，
+     同一个灯箱也服务视频，兜底词必须从「图片」变成中立的「素材」——
+     而旧判据把「图片」**逐字**钉住了，于是行为完全正确却被判红。
+     ⇒ 改成断言**意图**：这是一个 dialog、模态、有**关闭按钮**，
+        可访问名由 zoomImg.label 派生（无论兜底用哪个词）。
+     措辞会变、意图不会；钉意图才拦得住真正的回归。 */
+  assert.match(canvasSource, /role="dialog" aria-modal="true"/, '预览必须是模态对话框');
+  assert.match(canvasSource, /aria-label=\{`\$\{zoomImg\.label \|\| '[^']+'\}大图预览`\}/,
+    '可访问名必须由 zoomImg.label 派生（兜底词中立即可）');
+  assert.match(canvasSource, /button type="button" aria-label="关闭大图预览"/, '必须有键盘可达的关闭按钮');
+  assert.match(canvasSource, /bindNonPassiveWheel\(previewDialogRef\.current, handlePreviewWheel\)/, '滚轮缩放监听必须保留');
+  assert.match(canvasSource, /transform:\s*`scale\(\$\{previewScale\}\)`/, '图片分支的缩放必须保留');
 });
 
 test('credit hover keeps every label legible on the dark Canvas hover state', () => {

@@ -6,6 +6,9 @@ import {
   loadEcommerceTaskReference,
   saveEcommerceTaskReference,
 } from '../src/pages/Home/ec/ecommerceTaskProgressModel.js';
+/* 2026-09-30 换默认模型（image2 → 2.5 Sunburst）后，下面几条 SKU 断言一律从计费表取，
+   不再写死字符串 —— 否则换一次默认就要改一轮测试，而报错完全指不到真正原因。 */
+import { generationBillingSku, DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 
 test('Canvas image inputs resolve app-relative assets before server processing', async t => {
   const originalLocation = globalThis.location;
@@ -757,7 +760,10 @@ test('canvas regeneration forwards supplementary visual references', async t => 
   assert.equal(requestBody.creation_intent, 'visual');
   assert.equal(requestBody.skill_id, 'poster');
   assert.equal(requests.find(request => request.url.endsWith('/api/canvas/regenerate')).signal, controller.signal);
-  assert.equal(requests.find(request => request.url.endsWith('/api/billing/quote')).body.sku, 'ec_image_4k');
+  /* ⚠️ 2026-09-30：默认模型换成了 2.5 Sunburst，报价 SKU 随之变成 `ec_image25_sunburst_4k`。
+     这里从计费表取默认档的 SKU，而不是再写死一个字符串 —— 换默认时它自动跟着走。 */
+  assert.equal(requests.find(request => request.url.endsWith('/api/billing/quote')).body.sku,
+    generationBillingSku(DEFAULT_IMAGE_MODEL, '4K'));
   assert.equal(requestBody.billing_quote_id, 'canvas-quote');
   assert.match(requestBody.request_key, /^canvas-[0-9a-f]{8}$/);
   assert.equal(requestBody.billing_action_id, requestBody.request_key);
@@ -940,9 +946,15 @@ test('Canvas API helpers send the signed session token and omit body email autho
     '/api/billing/quote',
     '/api/canvas/analyze-layers',
   ]);
+  /* 同样改成从计费表取（2026-09-30 换默认后这三档的 SKU 都变了）。 */
   assert.deepEqual(
     requests.filter(request => request.url.endsWith('/api/billing/quote')).map(request => request.body.sku),
-    ['ec_image_2k', 'ec_image_2k', 'ec_image_4k', 'ec_smart_layer'],
+    [
+      generationBillingSku(DEFAULT_IMAGE_MODEL, '2K'),
+      generationBillingSku(DEFAULT_IMAGE_MODEL, '2K'),
+      generationBillingSku(DEFAULT_IMAGE_MODEL, '4K'),
+      'ec_smart_layer',
+    ],
   );
   const layerRequest = requests.find(request => request.url.endsWith('/api/canvas/analyze-layers'));
   assert.match(layerRequest.body.billing_quote_id, /^quote-/);

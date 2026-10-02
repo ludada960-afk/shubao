@@ -1132,7 +1132,11 @@ export default function MediaCreationPage({ onSubpageHeader = null }) {
         seriesNames: seriesGroups.flat(),
         seriesStarts: seriesStartNames,
         onToggleSeries: toggleSeries,
-        seriesHint: '点一下开始标这一段，**再点下面几行就把它连长**（2 张、3 张、5 张都行）。标中的行永远是连着的一段，中间不会夹进没标的。机位/景别/光线全不变，画面里的人与物可以换；再点一次已标的那行＝从它开始截断。',
+        /* ⚠️ 2026-10-01 用户批注后**删掉了 seriesHint**（原来是一条 110 多字的悬停提示）：
+           「那些文案你应该在对话里面回答我呀，你放到线上来给用户看干嘛呀。」
+           ⇒ 连拍的规则说明留在**注释**里（下面这段 + skillRun.skillSeriesClause），
+              不再进界面。留一个没人读的字段比删掉更糟：它看起来像"这功能有说明"，
+              实际谁也不会去看。 */
       } : {}),
       /* ═══ 2026-09-29 批 DC 续-16：**清单上移**（用户「你的连拍组去哪了呢」）═════════════════════
          原来 `sections` 一律排在所有字段组之后，那一页的「版式族」是四张长卡片，

@@ -25,6 +25,18 @@ const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const canvasPage = read('src/pages/EcCanvas/index.jsx');
 const stripComments = src => src.replace(/\/\*[\s\S]*?\*\//g, '');
 
+/* ⚠️ 2026-10-01：hints 的**形状**从「一整句字符串」变成 `{ title, body }`。
+   用户原话：「这些描述确实是我跟你说过的描述，可是我感觉你的 UI 做的并没有特别好看啊，
+   你这个就等于是普通的把字打上去而已，**你好像没有经过什么设计**，
+   从用户的观感来看，就会觉得好像这两句话很没有想看的欲望。」
+   ⇒ 界面上是「标题 + 说明」两行卡，而不是一坨灰字。
+
+   这两条门禁**断言的意图一个字都没变**（仍要求：零张要给下一步指引、
+   单张要讲清多选与长图、长图可点时不许重复推销）。只是原来直接 `hints.join('\n')`，
+   现在 join 出来会是 `[object Object]` ⇒ 改用这个 helper 把两段都摊平再匹配。
+   顺带断言**形状**：title 与 body 都得有内容，否则界面会渲染出一张空卡。 */
+const hintText = hints => hints.map(h => `${h.title}\n${h.body}`).join('\n');
+
 /* ═══ ① 导出文案：按**实际可交付张数**决定，不按入口 ═════════════════════════════ */
 
 test('只有一张可交付时，主选项必须说"导出这张图片"，不许说"导出整套"', () => {
@@ -64,20 +76,20 @@ test('一张都没有时要说实话，不要显示「导出 0 张」', () => {
   assert.ok(!JSON.stringify(none).includes('0 张图片'), '整个返回值里都不许出现「0 张图片」');
   /* 零张时正确的做法是告诉用户"怎么才能导出"，而不是留一个点不动的按钮 */
   assert.ok(none.hints.length > 0, '零张时要给出下一步指引');
-  assert.match(none.hints.join('\n'), /选中|框选/, '指引必须说清楚怎么才能导出');
+  assert.match(hintText(none.hints), /选中|框选/, '指引必须说清楚怎么才能导出');
 });
 
 test('必须告诉用户：除了单张，还能多选导出、还能拼长图（用户 9-30 逐字点名）', () => {
   /* 用户原话：「只有一个导出按钮，我觉得也是可以的，但是你得告诉用户，
      除了导出单张之外，我们还可以导出多张，并且我们还可以导出合成的长图。」 */
   const one = exportDialogCopy({ count: 1 });
-  const hints = one.hints.join('\n');
+  const hints = hintText(one.hints);
   assert.match(hints, /Shift|框选/, '单张场景必须告诉用户怎么一次导出多张');
   assert.match(hints, /长图/, '单张场景必须告诉用户能拼长图（长图选项在这一档是隐藏的）');
   /* 凑得齐长图时，长图本身就是可点的选项 ⇒ 不必再重复提示 */
   const stitchable = exportDialogCopy({ count: 4, canLongDetail: true });
-  assert.equal(stitchable.hints.filter(h => /长图/.test(h)).length, 0, '长图已经是可点选项了，不要再重复提示');
-  assert.ok(stitchable.hints.some(h => /选中|框选/.test(h)), '但仍然要说明可以只导出其中几张');
+  assert.equal(stitchable.hints.filter(h => /长图/.test(hintText([h]))).length, 0, '长图已经是可点选项了，不要再重复提示');
+  assert.ok(stitchable.hints.some(h => /选中|框选/.test(hintText([h]))), '但仍然要说明可以只导出其中几张');
   /* 在长图那一档里就别再推销"怎么拼长图"了 —— 用户已经在里面了 */
   const inLong = exportDialogCopy({ count: 4, canLongDetail: true, longDetail: true });
   assert.deepEqual(inLong.hints, [], '长图档内不再给提示');

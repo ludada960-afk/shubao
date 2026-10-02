@@ -4,6 +4,9 @@ import test from 'node:test';
 
 import { buildAssetPlan } from '../server/ecommerceEngine/assetPlanner.mjs';
 import { validatePlanContract } from '../server/ecommerceEngine/planContract.mjs';
+/* 2026-09-30 换默认模型（image2 → 2.5 Sunburst）后报价 SKU 变了；这里从计费表取，
+   换默认时不必再改断言。 */
+import { generationBillingSku, DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 
 async function planModel() {
   return import(`../src/pages/Home/ec/ecommercePlanModel.js?billing-ui=${Date.now()}-${Math.random()}`);
@@ -181,16 +184,20 @@ test('quote request uses the formal resolution SKU and exact planned quantity', 
     ],
   };
 
+  /* 2026-09-30 换默认模型后，报价 SKU 从 `ec_image_2k` 变成 `ec_image25_sunburst_*`。
+     ⚠️ 1K 与 2K 是**两个不同**的 SKU（`_1k` / `_2k`，各 1500 units）——
+     我第一版注释写成"1K 与 2K 同 SKU"是错的，被这条门禁当场判出来。
+     改成从计费表取，换默认时不必再改这里。 */
   assert.deepEqual(resolveEcommercePlan({ platform: '淘宝', sizing, resolution: '1K' }).quoteRequest, {
-    sku: 'ec_image_2k',
+    sku: generationBillingSku(DEFAULT_IMAGE_MODEL, '1K'),
     quantity: 9,
   });
   assert.deepEqual(resolveEcommercePlan({ platform: '淘宝', sizing, resolution: '2K' }).quoteRequest, {
-    sku: 'ec_image_2k',
+    sku: generationBillingSku(DEFAULT_IMAGE_MODEL, '2K'),
     quantity: 9,
   });
   assert.deepEqual(resolveEcommercePlan({ platform: '淘宝', sizing, resolution: '4K' }).quoteRequest, {
-    sku: 'ec_image_4k',
+    sku: generationBillingSku(DEFAULT_IMAGE_MODEL, '4K'),
     quantity: 9,
   });
 });

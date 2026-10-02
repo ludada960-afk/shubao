@@ -1,5 +1,5 @@
 import { isPersistentEcommerceImageUrl } from '../../utils/workRecords.js';
-import { generationUnits } from '../../services/imageModelCatalog.js';
+import { generationUnits, DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 import { IMAGE_RATIOS } from '../../services/imageSizeCatalog.js';
 
 /* ═══ 批 J-⑪：画面尺寸**给满六档**（用户批注 #7-4）═════════════════════════════════════════
@@ -262,7 +262,7 @@ export function visualSkillDefaultRatio() {
    ⚠️ 4 是**自由创作那条流**的档位上限（它的 stepper 最多就是 4），不是服务端限制：
       出图是一个请求一张、由前端循环驱动，服务端没有"一次几张"的概念。
       所以抬这条不会放宽自由创作（它的 count 到不了 4 以上），只是让技能那条链能跑满。 */
-export function visualGenerationEstimate({ imageModel = 'image2', resolution = '2K', count = 1 } = {}) {
+export function visualGenerationEstimate({ imageModel = DEFAULT_IMAGE_MODEL, resolution = '2K', count = 1 } = {}) {
   const unitsPerImage = generationUnits(imageModel, resolution) || 0;
   const quantity = Math.max(1, Math.min(16, Number.parseInt(count, 10) || 1));
   return {
@@ -323,7 +323,7 @@ export function buildVisualWorkRecord({
   run,
   prompt = '',
   skillId = 'free',
-  model = 'image2',
+  model = DEFAULT_IMAGE_MODEL,
   ratio = '1:1',
   resolution = '2K',
   referenceAssets = [],

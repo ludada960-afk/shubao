@@ -1,6 +1,6 @@
-import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions } from '../../../services/imageModelCatalog.js';
+import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions, DEFAULT_IMAGE_MODEL } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
 import {
   AlignCenter,
@@ -373,6 +373,18 @@ export function CanvasDeriveMenu({ actions = [], anchorRect = null, title = '引
               const priceBadge = action.priceLabel && action.priceLabel !== '免费' ? action.priceLabel : '';
               return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" title={action.description} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
                 <span className="ec-canvas-derive-chip"><Icon /></span>
+                {/* ⚠️⚠️ 2026-10-01 用户批注：「什么情况啊，你为什么还是把这些暴露出来啊，
+                    不是说鼠标放上去按钮再显示提示文案吗，你现在怎么还乱码了呀」
+                    —— 这条注释原来写的是**裸的**斜杠星号。JSX 里那不是注释，
+                    它被当成**文本子节点**渲染出来，于是整段内部批注变成了卡片上显示的文案，
+                    看上去就是"乱码"。必须写成花括号包起来的形式。
+                    门禁 `jsx-bare-comment-1001` 用 esbuild 扫 src 下全部 jsx：
+                    它把「裸注释会变成字符串子节点」这件事变成可判定的，不再靠肉眼。
+
+                    ⚠️ 描述**怎么藏**是批 CY-㊴ 的决定（保留 `<small aria-hidden>`、
+                    由 CSS `display:none` 收起），门禁 canvas-right-panel-hint-1001 钉着它。
+                    我第一版把 `<small>` 直接删了，那会让那条门禁变红 —— 已改回他们的做法：
+                    元素留着（读屏仍拿得到）、界面上不显示、完整句子走 hover 的 `title`。 */}
                 {/* 批 CY-㊴：描述默认不直接显示（两行截断读不全），hover 用原生提示给完整句子。
                    整条描述进 title，键盘/读屏也能拿到 —— 之前它是纯视觉的。 */}
                 <span className="ec-canvas-derive-copy" title={action.description}><strong>{action.label}</strong><small aria-hidden="true">{action.description}</small></span>
@@ -952,7 +964,7 @@ function CanvasParameterControls({ node, onChange, countOptions = CANVAS_COUNT_O
   const open = activeSurface.startsWith('parameter:') ? activeSurface.slice('parameter:'.length) : '';
   const ratio = node?.ratio || '1:1';
   const resolution = node?.resolution || '2K';
-  const imageModel = node?.imageModel || 'image2';
+  const imageModel = node?.imageModel || DEFAULT_IMAGE_MODEL;
   const count = Number(node?.count) || countOptions[0] || 1;
   const toggle = key => onSurfaceChange?.(toggleCanvasComposerSurface(activeSurface, `parameter:${key}`));
   /* 9-17（图6）：「张开的面板必须居中于按钮的正上方」+ 必须真的能张开（portal 脱离裁剪） */
@@ -1084,7 +1096,7 @@ function suiteConfiguration(node = {}) {
     sizing: { ...defaults.sizing, ...(value.sizing || {}) },
     productParams: { ...defaults.productParams, ...(value.productParams || {}) },
     copywriting: { ...defaults.copywriting, ...(value.copywriting || {}) },
-    genSettings: { ...defaults.genSettings, ...(value.genSettings || {}), resolution: value.genSettings?.resolution || node.resolution || '2K', imageModel: value.genSettings?.imageModel || node.imageModel || 'image2' },
+    genSettings: { ...defaults.genSettings, ...(value.genSettings || {}), resolution: value.genSettings?.resolution || node.resolution || '2K', imageModel: value.genSettings?.imageModel || node.imageModel || DEFAULT_IMAGE_MODEL },
   };
 }
 
@@ -1215,7 +1227,7 @@ function CanvasSuiteSettingsControl({ node, onChange, activeSurface = '', onSurf
   const configuration = suiteConfiguration(node);
   const activePanel = activeSurface.startsWith('suite:') ? activeSurface.slice('suite:'.length) : '';
   const [anchorRef, anchor] = useCanvasPopoverAnchor(activePanel === 'settings' ? 'settings' : '');
-  const suiteModel = configuration.genSettings?.imageModel || 'image2';
+  const suiteModel = configuration.genSettings?.imageModel || DEFAULT_IMAGE_MODEL;
   return <div className="ec-canvas-suite-settings-control">
     <CanvasConfigTrigger
       surface="suite-settings"
@@ -1316,6 +1328,24 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
   const nodeHasResult = canvasGenerationBoxHasResult(node) && !inCanvasGroup;
   const textBoardRef = useRef(null);
   const textComposingRef = useRef(false);
+  /* 2026-10-02 用户批注（照知渔）：「他目前的情况是鼠标只要挪动到这块区域，他的视频就会自动播放，
+     然后他的鼠标只要挪开这块播放的区域的话，视频就会停下来。我觉得你也可以照他这个模式去做。」
+     ⚠️ `play()` 返回 Promise 且可能被浏览器自动播放策略拒绝 ⇒ 必须 catch，
+        否则控制台会留一条 unhandled rejection（而且表现为"点了没反应又不知道原因"）。 */
+  const hoverVideoRef = useRef(null);
+  const playOnHover = useCallback(() => {
+    const el = hoverVideoRef.current;
+    if (!el) return;
+    const p = el.play();
+    if (p && typeof p.catch === 'function') p.catch(() => { /* 被策略拒绝：保持暂停，不报错 */ });
+  }, []);
+  const pauseOnLeave = useCallback(() => {
+    const el = hoverVideoRef.current;
+    if (!el) return;
+    el.pause();
+    /* 回到开头，下次移回来从头播 —— 否则每次悬停都从上次停的位置接着播，很怪 */
+    try { el.currentTime = 0; } catch { /* 元数据未就绪，忽略 */ }
+  }, []);
   const textEditSeedRef = useRef('');
   /* 文案板高度跟随内容 (与 CanvasTextNode 同策略) */
   const syncTextBoardHeight = () => {
@@ -1381,7 +1411,7 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
         syncTextBoardHeight();
       }}
       onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
-    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame"><video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame" onPointerEnter={playOnHover} onPointerLeave={pauseOnLeave}><video ref={hoverVideoRef} src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); /* 首帧拨一下，否则没播过之前是黑的（用户：「为什么这里是个黑图呀」） */ if (!media.currentTime) { try { media.currentTime = 0.05; } catch { /* 元数据未就绪 */ } } }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>
@@ -1392,6 +1422,22 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
       <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
       {node.status === 'processing' && <small>{node.progressLabel || '正在处理...'}</small>}
+      {/* ⚠️ 2026-10-02：上传进度**长在素材自己身上**（用户照知渔提的：「他上传的进度是在
+          整个素材里面的……我们现在是在整个画布的最下方，我觉得可能不太对」）。
+          `uploadPercent` 由 index.jsx 的 makeUploadReporter 直接写到占位节点上 ——
+          能这么写的前提是**节点先于上传存在**（原来节点是传完才建的，进度无处可挂，
+          只能做成画布底部那条全局横条）。 */}
+      {node.status === 'uploading' && (
+        <div className="ec-canvas-node-upload-progress">
+          <div className="ec-canvas-node-upload-progress-track">
+            <div
+              className="ec-canvas-node-upload-progress-fill"
+              style={{ width: `${Math.max(2, node.uploadPercent || 0)}%` }}
+            />
+          </div>
+          <small>上传中 {node.uploadPercentText || `${Math.round(node.uploadPercent || 0)}%`}</small>
+        </div>
+      )}
       {node.mediaPlaybackError && <small className="is-error">{node.mediaPlaybackError}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
     </div>}

@@ -1,3 +1,4 @@
+import { DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 const QA_QUERY_VALUE = 'ec-canvas';
 const VISUAL_QA_QUERY_VALUE = 'visual';
 /* 9-12 新增本地验收通道：?qa=ec-plan-launch —— 直接以「首页带设计方案发射」的状态进入画布。
@@ -98,7 +99,7 @@ export function createCanvasBrowserQaState({ enabled, search = '' } = {}) {
         refShots: [{ assetId: 'qa-ref-1', url: '/images/home/entry-xhs.png', name: '参考图 1' }],
         platform: 'taobao',
         sizing: { resolution: '2K' },
-        genSettings: { imageModel: 'image2' },
+        genSettings: { imageModel: DEFAULT_IMAGE_MODEL },
       },
     };
   }
@@ -122,7 +123,7 @@ export function createCanvasBrowserQaState({ enabled, search = '' } = {}) {
         visualSkillId: 'social-cover',
         ratio: '21:9',
         resolution: '2K',
-        imageModel: 'image2',
+        imageModel: DEFAULT_IMAGE_MODEL,
         createdAt: Date.now(),
         images: [{ key: 'visual_1', url: resultUrl, label: '公众号头图', displayName: '公众号头图', role: 'visual_creation', ratio: '21:9' }],
         imageRecords: [{ key: 'visual_1', url: resultUrl, label: '公众号头图', displayName: '公众号头图', role: 'visual_creation', ratio: '21:9' }],
@@ -132,7 +133,7 @@ export function createCanvasBrowserQaState({ enabled, search = '' } = {}) {
           skillControl: '公众号',
           panelValues: { platform: '横向头图', headline: '结果先行' },
           prompt: '为城市夜跑专题制作公众号头图，标题为「今晚，去追风」，突出路线、节奏和人群氛围。',
-          imageModel: 'image2',
+          imageModel: DEFAULT_IMAGE_MODEL,
           ratio: '21:9',
           resolution: '2K',
           referenceAssets: [{ assetId: 'visual-browser-qa-reference', url: referenceUrl, displayName: '夜跑素材' }],

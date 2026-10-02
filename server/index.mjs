@@ -912,6 +912,16 @@ import {
   rotatePatterns,
 } from './conceptCopywriting.mjs';
 import { ffmpegAvailable } from './videoLocalAdapter.mjs';
+
+/* ⚠️ 服务端的默认图片模型。**这里必须自己声明，不许从 `../src/` import** ——
+   发布归档里**没有 src/**（`test/server-shipping-boundary-0926` 就是守这条的：
+   "server/** 的相对 import 不得落在 src/，线上会挂"）。
+   我第一版图省事直接从 `../src/services/imageModelCatalog.js` 取，被那条门禁当场抓住 ——
+   它说得对，那一行到了线上就是 `Cannot find module`。
+   ⇒ 代价是这里与前端目录**各有一份**，所以下面这条断言守着"两边不许走岔"：
+     前端真源 `src/services/imageModelCatalog.js` 的 `DEFAULT_IMAGE_MODEL`。
+   2026-09-30：默认从 `image2` 换成 `image2-5-sunburst`（用户拍板「把默认都换成 2.5」）。 */
+const DEFAULT_IMAGE_MODEL = 'image2-5-sunburst';
 app.get('/feishu/events', (req, res) => {
   const verificationToken = process.env.FEISHU_BOT_VERIFICATION_TOKEN || '';
   const result = handleFeishuChallenge(verificationToken, req.query);
@@ -2469,7 +2479,7 @@ app.post('/api/regenerate-image', async (req, res) => {
   if (!prompt) return res.status(400).json({ error: '缺少prompt' });
   try {
     const selectedSize = resolveGenerationSize({ resolution, ratio });
-    const feature = ecommerceFeatureForItem({ imageModel: 'image2', generationSize: selectedSize.size });
+    const feature = ecommerceFeatureForItem({ imageModel: DEFAULT_IMAGE_MODEL, generationSize: selectedSize.size });
     const billed = await canvasOneShotBilling.execute({
       ownerEmail: req._userEmail,
       quoteId,
@@ -2477,7 +2487,7 @@ app.post('/api/regenerate-image', async (req, res) => {
       sku: feature.sku,
       referenceType: 'legacy_image_regeneration',
       providerCostCny: feature.providerCostCny,
-      metadata: { action: 'regenerate_image', imageModel: 'image2' },
+      metadata: { action: 'regenerate_image', imageModel: DEFAULT_IMAGE_MODEL },
       work: async () => {
         const url = await generateImage(prompt, category || '', false, undefined, selectedSize.size);
         if (!url) throw new Error('生成失败');
@@ -5573,7 +5583,7 @@ app.post('/api/canvas/transform', async (req, res) => {
     ratio = '1:1',
     target_language: targetLanguage = '中文',
     resolution = '2K',
-    image_model: imageModel = 'image2',
+    image_model: imageModel = DEFAULT_IMAGE_MODEL,
     annotation = '',
     annotations = [],
     grid = 2,

@@ -228,6 +228,10 @@
   background: var(--sb-info);
   color: var(--sb-neutral-0);
   font-size: var(--sb-text-md);
+  /* 这条规则随批 CY-㊴ 失效了：提示句里那个文本 `+` 已换成与画布端口**同一个** SVG 图标
+     （`.ec-canvas-node-port.is-hint`），`strong` 不再出现在这一句里。
+     保留是为了不给别处留隐患；真要对齐应该用 `.ec-canvas-node-port.is-hint`，
+     那边已由 test/canvas-right-panel-hint-1001 钉住「同一图标 + 居中 + 不可点」。 */
   vertical-align: -4px;
 }
 

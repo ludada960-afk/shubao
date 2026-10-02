@@ -5,10 +5,13 @@ import test from 'node:test';
 
 import sharp from 'sharp';
 
+import { PRODUCTION_VISUAL_CASES } from '../scripts/production-visual-case-manifest.mjs';
+import { DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 import {
   PRODUCTION_CASE_CATALOG,
   productionCaseById,
 } from '../src/pages/Home/productionCaseCatalog.js';
+import { productionGalleryItems } from '../src/pages/Home/galleryModel.js';
 
 test('production case catalog gives every showcase asset a stable display contract', () => {
   assert.deepEqual(PRODUCTION_CASE_CATALOG.map(item => item.id), [
@@ -141,4 +144,63 @@ test('production output entries cannot omit task and request provenance', () => 
     assert.ok(item.assets.every(asset => existsSync(new URL(`../public${asset.src}`, import.meta.url))));
   }
   assert.throws(() => productionCaseById('missing-case'), /Unknown production case/);
+});
+
+/* ═══ 逐案例的出图模型：记录，不是默认值 ═══════════════════════════════════════════════════════
+   用户 2026-09-30 原话：「如果以后再添加其他的案例进来，他们的导向就是他们生成时候的各种各样
+   的模型和配置方案呀。你不要把这个做同款给写死了，就是完全指向 2 啊。」
+   ⚠️ 这组用例的判据刻意**不**断言"这些案例是 image2"——那是数据，会随重新生成而变；
+   它断言的是三条不会随数据漂移的契约。 */
+test('每一条生产案例资产都必须自带 imageModel 记录（漏写就构造失败，不静默继承）', () => {
+  for (const entry of PRODUCTION_CASE_CATALOG) {
+    for (const asset of entry.assets) {
+      assert.equal(typeof asset.imageModel, 'string', `${entry.id}/${asset.id} 缺 imageModel 记录`);
+      assert.ok(asset.imageModel.trim(), `${entry.id}/${asset.id} 的 imageModel 是空串`);
+    }
+  }
+});
+
+test('目录里逐资产的 imageModel 与生成声明（manifest）不许走岔', () => {
+  /* 两边各写各的（src/ 不能依赖 scripts/，发布归档里没有 scripts/），所以靠这条钉住。
+     manifest 的粒度是"一条案例 = 一张图"，与目录里的资产一一对应。 */
+  const declared = new Map(PRODUCTION_VISUAL_CASES.map(item => [item.id, item.imageModel]));
+  const visualAssets = PRODUCTION_CASE_CATALOG
+    .filter(entry => entry.status === 'production')
+    .flatMap(entry => entry.assets)
+    .filter(asset => declared.has(asset.id));
+  assert.equal(visualAssets.length, 24, '视觉案例资产应当全部能在生成声明里找到对应记录');
+  for (const asset of visualAssets) {
+    assert.equal(asset.imageModel, declared.get(asset.id),
+      `${asset.id}：目录记的出图模型与生成声明不一致 —— 重新生成后必须两边一起改`);
+  }
+});
+
+test('做同款读案例自己的记录；记录不在时才回落到全局默认', () => {
+  /* ⚠️ 判据用 image2（**非默认**）而不是 sunburst：全局默认本身就是 2.5，
+     拿 2.5 当假数据的话，"读了记录"和"回落了默认"两件事观测结果一模一样，验不出任何东西。 */
+  const fakeCase = (id, imageModel) => ({
+    id: 'free',
+    status: 'production',
+    assets: [{
+      id, src: `/images/visual-recipes/cases/${id}.png`, label: '假案例', role: 'output',
+      ratio: '1:1', intent: 'free', prompt: '假提示词', requestKey: `showcase-fake-${id}`,
+      ...(imageModel === undefined ? {} : { imageModel }),
+    }],
+  });
+  const replayModelOf = entry => {
+    const item = productionGalleryItems([entry])[0];
+    return { outer: item.imageModel, replay: item.replay.imageModel };
+  };
+
+  for (const recorded of ['image2', 'image2-5-sunburst', 'nano-banana']) {
+    const { outer, replay } = replayModelOf(fakeCase(`recorded-${recorded}`, recorded));
+    assert.equal(outer, recorded, `案例记的是 ${recorded}，做同款就必须带 ${recorded}`);
+    assert.equal(replay, recorded, 'replay 与外层必须是同一个来源，不许只改一处');
+  }
+  /* 空白与缺字段都算"没有记录" —— 那才是"没得选"，回落全局默认。 */
+  for (const entry of [fakeCase('blank', '   '), fakeCase('absent')]) {
+    const { outer, replay } = replayModelOf(entry);
+    assert.equal(outer, DEFAULT_IMAGE_MODEL, '没有记录时回落到全局默认');
+    assert.equal(replay, DEFAULT_IMAGE_MODEL, 'replay 同样回落，不许留一个写死的旧模型');
+  }
 });

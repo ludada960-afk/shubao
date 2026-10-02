@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import test from 'node:test';
+import { DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -285,7 +286,7 @@ test('formal generation preserves owner-scoped asset IDs, quote reference, and m
   assert.deepEqual(requests[0].body.sizing, {
     smart: false,
     resolution: '4K',
-    imageModel: 'image2',
+    imageModel: DEFAULT_IMAGE_MODEL,
     images: [{ key: 'main_text', count: 2, ratio: '1:1' }],
   });
   assert.equal(requests[0].body.billing_quote_id, 'bq1.accepted.quote');

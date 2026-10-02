@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
+import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
   Upload, Type, Video, Wand2, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
@@ -38,6 +38,8 @@ import { CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes
 import { CanvasBottomToolbar, CanvasLayersPanel, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
 import WatermarkPanel from './components/WatermarkPanel.jsx';
 import { DEFAULT_IMAGE_WATERMARK, DEFAULT_VIDEO_WATERMARK, normalizeWatermark } from './canvasWatermarkModel.js';
+/* 2026-10-02：上传前本地探真实尺寸 —— 建框要用它，别等服务器传完才拿到。 */
+import { probeLocalMediaSizes } from './canvasUploadPrepare.js';
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import {
   CanvasAddMenu,
@@ -60,6 +62,14 @@ import {
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+/* ⚠️ 2026-10-01 用户批注：「然后你这个切换主题的按钮点了是没有任何反应的呀。你没有去���理吗？」
+   真因：右键菜单那一档 `case 'toggle-theme'` 调的是**本组件自己的 React state**
+   （下面 `const [themeMode, setThemeMode] = useState(...)`），而那个 state
+   **全组件没有任何地方读** —— 真正落地主题的是 `utils/themeMode.js`（写 localStorage
+   + `<html data-theme>`，ThemeSwitcher 与 main.jsx 用的都是它）。
+   两边同名：一边是"没人读的状态"、一边是"真正生效的函数"，于是点下去毫无反应。
+   ⇒ 显式导入那两个纯函数，本地 state 只用来让菜单显示"当前是第几档"。 */
+import { applyThemeToDocument, readStoredThemeMode, writeStoredThemeMode } from '../../utils/themeMode.js';
 import CanvasLibraryModal from './components/CanvasLibraryModal.jsx';
 import CanvasAssetPickerModal from './components/CanvasAssetPickerModal.jsx';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset, deleteCanvas,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
@@ -131,6 +141,7 @@ import { selectDeliverableNodes } from './canvasAssetProvenance.js';
 import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
 import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
+import { exportDestinationLabel, recallExportDirectory, rememberExportDirectory } from './exportDestinationMemory.js';
 import { deliveryNameFor, looksLikeContentHash } from './deliveryNameModel.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import { quoteBillingAction } from '../../services/billing.js';
@@ -202,6 +213,7 @@ import {
 } from './canvasVisualLanguage.js';
 /* 2026-09-17 三层权威性排序（硬约束 > 产出结构 > 内容意图 > 设计方案）—— 唯一规则实现。 */
 import { applyPlanToConfiguration, resolvePromptAuthority } from './canvasPromptAuthority.js';
+import { DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 /* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 import (整个组件重复, 已被 tab=assets + 底部"添加图片/视频" 替代) */
 
 /* 添加菜单的尺寸 —— 用于 `resolveAnchoredRight` 算「放不放得下」。
@@ -903,7 +915,7 @@ export default function EcCanvas() {
   const [projectAssetUploadBusy, setProjectAssetUploadBusy] = useState(false);
   const projectAssetUploadRef = useRef(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-const [minimapOpen, setMinimapOpen] = useState(true);
+const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-08 素材水印系统（用户批注重构）: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 */
   const [imageWatermark, setImageWatermark] = useState(DEFAULT_IMAGE_WATERMARK);
   const [videoWatermark, setVideoWatermark] = useState(DEFAULT_VIDEO_WATERMARK);
@@ -1013,6 +1025,42 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const selectedKind = nodes.find(node => node.id === selected)?.kind;
     setWatermarkMaterial(WATERMARK_VIDEO_KINDS.includes(selectedKind) ? 'video' : 'image');
   }, [nodes, selected, watermarkPanelOpen, dismissAllCanvasSurfacesExcept]);
+  /* ═══ 2026-10-02 用户批注：「我这里点击了你左下角的这个功能栏的三个不同的按钮。为什么他们都能
+     同时触发呀？他们同时都触发并且存在在一起的话，那岂不就互相的堆叠，互相的遮挡了吗？
+     **按理说我点击其中某一个的话，另外一个就应该关掉呀**」
+
+     病根不是"忘了关"，是**三颗按钮里只有一颗走了互斥**：水印那顆调了
+     `dismissAllCanvasSurfacesExcept('watermarkPanelOpen')`（批 CY-⑭ 加的），
+     而「图层」与「小地图」只是 `setX(!x)` —— 于是它们能同时开着，
+     三块面板又都停靠在左下角这一带（批 CY-㊴ 之十三/十四刚把图层也搬到这里），
+     于是**互相压在一起**。
+
+     ⇒ 两个 handler 都改成与水印**同一条**路径：先判开合 → 关掉其它浮层 → 再开自己。
+
+     ⚠️ **小地图不在 `canvasSurfaceDismiss` 登记册里**（它是常驻 HUD，不是"临时浮层"，
+        而且点空白不该把它收掉）。所以关它只能**显式** `setMinimapOpen(false)` ——
+        这正是上面水印那条 handler 已经在用的写法（`dismissAllCanvasSurfacesExcept` 之后
+        还跟了一句 `setMinimapOpen(false)`）。
+        ⚠️ **不要**为了"看起来统一"就把 minimapOpen 塞进登记册并标 `blank: true`：
+           那会让「点画布空白」顺手把用户的地图也关了，是没人要求的行为变更。
+        同理，开小地图时走 `dismissCanvasSurfaces('blank')`（全关）而不是 Except ——
+        因为它自己没有登记 key，没法"排除自己"。
+
+     ⚠️ 不要在 setState 的 updater 里调别的 setter（渲染期重算 ⇒ 副作用执行多次），
+        与上面水印那条同一个坑。 */
+  const handleToggleLayersPanel = useCallback(() => {
+    if (layersPanelOpen) { setLayersPanelOpen(false); return; }
+    dismissAllCanvasSurfacesExcept('layersPanelOpen');
+    setMinimapOpen(false);
+    setLayersPanelOpen(true);
+  }, [layersPanelOpen, dismissAllCanvasSurfacesExcept]);
+
+  const handleToggleMinimap = useCallback(() => {
+    if (minimapOpen) { setMinimapOpen(false); return; }
+    dismissCanvasSurfaces('blank');
+    setMinimapOpen(true);
+  }, [minimapOpen, dismissCanvasSurfaces]);
+
   /* 用户 9-05 反馈: 小地图必须展示"我们处于大画布的哪个部分" —
      固定一个大世界窗口 (以世界原点为中心 ±4200x±3000), 节点与当前视口框
      都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
@@ -1026,7 +1074,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
   const [snapEnabled, setSnapEnabled] = useState(false);
-  const [themeMode, setThemeMode] = useState('auto');
+  /* 只用于**显示**当前是第几档；真正落地主题的是 utils/themeMode.js。
+     初始值从 localStorage 读 —— 原来写死 'auto'，用户明明切到 dark，
+     刷新后菜单又显示 auto（点一下就会"跳回"一个用户没选过的档）。 */
+  const [themeMode, setThemeMode] = useState(() => readStoredThemeMode() || 'auto');
 
   useEffect(() => {
     const requestedTab = state.canvasEntryTab;
@@ -1087,6 +1138,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const mediaReplaceTargetRef = useRef(null);
   /* 4c183cd4 续命 画布总监督 2026-08-30 - 音频上传 ref + 撤销/重做 history */
   const audioUploadRef = useRef(null);
+  /* 2026-10-02：底部工具栏那颗「上传素材」用的**统一**文件选择器（三类都收）。 */
+  const materialUploadRef = useRef(null);
   const historyRef = useRef(null);
   if (!historyRef.current) historyRef.current = createCanvasHistory();
   const objectClipboardRef = useRef(null);
@@ -1474,12 +1527,13 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   };
 
   /** 造一个给 uploadVideoAsset 用的 callbacks：把字节进度写进 uploadProgress */
-  const makeUploadReporter = useCallback((name, index = 0, total = 1) => ({
+  const makeUploadReporter = useCallback((name, index = 0, total = 1, nodeId = '') => ({
     onState(state) {
       if (state === 'completed' || state === 'error' || state === 'cancelled') setUploadProgress(null);
     },
     onProgress({ bytesUploaded = 0, bytesTotal = 0 } = {}) {
       const percent = bytesTotal > 0 ? Math.min(100, (bytesUploaded / bytesTotal) * 100) : 0;
+      const percentText = percent >= 99.95 ? '99.9' : percent.toFixed(1);
       setUploadProgress({
         name: name || '素材',
         index,
@@ -1487,9 +1541,15 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         bytesUploaded,
         bytesTotal,
         percent,
-        /* 一位小数：慢网下 1% 可能要好几秒，取整看起来就是"卡住了" */
-        percentText: percent >= 99.95 ? '99.9' : percent.toFixed(1),
+        percentText,
       });
+      /* ⚠️ 2026-10-02：进度**同时**写回那个占位节点（用户：「他上传的进度是在整个素材里面的」）。
+         只有传 nodeId 的调用点会走到这里；没占位节点的入口（比如「替换素材」那条）
+         仍然只看底部横条 —— 两边不冲突，因为横条是 `uploadProgress`，这里是节点自己的字段。 */
+      if (!nodeId) return;
+      setNodes(previous => previous.map(node => (
+        node.id === nodeId ? { ...node, uploadPercent: percent, uploadPercentText: percentText } : node
+      )));
     },
   }), []);
 
@@ -3550,7 +3610,7 @@ const handlePointerUp = useCallback((e) => {
       const settled = await Promise.allSettled(pendingOutputIndexes.map(index => {
         const ratio = node.inputs?.ratio || source.ratio;
         const resolution = node.inputs?.resolution || source.resolution || '2K';
-        const imageModel = node.inputs?.imageModel || source.imageModel || 'image2';
+        const imageModel = node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL;
         return regenerateCanvasImage({
           prompt,
           imageUrl: sourceUrl,
@@ -3708,9 +3768,9 @@ const handlePointerUp = useCallback((e) => {
         url = data.result_url || data.url || '';
         resultGeometry = canvasImageResultGeometry(data, source);
       } else if (actionId === 'inpaint') {
-        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || 'image2' });
+        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
       } else {
-        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || 'image2' });
+        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
         url = data.url || data.result_url || '';
       }
       if (!url) throw new Error('处理结果为空');
@@ -4086,6 +4146,27 @@ const handlePointerUp = useCallback((e) => {
       if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
       return;
     }
+    /* ═══ 2026-10-02 视频专属动作（用户照知渔提的：「视频跟图片生成是不同的逻辑，
+       你应该定制化的为他去开发一些功能」）═══════════════════════════════════════ */
+    if (handler === 'preview-media') {
+      /* 复用画布原有的放大预览灯箱。视频只是把 kind 带上，让灯箱按 <video> 渲染，
+         而不是另起一个弹窗（另起一个 = 两套关闭/缩放逻辑，迟早打架）。 */
+      openImagePreview({ url: node.url, kind: 'video', label: node.name || node.displayLabel || '视频预览' });
+      return;
+    }
+    if (handler === 'export-video') {
+      /* 单条视频下载：走站内现成的导出链路（同源地址，直接 <a download>）。 */
+      const url = String(node.url || '');
+      if (!url) { showToast('这条视频还没有可用的地址', 'error'); return; }
+      const href = url.startsWith('/') ? url : new URL(url, window.location.origin).toString();
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = node.name || node.displayLabel || 'video.mp4';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
+    }
     if (handler === 'add-text') {
       // 添加文字：复用 handleAddTextNode 在选中图片右侧落一个真实可编辑文本节点。
       handleAddTextNode({ x: node.x + node.w + 28, y: node.y });
@@ -4263,7 +4344,7 @@ const handlePointerUp = useCallback((e) => {
       try {
         const prompt = [node.direction?.purpose, node.direction?.composition, node.direction?.copy]
           .filter(Boolean).join('\n') || '保持商品、品牌和文字准确，重新生成同一商业用途的电商图片。';
-        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio, resolution: node.resolution || '2K', imageModel: node.imageModel || 'image2' });
+        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio, resolution: node.resolution || '2K', imageModel: node.imageModel || DEFAULT_IMAGE_MODEL });
         const output = normalizeCanvasNode({
           ...node,
           id: `node_regenerated_${Date.now()}`,
@@ -4315,7 +4396,7 @@ const handlePointerUp = useCallback((e) => {
     if (handler === 'grid-split') {
       setPromptLoading(true);
       try {
-        const data = await transformCanvasImage({ action: actionId, imageUrl: node.url, resolution: node.resolution || '2K', imageModel: node.imageModel || 'image2' });
+        const data = await transformCanvasImage({ action: actionId, imageUrl: node.url, resolution: node.resolution || '2K', imageModel: node.imageModel || DEFAULT_IMAGE_MODEL });
         const parts = (data.urls || []).map(({ url }, index) => ({
           ...node,
           id: `${node.id}_grid_${index + 1}_${Date.now()}`,
@@ -4521,10 +4602,30 @@ const handlePointerUp = useCallback((e) => {
         return;
       }
       dispatchExportDelivery({ type: 'destination-ready', destination });
+      /* 记住他刚选的文件夹（用户 2026-10-01：「下次导出不需要再让他去选」）。
+         只对 directory 策略有意义；记不住不影响本次导出，所以不 await 到 UI。 */
+      if (destination?.strategy === 'directory') rememberExportDirectory(destination.handle);
     } catch (error) {
       dispatchExportDelivery({ type: 'error', error: error.message || '无法选择保存位置' });
     }
   };
+
+  /* 打开导出弹窗时先把上次那个文件夹接回来。
+     `requestPermission` 必须在**用户手势**里调用，浏览器不允许后台弹权限框，
+     所以这里只做无手势的 queryPermission；拿不到就照旧显示「选择保存位置」，
+     由用户点一下「选择保存位置」时顺带恢复权限（见 handleChooseExportDestination 之前的那次尝试）。 */
+  useEffect(() => {
+    if (!exportOpen) return;
+    let cancelled = false;
+    recallExportDirectory().then(handle => {
+      if (cancelled || !handle) return;
+      dispatchExportDelivery({
+        type: 'destination-ready',
+        destination: { strategy: 'directory', handle, name: handle.name || '上次的文件夹', restored: true },
+      });
+    });
+    return () => { cancelled = true; };
+  }, [exportOpen]);
 
   const handleStartExport = async () => {
     const { deliverables: exportNodes, excludedSources } = exportScope;
@@ -5216,7 +5317,7 @@ const handlePointerUp = useCallback((e) => {
             references: sourceReferences.references,
             ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
             selection,
           });
           return response;
@@ -5228,7 +5329,7 @@ const handlePointerUp = useCallback((e) => {
             imageUrl: sourceNodes[0].url,
             ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           });
           const url = response?.url || response?.result_url;
           if (!url) throw new Error('图片处理没有返回结果');
@@ -5242,14 +5343,14 @@ const handlePointerUp = useCallback((e) => {
             references: sourceReferences.references,
             ratio: protocolRatioFor(composer, sourceNodes, prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+            imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           })
           : regenerateCanvasImage({
             prompt: composer.prompt.trim(),
             imageUrl: '',
             ratio: protocolRatioFor(composer, [], composer.prompt),
             resolution: composer.resolution || '2K',
-            imageModel: composer.imageModel || 'image2',
+            imageModel: composer.imageModel || DEFAULT_IMAGE_MODEL,
           });
       }));
       const createdAt = Date.now();
@@ -5272,7 +5373,7 @@ const handlePointerUp = useCallback((e) => {
           displayLabel: canvasShotNamerRef.current.next('image'),
           group: '素材',
           role: '创作图片',
-          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           resolution: composer.resolution || '2K',
           ratio,
           sourceNodeIds: [composer.id],
@@ -5488,7 +5589,7 @@ const handlePointerUp = useCallback((e) => {
         generationSettings: {
           ...(configuration.genSettings || {}),
           resolution: configuration.genSettings?.resolution || composer.resolution || '2K',
-          imageModel: configuration.genSettings?.imageModel || composer.imageModel || 'image2',
+          imageModel: configuration.genSettings?.imageModel || composer.imageModel || DEFAULT_IMAGE_MODEL,
           suiteType: composer.suiteType || '完整套图',
           skuMode: composer.skuMode || '默认SKU',
           styleSkill: configuration.styleSkill || composer.styleSkill || 'smart',
@@ -5543,7 +5644,7 @@ const handlePointerUp = useCallback((e) => {
             role,
             ratio,
             size: image.size || '',
-            imageModel: configuration.genSettings?.imageModel || composer.imageModel || 'image2',
+            imageModel: configuration.genSettings?.imageModel || composer.imageModel || DEFAULT_IMAGE_MODEL,
             resolution: configuration.genSettings?.resolution || composer.resolution || '2K',
             sourceNodeIds: [composer.id],
             x: composer.x + composer.w + 80 + column * 268,
@@ -5606,14 +5707,14 @@ const handlePointerUp = useCallback((e) => {
           references: sourceReferences.references,
           ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
           resolution: composer.resolution || '2K',
-          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
         })
         : regenerateCanvasImage({
           prompt,
           imageUrl: '',
           ratio: composer.ratio || '1:1',
           resolution: composer.resolution || '2K',
-          imageModel: composer.imageModel || 'image2',
+          imageModel: composer.imageModel || DEFAULT_IMAGE_MODEL,
         })));
       const createdAt = Date.now();
       const ratio = composer.ratio || '1:1';
@@ -5634,7 +5735,7 @@ const handlePointerUp = useCallback((e) => {
           displayLabel: canvasShotNamerRef.current.next('image'),
           group: '素材',
           role: '创作图片',
-          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || 'image2',
+          imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
           resolution: composer.resolution || '2K',
           ratio,
           sourceNodeIds: [composer.id],
@@ -6108,8 +6209,19 @@ const handlePointerUp = useCallback((e) => {
     setPromptLoading(true);
     try {
       const assets = [];
+      /* ⚠️ 2026-10-02：上传前先**本地探一次**真实尺寸（用户：「素材的尺寸要跟你的框是同等适配的……这些你自己要想明白」）。
+         改之前这里什么都不探：节点尺寸只能等服务器上传完才拿得到，于是
+         `createUploadedVideoNodes` 里那个写死的 `width = 320` + 落回 16:9 先把框摆出来，
+         再由 `<video onLoadedMetadata>` 校正一次 —— **用户会看见框跳一下**。
+         本地探是纯 `URL.createObjectURL` + `preload="metadata"`，毫秒级、不走服务器；
+         探不到就返回 null，照常上传（尺寸是锦上添花，传不上去才是硬伤）。 */
+      const probedSizes = await probeLocalMediaSizes(files);
       for (const [index, file] of files.entries()) {
-        assets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))), name: file.name });
+        assets.push({
+          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))),
+          ...(probedSizes[index] || {}),
+          name: file.name,
+        });
       }
       let projectContext = null;
       try {
@@ -6247,6 +6359,37 @@ const handlePointerUp = useCallback((e) => {
     canvasDropActiveRef.current = false;
     setCanvasDropActive(false);
   }, []);
+  /* ═══ 2026-10-02 用户批注：底部那颗按钮要**一个入口收所有素材** ════════════════════════
+     「既然现在下面居中的这个功能栏它只有四个按钮，那它就没有分上传图片，上传视频，上传音频
+       这些不同的功能渠道呀。**我觉得它应该合成成一个单独的上传素材的一个按钮。
+       就是这个按钮，它应该可以上传任意素材上来才对。把我们现在的图片，视频，音频他们的逻辑都传给他。**」
+
+     ⇒ 把「按 MIME 分发到三条既有上传链路」这段从拖拽那条里**提出来共用**，
+        拖拽与那颗新按钮走**同一个**函数 —— 否则两条入口迟早会走岔
+        （这正是批 DC 续-36 记的"两套逻辑互相打架"）。
+        ⚠️ 数量上限沿用拖拽那条原有的口径（图 8 / 视频 4 / 音频 4），不在这里另发明一套。
+
+     ⚠️⚠️ **必须定义在拖拽 handler「之前」**：拖拽那条的依赖数组 `[uploadCanvasMaterials]`
+        是**渲染期**求值的，而 `const` 在自己那行之前处于 TDZ ⇒ 定义在后会整页崩
+        （"Cannot access 'x' before initialization"）。
+        本仓已踩过两次同样的坑（批 续-9 那次是 2906 条测试全绿仍然整页白屏）。 */
+  const uploadCanvasMaterials = useCallback(async (files = []) => {
+    const list = Array.from(files || []).filter(Boolean);
+    if (!list.length) return;
+    const images = list.filter(file => file.type?.startsWith('image/')).slice(0, 8);
+    const videos = list.filter(file => file.type?.startsWith('video/')).slice(0, 4);
+    const audios = list.filter(file => file.type?.startsWith('audio/')).slice(0, 4);
+    if (!images.length && !videos.length && !audios.length) {
+      showToast('只支持上传图片、视频或音频文件', 'info');
+      return;
+    }
+    /* 合成最小假 event 复用既有上传链路（它们只读 event.target.files 与 event.target.value） */
+    const asEvent = batch => ({ target: { files: batch, value: '' } });
+    if (images.length) await handleCanvasSourceUpload(asEvent(images));
+    if (videos.length) await handleCanvasVideoUpload(asEvent(videos));
+    if (audios.length) await handleCanvasAudioUpload(asEvent(audios));
+  }, [handleCanvasAudioUpload, handleCanvasSourceUpload, handleCanvasVideoUpload, showToast]);
+
   const handleCanvasDrop = useCallback(async event => {
     const dropped = [...(event.dataTransfer?.files || [])];
     event.preventDefault();
@@ -6256,19 +6399,8 @@ const handlePointerUp = useCallback((e) => {
     /* 拖进来一律是"新增"，绝不接管"替换素材"那个上下文 ——
        否则用户以为在加素材，实际上把某个节点换掉了。 */
     mediaReplaceTargetRef.current = null;
-    const images = dropped.filter(file => file.type?.startsWith('image/')).slice(0, 8);
-    const videos = dropped.filter(file => file.type?.startsWith('video/')).slice(0, 4);
-    const audios = dropped.filter(file => file.type?.startsWith('audio/')).slice(0, 4);
-    if (!images.length && !videos.length && !audios.length) {
-      showToast('只支持把图片、视频或音频文件拖进画布', 'info');
-      return;
-    }
-    /* 合成最小假 event 复用既有上传链路（它们只读 event.target.files 与 event.target.value） */
-    const asEvent = list => ({ target: { files: list, value: '' } });
-    if (images.length) await handleCanvasSourceUpload(asEvent(images));
-    if (videos.length) await handleCanvasVideoUpload(asEvent(videos));
-    if (audios.length) await handleCanvasAudioUpload(asEvent(audios));
-  }, [handleCanvasAudioUpload, handleCanvasSourceUpload, handleCanvasVideoUpload, showToast]);
+    await uploadCanvasMaterials(dropped);
+  }, [uploadCanvasMaterials]);
 
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
@@ -6283,15 +6415,90 @@ const handlePointerUp = useCallback((e) => {
       const imageFiles = accepted.filter(file => file.type.startsWith('image/'));
       const videoFiles = accepted.filter(file => file.type.startsWith('video/'));
       const audioFiles = accepted.filter(file => file.type.startsWith('audio/'));
+
+      /* ═══ 2026-10-02 用户批注（照知渔）：「他上传的进度是在整个素材里面的。我觉得他们这种做法
+         可能更合理一些，我们现在是在整个画布的最下方，我觉得可能不太对。」
+
+         **为什么之前进度只能在画布最下方**：节点是**最后**才进画布的 ——
+         上传 → 入库 → 建节点 → `.concat(uploadedNodes)`。进度发生在上传那一步，
+         而那一刻画布上**还没有这个节点**，所以无处可挂，只能做成一块全局横条。
+
+         ⇒ 这里把顺序倒过来：**先本地探尺寸 → 先建占位节点（带本地预览）→ 再上传**，
+            进度实时写回**那个节点**。传完后按 id 就地更新（换持久 url、清进度），
+            不再 concat 新节点 —— 这样 id / 连线 / 选中态全程稳定。
+
+         ⚠️ 占位节点的 id **必须沿用** `createUploadedVideoNodes` 的命名规则
+            （`video_upload_<ts>_<i>` / `audio_upload_<ts>_<i>`），
+            否则最后那一步按 id 对不上，节点会变成两份。
+         ⚠️ blob URL 必须在**成功/失败两条路**上都 revoke，否则长时间上传会漏内存。 */
+      const probedVideoSizes = await probeLocalMediaSizes(videoFiles);
+      const placeholders = [
+        ...videoFiles.map((file, index) => ({ kind: 'video', index, file, probe: probedVideoSizes[index] })),
+        ...audioFiles.map((file, index) => ({ kind: 'audio', index, file, probe: null })),
+      ].map(({ kind, index, file, probe }) => {
+        const blobUrl = URL.createObjectURL(file);
+        const ratio = probe?.width > 0 && probe?.height > 0 ? probe.width / probe.height : 16 / 9;
+        const w = 320;
+        return {
+          kind, index, file, blobUrl,
+          node: {
+            id: `${kind}_upload_${uploadStartedAt}_${index}`,
+            kind,
+            assetId: `${kind}-pending-${uploadStartedAt}-${index}`,
+            provenance: 'source',
+            status: 'uploading',
+            url: blobUrl,
+            name: file.name,
+            displayLabel: file.name,
+            group: kind === 'audio' ? '音频' : '视频',
+            role,
+            aspectRatio: ratio,
+            duration: Number(probe?.duration) || 0,
+            w,
+            h: Math.round(w / ratio),
+            uploadPercent: 0,
+            rotation: 0, flipX: false, flipY: false,
+            locked: false, hidden: false, editable: true, showMeta: true,
+            sourceNodeIds: [], x: 0, y: 0,
+          },
+        };
+      });
+      if (placeholders.length) {
+        /* 位置沿用同一套避让排版（探到的尺寸已经是真的了，排版与最终一致 ⇒ 不会跳） */
+        const pbBounds = containerRef.current?.getBoundingClientRect();
+        const pbPlacements = resolveSourceStackPlacement({
+          anchor: composer,
+          existingSourceNodes: (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(Boolean),
+          existingNodes: nodes.filter(node => node.id !== composerId),
+          entries: placeholders.map(p => ({ w: p.node.w, h: p.node.h })),
+        });
+        placeholders.forEach((p, i) => {
+          p.node.x = pbPlacements[i]?.x ?? p.node.x;
+          p.node.y = pbPlacements[i]?.y ?? p.node.y;
+        });
+        setNodes(previous => previous.concat(placeholders.map(p => p.node)));
+        setConnections(previous => placeholders.reduce(
+          (edges, p) => addConnection(edges, p.node.id, composerId, 'derived'), previous));
+      }
+      const placeholderFor = (kind, index) =>
+        placeholders.find(p => p.kind === kind && p.index === index)?.node.id || '';
+
       const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
       const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
       const videoAssets = [];
       for (const [index, file] of videoFiles.entries()) {
-        videoAssets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length))), name: file.name });
+        videoAssets.push({
+          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length, placeholderFor('video', index)))),
+          ...(probedVideoSizes[index] || {}),
+          name: file.name,
+        });
       }
       const audioAssets = [];
       for (const [index, file] of audioFiles.entries()) {
-        audioAssets.push({ ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length))), name: file.name });
+        audioAssets.push({
+          ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length, placeholderFor('audio', index)))),
+          name: file.name,
+        });
       }
       let projectContext = null;
       if (persistedAssets.length || videoAssets.length || audioAssets.length) {
@@ -6343,6 +6550,14 @@ const handlePointerUp = useCallback((e) => {
         y: placements[index]?.y ?? node.y,
       }));
       const uploadedIds = uploadedNodes.map(node => node.id);
+      /* ⚠️ 2026-10-02：占位节点已经**在画布上**了（上传前就建好了，进度写在它身上）。
+         所以这里不能再无条件 `.concat(uploadedNodes)` —— 那会把每个节点变成两份
+         （一份 uploading 的、一份 ready 的），而且 id 相同 ⇒ React key 撞车、连线也会双份。
+         ⇒ 按 id 就地更新：命中占位节点的换成 ready + 持久 url；没命中的才新增。 */
+      const placeholderIds = new Set(placeholders.map(p => p.node.id));
+      const finalizeNode = node => (placeholderIds.has(node.id)
+        ? { ...node, status: 'ready', uploadPercent: 0, uploadPercentText: '' }
+        : node);
       draftReadyRef.current = true;
       const mediaFields = canvasMediaFields(result, uploadedNodes);
       if (projectContext || Object.keys(mediaFields).length) {
@@ -6355,16 +6570,32 @@ const handlePointerUp = useCallback((e) => {
           },
         });
       }
-      setNodes(previous => previous
-        .map(node => node.id === composerId
-          ? {
-            ...node,
-            sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), ...uploadedIds])],
-            sourceRoles: { ...(node.sourceRoles || {}), ...Object.fromEntries(uploadedIds.map(id => [id, role])) },
-          }
-          : node)
-        .concat(uploadedNodes));
-      setConnections(previous => uploadedIds.reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
+      setNodes(previous => {
+        const byId = new Map(uploadedNodes.map(node => [node.id, node]));
+        return previous
+          .map(node => {
+            if (node.id === composerId) {
+              return {
+                ...node,
+                sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), ...uploadedIds])],
+                sourceRoles: { ...(node.sourceRoles || {}), ...Object.fromEntries(uploadedIds.map(id => [id, role])) },
+              };
+            }
+            /* 就地替换：保持节点在画布上的位置与 id，只换内容与状态 */
+            const fresh = byId.get(node.id);
+            if (!fresh) return node;
+            byId.delete(node.id);
+            return finalizeNode({ ...node, ...fresh, x: fresh.x ?? node.x, y: fresh.y ?? node.y });
+          })
+          /* 剩下没在画布上的（图片那条路径没有占位节点）才新增 */
+          .concat([...byId.values()].map(finalizeNode));
+      });
+      /* blob URL 用完了：占位节点已换成持久 url，本地那份必须回收，
+         否则长时间连续上传会一直漏内存（每个几十 MB）。 */
+      placeholders.forEach(p => { try { URL.revokeObjectURL(p.blobUrl); } catch { /* 已回收 */ } });
+      setConnections(previous => uploadedIds
+        .filter(id => !previous.some(edge => edge.from === id && edge.to === composerId))
+        .reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
       setSelected(composerId);
       setMultiSelected(new Set([composerId]));
       const failedImageIds = new Set(importedImages.failed.map(item => canvasImportSourceId('image', item.asset)));
@@ -7558,6 +7789,25 @@ const handlePointerUp = useCallback((e) => {
     /* 资产库是页签式全屏弹窗，同样算"弹窗打开" */
     assetLibraryTab: tab === 'assets' && state.logged,
   });
+
+  /* ⚠️ 2026-10-01 用户批注：「而且你这个生成过程的这个按钮为什么会跟他在同一层呢。
+     这个按钮不是应该暗下去吗？」（截图里是工作流模板弹窗打开着）
+     真因是**两套层级表根本不可比**：
+       · 画布弹窗走画布自己的表 —— `CANVAS_Z.modalScrim 70 / modal 71`；
+       · 「生成过程」那颗按钮走应用外壳的表 —— `TaskSidebar` 用 `--sb-z-panel` = **40000000**。
+     40000000 > 71 ⇒ 它永远浮在所有画布弹窗之上，遮罩压不到它，于是既不暗、
+     看上去还跟弹窗"同一层"。
+     而且 `.is-dialog-open` 那条 CSS 也救不了：TaskSidebar 是用 `createPortal` 挂到侧栏底部
+     插槽里的，**在 `.ec-canvas-page` 之外**，选择器够不着。
+     ⇒ 把同一个状态复制到 `<html>` 上，由 CSS 把侧栏与那颗按钮一起压暗。 */
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const root = document.documentElement;
+    if (dialogOpen) root.setAttribute('data-cvl-dialog-open', 'true');
+    else root.removeAttribute('data-cvl-dialog-open');
+    return () => root.removeAttribute('data-cvl-dialog-open');
+  }, [dialogOpen]);
+
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
   const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
     option.id,
@@ -7699,6 +7949,32 @@ const handlePointerUp = useCallback((e) => {
           <input ref={videoUploadRef} type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={handleCanvasVideoUpload} style={{ display: 'none' }} />
           {/* 9-13 用户批注：音频入口点了没反应 —— 根因是这个 input 从来没渲染过（只有 ref 没有元素） */}
           <input ref={audioUploadRef} type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm" multiple onChange={handleCanvasAudioUpload} style={{ display: 'none' }} />
+          {/* 2026-10-02 用户批注：底部那颗按钮要**一个入口收所有素材**。
+              刻意**不复用**上面三个 input：它们的 `accept` 各自锁死一种类型，
+              而这一颗三类都要收；选中后由 `uploadCanvasMaterials` 按 MIME 分发
+              （与拖拽走同一个函数）。`event.target.value` 每次清空，
+              否则同一个文件第二次就选不中了 —— 这是 `<input type=file>` 的老毛病。
+
+              ⚠️⚠️ `accept` 这里**逐个类型写全**，**不写** `image/*,video/*,audio/*`：
+              仓库里不少门禁用 `replace(/\/\*[\s\S]*?\*\//g,'')` 剥注释，
+              而属性值里那个「斜杠星号」会被当成**注释开始**，一路吞到后面某个
+              「星号斜杠」。我第一版就是写成三个通配的，结果多出一个起点、
+              把配对弄乱 ⇒ `canvas-surface-dismiss-0929` 整段 `onAddMenuToggle`
+              被吞掉，那条门禁直接判红（原文 @370952 → 剥后 @-1，整段消失）。
+              上面 video / audio 两个 input **本来就是逐个扩展名写的** ——
+              这里跟着它们的口径走，顺带把这颗地雷拆掉。 */}
+          <input
+            ref={materialUploadRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm"
+            multiple
+            onChange={(event) => {
+              const picked = Array.from(event.target.files || []);
+              event.target.value = '';
+              uploadCanvasMaterials(picked);
+            }}
+            style={{ display: 'none' }}
+          />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
             onAddMenuToggle={() => {
@@ -7763,10 +8039,8 @@ const handlePointerUp = useCallback((e) => {
           <CanvasBottomToolbar
             activeTool={activeTool}
             onToolChange={setActiveTool}
-            onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
+            onUpload={() => { materialUploadRef.current?.click(); setActiveTool('select'); }}
             onText={() => handleAddTextNode()}
-            layersOpen={layersPanelOpen}
-            onLayers={() => setLayersPanelOpen(open => !open)}
           />
           {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 (整个面板跟 tab=assets + 底部"添加图片/视频" 完全重复)
               用户原话 8-30: "你必须把这些重复的东西都给拿掉"
@@ -7781,7 +8055,14 @@ const handlePointerUp = useCallback((e) => {
           <CanvasLayersPanel
             open={layersPanelOpen}
             anchorRect={layersPanelOpen ? (() => {
-              const btn = containerRef.current?.querySelector('.ec-canvas-bottom-toolbar button[aria-label*="图层"]');
+              /* ⚠️ 2026-10-01：锚点跟着入口一起搬了。
+                 原来按钮在**底部 dock**（`.ec-canvas-bottom-toolbar`），面板按同一口径定位，
+                 于是落在画面中间偏右；用户要它回**左下角**那个栏（见 CanvasZoomControls 的 trailing）。
+                 两个选择器都留着：入口搬过来之前的老标记删干净了，但留一个兜底免得
+                 「按钮改名/改类名 ⇒ 面板静默失去锚点」这种哑失败。 */
+              const btn = containerRef.current?.querySelector(
+                '.ec-canvas-zoom-controls button[aria-label*="图层"], .ec-canvas-bottom-toolbar button[aria-label*="图层"]',
+              );
               const r = btn?.getBoundingClientRect?.();
               return r ? { x: r.left, y: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom } : null;
             })() : null}
@@ -7799,6 +8080,18 @@ const handlePointerUp = useCallback((e) => {
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
             trailing={<>
+              {/* ⚠️ 2026-10-01 用户批注：「你这个图层为什么点击之后会弹到上面去呀？……
+                 你还不如把它放到左下角的那个栏里面。」
+                 ⇒ 「图层」入口从底部 dock 搬到这里（左下角缩放条的 trailing 槽），
+                   CanvasLayersPanel 的锚点也跟着换到这颗按钮，面板就落在左下角这一带。 */}
+              <button
+                type="button"
+                className={`ec-canvas-icon-button ${layersPanelOpen ? 'is-active' : ''}`}
+                aria-label="图层"
+                title="图层"
+                aria-pressed={layersPanelOpen}
+                onClick={handleToggleLayersPanel}
+              ><Layers3 size={15} /></button>
               {/* 9-11 用户批注: 与其他图标按钮同款 —— 纯图标 + 悬停提示, 不显示「运行」文字;
                   未就绪(单选)不高亮, 多选成链才 is-active; 提示告知「选中 2 个以上节点」。 */}
               {multiSelected.size >= 1 && (
@@ -7816,7 +8109,7 @@ const handlePointerUp = useCallback((e) => {
                 aria-label="小地图"
                 title="小地图"
                 aria-pressed={minimapOpen || undefined}
-                onClick={() => setMinimapOpen(!minimapOpen)}
+                onClick={handleToggleMinimap}
               ><MapIcon size={15} /></button>
               <button
                 type="button"
@@ -8779,7 +9072,13 @@ const handlePointerUp = useCallback((e) => {
                 setNodes(prev => autoArrangeCanvasNodes(prev, connections || []));
                 break;
               case 'toggle-snap': setSnapEnabled(v => !v); break;
-              case 'toggle-theme': setThemeMode(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'auto' : 'dark'); break;
+              case 'toggle-theme': {
+                const next = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark';
+                setThemeMode(next);
+                writeStoredThemeMode(next);
+                applyThemeToDocument(next);
+                break;
+              }
               case 'undo': {
                 const current = { nodes };
                 const previous = historyRef.current.undo(current);
@@ -9006,7 +9305,11 @@ const handlePointerUp = useCallback((e) => {
         /* 批 CY-⑭：遮罩 z-index 原来写死 10005（同 10004 那一族，越权压在 Toast 之上）→ 走权威阶梯。 */
         <div style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modalScrim, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{/* 「保存为 N 张图片」的数字要**高亮**：用户多框几张，这里得立刻变，
+                 不高亮的话他察觉不到这一行会随选择变化（用户 2026-10-01 原话）。 */}
+              {exportCopy.saveAs
+                ? <>{exportCopy.saveAs.before}<b style={{ color: '#1f2937', fontSize: 13, fontWeight: 800, margin: '0 2px' }}>{exportCopy.saveAs.count}</b>{exportCopy.saveAs.after}</>
+                : exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
             {/* 批 CY-㊴：零张时**不渲染任何选项**（旧版无条件渲染一条
                 「导出 ${total} 张图片」，于是弹窗里赫然写着「导出 0 张图片」——
                 用户 9-30 截图里就有这句）。零张时改为说明"怎么才能导出"。 */}
@@ -9020,9 +9323,22 @@ const handlePointerUp = useCallback((e) => {
             </div>}
             {/* 批 CY-㊴：把另外两种导出方式说出来（用户原话：「你得告诉用户，除了导出单张之外，
                 我们还可以导出多张，并且我们还可以导出合成的长图」）。 */}
-            {exportCopy.hints.length > 0 && <div style={{ display: 'grid', gap: 6, marginBottom: 14, padding: '10px 11px', borderRadius: 8, background: '#f8fafc', border: '1px solid #eef1f4' }}>
-              {exportCopy.hints.map(hint => <div key={hint} style={{ fontSize: 11.5, color: '#5b6472', lineHeight: 1.6 }}>· {hint}</div>)}
-            </div>}
+            {exportCopy.hints.length > 0 && (
+              <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#98a1ad', letterSpacing: '.02em' }}>
+                  还可以这样导出
+                </div>
+                {exportCopy.hints.map(item => (
+                  <div key={item.title} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0,1fr)', gap: 8, alignItems: 'start', padding: '9px 11px', borderRadius: 9, background: '#f8fafc', border: '1px solid #eef1f4' }}>
+                    <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', width: 18, height: 18, marginTop: 1, borderRadius: 5, background: '#e8edf6', color: '#5b6472', fontSize: 11, fontWeight: 800 }}>+</span>
+                    <span style={{ display: 'grid', gap: 2, minWidth: 0 }}>
+                      <strong style={{ fontSize: 12.5, fontWeight: 700, color: '#1f2937' }}>{item.title}</strong>
+                      <span style={{ fontSize: 11.5, color: '#5b6472', lineHeight: 1.55 }}>{item.body}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
               <div style={{ display: 'grid', gap: 6 }}>
@@ -9036,7 +9352,7 @@ const handlePointerUp = useCallback((e) => {
               </div>
             </div>}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 'var(--sb-radius-pill)', padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
-            {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDelivery.destination.name}</div>}
+            {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDestinationLabel(exportDelivery.destination)}{exportDelivery.destination.restored && <span style={{ marginLeft: 6, color: '#6b7280' }}>（上次用的，点「更改保存位置」可换）</span>}</div>}
             {(exportDelivery.status === 'preparing' || exportDelivery.status === 'writing') && <div style={{ marginBottom: 12, fontSize: 12, color: '#475569' }}>{exportDelivery.status === 'preparing' ? '正在校验图片' : '正在写入文件'} · {exportDelivery.progress.completed}/{exportDelivery.progress.total}</div>}
             {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>{exportDelivery.result?.verification === 'filesystem' ? '已验证写入' : '已开始下载'} {exportDelivery.result?.count || 0} 张图片{exportDelivery.result?.verification === 'filesystem' ? `到 ${exportDelivery.destination?.name || '所选位置'}` : '，请在浏览器下载列表确认'}</div>}
             {exportDelivery.status === 'cancelled' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#f8fafc', color: '#64748b', fontSize: 12 }}>已取消选择保存位置，导出配置仍保留。</div>}
@@ -9088,8 +9404,24 @@ const handlePointerUp = useCallback((e) => {
 
       {/* 图片放大预览 */}
       {zoomImg && (
-        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
+        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '素材'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          {/* 2026-10-02：视频节点的工具栏加了「预览」，这里按 kind 分渲染。
+              **不另起一个弹窗** —— 另起一个就等于两套关闭/缩放/滚轮逻辑，迟早打架。
+              ⚠️ 视频用 `controls` 自带播放/进度/音量，**不要**再套图片那套
+                 `scale(previewScale)` 缩放 —— 缩放会和 video 的控件层互相干扰。 */}
+          {zoomImg.kind === 'video' ? (
+            <video
+              src={zoomImg.url}
+              controls
+              autoPlay
+              muted
+              playsInline
+              onClick={e => e.stopPropagation()}
+              style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8, background: '#000' }}
+            />
+          ) : (
+            <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
+          )}
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
       )}

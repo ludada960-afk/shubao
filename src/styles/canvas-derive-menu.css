@@ -122,9 +122,49 @@
 /* tile: 14 个动作卡片 */
 .ec-canvas-derive-tile {
   display: grid;
-  grid-template-rows: auto auto auto;
-  gap: var(--sb-space-1);
-  padding: 10px 9px 9px;
+  /* ═══ 2026-10-01 用户两次批注，第二版才是对的 ════════════════════════════════════════════════
+     第一版：「你这四个按钮还是很大呀……里面又很空旷。」
+     ⇒ 我把它改成**两行**（图标+标题一行、价格一行），高度 101.3 → 78.4px。
+     第二版：「这四个按钮他们现在**右边的留白太多了**，你要把他们的适配做好呀，你怎么没有解决呢？
+       **我感觉你好像是把这四个按钮里面的四个图标去进行了适配导致那四个图标现在很挤。你要改回去啊！**
+       然后这四个按钮他们现在因为拿走了描述行，所以导致他们现在的内容变得很少了……比如右边都有一块
+       空白的地方，那你肯定就得重新进行适配调整呀」
+     ⇒ **我做反了**：压高度的那一刀落在"竖着排几行"上，而没有去用**宽度** ——
+       于是右边空出一大片，图标和标题被挤在左边。正确做法是**一行**：
+       图标 | 标题（吃掉剩余宽度）| 价格 | 箭头。
+       高度由内容决定（不是拍一个数），宽度由 1fr 吃掉，价格与箭头靠右。
+
+     ⚠️⚠️ **改成一行的当天我又漏了一处，量出来才发现**（真 CSS + 真 DOM，177px 卡宽）：
+       我把 `grid-template-areas` 换成了一行，却**把 `min-height: 62px` 留在原地**。
+       那个地板是给"两行"内容准备的；一行内容只有 24px（图标）+ 16px padding = 40px，
+       于是被 62px 顶住、上下各空 11px —— **竖向空白从 2px 涨到 22px（11 倍），
+       而高度一毫米没降（62 → 62）**。也就是说：骨架改对了，却没让它真的变矮，
+       用户看到的仍然是"内容很空旷"。
+       ⇒ 所以判据不能写"改成一行"，要写**量出来的数**：高度必须真的降、竖向空白必须真的小。
+     ⚠️ 另有一处顺带量出来的回归：一行之后**带价格徽标的那张标题被省略号砍掉**
+       （177px 卡宽装不下「图标+标题+价格徽标+箭头」一行，`1fr` 被两个 `auto` 轨挤到只剩 ~44px）。
+       ⇒ 收紧 gap，并给价格徽标一个 max-width 上限（见下面 meta 那条）。 */
+  /* ⚠️ 2026-10-02 用户第三次为同一件事发截图：
+     「你现在引用当前素材生成的这四个按钮。**右边还是有大量的留白呀**……为什么要这样弄呢？
+       我不是叫你去适配他们吗？……**你稍微把右边的积分和箭头往左边文字这一块挤一点不就好了吗？**」
+
+     前两版我一直在调**间距**，但真正的原因是**轨道**：标题那格是 `minmax(0, 1fr)`，
+     它会**吃满剩余宽度**，于是「图标 →（一长条空白）→ 积分 → 箭头」——
+     空白夹在**文字和积分之间**，看起来就是"内容散了、右侧空一大块"。
+
+     ⇒ 这一版把内容**整体靠左聚成一团**，空白挪到最右边（那里本来就该是留白）：
+       · `copy` 轨改成 `minmax(0, max-content)` —— 按文字**实际宽度**给，
+         仍然允许被压缩（标题过长时照旧省略号，不会把积分挤出卡外）；
+       * `justify-content: start` —— 三条轨按内容宽排完，剩下的空间全在**末尾**。
+
+     ⚠️ **注意别把它改回 `1fr`**：那一改右侧留白立刻回来，而实测（177/237px 两档）
+     「标题墨迹右缘 → 积分左缘」的间距会从 57/72px 掉到 **8px**，正是用户要的那一下。 */
+  grid-template-columns: auto minmax(0, max-content) auto;
+  grid-template-areas: "chip copy meta";
+  justify-content: start;
+  align-items: center;
+  gap: 0 8px;
+  padding: 8px 10px;
   border: 1px solid var(--sb-border-subtle);
   border-radius: 12px;
   background: var(--sb-surface-card);
@@ -137,9 +177,40 @@
               box-shadow var(--sb-dur-fast) var(--sb-ease-out),
               background var(--sb-dur-fast) var(--sb-ease-out);
   position: relative;
-  min-height: 62px;
+  /* ⚠️ 这里**不许**再写 min-height 地板。86px → 62px → 0 的来历：
+       86px 是"图标 + 标题 + 两行描述"那个形态留的；62px 是 2026-10-01 改两行时留的；
+       改成单行后两者都成了**纯空白**（实测竖向空白 2px → 22px，高度 62 → 62 一毫米没降）。
+     用户原话：「里面没有多少信息的话，你按钮就要相应的去做适配啊，
+       你现在整个面板都做这么大，但实际上里面的内容又很空旷。」
+     ⇒ 高度**完全由内容决定**（24px 图标 + 16px padding = 40px）。
+     设热区下限可以，但**不能靠 min-height** —— 它连空白一起撑出来。 */
   overflow: hidden;
 }
+
+/* ═══ 2026-10-02：补 621~960px 那一档的标题截断（批 CY-㊴ 之十六 的遗留项）══════════════
+   现象：这一档菜单收窄到 360px 但**仍是两列** ⇒ 卡宽只有 177px。
+   单行布局下「图标24 + 标题 + 价格徽标(54.58) + 箭头」装不下，
+   `1fr` 被两个 `auto` 轨挤到只剩 42.42px，而「生成视频」需要 52px ⇒ **被省略号砍掉**。
+   （桌面 1440/1200/1000 卡宽 237px、窄屏 620/480 单列卡宽 320px，都不截断。）
+
+   ⚠️ **为什么不是"这一档也改单列"**（我先量过才否决）：
+   单列 ⇒ 卡宽 320px，而标题只有 52px ⇒ 卡片右侧会空出 ~230px，
+   **正是用户骂的那句「右边的留白太多」**。卡已经压到 42px 高了，再放宽只会更空。
+
+   ⇒ 只能从**横向**把这 10px 腾出来，且**不许动图标**
+     （用户原话「那四个图标现在很挤。你要改回去啊」）
+     与**不许改文案**（「32积分起」去掉「起」字会丢掉"起价"信息）：
+     卡片横向内边距 10→6（两侧各省 4px）、列间距 8→6（两处各省 2px）⇒ 共腾出 **12px**。
+
+   ⚠️⚠️ **这条必须放在基线规则「之后」**：我第一版把它放在文件开头那堆 @media 旁边，
+   而 `.ec-canvas-derive-tile` 的基线规则在它**下面** —— 同特异度下**位置更靠后的赢**，
+   于是整条覆盖被基线吃掉，实测 900px 仍然「缺 10px」，**看起来像没生效**。
+   这已是本仓又一次栽在"同特异度靠后覆盖"上（RTK 在 CSS 那侧记过两次）。
+   ⇒ 凡是要覆盖本文件基线的规则，一律放在基线之后。 */
+@media (min-width: 621px) and (max-width: 960px) {
+  .ec-canvas-derive-tile { padding: 8px 6px; column-gap: 6px; }
+}
+
 .ec-canvas-derive-tile::before {
   /* hover 时左侧滑入的高亮条, 资深美工视角微动效 */
   content: "";
@@ -166,6 +237,10 @@
 .ec-canvas-derive-tile:active { transform: translateY(0); }
 .ec-canvas-derive-tile:focus-visible { outline: 2px solid var(--sb-surface-inverse); outline-offset: 2px; }
 
+/* 下面三个格子落到上面 grid-template-areas 声明的位置 */
+.ec-canvas-derive-tile .ec-canvas-derive-chip { grid-area: chip; }
+.ec-canvas-derive-tile .ec-canvas-derive-copy { grid-area: copy; }
+.ec-canvas-derive-tile .ec-canvas-derive-meta { grid-area: meta; }
 /* chip: 图标芯片 */
 .ec-canvas-derive-tile .ec-canvas-derive-chip {
   width: 24px;
@@ -229,12 +304,29 @@
   align-items: center;
   justify-content: space-between;
   /* 2026-09-20 修：原为 `gap: 5;`（缺单位 → 无效声明被丢弃，从未生效）。 */
-  gap: 5px;
-  margin-top: 1px;
-  min-height: 14px;
+  gap: 4px;
+  /* ⚠️ `margin-top: 1px` 与 `min-height: 14px` 是**两行时代**留下的：一行布局下 meta 与图标
+     同一行、由 tile 的 `align-items: center` 居中，这两个值只会让基线偏低一点、
+     并在 24px 高的内容带里强行撑到 14px —— 与「高度由内容决定」冲突。去掉。 */
 }
+/* ⚠️ 2026-10-01 用户批注：「你这两个箭头又是怎么回事？为什么四个卡片里面有的箭头在左边，
+   有的箭头在右边呢？你这又是没有搞明白吗？」
+   根因是**量出来的**，不是猜的：这一行 `justify-content: space-between`，
+   而箭头左右的位置**取决于有没有价格徽标** ——
+     有徽标 → 子元素 [徽标, 箭头] 两个，space-between 把箭头推到右边（实测距卡片右边 10px）；
+     无徽标 → 子元素只剩 [箭头] 一个，**没有可分布的空间** ⇒ 贴到左边（实测 166px）。
+   ⇒ 箭头自己 `margin-left: auto`，两种情况都靠右；价格徽标继续靠左。 */
+.ec-canvas-derive-tile .ec-canvas-derive-meta svg { margin-left: auto; }
 .ec-canvas-derive-tile .ec-canvas-derive-meta em {
-  padding: 1px 6px;
+  /* ⚠️ 2026-10-01：改成单行后，177px 的卡要装「图标24 + 标题 + 价格徽标 + 箭头」。
+     实测（真 CSS + 真 DOM）：徽标是这里最宽的一块，58.58px；带徽标那张的标题
+     **缺 15px** 被省略号砍掉。横向内边距 6→4 腾出 4px（标题 37.42 → 42.42px）。
+     ⚠️ **字号没有再降**：它已经用的是 `--sb-text-xs`（11px），是设计阶梯里最小的一档
+     （sm=12 / md=13），再小就得写死一个不在阶梯上的值 —— 那比截断更糟。
+     ⇒ 余下的 ~10px 缺口在「不动图标、不动文案」的前提下**补不上**，
+       已如实记进 RTK，交给产品定：要么价格文案短一档（「32积分起」→「32积分」），
+       要么这类卡不与其他卡同宽。 */
+  padding: 1px 4px;
   border-radius: var(--sb-radius-pill);
   background: var(--sb-surface-tint);
   color: var(--sb-ink-3);

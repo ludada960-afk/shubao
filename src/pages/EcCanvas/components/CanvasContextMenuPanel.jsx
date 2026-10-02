@@ -350,17 +350,54 @@ export function CanvasMinimap({
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node) return undefined;
+    /* ═══ 2026-10-01：把「小地图上方要留多少」发布成 `--ec-canvas-hud-clearance` ══════════════
+       画布左下角这一块有**好几个**浮层要互相让位（任务日志那颗按钮等），
+       原来它们**各自算位置、靠 250ms 轮询 `getBoundingClientRect` 互相等**。
+       那条轮询有真实的窗口期 —— 小地图异步挂上来之前，按钮停在写死的 86px 上，
+       正好压在小地图上（实测 1280×800：按钮 y668 / 小地图 y550–730，重叠 46×46）。
+
+       ⚠️⚠️ **这里算的是「高度 + 常量」，不是量自己的 `top`**（第一版量的就是 top，结果错的）：
+       小地图是 `position:absolute; bottom: …` 贴在画布容器底边的，容器晚 32px 长好它就跟着上移，
+       而 ResizeObserver **只在尺寸变化时触发，不管位置** ⇒ 量出来的 top 必然过期。
+       高度则由 `minimapWidth/minimapHeight` 定死（EcCanvas 不传，恒为 180），
+       加上容器底部的两个常量偏移，值与容器位置**无关**，永远新鲜。
+       ⚠️⚠️ 高度取 `max(实测, 声明值)`，**不是只用实测**（第二版的错）：
+       首次布局时小地图内部那张画布还没渲染，`offsetHeight` 只有 138，
+       变量发出去 220 而不是 262 —— 头几帧仍然压着小地图。
+       声明值在第一次渲染就有，所以取两者大的：**宁可多留，不可少留**。 */
+    const publish = () => {
+      const styles = getComputedStyle(node);
+      const readVar = (name, fallback) => {
+        const raw = styles.getPropertyValue(name).trim();
+        const n = parseFloat(raw);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const height = Math.max(node.offsetHeight || 0, minimapHeight);
+      const bottomBar = readVar('--ec-canvas-bottombar-top', 56);
+      const gap = readVar('--ec-canvas-panel-gap', 14);
+      const clearance = Math.round(bottomBar + gap + height + 12);
+      document.documentElement.style.setProperty('--ec-canvas-hud-clearance', `${clearance}px`);
+    };
     const measure = () => {
       const width = node.clientWidth;
       const height = node.clientHeight;
       setBox(prev => (prev.width === width && prev.height === height ? prev : { width, height }));
+      publish();
     };
     measure();
-    if (typeof ResizeObserver === 'undefined') return undefined;
+    /* 视口/容器变了也要重算（用户拖窗口、转屏、折叠侧栏） */
+    window.addEventListener('resize', publish);
+    if (typeof ResizeObserver === 'undefined') return () => window.removeEventListener('resize', publish);
     const observer = new ResizeObserver(measure);
     observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+    const host = node.offsetParent;
+    if (host && host !== node) observer.observe(host);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', publish);
+      document.documentElement.style.removeProperty('--ec-canvas-hud-clearance');
+    };
+  }, [minimapHeight]);
 
   // 世界 → 小地图：等比缩放 + 内容居中（用户批注：内容与默认视角都必须居中，不能歪向右下）
   const offsetX = Number.isFinite(worldBounds.offsetX) ? worldBounds.offsetX : 0;

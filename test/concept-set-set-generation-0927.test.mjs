@@ -39,10 +39,14 @@ import {
   updateVisualRunSlot,
   visualRetryIndexes,
 } from '../src/pages/Home/visualCreationModel.js';
-import { generationUnits } from '../src/services/imageModelCatalog.js';
+import { generationUnits, DEFAULT_IMAGE_MODEL } from '../src/services/imageModelCatalog.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = relative => readFileSync(join(ROOT, relative), 'utf8');
+/* 剥掉注释再扫 —— 否则「注释里提到某个字段名」会把判据自己绊倒
+   （本批第一次跑就撞上了：⑧ 的判据是"没有 seriesHint"，而我刚写的注释里恰好写了 seriesHint）。
+   判据要问的是**代码里还有没有**，不是**文字里还提不提**。 */
+const code = relative => read(relative).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 const ID = 'image.concept_set';
 const skill = getImageSkill(ID);
@@ -137,8 +141,12 @@ test('① 勾 3 种手法 → 发 3 张请求，且每一张只带自己那一�
 });
 
 test('② 报价 = 单价 × 张数（按钮上写的就是这个数）', () => {
-  const unit = generationUnits('image2', '2K') / 1000;
-  assert.ok(unit > 0, '自证前提：2K 的单价必须能算出来，实际 ' + unit);
+  /* ⚠️ 2026-09-30：单价这一项**跟着默认模型走**（默认已换成 2.5 Sunburst，2K = 1.5 积分）。
+     原来这里写死 `generationUnits('image2', '2K')` —— 换默认之后它会拿 image2 的价
+     去对比 2.5 的报价，必然对不上，而且报错信息完全指不到真正的原因。
+     ⇒ 改成从**默认档**取价：换默认时这条门禁自动跟着走，不用再改一次。 */
+  const unit = generationUnits(DEFAULT_IMAGE_MODEL, '2K') / 1000;
+  assert.ok(unit > 0, '自证前提：默认档 2K 的单价必须能算出来，实际 ' + unit);
   const one = skillPointsEstimate(skill, valuesWithShots(['概念静物']));
   const three = skillPointsEstimate(skill, valuesWithShots(['概念静物', '平铺集合', '材质静物']));
   const seven = skillPointsEstimate(skill, valuesWithShots(skill.modules.slice(0, 7).map(module => module.name)));
@@ -530,4 +538,41 @@ test('⑦ 同机位连拍：在清单里**逐张标**，只有标中的那几张
   assert.match(shell, /media-workbench-checklist-series/, '清单每行要渲染出那颗「连拍」标记');
   assert.match(shell, /disabled=\{!on\}/,
     '本身没被勾进这一篇的那行，标记要置灰（清单里没有的那张不可能出现在组里）');
+});
+
+/* ═══ 2026-10-01 用户两条批注：悬停文案撤掉 + 两颗控件纵向对齐 ═══════════════════════════════════ */
+test('⑧ 「连拍」药丸的悬停文案必须**短**（用户要精简，不是要没有）', () => {
+  /* 用户两次批注，第二次把第一次纠正了 —— 这一条要照着**第二次**做：
+       第一次：「那些文案你应该在对话里面回答我呀，你放到线上来给用户看干嘛呀」
+       第二次：「我是说你连拍的这句悬停文案太啰嗦了呀，你要精简，不用讲那么多的，
+                用户会感到不适的」
+     我第一版把 title 整个删了 —— 那是**矫枉过正**，用户要的是「短」。
+     ⇒ 判据钉住长度，而不是"有还是没有"：说明性长文塞进悬停气泡就是这条要拦的病。 */
+  const shell = code('src/components/media/WorkbenchShell.jsx');
+  const pill = /<button[\s\S]{0,400}?media-workbench-checklist-series[\s\S]{0,400}?>/.exec(shell);
+  assert.ok(pill, '要能定位到那颗药丸的标签');
+  const title = /\btitle="([^"]*)"/.exec(pill[0]);
+  assert.ok(title, '药丸应当有一句 title（用户要的是精简，不是取消）');
+  assert.ok(title[1].length <= 16,
+    `title 有 ${title[1].length} 字，超过 16 —— 用户批注「太啰嗦了…用户会感到不适」。原文：${title[1]}`);
+  assert.doesNotMatch(title[1], /\*\*|。|，/,
+    '悬停气泡里不许出现 Markdown 标记或长句标点（原生 title 不会渲染 Markdown）');
+  assert.doesNotMatch(code('src/pages/MediaCreation/index.jsx'), /seriesHint/,
+    'seriesHint 已经没人读了：留一个看起来"有说明"实际没人看的字段，比删掉更糟');
+});
+
+test('⑨ 「连拍」药丸与「镜头」下拉必须逐像素对齐（纵向）', () => {
+  /* 用户第二次提同一件事：「然后你现在的连拍和镜头的按钮为什么没对齐呀」。
+     批 DC 续-17 修的是**横向**（未勾行的药丸往左滑 ⇒ 行改三列 grid）；
+     这次是**纵向**：药丸自带一截 `margin-top: 5px`，镜头下拉那格没有 ⇒ 每行差 5px。
+     实测（.tmp/gm-align-measure.mjs，真 WorkbenchShell.css + 真 DOM 结构）：
+     改前每行 Δtop = 5px，改后 4 行全部 Δtop = 0、Δheight = 0。 */
+  const css = code('src/components/media/WorkbenchShell.css');
+  const base = /\.media-workbench-checklist-series\s*\{([^}]*)\}/.exec(css);
+  assert.ok(base, '要能定位到药丸的基线规则');
+  assert.doesNotMatch(base[1], /margin-top/,
+    '药丸基线规则不许再自带纵向偏移（偏移只由下面那条并列规则统一给，两边一起）');
+  assert.match(css,
+    /\.media-workbench-checklist\.is-person \.media-workbench-checklist-series,\s*\n?\s*\.media-workbench-checklist\.is-person \.media-workbench-checklist-person\s*\{[^}]*margin-top:\s*0/,
+    '药丸与镜头格必须被**并列**钉在一起（同 align-self / margin-top / min-height），不许只改一边');
 });

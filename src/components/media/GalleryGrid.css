@@ -40,13 +40,23 @@
    这样的话他们的封面就会变得很大。用户一眼就会觉得能够看清很多的信息。」
    竞品实测：视口 2560、内容吃满（约 2468），6 列 × 约 380px。
    所以列数**按可用宽度分档固定**（不是 auto-fill 随缘）：宽屏 6 列、往下逐档降。
-   卡片宽度由列数决定、页面被填满（不再有 1240 宽度上限，见 MediaCreation.css）。 */
+   卡片宽度由列数决定、页面被填满（不再有 1240 宽度上限，见 MediaCreation.css）。
+
+   ⚠️ 2026-09-30 用户第二次提同一件事（逐字）：
+   「我们图片生成和视频生成的总页面我认为我们的内容拉的不够满啊……你看知渔他们的各个子页面
+     入口这些卡片，其实都拉的很满，**他们现在整个页面的周边其实都没有多大的间距**……
+     后续我们把封面给填上去之后，会显得内容更多更密，让用户更有点进去的欲望。」
+   ⇒ 改两处，都是这一条的直接后果：
+     ① **6 列的门槛从 1720 降到 1440** —— 改前一台 1440 的笔记本只给 5 列，
+        卡片被撑大、间距被撑开，正好是"拉的不够满"。（原来那条 1720 的门槛
+        是按 2560 实测定的，没考虑**绝大多数用户不在 2560 屏上**。）
+     ② **行间距 16 → 12** —— 竞品"周边没有多大间距"说的就是它。 */
 .media-gallery-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
-@media (max-width: 1720px) { .media-gallery-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 1280px) { .media-gallery-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (max-width: 1380px) { .media-gallery-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 1040px) { .media-gallery-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px)  { .media-gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }

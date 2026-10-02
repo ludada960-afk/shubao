@@ -1,8 +1,23 @@
 import { productionPromptFor } from './productionCasePrompts.js';
 import { manifestOutputsToGalleryImages } from './productionCaseManifest.js';
+import { DEFAULT_IMAGE_MODEL } from '../../services/imageModelCatalog.js';
 
 const clean = value => typeof value === 'string' ? value.trim() : '';
 const assetUrl = value => clean(typeof value === 'string' ? value : (value?.url || value?.src || value?.image_url));
+
+/* 「做同款」带出去的模型 = **这张案例当年是谁出的**，不是"现在的默认"。
+   真源是案例自己身上的记录（视觉案例见 productionCaseCatalog.js 逐资产声明，
+   上游生成声明见 scripts/production-visual-case-manifest.mjs）；只有真没记录时才回落
+   全局默认 —— 回落才是"没得选"，把它当成默认值就是"把做同款写死成 2"。
+   用户 2026-09-30 原话：「如果以后再添加其他的案例进来，他们的导向就是他们生成时候的
+   各种各样的模型和配置方案呀。你不要把这个做同款给写死了，就是完全指向 2 啊。」 */
+function recordedImageModel(...sources) {
+  for (const source of sources) {
+    const model = clean(typeof source === 'string' ? source : source?.imageModel);
+    if (model) return model;
+  }
+  return DEFAULT_IMAGE_MODEL;
+}
 
 function normalizedAsset(value = {}) {
   const url = assetUrl(value);
@@ -98,7 +113,7 @@ function tryOnGalleryItem(entry) {
   return {
     id: `production-${entry.id}`, type: 'ecommerce', intent: 'anything_tryon', title,
     prompt, body_text: prompt, cover_url: output?.url || '', image_urls: assets.map(asset => asset.url), images: assets, assets,
-    ratio: '4:3', requestKey: output?.requestKey || '', imageModel: entry.status === 'production' ? 'image2' : 'showcase', resolution: '2K',
+    ratio: '4:3', requestKey: output?.requestKey || '', imageModel: recordedImageModel(output, entry), resolution: '2K',
     remix: { prompt, platform: 'smart', intent: 'anything_tryon' },
   };
 }
@@ -111,7 +126,7 @@ function productSuiteGalleryItem(entry) {
   return {
     id: `showcase-${entry.id}`, type: 'ecommerce', intent: 'product_suite', title: manifest.title,
     prompt, body_text: prompt, cover_url: output?.url || '', image_urls: assets.map(asset => asset.url), images: assets, assets,
-    ratio: output?.ratio || '1:1', requestKey: output?.requestKey || '', imageModel: 'image2', resolution: '2K',
+    ratio: output?.ratio || '1:1', requestKey: output?.requestKey || '', imageModel: recordedImageModel(output, entry), resolution: '2K',
     remix: {
       mode: manifest.remix.mode,
       prompt,
@@ -136,11 +151,12 @@ export function productionGalleryItems(catalog = []) {
     }
     for (const [index, asset] of (entry.assets || []).entries()) {
       const prompt = clean(asset.prompt) || productionPromptFor(asset.id);
+      const imageModel = recordedImageModel(asset, entry);
       result.push({
         id: `production-${entry.id}-${asset.id || index}`, type: 'visual', workType: 'visual', visualSkillId: asset.intent,
         title: asset.label, prompt, body_text: prompt, cover_url: asset.src, image_urls: [asset.src], images: [{ ...asset, url: asset.src }],
-        ratio: asset.ratio, requestKey: asset.requestKey, imageModel: 'image2', resolution: '2K',
-        replay: { skillId: asset.intent, prompt, originalPrompt: prompt, imageModel: 'image2', ratio: asset.ratio, resolution: '2K', requestKey: asset.requestKey, referenceAssets: [], referenceImages: [], panelValues: {} },
+        ratio: asset.ratio, requestKey: asset.requestKey, imageModel, resolution: '2K',
+        replay: { skillId: asset.intent, prompt, originalPrompt: prompt, imageModel, ratio: asset.ratio, resolution: '2K', requestKey: asset.requestKey, referenceAssets: [], referenceImages: [], panelValues: {} },
       });
     }
   }
