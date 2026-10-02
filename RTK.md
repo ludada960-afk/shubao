@@ -16882,3 +16882,92 @@ lazy 必白屏）；首页只有两个入口、不许再冒出第三个。
 已做红测（把 DesignDirection 的 fallback 换成 null → 门禁判红）。
 
 全量 4592 条 / 0 失败；precommit 全绿。
+
+## 2026-10-01 部署约定（用户下发，两条线并行改同一个生产环境）
+
+> 用户原话（要点）：
+> 「薯包现在有两条线在同时改画布并部署到同一个生产环境。从 2026-10-01 到今天，
+> 「刚上线就没了」发生了 **16 次** —— 每一次的根因都一样：两条线从分叉的历史分别部署，
+> 谁后部署谁覆盖，而且没有任何告警。」
+
+### 硬规则
+
+1. **所有会话从同一条发布分支部署：`gm/release-merge-1001`**
+2. **禁止从 detached 工作树部署。** 建工作树时不要加 `--detach`：
+   `git worktree add <路径> gm/release-merge-1001`
+   （从分叉历史发出来的提交不在任何分支上，随时和线上分叉）
+3. **部署前先合并当前线上那次提交**：
+   ```
+   ssh -i "%USERPROFILE%\.ssh\shubao_deploy_ed25519" ubuntu@114.132.157.250 "readlink -f /var/www/shubao/current"
+   git fetch && git merge <上面那条命令输出的 release 号后缀 sha>
+   ```
+4. **一条龙**：`pwsh -NoProfile -File scripts\deploy-production.ps1 -SkipPublicChecks`
+   脚本自己会跑 test 和 build，红了会抛错并不切换 production。
+5. ⚠️ **不要在部署前额外再跑一遍 precommit** —— 同一道门禁跑两遍，白花十分钟，
+   而两条线的发布间隔差不多就是十分钟。
+6. 紧急情况（故意回滚 / 从分叉分支救火）可以加 `-SkipForwardOnlyCheck` 或
+   `-SkipDetachedDeployCheck`，但跳过会在输出里留醒目告警，**而且要知会对方**。
+
+### 脚本里已有的机械保障
+
+- `Assert-DeployIsFromNamedBranch` —— 拒绝 detached HEAD，也拒绝不在 `gm/release-merge-1001` 上的分支
+- `Assert-ReleaseIsForwardOnly` —— 要求本次提交必须是**当前真正在跑的那个** release 的后代
+  （读 `readlink -f $WebRoot`，**不是**读备份目录）
+
+⚠️ 关键不是"我加了一道检查"，而是**两边都从同一条分支发** —— 做到之后这道检查
+会自动对我生效，我已经发出去的部署它拦不住。
+
+### 我这次犯的错（如实记）
+
+**我整个 session 都在 detached HEAD 上部署。** 中途看到过 git log 输出里的
+「(no branch)」，但只当是环境信息记了一笔，没当成部署纪律。
+结果：我的 8 个提交全部只存在于 detached HEAD 上，**随时可能和线上分叉**。
+
+发现它的是一个意外：部署脚本突然多了两道我从来没写过的检查
+（`Assert-DeployIsFromNamedBranch` / `Assert-ReleaseIsForwardOnly`），
+说明对方已经把发布分支合进来了。
+
+### 当前状态（已核实）
+
+| | 值 |
+| --- | --- | 
+| 线上 release | `20261002-152023-24736fab` |
+| `gm/release-merge-1001` 顶端 | `24736fab`（同一次） |
+| 我的 8 个提交 | **全部是 24736fab 的祖先**（逐个 merge-base 验过） |
+
+也就是说：对方已经把我的 `48ee3175` merge 进发布分支并发上线了，
+**我这批改动已经在生产上**（三个懒加载 chunk 都在，且都不在首屏）。
+⇒ 现在**没有需要部署的东西**，我也就不该再发一次。
+
+### 下一步的阻塞点
+
+`gm/release-merge-1001` 现在检出在 `F:/da/shubao/.worktrees/gm-b4`
+（对方的工作树），而且那里**有未提交改动**：
+`M src/pages/EcCanvas/canvasActionRegistry.js`。
+
+git 不允许两个工作树同时检出一条分支（`git checkout` 报
+「already used by worktree at ...」）。所以在对方让出这条分支之前，
+我**不能**把工作树转到发布分支，也就**不该**再部署 ——
+否则要么得用 `--ignore-other-worktrees` 硬抢（两条线同时往一条分支提交，
+正是这套约定要防的撞车），要么从 detached 发（我这次犯的错）。
+
+⇒ 已停下，等对方把 `gm-b4` 的未提交改动提交/让出分支，或明确指示怎么分工。
+
+### 关于门禁互相变红
+
+用户提醒（重要，且我今晚已经栽过好几次）：
+
+> 「如果你看到某条门禁因为我改了实现而变红，先看它问的是什么问题 —— 很可能是它钉住了
+> 某个措辞或写法，而我改的是它背后的意图。这种情况应该把判据改成断言**意图**，
+> 而不是把实现改回去。我自己今晚在这上面栽了七次。」
+
+我今晚在这一条上的实际记录（同一类错误）：
+1. nginx 配置里用了 `/* */` 注释 —— nginx 只认 `#`。
+2. prewarm effect 的注释里含有 `requestIdleCallback(prewarm`，把"不许再出现它"的判据自己判红了。
+3. ESM 测试里用 `require` —— 抛错被 `catch` 吞掉 ⇒ **假绿**，比假红更危险。
+4. 门禁正则写成 `<Suspense fallback={<ModeLoading[^>]*}>`，而实际是自闭合的 `/>}`。
+
+共同点：**判据读的是"写法"而不是"意图"**。处理方式应当是把判据改成问意图，
+而不是把我的实现改回去 —— 我的三条里前两条确实是实现写错了（该改），
+但第 3、4 条是我的判据写错了（该改判据）。分辨方法是问一句：
+**"这条门禁想防的事故，我的改动有没有让它重新发生？"** 没有的话就是判据过窄/过宽。
