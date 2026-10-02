@@ -35,19 +35,28 @@ export const CHINESE_AI_COMPLIANCE_LEGALS = Object.freeze([
     summary: '深度合成内容需显著标识; 不得用于虚假新闻/诈骗; 服务方需建内容审核机制.',
   },
   {
+    /* ═══ 2026-10-03 修正：原来写的是「(征求意见稿)」+ 2024-08 ══════════════════════
+       《人工智能生成合成内容标识办法》已于 **2025-03-07 正式印发（国信办通字〔2025〕2 号）**、
+       **2025-09-01 施行**（第十四条）。给用户看的法律告知引错版本是实质问题。
+       另把原来的「显式 + 隐式双重**水印**」改掉：办法把「元数据标识」列为**应当**，
+       数字水印只是**鼓励**项 —— 答记者问原话：「在多媒体文件中添加数字水印，
+       仍是技术难点或可能增加企业成本，**不作强制要求**」。说成"双重水印"
+       会让人以为必须有可见水印。 */
     key: 'content_labeling',
-    fullName: '人工智能生成合成内容标识办法 (征求意见稿)',
-    authority: '国家互联网信息办公室',
-    effectiveDate: '2024-08 (公开征求意见)',
-    summary: '显式 + 隐式双重水印; 用户调用时需勾选同意标识; 服务方需保存生成元数据.',
+    fullName: '人工智能生成合成内容标识办法',
+    authority: '国家互联网信息办公室、工业和信息化部、公安部、国家广播电视总局',
+    effectiveDate: '2025-09-01 (2025-03-07 印发)',
+    docNo: '国信办通字〔2025〕2号',
+    summary: '生成合成内容须添加显式与隐式双重标识; 用户协议须写明标识方法与样式; 不得恶意删除、篡改、伪造、隐匿标识.',
   },
+
 ]);
 
 // 强制勾选对应的中文标签 (用户 UI 展示)
 export const CHINESE_AI_COMPLIANCE_LABELS = Object.freeze({
   generative_ai_interim: '我已阅读并同意《生成式人工智能服务管理暂行办法》, 确认 AI 生成内容已显著标识, 不会用于违法违规用途',
   deep_synthesis: '我已阅读并同意《互联网信息服务深度合成管理规定》, 确认深度合成内容已显著标识, 已建立内容审核',
-  content_labeling: '我已阅读并同意《人工智能生成合成内容标识办法》, 同意显式 + 隐式双重水印, 同意服务方保存生成元数据',
+  content_labeling: '我已阅读并同意《人工智能生成合成内容标识办法》, 知悉平台将添加显式标识并在文件元数据中添加隐式标识, 且不得删除、篡改、伪造或隐匿该标识',
 });
 
 // 校验 compliance 入参, 3 项必须全为 true
@@ -75,8 +84,19 @@ export function evaluateChineseAiCompliance(compliance) {
 }
 
 // 摘要 — 给前端用, 含 3 项法律名 + 强制勾选提示
+/** 配套的技术标准 —— **不是用户勾选项**（用户不对国标单独同意），
+ *  但应当让用户看见我们按哪份标准落实。 */
+export const LABELING_STANDARD = Object.freeze({
+  fullName: 'GB 45438-2025 网络安全技术 人工智能生成合成内容标识方法',
+  docNo: 'GB 45438-2025',
+  authority: '国家标准化管理委员会',
+  effectiveDate: '2025-09-01 (2025-02-28 发布)',
+  note: '规定显式标识添加方法与文件元数据隐式标识的**具体字段写法**，与《标识办法》同日实施。',
+});
+
 export function summarizeChineseAiCompliance() {
   return {
+    labelingStandard: LABELING_STANDARD,
     legals: CHINESE_AI_COMPLIANCE_LEGALS.map(l => ({
       key: l.key,
       fullName: l.fullName,
