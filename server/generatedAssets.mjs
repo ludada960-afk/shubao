@@ -3,6 +3,36 @@ import crypto from 'crypto';
 import { stampImage, contentIdFor } from './aigcStamp.mjs';
 /* AIGC 显式标识（《标识办法》第四条(二)：画面适当位置的显著提示标识）。这一步会重编码。 */
 import { applyVisibleLabel } from './aigcVisibleLabel.mjs';
+
+/* ── 显式标识开关（2026-10-03，默认**关**）────────────────────────────────────
+   决定：产物默认**不带**画面角标，只写文件元数据里的隐式标识。
+
+   理由（产品侧）：本站产物是电商商品图，用户要直接传淘宝/天猫等平台，
+   而平台对主图有硬性要求（白底、无第三方水印）。左下角角标会直接损害
+   产物可用性，也会影响平台审核 —— 用户不会为带角标的图付钱。
+
+   ⚠️ 法律敞口（如实记录，不要当成"已合规"）：
+     《标识办法》**第四条**要求图片「在适当位置添加显著的提示标识」，且
+     「提供下载、复制、导出等功能时，应当确保文件中含有满足要求的显式标识」——
+     两条都是「应当」，**默认不带并不满足第四条**。
+     **第五条**（隐式/元数据）我们做到了，是另一条独立义务。
+
+     法定的「不���显式标识」路径是**第九条**：
+       「用户申请服务提供者提供没有添加显式标识的生成合成内容的，服务提供者
+         可以在通过用户协议明确用户的标识义务和使用责任后，提供不含显式标识的
+         生成合成内容，并依法留存提供对象信息等相关日志不少于六个月。」
+     三个条件：① 用户申请；② 用户协议明确用户的标识义务与使用责任；
+     ③ 日志留存 ≥6 个月。
+     · ③ 基本现成 —— 生成/计费表已有 owner_email + created_at。
+     · ①② **尚未实现**（没有"申请"动作，协议里也还没写"用户不得删除标识"的责任条款）。
+
+   ⇒ 保留代码与开关：法务若判定必须默认带角标，`AIGC_VISIBLE_LABEL=1` 即可，
+     配合 `pm2 restart shubao-production --update-env`，**不需要改代码、不需要重新部署**。
+     角标位置/尺寸/文案集中在 aigcLabelConfig.mjs，调起来也方便。 */
+function visibleLabelEnabled() {
+  const v = String(process.env.AIGC_VISIBLE_LABEL || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+}
 import { link, mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { resolve, basename } from 'node:path';
 /* aigcStamp 写 JPEG/WebP 元数据时要用（PNG 走零重编码的 chunk 插入，用不到它）。 */
@@ -128,14 +158,16 @@ export function createGeneratedAssetStore({
     if (declaredLength > maxBytes) throw new Error('生成图片文件过大');
     if (!buffer.length || buffer.length > maxBytes) throw new Error('生成图片文件过大或为空');
 
-    /* ═══ AIGC 标识：显式（画进像素）→ 隐式（写元数据）═══════════════════════
-       《标识办法》第四条(二)要画面上的显著提示标识，第五条要文件元数据标识，
-       两者是**并列**义务。隐式那步是零重编码的，所以放最后做最省。
+    /* ═══ AIGC 标识：隐式（写元数据，零重编码）；显式（画进像素）默认关 ════════
+       第五条（隐式）**始终**执行 —— 这是零重编码的，不动像素。
+       第四条（显式）由 AIGC_VISIBLE_LABEL 开关控制，**默认关**，理由见上面那段注释。
 
-       ⚠️ contentId 必须在**重编码前**定：显式标识会改字节，
+       ⚠️ contentId 必须在任何重编码**之前**定：角标一旦开启会改字节，
           注入后哈希就变了（文件名 = 内容的 sha256）。 */
     const contentId = contentIdFor(taskId, mimeType + ':' + buffer.length);
-    const labeledBuffer = await applyVisibleLabel(buffer, { contentType: mimeType, sharp });
+    const labeledBuffer = visibleLabelEnabled()
+      ? await applyVisibleLabel(buffer, { contentType: mimeType, sharp })
+      : buffer;
     const stampedBuffer = await stampImage(labeledBuffer, {
       contentType: mimeType,
       contentId,
@@ -185,7 +217,9 @@ export function createGeneratedAssetStore({
     let out = buffer;
     if (generated === true) {
       const contentId = contentIdFor(taskId, contentType + ':' + buffer.length);
-      out = await applyVisibleLabel(buffer, { contentType, sharp });
+      out = visibleLabelEnabled()
+        ? await applyVisibleLabel(buffer, { contentType, sharp })
+        : buffer;
       out = await stampImage(out, { contentType, contentId, sharp });
     }
 
