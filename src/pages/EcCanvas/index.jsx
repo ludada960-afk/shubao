@@ -38,6 +38,8 @@ import { CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes
 import { CanvasBottomToolbar, CanvasLayersPanel, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
 import WatermarkPanel from './components/WatermarkPanel.jsx';
 import { DEFAULT_IMAGE_WATERMARK, DEFAULT_VIDEO_WATERMARK, normalizeWatermark } from './canvasWatermarkModel.js';
+/* 2026-10-02：上传前本地探真实尺寸 —— 建框要用它，别等服务器传完才拿到。 */
+import { probeLocalMediaSizes } from './canvasUploadPrepare.js';
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import {
   CanvasAddMenu,
@@ -6179,8 +6181,19 @@ const handlePointerUp = useCallback((e) => {
     setPromptLoading(true);
     try {
       const assets = [];
+      /* ⚠️ 2026-10-02：上传前先**本地探一次**真实尺寸（用户：「素材的尺寸要跟你的框是同等适配的……这些你自己要想明白」）。
+         改之前这里什么都不探：节点尺寸只能等服务器上传完才拿得到，于是
+         `createUploadedVideoNodes` 里那个写死的 `width = 320` + 落回 16:9 先把框摆出来，
+         再由 `<video onLoadedMetadata>` 校正一次 —— **用户会看见框跳一下**。
+         本地探是纯 `URL.createObjectURL` + `preload="metadata"`，毫秒级、不走服务器；
+         探不到就返回 null，照常上传（尺寸是锦上添花，传不上去才是硬伤）。 */
+      const probedSizes = await probeLocalMediaSizes(files);
       for (const [index, file] of files.entries()) {
-        assets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))), name: file.name });
+        assets.push({
+          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))),
+          ...(probedSizes[index] || {}),
+          name: file.name,
+        });
       }
       let projectContext = null;
       try {
@@ -6377,8 +6390,16 @@ const handlePointerUp = useCallback((e) => {
       const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
       const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
       const videoAssets = [];
+      /* ⚠️ 2026-10-02：上传前本地探真实尺寸（用户：「素材的尺寸要跟你的框是同等适配的」）。
+         这条路径是**拖拽 + 底部那颗「上传素材」**都走的（`uploadCanvasMaterials` → 这里），
+         所以探一次就覆盖了图片/视频/音频混传。探不到返回 null，不挡上传。 */
+      const probedVideoSizes = await probeLocalMediaSizes(videoFiles);
       for (const [index, file] of videoFiles.entries()) {
-        videoAssets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length))), name: file.name });
+        videoAssets.push({
+          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length))),
+          ...(probedVideoSizes[index] || {}),
+          name: file.name,
+        });
       }
       const audioAssets = [];
       for (const [index, file] of audioFiles.entries()) {
