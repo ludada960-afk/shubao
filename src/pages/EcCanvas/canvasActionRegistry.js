@@ -230,6 +230,19 @@ export const CANVAS_ACTIONS = Object.freeze([
 
      下面这一组**只**在视频节点上出现（见 actionsForSurface 的分流），
      刻意不与图片动作混在一张表里 —— 混了就会重演"视频拿到一堆图片功能"。 */
+  /* ⚠️ 2026-10-02：计价项接好之后（批 之二十）才挂上来。第一版挂过又被撤 —— 那时
+     priceFeature 写的是不存在的 'video-subtitle' ⇒ 查表落空、**静默回落成「免费」**，
+     而后端 delogo 是按秒真扣的（canvas-billing 门禁原话："UI 显示免费但后端实收"）。
+     现在键是真实存在的 'video-desubtitle'（perSecond + unitsPerSecond 0.04，
+     单价由门禁从服务端 catalog 逐值核对）。
+     ⚠️ 按钮上显示的是**单价**；总价随这条视频的时长变化，由服务端 quote 给出。 */
+  action('smart-subtitle-erase', '智能去字幕', ['video-toolbar'], 'video-desubtitle', false, {
+    type: 'local', handler: 'smart-subtitle-erase',
+  }, {
+    description: '在视频上框出字幕区域，用本机 ffmpeg delogo 补掉（照知渔的「智能去字幕 · 框选擦除」）',
+    group: '视频处理',
+    canRun: isReadyVideoNode,
+  }),
   action('preview-media', '预览', ['video-toolbar'], null, false, {
     type: 'local', handler: 'preview-media',
   }, {

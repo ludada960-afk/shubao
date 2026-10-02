@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
   Upload, Type, Video, Wand2, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
@@ -147,6 +148,8 @@ import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy 
 import { quoteBillingAction } from '../../services/billing.js';
 import { analyzeVideoPlan, createVideoJob, fetchVideoCapabilities, getVideoJob, uploadVideoAsset } from '../../services/video.js';
 import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js';
+/* 2026-10-02：视频「智能去字幕」的框选控件 —— 复用 VideoStudio 那一页**同一个**组件，算法一行没改。 */
+import VideoRegionPicker from '../../components/media/VideoRegionPicker.jsx';
 import { resolveVideoApiMode, hasRequiredVideoInputs, snapVideoDuration } from '../VideoStudio/videoStudioModel.js';
 import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
 import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
@@ -788,12 +791,22 @@ export default function EcCanvas() {
   /* 9-11 用户批注: 视频模型与首页同源 —— 拉 /api/video/capabilities (与 VideoStudio 同一 API),
      首页上新模型, 画布视频生成器同步出现; 拉取失败回落内置两档 (不阻塞画布)。 */
   const [videoProducts, setVideoProducts] = useState([]);
+  /* 2026-10-02：去字幕走**本机产品**（`capabilities.localProducts`）——与上面的
+     `videoProducts`（上游模型 `data.products`）**不是一份东西**。VideoStudio 也是分开取的。
+     没有它就没有 productId，也就没有报价、没法建单。 */
+  const [videoLocalProducts, setVideoLocalProducts] = useState([]);
+  /* 正在框选字幕区域的目标视频节点（null = 未进入框选）。**必须 portal 出画布渲染**。 */
+  const [subtitlePickNodeId, setSubtitlePickNodeId] = useState(null);
   useEffect(() => {
     let cancelled = false;
     fetchVideoCapabilities().then(data => {
       if (cancelled) return;
       const products = Array.isArray(data?.products) ? data.products.filter(product => product?.public !== false) : [];
       if (products.length) setVideoProducts(products);
+      const localProducts = Array.isArray(data?.localProducts)
+        ? data.localProducts.filter(product => product?.public !== false)
+        : [];
+      if (localProducts.length) setVideoLocalProducts(localProducts);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -4098,6 +4111,48 @@ const handlePointerUp = useCallback((e) => {
     }
   }, [textOcrLoading]);
 
+
+  /* ═══ 2026-10-02 视频「智能去字幕」提交（本机 ffmpeg delogo，零上游成本）══════════════════
+     ⚠️ 记账纪律（VideoStudio/index.jsx:1034-1040 的原话，照抄）：
+       「份数一律由**服务端**定……这里只报『这段片子多少秒』这个**事实**，不报份数、更不报金额：
+        前端不得把『算出来的份数/金额』发给服务端」
+        「只有服务端能把它算成份数（它同时决定建单时冻结多少，两边不一致就是 409「费用确认不一致」）」
+     ⇒ 这里只传「{ sku, seconds }」，金额与份数全用服务端返回的 quote；
+        界面上显示的价也来自同一个 quote —— **不在前端算第二份**。 */
+  const runVideoDesubtitle = useCallback(async (targetNode) => {
+    if (!targetNode?.url) { showToast('这条视频还没有可用的地址', 'error'); return; }
+    const regions = Array.isArray(targetNode.subtitleRegions) ? targetNode.subtitleRegions : [];
+    if (!regions.length) { showToast('先在视频上框出要擦除的字幕区域', 'info'); return; }
+    const product = videoLocalProducts.find(item => item.id === 'desubtitle_local');
+    if (!product) { showToast('去字幕方案暂不可用，请稍后再试', 'error'); return; }
+    /* 时长以**元素读到的**为准（上传那一步已经本地探过并写进节点）；拿不到就按 1 秒起算。 */
+    const seconds = Math.max(1, Math.ceil(Number(targetNode.duration) || 0));
+    let quote = null;
+    try { quote = (await quoteBillingAction({ sku: product.sku, seconds })).quote; }
+    catch { showToast('费用确认失败，请稍后再试', 'error'); return; }
+    if (!quote?.quoteId) { showToast('费用确认失败，请稍后再试', 'error'); return; }
+    const sourceId = targetNode.assetId || targetNode.videoAssetId || targetNode.id;
+    try {
+      await createVideoJob({
+        productId: product.id,
+        /* 建单模式取产品声明（本机 = 'local'）——写的一定要是这条产品真正的模式。 */
+        mode: product.modes?.[0] || 'local',
+        duration: seconds,
+        resolution: '',
+        aspectRatio: '',
+        generateAudio: false,
+        billingQuoteId: quote.quoteId,
+        /* delogo 的坐标口径：{type:'delogo', x, y, w, h}，服务端 localVideoPlan.normalizeRegion 会再判一次 */
+        localSpecs: { regions },
+        references: { videos: [sourceId], audios: [], urls: { [sourceId]: targetNode.url } },
+        idempotencyKey: `canvas-desubtitle-${targetNode.id}-${Date.now()}`,
+      });
+      showToast('已提交去字幕，成片会出现在作品里', 'success');
+    } catch (error) {
+      showToast(error?.message || '去字幕提交失败，请重试', 'error');
+    }
+  }, [videoLocalProducts, showToast]);
+
   const handleToolAction = async (action, node) => {
     if (!node) return;
     const actionSpec = getCanvasAction(action?.id || action);
@@ -4148,6 +4203,14 @@ const handlePointerUp = useCallback((e) => {
     }
     /* ═══ 2026-10-02 视频专属动作（用户照知渔提的：「视频跟图片生成是不同的逻辑，
        你应该定制化的为他去开发一些功能」）═══════════════════════════════════════ */
+    if (handler === 'smart-subtitle-erase') {
+      /* ⚠️ 必须 portal 出画布：VideoRegionPicker 内部用 `surface.offsetWidth`（未缩放布局尺寸）
+         配 `rect ÷ 自身放大(1.8)` 换算**源视频像素**（delogo 的坐标口径）。画布 stage 带
+         `transform: scale(viewport.scale)`，内嵌会让 `rect/1.8` 仍差一个 viewport.scale
+         ⇒ **框出来的区域整体偏移**（用户框底部字幕、擦出来落在画面中间）。 */
+      setSubtitlePickNodeId(node.id);
+      return;
+    }
     if (handler === 'preview-media') {
       /* 复用画布原有的放大预览灯箱。视频只是把 kind 带上，让灯箱按 <video> 渲染，
          而不是另起一个弹窗（另起一个 = 两套关闭/缩放逻辑，迟早打架）。 */
@@ -9425,6 +9488,43 @@ const handlePointerUp = useCallback((e) => {
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
       )}
+
+      {/* ═══ 2026-10-02 视频「智能去字幕」：框选字幕区域 ═══════════════════════════════
+          ⚠️ **必须 portal 到 body** —— 见 handleToolAction 里 'smart-subtitle-erase' 那段：
+          VideoRegionPicker 用未缩放的 offsetWidth 配 rect/自身放大 换算源视频像素，
+          画布 stage 的 transform: scale 会插进来导致框选区域整体偏移。 */}
+      {subtitlePickNodeId && typeof document !== 'undefined' && createPortal((() => {
+        const target = nodes.find(item => item.id === subtitlePickNodeId);
+        if (!target?.url) return null;
+        return <div
+          data-video-subtitle-picker="true"
+          /* 点空白关闭属于**容器级辅助行为**：真控件是下面「取消 / 开始擦除」两个 button，
+             这个 backdrop 自己不该可聚焦。role="presentation" 同时满足语义与
+             no-clickable-div 门禁（它明确放行显式非交互容器角色）。 */
+          role="presentation"
+          style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, display: 'grid', placeItems: 'center',
+                   background: 'rgba(12,10,9,0.72)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setSubtitlePickNodeId(null)}
+        >
+          <div onClick={event => event.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '92vh', overflow: 'auto' }}>
+            <VideoRegionPicker
+              videoUrl={target.url}
+              regions={target.subtitleRegions || []}
+              hint={target.name || ''}
+              onChange={(next) => setNodes(previous => previous.map(node => (
+                node.id === target.id ? { ...node, subtitleRegions: next } : node)))}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '10px 12px 0' }}>
+              <button type="button" onClick={() => setSubtitlePickNodeId(null)}>取消</button>
+              <button
+                type="button"
+                disabled={!(target.subtitleRegions || []).length}
+                onClick={() => { setSubtitlePickNodeId(null); void runVideoDesubtitle(target); }}
+              >开始擦除</button>
+            </div>
+          </div>
+        </div>;
+      })(), document.body)}
 
       <SkillLibraryModal
         open={Boolean(skillLibraryTarget)}
