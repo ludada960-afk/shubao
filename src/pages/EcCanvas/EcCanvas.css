@@ -257,6 +257,12 @@
 .ec-canvas-bottom-toolbar .ec-canvas-icon-button:hover:not(:disabled),
 .ec-canvas-zoom-controls .ec-canvas-icon-button:hover:not(:disabled) { color: var(--canvas-command); background: #edf3ff; }
 .ec-canvas-zoom-controls span { min-width: 46px; text-align: center; color: #4d5662; font-size: 11px; font-weight: 700; }
+/* 2026-10-02：缩放百分比从**纯文本 span** 变成可点的「回到 100%」按钮
+   （Figma / tldraw / draw.io 的统一交互：数字本身就是复位按钮）。
+   可点 ⇒ 按原则 4.7「可点必有反馈」必须给 hover，否则 interactive-state-coverage 会拦。 */
+.ec-canvas-zoom-value { min-width: 46px; height: 34px; padding: 0 6px; border: 0; border-radius: calc(var(--ec-radius-sm) - 1px); background: transparent; color: #4d5662; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; }
+.ec-canvas-zoom-value:hover { color: var(--canvas-command); background: #edf3ff; }
+.ec-canvas-zoom-value:focus-visible { outline: 2px solid var(--canvas-focus, #2563eb); outline-offset: 1px; }
 
 /* ⚠️ 这里的 left:72px / bottom:70px **不是死声明** —— 第 81 轮复核推翻了交接文档里的旧诊断，
    删之前请先读完这段（EcCanvas 是冻结区，跨线改动统一走画布线）：
@@ -616,6 +622,14 @@
 @keyframes ecEdgeFlow24 { to { stroke-dashoffset: -24; } }
 @keyframes ecEdgeFlow12 { to { stroke-dashoffset: -12; } }
 .ec-canvas-edge-draft { animation: ecEdgeFlow12 0.9s linear infinite; }
+/* 2026-10-02：这两条以前只发类名、**没有对应规则** —— 视觉全靠内联 stroke，
+   于是「无效连线」除了那点红色之外没有任何区别（比如没有虚线流动之外的提示），
+   选中线也只是加粗。现在把类名真正兑现成样式：
+   ① 无效连线：红色 + 虚线（语义是"这条走不通"，要一眼看出来且不靠颜色单打独斗）；
+   ② 命中层：完全透明，只负责把 2px 的细线变成 20px 的可点区域（RF interactionWidth）。 */
+.ec-canvas-edge-line.ec-canvas-edge-invalid { stroke-dasharray: 4 4; }
+.ec-canvas-edge-hitarea { fill: none; stroke: transparent; }
+.ec-canvas-edge-hitarea:hover + .ec-canvas-edge-line { stroke-width: 3.4; }
 /* 9-15 用户批注: 「替换」按钮不像竞品 —— 竞品是**图片右上角一个半透明深色遮罩胶囊**。
    改法: rgba(15,15,18,.55) 深色遮罩 + blur + 白字 + 小图标, 贴节点右上角距边 8px;
    常态可见（选中即现），hover 加深。点击走既有上传替换通道。 */

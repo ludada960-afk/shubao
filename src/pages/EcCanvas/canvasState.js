@@ -1,6 +1,8 @@
 /* 批 CY-㊴：框选要按"节点真实占位"判（含 footer），不再用写死的 +60。
    这条 import 只为 selectNodesInRect 服务，别把它挪去别处。 */
 import { canvasNodeFootprint } from './canvasMediaFitModel.js';
+/* 2026-10-02：fitViewport / readableInitialViewport 原先自己写死 `n.h + 60`，
+   与「整卡高度」的另一个口径又对不上。统一走 footprint（含 footer、按 showMeta 分支）。 */
 
 export function getCanvasPointerIntent({ tool = 'select', button = 0, altKey = false, spaceKey = false, isInteractive = false } = {}) {
   if (isInteractive) return 'ignore';
@@ -105,10 +107,15 @@ export function normalizeAsset(input = {}, index = 0, counters = {}) {
 
 export function fitViewport(nodes, rect, padding = 56) {
   if (!nodes.length || !rect?.width || !rect?.height) return null;
-  const minX = Math.min(...nodes.map(n => n.x));
-  const minY = Math.min(...nodes.map(n => n.y));
-  const maxX = Math.max(...nodes.map(n => n.x + n.w));
-  const maxY = Math.max(...nodes.map(n => n.y + n.h + 60));
+  /* 2026-10-02：原先是 `n.y + n.h + 60`。那个 60 是"猜的 footer + 行距"，
+     而 footer 的真值就在 canvasNodeFootprint 里（还会按 showMeta 分支）——
+     两处各猜一次，就必然对不上，表现为「适应画布后底部被切掉一截」。
+     现在整卡高度只有 footprint 一个口径。 */
+  const boxes = nodes.map(canvasNodeFootprint).filter(Boolean);
+  const minX = Math.min(...boxes.map(n => n.x));
+  const minY = Math.min(...boxes.map(n => n.y));
+  const maxX = Math.max(...boxes.map(n => n.x + n.w));
+  const maxY = Math.max(...boxes.map(n => n.y + n.h));
   const scale = Math.max(0.15, Math.min(1.5, Math.min(
     (rect.width - padding * 2) / Math.max(1, maxX - minX),
     (rect.height - padding * 2) / Math.max(1, maxY - minY),
@@ -119,9 +126,10 @@ export function fitViewport(nodes, rect, padding = 56) {
 export function readableInitialViewport(nodes, rect, { padding = 72, minScale = 0.68 } = {}) {
   const fitted = fitViewport(nodes, rect, padding);
   if (!fitted || fitted.scale >= minScale) return fitted;
-  const minX = Math.min(...nodes.map(node => node.x));
-  const minY = Math.min(...nodes.map(node => node.y));
-  const maxX = Math.max(...nodes.map(node => node.x + node.w));
+  const boxes = nodes.map(canvasNodeFootprint).filter(Boolean);
+  const minX = Math.min(...boxes.map(node => node.x));
+  const minY = Math.min(...boxes.map(node => node.y));
+  const maxX = Math.max(...boxes.map(node => node.x + node.w));
   const scale = minScale;
   return {
     scale,

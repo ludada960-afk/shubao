@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-  CANVAS_MEDIA_FOOTER_HEIGHT,
   CANVAS_MEDIA_GAP_SCREEN,
   CANVAS_MEDIA_MAX_HEIGHT,
   canvasMediaFrameHeight,
@@ -11,6 +10,9 @@ import {
   findCanvasBatchPlacement,
   screenGapToWorld,
 } from '../src/pages/EcCanvas/canvasMediaFitModel.js';
+/* 2026-10-02：footer 高度不再由 canvasMediaFitModel 自带（那份 34 与端口几何的 46
+   长期打架），改从唯一真相 canvasGeometry 取。 */
+import { CANVAS_CARD_FOOTER_H } from '../src/pages/EcCanvas/canvasGeometry.js';
 import { findCanvasBlankPlacement } from '../src/pages/EcCanvas/canvasInlineEditorModel.js';
 import { createUploadedImageNodes, createUploadedVideoNodes } from '../src/pages/EcCanvas/canvasStudioModel.js';
 
@@ -59,14 +61,20 @@ test('节点占位必须算上 footer —— 这正是「互相遮挡」的几�
   const withMeta = canvasNodeFootprint({ x: 0, y: 0, w: 240, h: 320 });
   const withoutMeta = canvasNodeFootprint({ x: 0, y: 0, w: 240, h: 320, showMeta: false });
   // 带 footer 的节点比裸框高出一个 footer
-  assert.equal(withMeta.h, 320 + CANVAS_MEDIA_FOOTER_HEIGHT);
+  assert.equal(withMeta.h, 320 + CANVAS_CARD_FOOTER_H);
   // showMeta === false 的节点不渲染 footer，不该多算
   assert.equal(withoutMeta.h, 320);
   // footer 高度与 CSS 里真实的 footer 对得上（padding 6+7 + 两行 12px/10px×1.35 + 2px gap + 1px 边框）
   assert.match(css, /\.ec-canvas-media-node footer \{[^}]*padding: 6px 8px 7px/);
   assert.match(css, /--ec-canvas-action-font: 12px/);
   assert.match(css, /--ec-canvas-meta-font: 10px/);
-  assert.equal(CANVAS_MEDIA_FOOTER_HEIGHT, 34);
+  /* 2026-10-02：这里原来断言 **34**，而端口几何那边用的是 46。
+     按 CSS 真实值算一遍：padding 6+7 = 13、border-top 1、gap 2、
+     两行文字 12×1.35 = 16.2 与 10×1.35 = 13.5 ⇒ 合计 **45.7 ≈ 46**。
+     ⇒ 34 才是错的（它漏了 padding、边框和第二行），
+       这正是「框选按 34、连线端点按 46」两套口径打架的由来。
+     现在整卡高度只有 canvasGeometry 一处定义（可测的单一真相）。 */
+  assert.equal(CANVAS_CARD_FOOTER_H, 46);
 });
 
 test('findCanvasBlankPlacement 避让时把已有节点的 footer 也算进去了', () => {
@@ -80,7 +88,7 @@ test('findCanvasBlankPlacement 避让时把已有节点的 footer 也算进去�
     nodes: existing,
     gap: 0,
   });
-  const mine = { x: placement.x, y: placement.y, w: 240, h: 320 + CANVAS_MEDIA_FOOTER_HEIGHT };
+  const mine = { x: placement.x, y: placement.y, w: 240, h: 320 + CANVAS_CARD_FOOTER_H };
   const theirs = canvasNodeFootprint(existing[0]);
   assert.equal(overlaps(mine, theirs, 0), false, '新节点不能压在已有节点的 footer 上');
 });

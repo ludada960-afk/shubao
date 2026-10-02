@@ -197,6 +197,19 @@ import {
   canConnectCanvasNodes,
 } from './canvasQuantvExtensions.js';
 import { getCanvasCardHeight, pickCanvasConnectionSnapTarget, CANVAS_SNAP_RADIUS } from './canvasGeometry.js';
+import { canvasNodeFootprint } from './canvasMediaFitModel.js';
+/* 2026-10-02：滚轮/缩放口径（deltaMode 归一化、捏合、Shift 水平平移、居中缩放、
+   拖动阈值）与吸附（对齐参考线 + 边缘自动平移）。口径见两个模块顶部的调研注释。 */
+import {
+  canvasWheelIntent,
+  canvasZoomAtPoint,
+  canvasZoomAtCenter,
+  canvasZoomToScale,
+  canvasKeyboardZoomIntent,
+  canvasDragExceeded,
+  CANVAS_DRAG_THRESHOLD,
+} from './canvasViewportModel.js';
+import { snapCanvasDrag, calcCanvasAutoPan } from './canvasSnapModel.js';
 import {
   copyNodesToClipboard,
   readClipboardNodes,
@@ -582,7 +595,7 @@ function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu,
 }
 
 /* A6: 连线 SVG 层 */
-function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
+function ConnectionLines({ connections, nodes, onRemove, focusNodeIds, selectedEdgeId, onSelectEdge }) {
   if (!connections?.length) return null;
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const styles = {
@@ -617,9 +630,27 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
         const isFocused = !focusNodeIds || (focusNodeIds.has(from.id) && focusNodeIds.has(to.id));
         /* 9-11: 全部连线带 .ec-canvas-edge-line (端点=加号中心重叠); 进行中边常驻流动, hover 边流动加粗 */
         const edgeClass = ['ec-canvas-edge-line', isInvalid ? 'ec-canvas-edge-invalid' : null, isProcessing ? 'ec-canvas-edge-processing is-animated' : null].filter(Boolean).join(' ');
+        const edgeId = conn.id || `edge-${i}`;
+        const edgePath = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+        const isEdgeSelected = selectedEdgeId === edgeId;
         return (
           <g key={i}>
-            <path className={edgeClass} data-canvas-edge-id={conn.id || `edge-${i}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} stroke={style.stroke} strokeWidth={isFocused ? 2.8 : 2.1} fill="none" strokeDasharray={style.dash} opacity={isFocused ? 0.9 : 0.14} onDoubleClick={() => onRemove?.(conn)} style={{ cursor: 'pointer', pointerEvents: 'stroke' }} />
+            {/* 2026-10-02：**加一条完全透明、但很粗的命中线**（RF `interactionWidth`，默认 20）。
+                原来只有 2~3px 的可见线，要精确点中它才能选中/双击删线；
+                2px 的目标在触控板和移动端上根本点不中 —— 这是"线太难点不到"的根因，
+                不是线画得太细。（tldraw / draw.io / Excalidraw 都有等宽的隐形命中层。） */}
+            <path
+              className="ec-canvas-edge-hitarea"
+              data-canvas-edge-id={edgeId}
+              d={edgePath}
+              stroke="transparent"
+              strokeWidth={20}
+              fill="none"
+              onPointerDown={(event) => { event.stopPropagation(); onSelectEdge?.(edgeId); }}
+              onDoubleClick={() => onRemove?.(conn)}
+              style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+            />
+            <path className={edgeClass} data-canvas-edge-id={edgeId} d={edgePath} stroke={style.stroke} strokeWidth={isEdgeSelected ? 3.4 : (isFocused ? 2.8 : 2.1)} fill="none" strokeDasharray={style.dash} opacity={isFocused || isEdgeSelected ? 0.95 : 0.14} onPointerDown={(event) => { event.stopPropagation(); onSelectEdge?.(edgeId); }} style={{ cursor: 'pointer', pointerEvents: 'stroke' }} />
             <circle cx={x2} cy={y2} r={4} fill={style.stroke} opacity={isFocused ? 0.9 : 0.14} />
           </g>
         );
@@ -761,6 +792,12 @@ export default function EcCanvas() {
     if (state.logged && !state.browserQa) refreshBillingBalance().catch(() => {});
   }, [state.logged, state.browserQa, refreshBillingBalance]);
   const [viewport, setViewport] = useState({ x: 80, y: 40, scale: 1 });
+  /* 2026-10-02：视口的 ref 镜像。
+     快照/持久化要从 ref 读视口，而**不把 viewport 放进依赖数组** ——
+     否则平移一次就得重算一次整棵树的快照并（曾经）发一次网络请求。
+     tldraw 的模型：相机属于 session state，文档变更不因相机变动而触发。 */
+  const viewportRef = useRef(viewport);
+  useEffect(() => { viewportRef.current = viewport; }, [viewport]);
   const [nodes, setNodes] = useState([]);
   const nodesRef = useRef([]);
   const [pendingProjectAssetImports, setPendingProjectAssetImports] = useState([]);
@@ -769,6 +806,9 @@ export default function EcCanvas() {
   const pendingProjectAssetImportsBusyRef = useRef(false);
   const [selected, setSelected] = useState(null);
   const [multiSelected, setMultiSelected] = useState(new Set());
+  /* 2026-10-02：连线的选中态（配合隐形粗命中线，见 ConnectionLines）。
+     与节点选中并存，删除时**线优先** —— 实现 `?` 面板里那句「优先删线」。 */
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   /* P0.5 分组"运行整链"的二次确认弹窗数据（预估为 0 时不弹，直接跑） */
   const [graphRunConfirm, setGraphRunConfirm] = useState(null);
   /* P2 工作流模板库: 库浮层 + 铺开后顶部的运行 offer（运行仍走 P0.5 二次确认; T4/T5 呈 P3 灰态、不提供扣费运行）*/
@@ -928,7 +968,7 @@ export default function EcCanvas() {
   const [projectAssetUploadBusy, setProjectAssetUploadBusy] = useState(false);
   const projectAssetUploadRef = useRef(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-const [minimapOpen, setMinimapOpen] = useState(true);
+const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-08 素材水印系统（用户批注重构）: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 */
   const [imageWatermark, setImageWatermark] = useState(DEFAULT_IMAGE_WATERMARK);
   const [videoWatermark, setVideoWatermark] = useState(DEFAULT_VIDEO_WATERMARK);
@@ -1154,7 +1194,37 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   /* 2026-10-02：底部工具栏那颗「上传素材」用的**统一**文件选择器（三类都收）。 */
   const materialUploadRef = useRef(null);
   const historyRef = useRef(null);
-  if (!historyRef.current) historyRef.current = createCanvasHistory();
+  if (!historyRef.current) historyRef.current = createCanvasHistory({ limit: 60 });
+  /* ═══ 2026-10-02 撤销/重做真正接通 ═════════════════════════════════════════════
+     原来 `createCanvasHistory` 建好了却**从来没被 push 过**（全仓唯一一次 push 在
+     undo 处理函数自己体内），past 永远为空 ⇒ Ctrl+Z / Ctrl+Shift+Z /
+     右键菜单的撤销重做 / `?` 面板上的「撤销上一步」，全部静默无反应。
+
+     接法（业界口径，tldraw HistoryManager）：
+       · 记的是**一次动作之前**的文档快照（diff 或快照都行，这里用快照，节点量级不大）；
+       · **手势结束**才记一次，不是每一帧 —— 拖动中记 60 次，用户按一次撤销就回去了 1px；
+       · **视口不进历史** —— tldraw 把相机放在 session state 而不是 undo 栈里，
+         否则平移一次就吃掉一步撤销。
+
+     docRef 始终镜像当前文档，各动作在改动**之前**调 pushHistory() 即可拿到「改动前」，
+     不需要在每个 setNodes 里手动捞 previous。 */
+  const docRef = useRef({ nodes, connections });
+  useEffect(() => {
+    docRef.current = { nodes, connections };
+  }, [nodes, connections]);
+  const pushHistory = useCallback(() => {
+    const snapshot = docRef.current;
+    if (!snapshot?.nodes) return;
+    historyRef.current.push(snapshot);
+  }, []);
+  /* 键盘处理函数注册得比这些回调早，用 ref 中转，避免 TDZ（本仓 09-04 踩过）。 */
+  const pushHistoryRef = useRef(null);
+  pushHistoryRef.current = pushHistory;
+  /* 拖动开始时的这组外接矩形（吸附算参考线用）+ 起点（判定"到底算不算拖过"用） */
+  const selectionBoundsRef = useRef(null);
+  const dragStartPointRef = useRef(null);
+  /* 对齐参考线的世界坐标；空数组 = 当前没有参考线要画 */
+  const [alignmentGuides, setAlignmentGuides] = useState([]);
   const objectClipboardRef = useRef(null);
   const canvasSessionRef = useRef(null);
   const projectAssetImportBusyRef = useRef(false);
@@ -2220,11 +2290,19 @@ const [minimapOpen, setMinimapOpen] = useState(true);
        现在快照在 setTimeout 里面算 ⇒ 防抖终于防抖了：连续操作只在停下 350ms 后
        算一次，中间那些中间态一次都不算。 */
     const timer = setTimeout(() => {
-      const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
+      const snapshot = createCanvasSnapshot({
+        nodes: docRef.current.nodes,
+        connections: docRef.current.connections,
+        viewport: viewportRef.current,
+        pendingProjectAssetImports,
+      });
       saveCanvasDraft(canvasSaveKeyRef.current, snapshot);
     }, 350);
     return () => clearTimeout(timer);
-  }, [connections, nodes, pendingProjectAssetImports, pointerMode?.kind, viewport]);
+    /* 2026-10-02：`viewport` 从依赖里摘掉了（视口由下面那条单独的 2s 防抖负责）。
+       原来挂在尾部 ⇒ **平移一次 = 整棵树重新快照**（12 节点实测 59ms 同步占用），
+       而平移是每秒最多 60 次。 */
+  }, [connections, nodes, pendingProjectAssetImports, pointerMode?.kind]);
 
   useEffect(() => {
     if (!draftReadyRef.current || result.browserQa || isTransientPointer(pointerMode?.kind)) return undefined;
@@ -2265,6 +2343,61 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     canvasSessionRef.current = canvasSession;
   }, [canvasSession]);
 
+/* ═══ 2026-10-02：远端保存抽成一个可调用的通道（自动保存与 Ctrl+S 共用）══════════
+   自动保存原来直接内联在 effect 里，Ctrl+S 只能另写一个 220ms 的假定时器
+   （`setSaveStatus('saving')` 然后 `setTimeout(...220)` 就宣称"已保存"，
+   全程零 I/O —— 骗人，而且 `?` 面板里还宣传着它）。现在两者走同一条真实路径。 */
+  const persistCanvasRemotely = useCallback(async ({ force = false } = {}) => {
+    if (!draftReadyRef.current || canvasSessionBusy) return;
+    const projectId = result.projectId;
+    const baseVersionId = result.resultVersionId || result.sourceVersionId;
+    if (!projectId || !baseVersionId) return;
+    /* 视口从 ref 读，而不是从闭包里拿 —— 这样它**不进依赖数组**，
+       平移/缩放就不会每次都跑一遍「整棵树深拷贝 + 序列化」（平移是每秒 60 次）。
+       tldraw 的模型就是这样：相机属于 session state，不属于文档变更。 */
+    const snapshot = createCanvasSnapshot({
+      nodes: docRef.current.nodes,
+      connections: docRef.current.connections,
+      viewport: viewportRef.current,
+      pendingProjectAssetImports,
+    });
+    const fingerprint = JSON.stringify(snapshot);
+    if (!force && fingerprint === remoteSnapshotRef.current) return;
+    const persistenceGeneration = canvasPersistenceGenerationRef.current;
+    setCanvasSessionBusy(true);
+    try {
+      const currentSession = canvasSessionRef.current;
+      const session = currentSession?.id
+        ? await saveCanvasSession(currentSession.id, { expectedRevision: currentSession.revision, snapshot })
+        : await createCanvasSession({ projectId, baseVersionId, snapshot });
+      if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
+      remoteSnapshotRef.current = fingerprint;
+      canvasSessionRef.current = session;
+      setCanvasSession(session);
+      setSaveStatus('saved');
+      setLastSavedAt(Date.now());
+      const saveKey = result._saveKey || canvasGeneratedWorkKeyRef.current;
+      if (saveKey) {
+        const workResult = {
+          ...result,
+          _saveKey: saveKey,
+          imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes: docRef.current.nodes }),
+          ...canvasWorkMediaFields(result, docRef.current.nodes),
+        };
+        delete workResult.canvasSession;
+        await saveWork({ ...workResult, canvasSessionId: session.id, canvasSessionRevision: session.revision }, phone);
+      }
+      dispatch({
+        type: 'SET_RESULT',
+        result: { ...result, canvasSession: session, canvasSessionId: session.id, canvasSessionRevision: session.revision },
+      });
+    } catch {
+      // The local draft is already durable; retry on the next canvas change.
+    } finally {
+      setCanvasSessionBusy(false);
+    }
+  }, [canvasSessionBusy, canvasWorkMediaFields, dispatch, pendingProjectAssetImports, phone, result]);
+
   useEffect(() => {
     if (!draftReadyRef.current || canvasSessionBusy || isTransientPointer(pointerMode?.kind)) return undefined;
     const projectId = result.projectId;
@@ -2277,45 +2410,42 @@ const [minimapOpen, setMinimapOpen] = useState(true);
        而这 120ms 是**每一次** nodes/viewport 变动都要付的（改水印、平移、缩放…）。
 
        现在两件事都挪进 setTimeout：防抖窗口内无论触发多少次，中间态一次都不算，
-       只在真正安静下来之后算一次。语义不变（还是把最新状态存下去）。 */
-    remoteSaveTimerRef.current = setTimeout(async () => {
-      const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
-      const fingerprint = JSON.stringify(snapshot);
-      if (fingerprint === remoteSnapshotRef.current) return;
-      const persistenceGeneration = canvasPersistenceGenerationRef.current;
-      setCanvasSessionBusy(true);
-      try {
-        const currentSession = canvasSessionRef.current;
-        const session = currentSession?.id
-          ? await saveCanvasSession(currentSession.id, { expectedRevision: currentSession.revision, snapshot })
-          : await createCanvasSession({ projectId, baseVersionId, snapshot });
-        if (canvasPersistenceGenerationRef.current !== persistenceGeneration) return;
-        remoteSnapshotRef.current = fingerprint;
-        canvasSessionRef.current = session;
-        setCanvasSession(session);
-        const saveKey = result._saveKey || canvasGeneratedWorkKeyRef.current;
-        if (saveKey) {
-          const workResult = {
-            ...result,
-            _saveKey: saveKey,
-            imageRecords: collectCanvasWorkImages({ baseImages: canvasOutputImages(result), nodes }),
-            ...canvasWorkMediaFields(result, nodes),
-          };
-          delete workResult.canvasSession;
-          await saveWork({ ...workResult, canvasSessionId: session.id, canvasSessionRevision: session.revision }, phone);
-        }
-        dispatch({
-          type: 'SET_RESULT',
-          result: { ...result, canvasSession: session, canvasSessionId: session.id, canvasSessionRevision: session.revision },
-        });
-      } catch {
-        // The local draft is already durable; retry on the next canvas change.
-      } finally {
-        setCanvasSessionBusy(false);
-      }
-    }, 1200);
+       只在真正安静下来之后算一次。语义不变（还是把最新状态存下去）。
+
+       2026-10-02 追加：viewport 也从依赖里摘掉了。平移画布不该等于"改文档"，
+       原来它挂在依赖数组尾部，于是**平移一次 = 整个画布重新快照 + 发一次网络请求**。 */
+    remoteSaveTimerRef.current = setTimeout(() => { persistCanvasRemotely(); }, 1200);
     return () => clearTimeout(remoteSaveTimerRef.current);
-  }, [canvasSessionBusy, canvasWorkMediaFields, connections, dispatch, nodes, pendingProjectAssetImports, phone, pointerMode?.kind, result, viewport]);
+  }, [canvasSessionBusy, connections, dispatch, nodes, pendingProjectAssetImports, phone, pointerMode?.kind, result, persistCanvasRemotely]);
+
+  /* ═══ 2026-10-02：视口单独持久化（慢一点，但仍然会存）══════════════════════════
+     上面把 viewport 移出依赖后，"用户只平移、没改任何节点"就再也不会存视口了，
+     而下次进来还应该停在上次的位置（这是产品期望，不是性能优化）。
+     ⇒ 单独一条更长的防抖，只写视口，不影响文档保存节奏。 */
+  useEffect(() => {
+    if (!draftReadyRef.current) return undefined;
+    const timer = setTimeout(() => {
+      const snapshot = createCanvasSnapshot({
+        nodes: docRef.current.nodes,
+        connections: docRef.current.connections,
+        viewport: viewportRef.current,
+        pendingProjectAssetImports,
+      });
+      saveCanvasDraft(canvasSaveKeyRef.current, snapshot);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [viewport.x, viewport.y, viewport.scale, pendingProjectAssetImports]);
+
+  /* 2026-10-02：Ctrl+S 走**这条真实通道**（原来是 220ms 的假定时器）。 */
+  const saveNowRef = useRef(null);
+  saveNowRef.current = () => {
+    if (!result?.projectId || !(result.resultVersionId || result.sourceVersionId)) {
+      showToast('当前画布还没有关联到作品，暂不需要保存', 'info');
+      return;
+    }
+    setSaveStatus('saving');
+    persistCanvasRemotely({ force: true });
+  };
 
   useEffect(() => {
     cleanupLegacyCanvasStorage(localStorage);
@@ -2538,23 +2668,51 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         return;
       }
       // Delete/Backspace: 删除选中节点 (输入框/contenteditable 内不抢, 否则编辑文字时退格会删掉整个节点)
-      if (!isTyping && (e.key === 'Delete' || e.key === 'Backspace') && (selected || multiSelected.size > 0)) {
+      if (!isTyping && (e.key === 'Delete' || e.key === 'Backspace') && (selected || multiSelected.size > 0 || selectedEdgeId)) {
         e.preventDefault();
+        /* 2026-10-02：线优先（`?` 面板原文「删除选中节点 (优先删线)」）。
+           节点和线同时选中时不可能发生（选中其一会清掉另一个），这里只做兜底。 */
+        if (selectedEdgeId && handleRemoveSelectedEdgeRef.current?.()) return;
         handleDeleteRef.current?.();
         return;
       }
       // Ctrl+A / Cmd+A: 全选 (输入框内保留原生全选)
       if (!isTyping && (e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
-        setMultiSelected(new Set(nodes.map(n => n.id)));
+        /* 2026-10-02：原来把**隐藏节点**也选进来了。隐藏 = 用户明确说"这张先不看了"，
+           全选又把它选上，等于撤销了用户的隐藏操作；而且后续的批量对齐/删除
+           会算上它（框都看不见）。框选与裁剪都已经排除了 hidden，全选要对齐。 */
+        setMultiSelected(new Set(nodes.filter(n => n.hidden !== true).map(n => n.id)));
         setSelected(null);
         return;
       }
-      // Ctrl+D / Cmd+D: 取消全选
+      /* Ctrl+D / Cmd+D: 复制一份选中节点（Figma / draw.io / tldraw 的标准键）。
+         原来这里绑的是"取消全选"，把下面那条真正的复制分支**完全遮住**了 ——
+         因为它先 `return`，`?` 面板里宣传的"复制选中节点"从来没生效过。 */
       if (!isTyping && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
-        setSelected(null);
-        setMultiSelected(new Set());
+        if (!selected && multiSelected.size === 0) {
+          setSelected(null);
+          setMultiSelected(new Set());
+          return;
+        }
+        pushHistoryRef.current?.();
+        const ids = selected ? new Set([selected]) : multiSelected;
+        const toDup = (nodes || []).filter(n => ids.has(n.id));
+        if (toDup.length) {
+          const offset = 36;
+          const now = Date.now();
+          const newNodes = toDup.map((n, i) => ({
+            ...n,
+            id: `dup_${now}_${i}`,
+            x: (n.x || 100) + offset + i * offset,
+            y: (n.y || 100) + offset + i * offset,
+          }));
+          setNodes(prev => [...prev, ...newNodes]);
+          setSelected(newNodes[0].id);
+          setMultiSelected(new Set());
+          showToast(`已复制 ${toDup.length} 个节点`, 'success');
+        }
         return;
       }
       // F: 适配视口 (输入文字时不能拦截 f 字符)
@@ -2566,6 +2724,11 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 完整快捷键 */
       // Ctrl+C / Cmd+C: 复制选中节点到剪贴板
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && (selected || multiSelected.size > 0)) {
+        /* 2026-10-02：**必须**先判输入态。少了这一句，用户在提示词框里选中一段文字按
+           Ctrl+C，事件被 preventDefault 掉，复制的是节点 JSON 而不是那段文字 ——
+           粘贴出去是一堆 `{"id":"node_..."}`。粘贴那条早就加了输入态守卫（9-17 批），
+           复制这条漏了。 */
+        if (isTyping || isCanvasEditingTarget(e.target) || isCanvasEditingTarget(document.activeElement)) return;
         e.preventDefault();
         const ids = selected ? new Set([selected]) : multiSelected;
         const toCopy = (nodes || []).filter(n => ids.has(n.id));
@@ -2597,50 +2760,40 @@ const [minimapOpen, setMinimapOpen] = useState(true);
             y: (n.y || 100) + offset + i * offset,
             userRenamed: false,
           }));
+          pushHistoryRef.current?.();
           setNodes(prev => [...prev, ...newNodes]);
+          showToast(`已粘贴 ${newNodes.length} 个节点`, 'success');
         });
         return;
       }
-      // Ctrl+D / Cmd+D: 复制选中节点 (复用 Ctrl+V 机制, 不清空选中)
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && (selected || multiSelected.size > 0)) {
-        // 上面 Ctrl+D 已绑到取消全选, 改成单独的 Cmd+D 复制
-        if (e.metaKey && (selected || multiSelected.size > 0)) {
-          e.preventDefault();
-          const ids = selected ? new Set([selected]) : multiSelected;
-          const toDup = (nodes || []).filter(n => ids.has(n.id));
-          if (toDup.length) {
-            const offset = 36;
-            const now = Date.now();
-            const newNodes = toDup.map((n, i) => ({
-              ...n,
-              id: `dup_${now}_${i}`,
-              x: (n.x || 100) + offset + i * offset,
-              y: (n.y || 100) + offset + i * offset,
-            }));
-            setNodes(prev => [...prev, ...newNodes]);
-          }
-          return;
-        }
-        return;
-      }
-      // Ctrl+Z / Cmd+Z: 撤销
+      /* 2026-10-02：撤销/重做。
+         ⚠️ 这套东西以前是**死的**：`createCanvasHistory` 建好了，`push()` 全仓 0 命中
+         （唯一那处 push 在 undo 处理函数自己体内），于是 past 永远是空数组，
+         `undo()` 直接 return 当前值，`previous !== current` 不成立 ⇒ Ctrl+Z 静默无反应，
+         而 `?` 面板里却白纸黑字写着「撤销上一步操作」。
+         现在真正把 push 接到各个会改文档的动作上（见 pushHistoryRef 的定义处）。 */
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
-        const current = { nodes };
-        const previous = historyRef.current.undo(current);
-        if (previous !== current && previous.nodes) {
-          setNodes(previous.nodes);
-          historyRef.current.push(current);
+        const restored = historyRef.current.undo({ nodes, connections });
+        if (restored?.nodes) {
+          setNodes(restored.nodes);
+          if (Array.isArray(restored.connections)) setConnections(restored.connections);
+          setSelected(null);
+          setMultiSelected(new Set());
+          showToast('已撤销', 'info');
         }
         return;
       }
       // Ctrl+Shift+Z / Cmd+Shift+Z: 重做
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        const current = { nodes };
-        const next = historyRef.current.redo(current);
-        if (next !== current && next.nodes) {
-          setNodes(next.nodes);
+        const restored = historyRef.current.redo({ nodes, connections });
+        if (restored?.nodes) {
+          setNodes(restored.nodes);
+          if (Array.isArray(restored.connections)) setConnections(restored.connections);
+          setSelected(null);
+          setMultiSelected(new Set());
+          showToast('已重做', 'info');
         }
         return;
       }
@@ -2649,6 +2802,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         e.preventDefault();
         const ids = selected ? new Set([selected]) : multiSelected;
         if (ids.size >= 2) {
+          pushHistoryRef.current?.();
           setNodes(prev => createCanvasGroup(prev, ids));
         }
         return;
@@ -2657,18 +2811,28 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g' && (selected || multiSelected.size > 0)) {
         e.preventDefault();
         const ids = selected ? new Set([selected]) : multiSelected;
+        pushHistoryRef.current?.();
         setNodes(prev => dissolveCanvasGroup(prev, ids));
         return;
       }
-      // Ctrl+S / Cmd+S: 手动保存
+      /* 2026-10-02：Ctrl+S 原来是**假的** —— 只 `setTimeout(220)` 然后把状态改成
+         "已保存"，全程没有任何 I/O。用户以为存上了，实际什么都没发生（而画布早就
+         自动保存了）。假保存比不绑定更危险：它骗人。
+         现在 Ctrl+S 走**真实**的远端保存通道（同一个 saveCanvasSession），
+         不再是空转的定时器。 */
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        setSaveStatus('saving');
-        // 触发持久化 (debounce 200ms 模拟)
-        setTimeout(() => {
-          setSaveStatus('saved');
-          setLastSavedAt(Date.now());
-        }, 220);
+        saveNowRef.current?.();
+        return;
+      }
+      /* 键盘缩放（Figma / tldraw 口径）：
+         Ctrl/Cmd + `+`/`=` 放大、Ctrl/Cmd + `-` 缩小、Ctrl/Cmd + `0` 回到 100%。
+         这三条以前完全没有 —— 画布只能靠滚轮和工具栏那两个按钮缩放。 */
+      const zoomIntent = canvasKeyboardZoomIntent({ key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey });
+      if (zoomIntent && !isTyping) {
+        e.preventDefault();
+        if (zoomIntent.kind === 'reset') zoomReset();
+        else zoomStepBy(zoomIntent.factor);
         return;
       }
       // ?: 帮助面板
@@ -2769,12 +2933,41 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const pending = pendingDragRef.current;
     pendingDragRef.current = null;
     if (!pending) return;
-    const dx = pending.point.x - pending.start.x;
-    const dy = pending.point.y - pending.start.y;
-    if (!dx && !dy) return;
-    setNodes(previous => moveSelectedNodes(previous, pending.ids, dx, dy));
+    const rawDx = pending.point.x - pending.start.x;
+    const rawDy = pending.point.y - pending.start.y;
+    /* 2026-10-02：拖动阈值。
+       原来只有 `if (!dx && !dy) return` —— 1px 的抖动也会**移动节点**，
+       而点击事件紧随其后，用户想点选一张图结果它挪了几像素，还以为自己点歪了。
+       React Flow 的 `nodeDragThreshold` 默认 1px，这里取 3px（跟人手的抖动幅度匹配）。
+       阈值**必须按世界坐标算**：缩放 0.15 时，3 个屏幕像素 = 20 个世界像素。 */
+    const thresholdWorld = CANVAS_DRAG_THRESHOLD / Math.max(0.05, viewport.scale || 1);
+    if (Math.abs(rawDx) <= thresholdWorld && Math.abs(rawDy) <= thresholdWorld && !pending.exceeded) return;
+    /* 吸附（对齐参考线优先，没有才退网格）—— 口径见 canvasSnapModel.js 顶部调研。
+       阈值用屏幕像素除以缩放，所以任何缩放下"吸得住"的力度一样。 */
+    const ids = pending.ids;
+    let dx = rawDx;
+    let dy = rawDy;
+    let guides = [];
+    if (pending.bounds) {
+      const snapped = snapCanvasDrag({
+        nodes: pending.nodes || nodesRef.current,
+        movingIds: ids,
+        bounds: pending.bounds,
+        dx: rawDx,
+        dy: rawDy,
+        scale: viewport.scale,
+        grid: pending.grid || 0,
+        snapToNodes: pending.snapToNodes !== false,
+      });
+      dx = snapped.dx;
+      dy = snapped.dy;
+      guides = snapped.guides;
+    }
+    setAlignmentGuides(guides);
+    setNodes(previous => moveSelectedNodes(previous, ids, dx, dy));
+    pendingDragRef.current = { ...pending, start: pending.point, exceeded: true };
     setPointerMode(previous => ['drag', 'layer-extract'].includes(previous?.kind) ? { ...previous, start: pending.point } : previous);
-  }, []);
+  }, [viewport.scale]);
 
   useEffect(() => () => {
     if (dragFrameRef.current) cancelAnimationFrame(dragFrameRef.current);
@@ -2817,6 +3010,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
        不该再绑在"是不是在平移"上。 */
     dismissAllCanvasSurfaces('blank');
     setConnectionDraft(null);
+    /* 点了空白 ⇒ 线也取消选中（否则删完一条线之后还留着"选中态"幽灵） */
+    setSelectedEdgeId(null);
     if (intent === 'marquee') {
       const point = toWorldPoint(e);
       setPointerMode({ kind: 'marquee', start: point, additive: e.shiftKey || e.ctrlKey || e.metaKey });
@@ -2853,7 +3048,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       const snap = pickCanvasConnectionSnapTarget(nodes, point, {
         fromId: connectionDraft?.from,
         radius: CANVAS_SNAP_RADIUS / Math.max(0.2, viewport.scale),
-        accept: node => connectionDraft ? canConnectCanvasNodes(connectionDraft.from, node, nodes) : false,
+        accept: node => connectionDraft ? canConnectCanvasNodes(connectionDraft.from, node, nodes, connections) : false,
       });
       setConnectionDraft(prev => prev ? {
         ...prev,
@@ -2912,7 +3107,17 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     }
     if (pointerMode.kind === 'drag') {
       const point = toWorldPoint(e);
-      pendingDragRef.current = { ids: pointerMode.ids, start: pointerMode.start, point };
+      /* 把「拖动开始时这一组的外接矩形」一并带下去，吸附要靠它算参考线。
+         阈值判定用的也是 pointerMode.start，不是这次重建的 start。 */
+      const bounds = selectionBoundsRef.current;
+      pendingDragRef.current = {
+        ids: pointerMode.ids,
+        start: pointerMode.start,
+        point,
+        bounds,
+        nodes: nodesRef.current,
+        exceeded: false,
+      };
       if (!dragFrameRef.current) dragFrameRef.current = requestAnimationFrame(flushDragFrame);
     }
   }, [flushDragFrame, pointerMode, toWorldPoint, viewport.scale]);
@@ -2963,6 +3168,23 @@ const handlePointerUp = useCallback((e) => {
       cancelAnimationFrame(dragFrameRef.current);
       flushDragFrame();
     }
+    /* 2026-10-02：拖动/缩放**手势结束**才记一次历史。
+       在 pointermove 里记的话，一次拖动会 push 上百次历史，
+       用户按一次 Ctrl+Z 只退回 1px —— 那不叫撤销，那叫抖动。 */
+    if (['drag', 'layer-extract', 'resize'].includes(pointerMode?.kind)) {
+      const start = dragStartPointRef.current;
+      const end = pointerMode?.kind === 'resize'
+        ? null
+        : toWorldPoint(e);
+      const moved = !start || !end
+        ? true
+        : canvasDragExceeded(start, end, CANVAS_DRAG_THRESHOLD / Math.max(0.05, viewport.scale || 1));
+      /* 没超过阈值 = 其实只是点了一下，不该污染撤销栈 */
+      if (moved) pushHistoryRef.current?.();
+    }
+    setAlignmentGuides([]);
+    dragStartPointRef.current = null;
+    selectionBoundsRef.current = null;
     if (e?.pointerType === 'touch') touchPointsRef.current.delete(e.pointerId);
     if (pointerMode?.kind === 'connect' && connectionDraft) {
       if (e?.type === 'pointercancel') {
@@ -2979,10 +3201,11 @@ const handlePointerUp = useCallback((e) => {
       if (connectionDraft.snapNodeId) {
         const fromId = connectionDraft.sourceNodeId || connectionDraft.from;
         const target = nodes.find(node => node.id === connectionDraft.snapNodeId);
-        const check = canConnectCanvasNodes(fromId, target, nodes);
+        const check = canConnectCanvasNodes(fromId, target, nodes, connections);
         if (!check.ok) {
           showToast(check.reason, 'info');
         } else {
+          pushHistoryRef.current?.();
           setConnections(prev => addConnection(prev, fromId, target.id, connectionDraft.type));
           showToast('已建立素材关系', 'success');
         }
@@ -3024,6 +3247,12 @@ const handlePointerUp = useCallback((e) => {
 
   // B3: 使用 requestAnimationFrame 节流 wheel 事件
   const wheelRafRef = useRef(null);
+  /* 2026-10-02：滚轮语义一次说清（口径见 canvasViewportModel.js 顶部）。
+     - deltaMode 归一化：Windows 鼠标滚轮是「行」、触控板是「像素」，原来不归一化
+       ⇒ 同一颗滚轮在两种设备上缩放量差 20 倍。
+     - 触控板捏合发的是 ctrlKey+wheel，不区分就捏不上去。
+     - Shift+滚轮 = 水平平移（`?` 面板里宣传过，但一直没实现）。
+     合成意图的纯函数是 canvasWheelIntent，这里只负责落到 viewport 上。 */
   const handleWheel = useCallback((e) => {
     // 面板/控件内的滚轮只滚动面板自身，不缩放画布
     if (e.target?.closest?.('[data-canvas-control="true"]')) return;
@@ -3031,10 +3260,20 @@ const handlePointerUp = useCallback((e) => {
     if (wheelRafRef.current) return; // 已有一帧在排队
     const rect = e.currentTarget.getBoundingClientRect();
     const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    const factor = e.deltaY > 0 ? 0.92 : 1.09;
+    const intent = canvasWheelIntent({
+      deltaX: e.deltaX,
+      deltaY: e.deltaY,
+      deltaMode: e.deltaMode,
+      ctrlKey: e.ctrlKey,
+      shiftKey: e.shiftKey,
+    });
     wheelRafRef.current = requestAnimationFrame(() => {
       wheelRafRef.current = null;
-      setViewport(v => zoomAroundCursor(v, point, factor));
+      if (intent.kind === 'pan-x') {
+        setViewport(v => ({ ...v, x: v.x - intent.dx }));
+        return;
+      }
+      setViewport(v => canvasZoomAtPoint(v, point, intent.factor));
     });
   }, []);
 
@@ -3118,6 +3357,12 @@ const handlePointerUp = useCallback((e) => {
     groupIds.forEach(memberId => ids.add(memberId));
     setSelected(ids.size === 1 ? id : null);
     setMultiSelected(ids);
+    /* 2026-10-02：拖动开始时记两件事
+       ① `selectionBoundsRef` —— 这一组拖前的外接矩形，吸附/对齐参考线要靠它算；
+       ② 记一次 history —— **手势结束时**才应该记一次（不是每一帧），
+          这里先不动，等 pointerup 统一处理。 */
+    selectionBoundsRef.current = selectedCanvasBounds(nodes, ids);
+    dragStartPointRef.current = toWorldPoint(e);
     setPointerMode({ kind: 'drag', ids, start: toWorldPoint(e), clickNodeId: id });
     try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
   }, [activeTool, multiSelected, nodes, openConnectionPickerForNode, toWorldPoint]);
@@ -3336,17 +3581,18 @@ const handlePointerUp = useCallback((e) => {
        视频拖进图片生成框也能连上（用户原话：「如果跟他连接了的话，你下面的素材图，
        这个框是没有办法添加进来的」），而矩阵的结果当时只被拿去画红线。 */
     const target = nodes.find(node => node.id === nodeId);
-    const check = canConnectCanvasNodes(sourceNodeId, target, nodes);
+    const check = canConnectCanvasNodes(sourceNodeId, target, nodes, connections);
     if (!check.ok) {
       showToast(check.reason, 'info');
     } else {
+      pushHistoryRef.current?.();
       setConnections(prev => addConnection(prev, sourceNodeId, nodeId, connectionDraft.type));
       showToast('已建立素材关系', 'success');
     }
     setConnectionDraft(null);
     setConnectionPicker(null);
     setPointerMode(null);
-  }, [connectionDraft, nodes, showToast]);
+  }, [connectionDraft, connections, nodes, showToast]);
 
   const executeBrowserSegmentation = useCallback(async ({
     source,
@@ -4026,7 +4272,49 @@ const handlePointerUp = useCallback((e) => {
     }
   }, [showToast, updateWorkflowNode]);
 
-  const zoomTo = useCallback((s) => { setViewport(v => ({ ...v, scale: Math.max(0.15, Math.min(4, s)) })); }, []);
+  /* 2026-10-02：按钮缩放必须**以视口中心为锚**。
+     原来 `zoomTo` 只改 scale、x/y 原封不动 ⇒ 点一下 `+`，画面朝**原点**漂，
+     而不是朝你正在看的地方放大（用户会以为画布"跑位了"）。
+     tldraw 把这两种明确拆开：工具栏按钮走居中、快捷键带焦点点的走保焦点。 */
+  const zoomTo = useCallback((s) => {
+    setViewport(v => {
+      if (!canvasStageRect?.width || !canvasStageRect?.height) {
+        return { ...v, scale: Math.max(0.15, Math.min(4, s)) };
+      }
+      return canvasZoomToScale(v, canvasStageRect, s);
+    });
+  }, [canvasStageRect]);
+
+  /** 工具栏 `−` / `+`：以视口中心为锚按固定步长缩放。 */
+  const zoomStepBy = useCallback((factor) => {
+    setViewport(v => {
+      if (!canvasStageRect?.width || !canvasStageRect?.height) return { ...v, scale: v.scale * factor };
+      return canvasZoomAtCenter(v, canvasStageRect, factor);
+    });
+  }, [canvasStageRect]);
+
+  /** 回到 100%（画布上的「1:1」）。 */
+  const zoomReset = useCallback(() => zoomTo(1), [zoomTo]);
+
+  /** 缩放到当前选中的那批节点（tldraw `shift+2` 的等价物）。 */
+  const zoomToSelection = useCallback(() => {
+    const ids = selected ? new Set([selected]) : new Set(multiSelected);
+    const boxes = (nodes || []).filter(node => ids.has(node.id)).map(canvasNodeFootprint).filter(Boolean);
+    if (!boxes.length || !canvasStageRect?.width) return;
+    const left = Math.min(...boxes.map(box => box.x));
+    const top = Math.min(...boxes.map(box => box.y));
+    const right = Math.max(...boxes.map(box => box.x + box.w));
+    const bottom = Math.max(...boxes.map(box => box.y + box.h));
+    const scale = Math.max(0.15, Math.min(4, Math.min(
+      (canvasStageRect.width - 120) / Math.max(1, right - left),
+      (canvasStageRect.height - 120) / Math.max(1, bottom - top),
+    )));
+    setViewport(v => ({
+      scale,
+      x: (canvasStageRect.width - (right - left) * scale) / 2 - left * scale,
+      y: (canvasStageRect.height - (bottom - top) * scale) / 2 - top * scale,
+    }));
+  }, [selected, multiSelected, nodes, canvasStageRect]);
 
   const handleDownload = (id) => {
     const n = id ? nodes.find(n => n.id === id) : nodes.find(n => n.id === selected);
@@ -4612,12 +4900,16 @@ const handlePointerUp = useCallback((e) => {
   };
 
   const handleMultiSelectionAction = async actionId => {
-    if (['align-left', 'align-center', 'align-right', 'auto-layout'].includes(actionId)) {
+    if (['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-h', 'distribute-v', 'auto-layout'].includes(actionId)) {
+      /* 2026-10-02：六向对齐 + 水平/垂直等距（原来只有三条横排，且中间那条
+         label 写「垂直居中」而行为是水平居中 —— 标签与行为对不上）。 */
+      pushHistoryRef.current?.();
       setNodes(previous => applyMultiSelectionAction(previous, multiSelected, actionId));
       showToast('已更新所选对象排版', 'success');
       return;
     }
     if (actionId === 'delete-selection') {
+      pushHistoryRef.current?.();
       setNodes(previous => previous.filter(node => !multiSelected.has(node.id)));
       setConnections(previous => removeConnectionsForNodes(previous, multiSelected));
       setMultiSelected(new Set());
@@ -7465,9 +7757,33 @@ const handlePointerUp = useCallback((e) => {
   }, [nodes]);
 
   const handleRemoveConnection = useCallback((connection) => {
+    pushHistoryRef.current?.();
     setConnections(prev => prev.filter(edge => edge !== connection));
     showToast('已删除素材关系', 'success');
   }, [showToast]);
+
+  /* 2026-10-02：连线可选中。
+     原来只能**双击**删线（`onDoubleClick`）—— 2px 宽的线双击几乎点不中，
+     而 `?` 面板里偏偏写着「删除选中节点 (优先删线)」。
+     现在：点线选中 → Delete/Backspace 删的就是那条线（与节点选中并存，
+     线优先），再点空白处取消。这正是那句宣传该有的行为。 */
+  const handleSelectEdge = useCallback((edgeId) => {
+    setSelectedEdgeId(edgeId);
+    setSelected(null);
+    setMultiSelected(new Set());
+  }, []);
+
+  const handleRemoveSelectedEdge = useCallback(() => {
+    if (!selectedEdgeId) return false;
+    setConnections(prev => prev.filter(edge => (edge.id || '') !== selectedEdgeId));
+    setSelectedEdgeId(null);
+    showToast('已删除素材关系', 'success');
+    return true;
+  }, [selectedEdgeId, showToast]);
+
+  /* 键盘处理函数比这个回调注册得早，用 ref 中转（本仓 09-04 踩过 TDZ 的坑）。 */
+  const handleRemoveSelectedEdgeRef = useRef(null);
+  handleRemoveSelectedEdgeRef.current = handleRemoveSelectedEdge;
 
   const handleDirectionSave = () => {
     if (!directionDraft) return;
@@ -7492,6 +7808,7 @@ const handlePointerUp = useCallback((e) => {
 
   const handleBatchClassify = (group) => {
     if (!ASSET_GROUPS.includes(group) || !multiSelected.size) return;
+    pushHistoryRef.current?.();
     setNodes(prev => prev.map(node => multiSelected.has(node.id) ? { ...node, group } : node));
     setGroupDraft(group);
     setInspectorOpen(false);
@@ -7502,6 +7819,7 @@ const handlePointerUp = useCallback((e) => {
   const handleDelete = useCallback(() => {
     const ids = new Set([...multiSelected, ...(selected ? [selected] : [])]);
     if (!ids.size) return;
+    pushHistoryRef.current?.();
     setNodes(ns => ns.filter(n => !ids.has(n.id)));
     setConnections(prev => removeConnectionsForNodes(prev, ids));
     setSelected(null);
@@ -8162,9 +8480,12 @@ const handlePointerUp = useCallback((e) => {
           {/* 画布控制按钮组: 小地图 + 水印（水印只有一个入口，图片/视频在面板内切换 —— 用户 9-08 批注） */}
           <CanvasZoomControls
             scale={viewport.scale}
-            onZoomOut={() => zoomTo(viewport.scale * 0.8)}
-            onZoomIn={() => zoomTo(viewport.scale * 1.25)}
+            onZoomOut={() => zoomStepBy(1 / 1.2)}
+            onZoomIn={() => zoomStepBy(1.2)}
             onFit={fitView}
+            onReset={zoomReset}
+            onZoomSelection={zoomToSelection}
+            hasSelection={Boolean(selected || multiSelected.size)}
             trailing={<>
               {/* ⚠️ 2026-10-01 用户批注：「你这个图层为什么点击之后会弹到上面去呀？……
                  你还不如把它放到左下角的那个栏里面。」
@@ -8419,8 +8740,41 @@ const handlePointerUp = useCallback((e) => {
             transformOrigin: '0 0',
             willChange: 'transform',
           }}>
-            <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} />
+            <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} selectedEdgeId={selectedEdgeId} onSelectEdge={handleSelectEdge} />
             <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
+            {/* 2026-10-02：对齐参考线。tldraw / Excalidraw 拖动时的标准反馈 ——
+                没有它，用户只能靠"看着差不多"去猜有没有吸上。
+                画在**世界坐标层**里（和节点同一个 transform），所以跟着缩放一起缩。 */}
+            {alignmentGuides.length > 0 && (
+              <svg
+                aria-hidden="true"
+                data-canvas-alignment-guides="true"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: 1,
+                  height: 1,
+                  overflow: 'visible',
+                  pointerEvents: 'none',
+                  zIndex: 11,
+                }}
+              >
+                {alignmentGuides.map((guide, index) => (
+                  <line
+                    key={`${guide.axis}-${index}`}
+                    x1={guide.axis === 'x' ? guide.value : -20000}
+                    y1={guide.axis === 'y' ? guide.value : -20000}
+                    x2={guide.axis === 'x' ? guide.value : 20000}
+                    y2={guide.axis === 'y' ? guide.value : 20000}
+                    stroke="var(--sb-brand-600, #7C3AED)"
+                    strokeWidth={1 / Math.max(0.05, viewport.scale)}
+                    strokeDasharray={`${4 / Math.max(0.05, viewport.scale)} ${4 / Math.max(0.05, viewport.scale)}`}
+                    opacity={0.75}
+                  />
+                ))}
+              </svg>
+            )}
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
               const nodeSource = nodeById.get(node.sourceNodeIds?.[0]);

@@ -108,10 +108,20 @@ test('drag frames update geometry without persistence and drag end persists once
 });
 
 test('multi selection matches the observed commerce editing surface', () => {
+  /* 2026-10-02：**补齐六向对齐 + 水平/垂直等距**。
+     原来只有「左/垂直居中/右」三条横排，纵向完全没法排；
+     而中间那条的 label 写「垂直居中」，它算的却是**水平**居中 ——
+     标签与行为对不上，用户按了「垂直居中」发现图是横着排的。
+     业界（Excalidraw align.ts / tldraw alt+A…V）都是六件套。 */
   assert.deepEqual(MULTI_SELECTION_ACTIONS.map(action => action.id), [
     'align-left',
     'align-center',
     'align-right',
+    'align-top',
+    'align-middle',
+    'align-bottom',
+    'distribute-h',
+    'distribute-v',
     'auto-layout',
     'bind-elements',
     'group-elements',

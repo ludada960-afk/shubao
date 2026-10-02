@@ -98,10 +98,48 @@ export function describeAcceptedTypes(kind) {
      （files.filter(type.startsWith('video/') || startsWith('audio/'))），
      但矩阵写的是 ['image','text'] —— 于是"手动上传能进、拖线进不去"。
      同一件事两条路两种结果，这才叫逻辑没想清楚。 */
-export function canConnectCanvasNodes(fromId, toNode, nodes = []) {
+/* ═══ 2026-10-02：防成环 ═══════════════════════════════════════════════════════
+   原来只挡了「自己连自己」，没挡 A→B→C→A。
+   后果不是画丑：画布的图执行是**顺着边跑**的（canvasGraphRunController
+   buildTransitiveDownstream），成环之后那三个节点会互相触发、永远等对方，
+   表现为「点了运行永远转圈」。tldraw / draw.io / React Flow 都不自带这层
+   （RF 要你自己写 isValidConnection），Excalidraw 靠 binding 天然避免 ——
+   我们是自由连线，必须自己判。
+
+   判据：加边 from→to 之前，从 to 出发能不能走回 from。走得到就是成环。
+   复杂度 O(V+E)，拖线时每次 pointermove 调一次也扛得住。 */
+export function wouldCreateCanvasCycle(connections = [], fromId = '', toId = '') {
+  if (!fromId || !toId || fromId === toId) return false;
+  const adjacency = new Map();
+  (Array.isArray(connections) ? connections : []).forEach(conn => {
+    const from = conn?.fromNodeId || conn?.from;
+    const to = conn?.toNodeId || conn?.to;
+    if (!from || !to) return;
+    if (!adjacency.has(from)) adjacency.set(from, []);
+    adjacency.get(from).push(to);
+  });
+  const seen = new Set([toId]);
+  const stack = [toId];
+  while (stack.length) {
+    const current = stack.pop();
+    if (current === fromId) return true;
+    const next = adjacency.get(current) || [];
+    for (const target of next) {
+      if (seen.has(target)) continue;
+      seen.add(target);
+      stack.push(target);
+    }
+  }
+  return false;
+}
+
+export function canConnectCanvasNodes(fromId, toNode, nodes = [], connections = []) {
   const fromNode = Array.isArray(nodes) ? nodes.find(node => node.id === fromId) : null;
   if (!fromNode || !toNode) return { ok: false, reason: '这条线的两端有一端已经不在画布上了' };
   if (fromNode.id === toNode.id) return { ok: false, reason: '不能把素材连到它自己' };
+  if (wouldCreateCanvasCycle(connections, fromId, toNode.id)) {
+    return { ok: false, reason: '这样连会绕回自己（形成闭环），下游就永远等不到了' };
+  }
   const outputType = NODE_TYPE_KIND[fromNode.kind] || 'image';
   const acceptedTypes = NODE_ACCEPT_TYPES[toNode.kind] || [];
   if (!acceptedTypes.includes(outputType)) {
@@ -668,28 +706,40 @@ export function estimateNodeCost(node = {}) {
   return NODE_COST_ESTIMATES[actionId] || NODE_COST_ESTIMATES[node.kind] || 0;
 }
 
-/* ═══════ 17. 画布快捷键清单 (Quantv Qoe 全量) ═══════ */
-
+/* ═══════ 17. 画布快捷键清单 (Quantv Qoe 全量) ═══════
+   2026-10-02：这份清单以前**在骗人** —— 它宣传的六条里，绑定要么根本不存在、
+   要么是死的：
+     · Ctrl+D「复制选中节点」：被更早的「Ctrl+D = 取消全选」分支完全遮住，从未生效；
+     · Ctrl+Shift+Z「重做」：撤销栈从来没被 push 过 ⇒ 整条撤销/重做都是死的；
+     · Ctrl+S「手动保存」：只 setTimeout(220) 就宣称"已保存"，零 I/O；
+     · Shift+滚轮「水平滚动」：宣传了但没实现（滚轮只会缩放）；
+     · Ctrl+滚轮「缩放画布」：没有这个区分逻辑；
+     · 「粘贴节点到鼠标位置」：实际是"粘贴到原位 + 固定 36px 偏移"，与鼠标无关。
+   两条路同时修：**要么真做，要么别宣传**。这一批全做了（见 index.jsx 的键盘处理），
+   剩下的差异也照实改文案 —— 清单是给用户看的，不能有假。 */
 export const CANVAS_SHORTCUTS = Object.freeze([
-  { id: 'select-all', keys: ['Ctrl+A', 'Cmd+A'], description: '全选画布上的所有节点' },
-  { id: 'copy', keys: ['Ctrl+C', 'Cmd+C'], description: '复制选中节点到剪贴板' },
-  { id: 'paste', keys: ['Ctrl+V', 'Cmd+V'], description: '粘贴节点到鼠标位置' },
-  { id: 'duplicate', keys: ['Ctrl+D', 'Cmd+D'], description: '复制选中节点并粘贴' },
-  { id: 'undo', keys: ['Ctrl+Z', 'Cmd+Z'], description: '撤销上一步操作' },
+  { id: 'select-all', keys: ['Ctrl+A', 'Cmd+A'], description: '全选画布上的所有节点（隐藏的不算）' },
+  { id: 'copy', keys: ['Ctrl+C', 'Cmd+C'], description: '复制选中节点到剪贴板（在输入框里则是复制文字）' },
+  { id: 'paste', keys: ['Ctrl+V', 'Cmd+V'], description: '粘贴节点（偏移 36px，避开原位）' },
+  { id: 'duplicate', keys: ['Ctrl+D', 'Cmd+D'], description: '原地复制一份选中节点' },
+  { id: 'undo', keys: ['Ctrl+Z', 'Cmd+Z'], description: '撤销上一步（拖动按"一次手势"记一步）' },
   { id: 'redo', keys: ['Ctrl+Shift+Z', 'Cmd+Shift+Z'], description: '重做' },
   { id: 'group', keys: ['Ctrl+G', 'Cmd+G'], description: '打组 (选中 ≥ 2 节点)' },
   { id: 'ungroup', keys: ['Ctrl+Shift+G', 'Cmd+Shift+G'], description: '取消分组' },
-  { id: 'delete', keys: ['Delete', 'Backspace'], description: '删除选中节点 (优先删线)' },
+  { id: 'delete', keys: ['Delete', 'Backspace'], description: '删除选中内容（选中连线时优先删线）' },
   { id: 'escape', keys: ['Escape'], description: '关闭菜单/弹窗/取消选中' },
   { id: 'fit-view', keys: ['F'], description: '适配视口到所有节点' },
+  { id: 'zoom-in', keys: ['Ctrl++', 'Ctrl+=', 'Cmd++'], description: '放大（以视口中心为锚）' },
+  { id: 'zoom-out', keys: ['Ctrl+-', 'Cmd+-'], description: '缩小（以视口中心为锚）' },
+  { id: 'zoom-reset', keys: ['Ctrl+0', 'Cmd+0'], description: '缩放回到 100%' },
+  { id: 'zoom-wheel', keys: ['滚轮', 'Ctrl+滚轮（触控板捏合）'], description: '缩放画布（以鼠标位置为锚）' },
+  { id: 'pan-h', keys: ['Shift+滚轮'], description: '水平滚动画布' },
   { id: 'add-text', keys: ['T'], description: '添加可编辑文本对象' },
   { id: 'hand-tool', keys: ['Space (按住)'], description: '抓手工具 (平移画布)' },
   { id: 'multi-select', keys: ['Shift (按住)'], description: '多选模式' },
-  { id: 'zoom', keys: ['Ctrl+滚轮'], description: '缩放画布 (鼠标模式)' },
-  { id: 'pan-h', keys: ['Shift+滚轮'], description: '水平滚动' },
   { id: 'arrow-keys', keys: ['↑ ↓ ← →'], description: '微调选中节点 (Shift = 10px)' },
+  { id: 'save', keys: ['Ctrl+S', 'Cmd+S'], description: '立即保存画布到服务器' },
   { id: 'help', keys: ['?'], description: '显示快捷键面板' },
-  { id: 'save', keys: ['Ctrl+S', 'Cmd+S'], description: '手动保存画布' },
 ]);
 
 /* ═══════ 18. 节点右键菜单 (Quantv handleNodeAction 11 项) ═══════ */
