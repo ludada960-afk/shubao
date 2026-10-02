@@ -244,7 +244,12 @@ test('legacy single-image regeneration uses one-shot billing before provider sub
 
 test('extension AI tasks are attached to a leased billing action and tiered image quote', async () => {
   const source = await readFile(new URL('../server/extensionRoutes.mjs', import.meta.url), 'utf8');
-  assert.match(source, /export function mountOnApp\(app,\s*\{\s*billing\s*\}\s*=\s*\{\}\)/);
+  assert.match(source, /export function mountOnApp\(app,\s*\{\s*billing,\s*generatedAssetStore\s*\}\s*=\s*\{\}\)/);
+  /* 2026-10-03 P7：generatedAssetStore 从可选变**必需**。以前可选是因为插件链路
+     把上游 URL 直接返给前端、压根不落盘；现在为了打 AIGC 隐式标识 + 不暴露上游
+     地址必须落盘，没有 store 就该在挂载时炸，而不是等用户付费生成完才发现存不下。
+     行为层面的断言在 test/extension-asset-convergence.test.mjs。 */
+  assert.match(source, /extension generatedAssetStore is required/);
   assert.match(source, /sku:\s*['"]ec_extension_analysis['"]/);
   assert.match(source, /referenceType:\s*['"]extension_analysis['"]/);
   assert.match(source, /extensionSku/);
