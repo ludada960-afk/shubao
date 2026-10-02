@@ -30,16 +30,27 @@ test('① 画布必须能接住从桌面拖进来的文件（图片/视频/音�
   assert.match(dragOver[0], /dropEffect = 'copy'/, '光标要显示为"复制"');
   /* 窗口要够大：非贪婪 + 太短的窗口会在 asEvent 那个箭头函数的 `});` 处提前收尾，
      把真正的三条分发调用切在外面（第一版就是这么自己把自己判红的）。 */
-  const drop = code.match(/const handleCanvasDrop = useCallback\([\s\S]*?\}, \[handleCanvasAudioUpload[\s\S]{0,200}?\]\);/);
+  const drop = code.match(/const handleCanvasDrop = useCallback\([\s\S]*?\}, \[uploadCanvasMaterials\]\);/);
   assert.ok(drop, '找不到 onDrop 的实现');
   assert.match(drop[0], /dataTransfer\?\.files/, '必须读 dataTransfer.files');
+  assert.match(drop[0], /mediaReplaceTargetRef\.current = null/, '拖入一律是新增，绝不能接管"替换素材"上下文');
+
+  /* ⚠️ 2026-10-02：三条「按 MIME 分发 + 复用既有上传链路」的判据**跟着搬了位置**。
+     用户批注要求底部那颗按钮也走同一套分发（一个入口收图/视/音），
+     于是这段逻辑被从 `handleCanvasDrop` 里**提出来**成了共用的 `uploadCanvasMaterials` ——
+     拖拽与那颗按钮现在走**同一个函数**，否则两条入口迟早走岔（批 DC 续-36 那个教训）。
+     判据的**意图一个字没变**（仍要求：按三类分流、且复用既有处理函数），
+     只是断言的对象从 drag handler 换成了那个共用函数。 */
+  const dispatch = code.match(/const uploadCanvasMaterials = useCallback\([\s\S]*?\}, \[handleCanvasAudioUpload[\s\S]{0,200}?\]\);/);
+  assert.ok(dispatch, '找不到共用的按类型分发函数 uploadCanvasMaterials');
   for (const kind of ['image/', 'video/', 'audio/']) {
-    assert.ok(drop[0].includes("startsWith('" + kind + "')"), '必须按 ' + kind + ' 分类（用户原话：视频也是呀）');
+    assert.ok(dispatch[0].includes("startsWith('" + kind + "')"), '必须按 ' + kind + ' 分类（用户原话：视频也是呀）');
   }
   /* 复用既有上传链路，而不是重写一套 —— 少一套上传逻辑就少一处行为漂移 */
-  assert.match(drop[0], /handleCanvasSourceUpload\(asEvent\(images\)\)/, '图片必须走既有的上传处理函数');
-  assert.match(drop[0], /handleCanvasVideoUpload\(asEvent\(videos\)\)/, '视频必须走既有的上传处理函数');
-  assert.match(drop[0], /mediaReplaceTargetRef\.current = null/, '拖入一律是新增，绝不能接管"替换素材"上下文');
+  assert.match(dispatch[0], /handleCanvasSourceUpload\(asEvent\(images\)\)/, '图片必须走既有的上传处理函数');
+  assert.match(dispatch[0], /handleCanvasVideoUpload\(asEvent\(videos\)\)/, '视频必须走既有的上传处理函数');
+  assert.match(dispatch[0], /handleCanvasAudioUpload\(asEvent\(audios\)\)/, '音频必须走既有的上传处理函数');
+  assert.match(drop[0], /await uploadCanvasMaterials\(dropped\)/, '拖拽必须走那个共用函数（不许再自己分发一遍）');
   assert.match(css, /\.ec-canvas-stage\.is-drop-active/, '拖入时要有可见反馈');
 });
 

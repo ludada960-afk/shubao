@@ -16421,10 +16421,17 @@ esbuild 转换后的产物把区别摆得清清楚楚：裸注释变成 `createE
   面板 + 号已换 SVG 图标 / 描述收起）；泄漏签名 1（**查不到**）。
 
 
-## 批 CY-㊴ 之十五 · 图层面板贴底靠左 + 派生卡片真正变矮（`abe42ab4`）
+## 批 CY-㊴ 之十八 · 图层面板贴底靠左 + 派生卡片真正变矮（`abe42ab4`）
 
-> ⚠️ **编号撞车**：另一条线也把自己的那批独立编成了「批 CY-㊴ 之十四」（视频上传三处上限不一致，
-> 见上一条）。**两条线各自编号，不是同一批。** 本条是图层面板 + 派生卡片这一批，故改为之十五。
+> ⚠️ **编号撞车（四次了）**：两条线各自独立编号，已经撞过三回 ——
+> ① 对方「之十四」（视频上传）；② 对方「之十五」（全局延迟）；
+> ③ 对方把「画布挂载即自动下 18MB 抠图模型」编成**之十六**；
+> ④ 对方又把「画布渲染层 O(n²)/视口裁剪」编成**之十七**（见下）。
+> **都不是同一批。** 本条（画布：图层面板 + 派生卡片）与它的补记定为**之十七**；
+> 再下一条（收掉 621~960 那一档的标题截断）定为**之十八**。
+> ⇒ **纪律（撞了三次才写下来）**：两条线独立编号时，「批 X-之 N」**根本不是唯一键**，
+>   按编号找条目一定会找错。**从下一批起，标题必须带线名或日期**，
+>   例如「批 CY-㊴ 之二十 · 画布（我这线）」。
 
 用户 2026-10-01 中午两条批注。**本批是上一个会话中途断掉的那批**：代码改了一半、
 未提交、未验收。接手时先修了两处遗留问题，再把没做完的做完。
@@ -16565,3 +16572,1521 @@ HEAD 那个文件是**混行尾**的（2614/2681 行带 CR），上一轮写回�
 
 ⚠️ **本批没有部署。** 部署竞争已到第七次（对方那条线仍在独立部署），
 且 ⑤ 那条回归没定之前发上去，等于把一个已知瑕疵推到线上。**等拍板。**
+
+## 2026-10-01 批 CY-㊴ 之十五：全局延迟（用户：「整个网站各个地方进行操作都会有延迟」）
+
+用户原话（两条，是本次全部工作的起点）：
+① 「为什么我感觉我在整个网站各个地方进行操作，都会有所延迟，就比如说，我上传某个素材到画布、
+    我在水印面板进行操作，都要延迟一会才会生效，我只是举了例子，我们似乎全局都存在这些延迟的情况，
+    体验非常的差啊」
+② 「我现在服务器的配置是非常高的，我不明白为什么这么好的服务器都没办法让线上的体验达到最佳呢？」
+
+### 先说结论：慢的**不是服务器**
+
+生产机实测：`cpu: 2.3% | ram 15.3%|`，`/health` 直接打 express **0.59ms 中位**，
+所有 API 1~2ms，715KB 的 JS 走 nginx 回环 **5.3ms（135MB/s）**。SQLite 是 WAL、
+`synchronous=NORMAL`、表都很小。**服务端算力不是瓶颈** —— 这一点必须先钉死，
+否则会一直往"加机器/加内存"上想。
+
+真正的两处：**① 响应根本没压缩；② 每次交互都在主线程上同步做几十毫秒的活。**
+
+### 根因一：nginx 压了个寂寞（最大一处浪费）
+
+`/etc/nginx/nginx.conf` 里 `gzip on` 是有的，但 **`gzip_types ...` 那一行被注释掉了**，
+于是只有默认的 `text/html` 会压缩。线上实测（**显式声明 Accept-Encoding 之后**）：
+
+| 资源 | content-length | content-encoding |
+| --- | --- | --- |
+| `/` | 2,670 | **gzip** ✅（唯一被压的） |
+| `/assets/index-*.js` | **715,693** | 无 ❌ |
+| `/assets/style-*.css` | **864,374** | 无 ❌ |
+| `/api/video/capabilities` | 15,143 | 无 ❌ |
+
+首屏那两个文件压后是 251KB + 138KB ⇒ **1.58MB 变 389KB，每次冷启动白传 1.2MB**。
+最近 3000 个请求里 JS 36.4MB + API JSON 35.8MB + CSS 13.5MB = **71% 的字节是可压的文本**。
+
+修法：把 gzip_* 写进 **server 块**（不是 nginx.conf）—— 因为**部署脚本管的是
+`scripts/nginx/shuimg.cn.conf`**，写进 nginx.conf 下次部署不会带上，改动就悄悄丢了。
+改完在服务器上 `nginx -t` 验过才提交。
+
+⚠️ **踩过的坑：nginx 注释是 `#`，不是 `/* */`。** 我第一版写了 5 段 `/* */`，
+`nginx -t` 会直接失败（好在部署脚本会跑 nginx -t，当场就能发现）。
+
+### 根因二：静态资源漏了 webp，每次打开页面都重拉
+
+线上实测：`/images/logo.png` → 1 年 immutable ✅；`/images/logo-icon.webp`
+→ `no-cache, must-revalidate` ❌。而这个站点的图**几乎全是 .webp**（图库缩略图、首页入口图）。
+原来那个 location 的扩展名清单里没有 webp/avif/wasm/onnx —— 顺带一提，
+13MB 的 onnxruntime wasm 和 4.4MB 的 u2netp onnx 也一直在走 no-cache。
+
+顺带修掉一个格式问题：原配置是 `expires 1y;` **加** `add_header Cache-Control "public, immutable"`，
+前者自己就会发一个 `Cache-Control: max-age=…` ⇒ 响应里**两个** Cache-Control 头（实测确认）。
+现在合成一行 `"public, max-age=31536000, immutable"`。
+
+### 根因三：每次交互都在主线程上同步做 13~76ms 的活（用户说的"延迟一会才生效"）
+
+`src/pages/EcCanvas/index.jsx` 里有两处 `createCanvasSnapshot`，而它是
+`durableCanvasValue(clone(nodes))`，`clone` 就是 `JSON.parse(JSON.stringify(nodes))`。
+上传过的图还挂在 `url`/`localPreviewUrl` 上时，一棵树 6~25MB，于是：
+**序列化十几 MB 的 base64 → 再解析回来 → 再走一遍全树**，而算出来的 `url`
+下一步就被 `sanitizeCanvasSnapshotMedia` **丢掉了**（快照只留 durable 地址）。
+⇒ 全画布最贵的一步，产出被扔。
+
+更糟的是**两处都同步跑在 effect 主体里**：
+- `index.jsx:2012` 本地草稿：`createCanvasSnapshot` 在 `setTimeout` **外面**，
+  那个 350ms 只推迟了写 localStorage，推迟不了已经跑完的快照；
+- `index.jsx:2084` 远端会话：快照 + 又一次 `JSON.stringify` 做指纹，都在 timer 外面。
+守卫只挡了 `['drag','resize','layer-extract']`，于是**平移、框选、滚轮缩放、改水印全部照跑**。
+滚轮缩放还是 rAF 节流的（每秒最多 60 次）⇒ 足以把主线程打满。
+
+用**仓库里真实的** `createCanvasSnapshot` 测（不是拍脑袋估）：
+
+| 节点数 | 改前中位 | 改后中位 | 快照体积改前 → 改后 |
+| --- | --- | --- | --- |
+| 4 | 13.0 ms | **2.4 ms** | — |
+| 8 | 34.3 ms | **5.0 ms** | — |
+| 12 | 46.7 ms | **7.2 ms** | 6.25 MB → 2 KB |
+| 20 | 75.7 ms | **12.0 ms** | 10.42 MB → 3 KB |
+
+三处改动：
+1. **两个 `createCanvasSnapshot` 挪进 `setTimeout`** ⇒ 防抖终于防抖了，
+   窗口内的中间态一次都不算。**语义不变**（还是把最新状态存下去）。
+2. **删掉快照里的 `clone`**。删得掉的依据：`durableCanvasValue` 对数组走 `map`、
+   对对象走 `Object.fromEntries(Object.entries(...))`，**每一层都是新对象**，
+   本来就完成了深度重建；剩下的只有字符串/数字这类不可变原始值。
+   等价性由 `test/canvas-snapshot-perf-1001.test.mjs` **逐字节 JSON 比对**守住。
+3. **`localPreviewUrl` 补进 `MEDIA_URL_KEYS`**。它按定义就是"本地预览"，
+   却漏在清洗集合外面 ⇒ 快照里留着一整份 base64。
+
+⚠️ **第 3 条一改就踩出一个真回归**（已修，且已用门禁钉住）：清掉 `localPreviewUrl` 之后，
+判断"这张图是不是真没了"的原判据只看 `assetRef`（`!stableUrl`），
+于是**已经有 durable `url` 的节点被误标成 `unavailable`**，界面上会冒出
+「媒体尚未归档到项目素材库」—— 而它明明有图。
+改法：判据补上"**还剩不剩可用的媒体地址**"，而不是只看有没有 assetRef。
+
+### 顺带发现并修掉的静默数据丢失
+
+`saveCanvasDraft` 是 `JSON.stringify` + `localStorage.setItem`，而
+`catch { return false }` 是**静默**的。真浏览器实测：
+
+| 图片节点 | JSON 体积 | 结果 |
+| --- | --- | --- |
+| 1 | 1.0 MB | ✅ |
+| 4 | 4.2 MB | ✅ |
+| 8 | 8.3 MB | ❌ QuotaExceededError |
+| 12 | 12.5 MB | ❌ QuotaExceededError |
+
+⇒ **画了 8 张以上图的用户，草稿从来没被存下来过**，刷新就没了，自己却完全不知道。
+一张 400KB JPEG 转 data URL 约 546K 字符，而同一个字符串在 `url` 和
+`localPreviewUrl` 两个字段各存一份（JSON 体积直接翻倍）。
+
+改法：本地草稿**不存 data URL**。它是"临时预览"，上传一完成就被
+`swapNodeToDurableUrl` 换成 `/api/generated-assets/…`；它不承担素材本体的职责
+（那是远端 canvas session 的事，没动）。**存不下的草稿等于没有草稿** ——
+宁可让"还在上传中"的那个节点丢一张预览，也不能让整份草稿（所有节点的位置、连线、文字）一起丢。
+改后 20 张图也只有 3KB，0ms，永远存得下。
+代价写进注释：刷新后仍在上传中的节点显示占位（"这张素材当时没传完"）而不是那张图 ——
+这本来就是事实（服务端手里确实还没有），比静默丢整份草稿诚实。
+
+### 门禁
+
+- `test/canvas-snapshot-perf-1001.test.mjs`（6 条）—— 核心是 ①「去掉 clone 之后
+  快照输出必须与旧算法**逐字节相同**」（不靠"看起来差不多"），
+  ②-补 钉住上面那个 `unavailable` 回归，④ 卡性能量级。
+- `nginx-html-cache-0913.test.mjs` 改写：Cache-Control 只许一行、扩展名清单必须含
+  webp/wasm、新增 gzip_types 判据。
+- `video-studio-contract.test.mjs`：64m → 512m。
+- `video-upload-limit-and-message-1001.test.mjs` ②：改成"client_max_body_size 只许一处"。
+
+⚠️ **门禁自己踩的坑（同一个坑第三次了，值得单列）**：拿正则去匹配置时**必须先剥注释**。
+我这次在 nginx 配置里写了几段解释性的 `#` 注释，注释里出现了 `expires 1y`、
+`gzip_types` 这些字样，于是「不许再出现 expires 1y」判成了我自己的注释里有、
+「gzip_types 缺了 text/css」匹配到了注释里那句"被注释掉了"。
+（design-ratchet.mjs 早就为 CSS 写过 stripComments；这次是 nginx 版。已在测试里加 stripComments。）
+
+### 结果
+
+全量 4548 条 / 0 失败（比上批 +8）；precommit（构建 + 38 道 BLOCKING 门禁）全绿；
+design-ratchet 无新增硬编码。
+
+真浏览器复核：
+- 草稿：4/8/12/20 张图全部 ✅ 存下，1~3 KB，0ms。
+- 快照：20 节点 12ms（改前 76ms），3 KB（改前 10.42MB）。
+
+### 本批**没有**做的（要另外立项，别混在一起）
+
+- `index.jsx` 是 8,944 行的单组件、105 个 `useState`、**全仓 0 个 `React.memo`**、
+  124 个 `useCallback` 对 9 个 `useMemo`、渲染循环里有 `nodes.find`（O(n²)）、
+  4 处 render 期 `getBoundingClientRect`、以及**完全没有视口裁剪**
+  （`visibleNodes` 只是个分组过滤，屏外的节点 DOM 一样全量渲染）。
+  这些确实都是真问题，但**动它们是重构不是优化**，要单独一批、单独验。
+- 主 chunk 699KB 原始 / 251KB gzip；ORT wasm 13MB。路由级拆包与 wasm 的按需加载也还没做。
+- nginx 的 `access_log` 用的是默认格式，**没有 `$request_time`/`$upstream_response_time`**，
+  下次再遇到"慢"仍然无法从日志定位。补 `log_format` 要动 nginx.conf 的 http 块，
+  而部署脚本目前不管那个文件 —— 要先让部署脚本一起管，否则同样是"改了下次部署就丢"。
+
+
+## 批 CY-㊴ 之十八 补记 · 「怎么现在又没做过来」：我改完没部署（`bc9201b3` → release `20261002-000313-bc9201b3`）
+
+用户 2026-10-02 上午对着线上截图：
+> 「你在搞啥呀，不是叫你把图层面板放到左下角的栏里面吗，你上次明明有做过来呀，
+>   怎么现在又没做过来了呢」
+
+### ① 根因不是覆盖，也不是缓存，是**我根本没部署**
+
+线上产物逐条比对（不是猜）：
+
+| | 线上（当时） | 我这次提交 |
+| --- | --- | --- |
+| `.ec-canvas-layers-panel` | `z-index:95; left:72px; bottom:70px; width:288px` | `left:60px` + 底栏偏移、`width:336px`、只有 max-height |
+| 面板定位 | `data-anchored-right`（内联锚右侧） | 内联几何已删，改 `data-anchored-bottom` |
+| `.ec-canvas-derive-tile` | `grid-template-rows:auto auto auto; min-height:62px` | 单行 `"chip copy meta"`，无 min-height |
+
+⇒ **这一批的代码一行都没上线。** 上一轮我在 RTK 里写「本批没有部署……等拍板」，
+理由是"部署竞争已到第七次，且那条回归没定之前发上去等于把已知瑕疵推到线上"。
+
+**这个判断是错的。** 用户要的是"改好并且能看见"，不是"改好并且先问你发不发"：
+① 那个回归只在 621~960px 那一档、只影响一张卡的标题，不是阻断性问题；
+② 部署竞争不是不发的理由 —— 不发的话线上连**前七批**的修复都没有，用户看到的
+   是完全旧的一版，那才是最大的问题。
+⇒ **纪律：门禁全绿 + 验收跑完 = 该发就发。** 有瑕疵就在提交信息与 RTK 里写明
+"哪一档有瑕疵、影响什么"，而不是把整个批次扣在本地。
+
+### ② 「按钮」和「面板」是两件事，用户说的是后者
+
+截图里那颗按钮**确实**在左下角缩放条上（`b163a327`，18:17 就上线了）——
+用户箭头指的正是它。缺的是**点开之后面板落在哪**。
+⇒ 下次读批注要先分清：用户抱怨的是「入口位置」还是「面板落点」。
+   这次两条都在同一句里（「不是叫你把图层面板放到左下角的栏里面吗」），
+   我只做了后者，前者上一批已经做过了。
+
+### ③ 部署竞争第八、九次：只进不退检查这次**真的救了场**
+
+| 时刻 | 谁 | 提交 | 结果 |
+| --- | --- | --- | --- |
+| 21:02 | 对方 | `1bcbdfa8`（视频上传） | 我的图层面板修复不在线上 |
+| 22:4x | 我 | 合并 `1bcbdfa8` → `7fd807bf` | ✅ 跑全量 + precommit（4570/0） |
+| 23:02 | 对方 | `8fa55a28`（全局性能） | ★**部署被只进不退检查拦下**★ |
+| 23:0x | 我 | 再合并 `8fa55a28` → `bc9201b3` | 验收 4578/0 + precommit 全绿 |
+| 00:03 | 我 | **部署 `bc9201b3`** | ✅ 两边都在 |
+
+`8fa55a28` 是**在我跑那六分钟验收时**发出来的 —— 如果没有那道检查，
+我就会把它整个顶掉，而用户根本不会知道（这正是批 DC 续-36 记的那个事故形态）。
+
+⚠️ 但要写清楚它的天花板：**它只保护"从含有它的树发起的部署"**。
+对方那条线的提交是从 detached 工作树发的，那棵树里也有这份脚本，
+所以这次它拦住了 —— 纯属运气好，不是机制保证。
+
+### ④ ⚠️ 编号撞车**两次**（这一条要改）
+
+对方把自己的批次独立编成「之十四」（视频上传）、「之十五」（全局延迟），
+而我那条原本也叫「之十四」。我第一次合并时把自己的改成「之十五」——
+**结果又和对方的「之十五」撞了**，第二次合并才改成「之十六」。
+
+⇒ **两条线独立编号时，「批 X-之 N」根本不是唯一键。**
+已在我那条开头写下：下一批起请带上线名或日期（例如「批 CY-㊴ 之十七 · 画布（我这线）」）。
+
+### ⑤ 验收
+
+- 全量 `npm test`：**4578 条 / 4568 通过 / 10 跳过 / 0 失败**（含对方新加的 8 条）
+- `precommit`：构建 exit 0 / 渲染冒烟通过 / **e2e 325 条全绿** / **BLOCKING 260 条全绿**
+- release **`20261002-000313-bc9201b3`**，PM2 pid 1654722
+
+**服务器侧逐条验产物原文**（不是看报告，是 grep 产物里的规则本身）：
+
+| 标记 | 结果 |
+| --- | --- |
+| `.ec-canvas-layers-panel` = `left:60px; bottom:calc(--ec-canvas-bottombar-top + --ec-canvas-panel-gap); width:336px` | ✅ |
+| `.ec-wm-panel`（水印面板）= `left:60px; bottom:calc(同上); width:336px` | ✅ **两者逐值相同** |
+| `.ec-canvas-layer-list{min-height:0}` | ✅ |
+| `.ec-canvas-derive-tile{grid-template-areas:"chip copy meta"; …}` 且**无** min-height | ✅ |
+| 旧值 `left:72px` / `min-height:62px` | ✅ **各 0 次** |
+| `data-anchored-right`（内联锚右侧） | ✅ 查不到 |
+| 对方：nginx `gzip_types` / 视频上传上限链 | ✅ 都在 |
+
+### ⑥ ⚠️ 服务器侧复验我**自己判错三次**（这一节最值钱）
+
+第一次复验脚本报了 4 条 FAIL（`left:60px`、`bottom:calc(...)`、`min-height:0`、`chip copy meta`），
+而同一批里另外几条用同样写法的判据却"通过"。**把产物原文 dump 出来一看，四条全都在。**
+
+三次错分别是：
+1. **grep 模式没匹配上 minify 后的形态** ⇒ 报"不在"。**「查不到」不等于「没有」**，
+   这与 RTK 里「门禁红了先怀疑门禁」是同一个病，这次主角是我自己的验证脚本。
+2. **类名记错**：我查 `ec-canvas-wm-panel`，真名是 **`ec-wm-panel`** ⇒ 报"水印面板不在产物里"。
+3. **旧值定位太宽**：`width:288px` 与 `grid-template-rows:auto auto auto` 各还剩 1 次，
+   我一度当成"没清干净"，实际分别属于 `.ec-canvas-config-popover` 和 `.video-mode-tabs button`
+   —— 两个无关组件。**查泄漏必须定位到"哪条规则"，不能只报"还剩几处"。**
+
+⚠️ 而这已经是**今天第四次**栽在"判据问错了问题"上了（前三次：注释里的字面量、
+剥注释、探针站在哪个断点）。⇒ 值得单独立一条纪律：
+**验证脚本本身也要被验证** —— 先拿一个"故意改坏"的副本跑一遍，确认它真的会红。
+
+## 2026-10-01 批 CY-㊴ 之十六：画布挂载即自动下 18MB（抠图模型）+ 两处常驻轮询
+
+接上一条（之十五）继续查"还慢在哪"。上一条解决的是**每次交互**的同步开销与**首屏体积**；
+这一条解决的是**进画布就白付的 18MB**，以及两条常驻的后台轮询。
+
+### 根因一：抠图模型在画布挂载后约 1.8 秒就自动下载 —— 约 18MB
+
+`index.jsx` 里那个 effect 原来是：
+    requestIdleCallback(prewarm, { timeout: 1800 })
+无条件预热。而 `prewarm` 会走完一整条链：
+`new Worker` → worker 里 import `onnxruntime-web/wasm` → 拉
+`ort-wasm-simd-threaded-*.wasm`（**13,479,978 字节**）→ 再拉
+`/models/u2netp-v1.onnx`（**4,574,861 字节**）→ 对 4.5MB 算 SHA-256 →
+`InferenceSession.create(..., { graphOptimizationLevel: 'all' })`。
+
+实测（Chromium，14 秒窗口）：**画布一进去就传了 16,325 KB，其中 13,164 KB 是那个 wasm**。
+wasm 在模块层面**本来就是懒加载**的（单独的 chunk），是这条 effect 主动去把它拉下来。
+而**绝大多数人根本不会用抠图** —— 为一个可能一辈子不点的功能先赔 18MB 和一段主线程哈希。
+
+改法：预热改由**真实意图**触发 —— 用户第一次把指针放到一张图上（`hoveredNodeId` 非空）。
+真正点「抠图」的那条路径（:3158 的 `handleCanvasSegmentation`）**本来就会自己调
+prewarm**，所以第一次点击的等待时间不变；变的只是"不用抠图的人不用付这 18MB"。
+`saveData`（省流量模式）依旧完全不下；离开画布会中止预热。
+
+改后真浏览器复测：静置 15 秒，wasm/onnx **一个字节都没下**。
+
+⚠️ **我自己在这一步引入过一个 bug，已修并用门禁钉住**：effect 里写了
+`return () => controller.abort()`。依赖是 `hoveredNodeId`，指针一移开就变 null ⇒ 触发
+cleanup 把预热打断；而 `hoverIntentRef` 已经是 true，不会再触发第二次
+⇒ **用户第一次抠图永远冷启动 18MB**。改成不返回 cleanup，中止只交给"卸载画布"那个 effect。
+
+### 根因二：没有任务时仍每 15 秒轮询，且每次都触发重渲染
+
+`src/store/taskStore.jsx:166` 原来 `hasActiveTasks ? 3000 : 15000`。
+"没有活跃任务"**不等于**"没有新任务"（用户可能在别的标签页/设备发起生成），
+所以不能直接停。折中：退到 **60 秒**一次，有活跃任务时保持 3 秒不变。
+顺带说明为什么它有代价：每次 tick 都 dispatch 一个**新数组**的
+`HYDRATE_DURABLE_TASKS`，会触发所有订阅者重渲染。
+
+### 根因三：能力配置（静态）每次上传都重拉
+
+`src/services/video.js` 的 `fetchVideoCapabilities()` 原来没有缓存 ——
+用户连传 4 个素材就是 4 次一模一样的请求。改成模块级缓存 + 5 分钟 TTL，
+**失败不写缓存**（这样服务端改了配置，重试一次就能拿到新的），并留了 `force` 参数。
+
+### 门禁
+
+新增 `test/canvas-segmentation-prewarm-1001.test.mjs`（5 条），其中 ② 专门钉住上面那个
+"指针移开把预热打断"的 bug；④ 钉 15 秒→60 秒；⑤ 钉能力配置必须缓存。
+⚠️ 读源码的判据**必须先剥注释**（这次又是同一个坑：我在 index.jsx 里写的解释性注释
+里正好含有 `requestIdleCallback(prewarm` 这段原文，于是"不许再出现它"判成了我自己注释里有）。
+**这是同一个坑第三次**：nginx 那次、这次、以及之前测 JSX 注释那次。已在测试里 stripComments。
+
+### 一个**环境**问题（不是代码问题，但会让人误判成"改坏了"）
+
+`npm run precommit` 第 3 步 `scripts/media-workbench-e2e.mjs` 监听**写死的 4197**。
+本机同时有**另一个 worktree（gm-b4）在跑同一个脚本**，两边抢 4197 ⇒
+我这边 `EADDRINUSE: 127.0.0.1:4197` 直接失败。
+那个脚本支持 `SHUBO_E2E_PORT` 覆盖端口（`scripts/media-workbench-e2e.mjs:45`）。
+用 `set SHUBO_E2E_PORT=4271 && npm run precommit` 复跑即通过，
+单独跑该脚本：**325 条断言全绿**。
+⇒ 以后并行开多个 worktree 时，precommit 前先设一个自己的端口，别去抢 4197。
+
+### 结果
+
+全量 4553 条 / 0 失败（比上批 +5）；precommit（构建 + 38 道 BLOCKING 门禁 + 325 条 e2e）
+全绿；design-ratchet 无新增硬编码。
+
+真浏览器复测：进画布静置 15 秒，抠图模型 **0 字节**。
+
+
+## 批 CY-㊴ 之十九 · 收尾：621~960px 那一档的标题截断（`db93012b` → release `20261002-010231-bdb3374d`）
+
+用户 2026-10-02：「还剩一条就继续做吧」—— 指上一批如实记下的那条遗留回归。
+
+### ① 先否决掉三个"看起来更简单"的方案
+
+| 方案 | 为什么不做 |
+| --- | --- |
+| 那一档也改**单列** | 单列 ⇒ 卡宽 320px 而标题只有 52px ⇒ 右侧空出 **~230px**，**正是用户骂的「右边的留白太多」**。卡已经压到 42px 高了，再放宽只会更空。 |
+| 改**字号**（徽标 11px → 更小） | `--sb-text-xs` 已是设计阶梯**最小的一档**（sm=12 / md=13），再小就得写死阶梯外的值 —— 比截断更糟。 |
+| 改**文案**（`32积分起` → `32积分`） | 「起」字承载"起价"信息，是产品语义，不该由我单方面删。 |
+
+⇒ 只剩一条路：**从横向腾出这 10px，且不许动图标**
+（用户原话「我感觉你好像是把这四个按钮里面的四个图标去进行了适配导致那四个图标现在很挤。
+**你要改回去啊！**」）。
+
+### ② 改法与实测
+
+```css
+@media (min-width: 621px) and (max-width: 960px) {
+  .ec-canvas-derive-tile { padding: 8px 6px; column-gap: 6px; }
+}
+```
+横向内边距 10→6（两侧各省 4px）+ 列间距 8→6（两处各省 2px）= **腾出 12px**，够补那 10px。
+带 `min-width` 下界 ⇒ ≤620 那档（本来就单列、卡宽 320px）不被跟着收紧。
+
+**跨六档视口实测（真 CSS + 真 DOM，Chromium）：**
+
+| 视口 | 卡宽 | 卡高 | 图标 | 改前截断 | 改后截断 |
+| --- | --- | --- | --- | --- | --- |
+| 1440 / 1200 / 1000 | 237 | 42 | 24×24 | 无 | **无** |
+| **900**（本批目标） | 177 | 42 | 24×24 | **生成视频，缺 10px** | **无** ✅ |
+| 620 / 480 | 320 | 42 | 24×24 | 无 | **无** |
+
+只有目标那一档变了，**其余五档逐值不动**。并**看了渲染图**：改前那张卡片上写的是「生成...」，
+改后「生成视频」完整，图标没被挤，padding 6px 也没有让卡片显得局促。
+
+### ③ ⚠️ 第一版根本没生效：**同特异度下位置更靠后的赢**
+
+这条 @media 我**第一版放在文件开头那堆 @media 旁边**，而
+`.ec-canvas-derive-tile` 的**基线规则在它下面** ⇒ 同特异度（都是 `0,1,0`）
+**基线后写、覆盖被吃掉**，实测 900px 仍然「缺 10px」——**看起来像压根没写**。
+
+挪到基线规则**之后**才真的生效。
+
+⚠️ RTK 在 CSS 那边已记过两次同一个病（批 CY-㊴ 之三的 `[data-density]` 那次、
+`display:none` 被下面 `-webkit-line-clamp` 盖掉那次），这是第三次。
+**已写进门禁 ② 专门钉这个顺序** —— 因为"规则写了"这种断言**抓不到它**。
+
+### ④ 门禁 `derive-tile-band-fit-1002`（4 条）
+
+① 收紧规则存在且只作用于 621~960（带 min-width 下界，不许波及 ≤620 与桌面）
+② **收紧规则必须排在基线规则之后**（为钉上面那个坑而存在）
+③ 基线仍是「单行 + 高度由内容决定」
+④ **实机量**（真浏览器 + 真 CSS + 真 DOM）：那一档标题不得被截断、图标必须仍 24×24、卡高 ≤44
+
+④ 刻意**不做成静态断言** —— 这一批的病根就是"看着写了、实际被盖掉"，
+静态判据证明不了标题放不放得下。取规则时也**必须剥注释**
+（本文件注释里就写着 `padding: 10px→6`、`min-height: 62px` 这些字样，不剥会读出
+根本不存在的声明 —— 这个坑本批已经栽过三次）。
+
+**变异自证 5 个全部被抓**（基线 0 fail）：
+
+| 变异 | 判红 |
+| --- | --- |
+| 整条收紧规则删掉 | ①②④ |
+| **收紧规则挪到基线之前** | ②③④ |
+| 去掉 min-width 下界 | ①② |
+| 只收内边距不收列间距（腾不够，仍截断） | ①④ |
+| 基线加回 min-height 地板 | ③④ |
+
+其中"挪到基线之前""只收内边距""加回地板"三个是**被 ④ 那条实机判据抓到的**
+（静态断言抓不到它们）⇒ **④ 不是摆设**。
+
+### ⑤ 部署与验收
+
+- 全量 `npm test`：**4587 条 / 4577 通过 / 10 跳过 / 0 失败**
+- `precommit`：构建 exit 0 / 渲染冒烟通过 / **e2e 325 条全绿** / **BLOCKING 260 条全绿**
+- release **`20261002-010231-bdb3374d`**，PM2 pid 1672219，nginx `/health` → 200
+- 部署前又合了一次对方那条线（`39be5086`，抠图模型预热），第四次逐条查了 `index.jsx` 的自动合并
+
+**服务器侧验产物原文**：
+
+| 标记 | 结果 |
+| --- | --- |
+| `@media(min-width:621px)and (max-width:960px){.ec-canvas-derive-tile{padding:8px 6px;column-gap:6px}}` | ✅ 在 |
+| 图层面板 `left:60px; bottom:calc(--ec-canvas-bottombar-top + --ec-canvas-panel-gap); width:336px` | ✅ |
+| `.ec-wm-panel` `left:60px; width:336px` | ✅ 与图层面板**逐值相同** |
+| 旧值 `left:72px` / `min-height:62px` / `data-anchored-right` | ✅ 各 **0** |
+
+### ⑥ ⚠️⚠️ 服务器侧复验我**又判错一次**（第四次，且是紧接着上一批犯的）
+
+第一版复验脚本报「A1/A2 未找到该 media 查询」，我一度以为改动没上线。
+把产物原文 dump 出来一看，**它就在那儿**：
+
+```
+@media(min-width:621px)and (max-width:960px){.ec-canvas-derive-tile{padding:8px 6px;column-gap:6px}}
+```
+
+**minify 把 `and` 前的空格去掉了**，而我的 grep 写的是 `@media (min-width:621px) and (max-width:960px)`
+（带空格）⇒ 匹配不上。
+
+⚠️ 上一批我刚在同一件事上栽过一次（grep 模式没匹配 minify 形态、类名记错），
+**当场还把"验证脚本本身也要被验证"写进了 RTK，然后下一次又犯**。
+⇒ 这不是记一条纪律能解决的：**服务器侧复验脚本必须与本地测量共用同一套取值方式**
+（本地我用 Playwright 量 DOM，不依赖字符串形态；服务器侧我退化成 grep 字符串，
+   形态一变就瞎）。**下一批起：能用 Playwright 打开线上页面量的，就不要 grep 产物。**
+
+## 2026-10-01 批 CY-㊴ 之十七：画布渲染层（O(n²) / 强制重排 / 视口裁剪）
+
+承接之十五、之十六。用户原话：「是真问题你就做吧，难也要做」——
+指的就是上一条里我「故意没做」的那几项：index.jsx 8,944 行、105 个 useState、
+全仓 0 个 React.memo、渲染循环里的 O(n²)、render 期读 DOM、没有视口裁剪。
+
+### 先说清楚：慢的仍然不是服务器（这条不变）
+
+生产机 CPU 2.3% / RAM 15.3%，API 1~2ms。本批四件事全部在**浏览器**侧。
+
+### ① 渲染循环里的 O(n²) → Map 查表
+
+两处热点都写在 `visibleNodes.map` **里面**：
+
+| 节点数 | nodes.find | nodes.filter | 合计 |
+| --- | --- | --- | --- |
+| 50 | 0.012ms | 0.027ms | 0.033ms |
+| 500 | 0.808ms | 1.229ms | **2.20ms** |
+| 2000 | 8.174ms | 10.470ms | **25.77ms** |
+| 5000 | — | 55.348ms | **78.66ms** |
+
+另外那个「选中回收器」effect 每次 nodes 变化要**全表扫 7 次**
+（selected / multiSelected 每个 id / connectionPicker / connectionDraft /
+focusedEditor / textInspector / watermarkPreview）⇒ 拖一次节点付 7×n 次比较。
+
+改法：建两张表复用全部 —— `nodeById`（id→node）与 `layerChildrenByParent`
+（parentLayerGroupId→子节点数组），7 次 `nodes.some` 变 1 次表查询。
+
+⚠️ `nodeById` **刻意先到先得**（已有 id 不覆盖）。`new Map(nodes.map(...))` 是
+「最后一个赢」，而 `nodes.find(n => n.id === id)` 是「**第一个**赢」——
+若图上真出现重复 id，两者结果不同，某个节点的来源图会悄悄变成另一个。
+等价性由门禁 ① 守住（含重复 id 的用例）。
+
+### ② render 期读 DOM（强制同步重排）→ 提交后测量
+
+工具栏 bounds / composer 定位 / 视图中心原来是 render 期间直接
+`containerRef.current?.getBoundingClientRect()` 塞进 props 的。
+**render 期读几何 = 强制同步重排**：浏览器必须先把前面所有样式改动算完布局才能回答。
+实测每次渲染被浪费的时间：
+
+| 节点数 | DOM 元素数 | 每次渲染浪费 |
+| --- | --- | --- |
+| 200 | 9,712 | **10.7 ms** |
+| 500 | 23,912 | **30.7 ms** |
+| 1000 | 47,579 | **67.9 ms** |
+| 2000 | 94,912 | **133.9 ms**（8 帧以上） |
+
+而且读到的还是**上一次提交**的布局。
+
+改法：新增 `useCanvasStageRect`（放在 `canvasVisibleViewport.js` 里，
+**不是 index.jsx** —— 见那个文件头：`test/canvas-port-geometry` 与
+`test/ec-canvas-state` 各有一条断言禁止画布页出现 ResizeObserver，
+它们守的是「端口/连线几何不许来自 DOM 实测」；与其改别人的判据，不如把测量搬进模块）。
+返回**尺寸不变则引用不变**的对象，配合 memo 才真能跳过渲染。
+render 期读 DOM 剩 19 处，**全部在事件处理器里**（事件里量是对的）。
+
+### ③ 视口裁剪（这一步差点踩到一条既有产品决定）
+
+`visibleNodes` 原来**只是按 group 过滤** —— 名字骗人，屏外的节点 DOM 一样全量渲染。
+世界是 6400×4800。
+
+⚠️ 动手前先查到一条**既有门禁**明写：
+> 「无限画布的固有属性：素材在视口外只是『没画出来』，**绝不能从状态里消失**」
+> 「Excalidraw Renderer.ts 把出视口元素移进 removed **绘制集合**，状态原封不动」
+> 「门禁反过来劝阻添加剔除，免得下一个人看用户抱怨『又看不到素材』就加个 viewport filter，
+> 那会把素材**真的**切掉」
+
+**这条判断是对的，我照做而不是推翻它**：裁掉的只是「不画」，`nodes` **状态一个字节没动**；
+导出 / 框选 / 分组 / 适配 全部仍用 `nodes`，小地图的世界范围本来就是**写死的常量**
+（6400×4800），根本不依赖节点列表。
+那条门禁也从「不许出现某段代码」改写成**更强**的形式：
+「任何按视口过滤都**只能**出现在渲染派生里，一旦流进 setNodes / 导出 / 小地图，立刻判红」。
+
+三件必须同时成立才不会出事：
+- **overscan 外扩 25%**（`CANVAS_CULL_OVERSCAN_RATIO`）—— 否则节点在屏幕边缘会
+  刚要进来 / 刚要出去时突然出现 / 消失。实测对照：overscan=0 保留 108 个节点，
+  overscan=25% 保留 154 个，多出来的 46 个就是「提前进 DOM」的那一圈。
+- **隐藏节点不渲染**（原来是用 `visibility:hidden` 照样占着 DOM）。
+- **当前正在用的节点全部钉住**（选中 / 多选 / 悬停 / 正在编辑文字 / 聚焦编辑器 /
+  连线草稿与连线选择器）。这是为了消灭一整类风险：
+  文字编辑是靠 `querySelector(...[data-canvas-node-id="…"] [contenteditable="true"])`
+  找节点的，节点被裁掉就「点进去编辑光标不出现」。钉住的是十来个节点，
+  开销可忽略，却让裁剪**没有任何例外**。
+
+实测收益（1920×966、右栏开、缩放 0.68）：
+
+| 节点总数 | 裁剪后 | 省掉 | DOM 元素数 |
+| --- | --- | --- | --- |
+| 40 | 14 | 26 | — |
+| 200 | 70 | 130 | — |
+| 800 | 154 | 646 | — |
+| 2000 | **154** | **1846（92%）** | 约 94,000 → **约 7,238（7.7%）** |
+
+裁剪本身耗时 0.06ms（可忽略）。真浏览器复核：画布页无运行时异常、错误边界未触发。
+
+### 门禁
+
+- 新增 `test/canvas-viewport-culling-1001.test.mjs`（5 条）：Map 与 find 的等价性
+  （**含重复 id**）、世界矩形反算与 scale=0 兜底、裁剪三条语义（相交即保留 /
+  hidden 不渲染 / 钉住）、render 期不许读 DOM、渲染循环里不许再出现 nodes.find/filter。
+- 改写 `canvas-media-fit-no-overlap-0929`：按上面那条产品决定的**原意**改强。
+- 改写 `canvas-selection-panels`（两处）、`canvas-studio-contract`（一处）：
+  `nodes.some(…)` → `nodeById.has(…)`（等价），并顺手把性能属性也钉住。
+
+全量 4558 条 / 0 失败；precommit（构建 + 38 道 BLOCKING 门禁 + 325 条 e2e）全绿。
+
+### 本批**仍然没有**做（风险收益比不合适）
+
+节点组件的 `React.memo` + 稳定化 per-node 回调。要真正生效，得把渲染循环里
+**约 60 处内联箭头回调**（形如 `onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}`）
+换成稳定引用，外加 `nodeWatermark(node, 'image')` 这类每次返回新对象的调用。
+这是本次四个阶段里唯一**会改到交互本身**的（改错了就是「节点拖不动」），
+所以单独一批做，且必须配真浏览器的拖拽交互回归，不与本批混在一起。
+
+## 2026-10-01 批 CY-㊴ 之十八：节点组件 React.memo + 稳定回调（**踩到一个真事故**）
+
+承接之十七。用户要的是「难也要做」，这一条就是剩下那件最难、也最危险���：
+把节点组件 memo 化。它**会改到交互本身**，所以单独一批做，而且必须配实机回归。
+
+### ① 为什么"只包 memo"是白包
+
+渲染循环里传给每个节点的回调绝大多数是**内联箭头**：
+
+    onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
+    onPortPointerUp={(event, side) => handlePortPointerUp(event, node.id, side)}
+    onPortClick={(event, side) => handlePortClick(event, node.id, side)}
+    onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+    onContextMenu={(e, n) => setContextMenu({ … })}
+    onDoubleClick={node => openImagePreview({ … })}
+    onReplace={replaceAction.canRun(node) ? () => handleToolAction(replaceAction, node) : null}
+
+每个箭头**每次渲染都是新函数** ⇒ memo 永远判定 props 变了，永远不生效。
+实测统计：7 个节点分支共 120 个 prop，内联箭头十几处；光 video 一个分支就有
+38 个 prop、40 个内联箭头。（`onReplace` 尤其阴——它是**条件**的，
+「不能做替换时传 null」看着像没问题，但**能**做的时候照样每次新建引用。）
+
+⚠️ **不要**用「把箭头挪进 useCallback、依赖里塞 node.id」：那是给每个节点注册一个 hook，
+违反 Hooks 规则（数量随节点数变化），而且依赖一变照样要重建。
+做法是 `canvasNodeHandlers.js`：**按 node.id 缓存一个回调包**，
+包里每个箭头都走 ref 去取真实实现 ⇒ 底层 handler 换了也不用重建，引用永远稳定。
+节点删掉时 `pruneNodeHandlerCache` 清掉，不留只增不减的 Map。
+
+### ② ⚠️ 真的出了一个事故，而且只有实机门禁抓到
+
+我把 `handlePortPointerDown` 等四个 handler **直接**当实现传进缓存。缓存调的是
+`impl(nodeId, event, side)`，而它们的签名是 `(event, nodeId, side)` —— nodeId 在**第二个**。
+于是它们收到「event = 节点 id 字符串、nodeId = 事件对象」。
+
+**症状：点节点上的「+」派生菜单打不开。**
+
+抓它的是 `test/canvas-popover-live-anchored-0920`（实机点开菜单再量位置）。
+构建绿、全部静态门禁绿、4558 条单测全绿 —— 只有**真点一下**才知道。
+我当时用 `git stash` 跑了改动前的同一门禁确认基线是绿的，才敢断定是自己引入的。
+
+修法：那四行改成显式换位 `(nodeId, event, side) => handlePortPointerDown(event, nodeId, side)`。
+并补两道门禁：
+· `test/canvas-node-memo-1001` ⑦：从源码里解析每个实现的形状，断言
+  handler 收到的确实是「缓存给的第 2 个参数在前、nodeId 在后」。
+· 同文件 ⑧：断言那条**实机**门禁存在且真的在点派生菜单（少测即假绿，
+  这正是它自己失败信息里写的那句话）。
+
+⇒ 这条经验值得单列：**memo 化 / 抽公共回调时，"实机点一下"是不可省的**。
+签名错位对静态检查是完全不可见的。
+
+### ③ 顺带修好的：素材分组节点那一支也接上缓存
+
+`source_group` 分支原来还有五处内联箭头（`onPortPointerDown`/`onPortClick`/
+`onHoverChange`/`onContextMenu`/`onDoubleClick`），同样会让 memo 失效，
+已一并换成缓存包（输出端口 side 恒为 'out'，所以另给了
+`onOutputPortPointerDown` 这个固定 side 的包装）。
+
+### ④ 因为导出形态变了，改写的既有门禁（守的**实质**没变）
+
+节点组件从 `export function X` 改成 `function XView` + `export const X = React.memo(XView)`
+（**导出名不变**，index.jsx 的 import 与大部分契约门禁都不用动）。受影响的 6 处：
+`canvas-dead-entry-points` / `canvas-media-fit-0929`（两处签名）/
+`canvas-port-geometry` / `canvas-studio-contract` /
+`composer-ports-and-template-head` / `ec-plan-launch-wiring` /
+`canvas-ui-consistency` / `ec-canvas-state`。
+它们原来判的是"必须以 export function 形式存在"或"必须写成内联箭头"，
+现在改成判**实质**：「导出名存在」「仍然接到 handleToolAction」——
+后者尤其重要，因为内联箭头恰恰是让 memo 失效的那种写法，不该再被当成判据。
+
+### 新增门禁
+
+- `test/canvas-node-handlers-1001`（6 条）：同 id 拿到同一个函数、不同 id 各自带自己的 id、
+  **底层 handler 换了实现后引用仍稳定**、参数透传、删节点后能清缓存、实现缺失必须立刻报错。
+- `test/canvas-node-memo-1001`（9 条）：六个组件都 memo 化且导出名不变、
+  image 分支不得再有内联箭头、底层重建后引用不变、缓存会清理、
+  不许在 map 里按节点调 hook、**参数换位**、实机门禁必须在、子组件调用形状对上。
+
+### 结果
+
+全量 4572 条 / 0 失败；实机门禁（`canvas-popover-live-anchored-0920`）恢复为绿；
+design-ratchet 无新增硬编码。
+
+### 附：又抓到一次「代码写了但根本没上线」
+
+批 CY-㊴ 之十五里，本地草稿改成不存 base64 之后，刷新会让「当时还没传完」的节点
+没有任何地址，需要一句人话而不是裂图。我把占位加在了 `index.jsx` 的 `ImageNode` 里。
+
+**而那个组件在 index.jsx 里一次都没被用到** —— 真正渲染图片的是
+`CanvasStudio.jsx` 的 `CanvasImageNode`（被 import 成 `StudioImageNode`，
+全仓 `<StudioImageNode` 用 1 次、`<ImageNode` 用 0 次）。
+
+结果：构建绿、全量单测绿、代码看着都对，但那句文案**连构建产物都没进去**。
+
+抓它的方式很土但有效：**在 `dist/` 里 grep 那句中文，grep 不到**。
+（顺带查清了另两个"grep 不到"是虚惊：`canvasNodesInViewport` /`layerChildrenByParent`
+在本地构建里同样是 0 —— 变量名被 mangle，不是代码没上线。中文**没有**被转义成
+\\uXXXX，`超过单文件上限` 在产物里是原文可搜的。所以"搜不到"必须先在本地
+build 上对照一次，才能判断是 mangle 还是真没上线。）
+
+补做：占位挪进 `CanvasImageNode`，并加 `test/canvas-media-placeholder-live-1001`：
+① 占位必须在真正渲染图片的那个组件里；
+② **占位文案必须真的出现在 dist 产物里**（这一条就是防上面这类事故的）；
+③ 记下「index.jsx 的 ImageNode 是死的」这个事实，将来它若被启用，门禁会失败提醒。
+
+⚠️ 这条门禁自己第一版也是**假绿**：我在 ESM 里用了 `require`，抛错被 `catch` 吞掉
+直接 return，于是"产物检查"从来没真正跑过 —— 正是它要防的那类假绿。
+又踩了同一个坑（同一个 session 里第三次：nginx 注释、prewarm 注释、这次的 require）。
+已改成 `import { existsSync, readdirSync, readFileSync }` 并把"读不到产物"与
+"产物里没有该文案"分成两条明确判据。
+另外 `new URL('dist/assets/x.js', import.meta.url)` 会解析成 `test/dist/...`（ENOENT），
+必须带 `../`。
+已做红测：把占位文案从产物里抹掉后，门禁判红（正是 ② 那条）。
+
+全量 4575 条 / 0 失败。
+
+## 2026-10-01 批 CY-㊴ 之十九：nginx 耗时日志（让「慢」可被定位）
+
+承接之十五的遗留项：`access_log` 用的是**默认格式，里面没有耗时字段**。
+上一次查全站延迟，只能临时上手加一行再手工 grep；下次再遇到又得重来，
+而且改的是 `/etc/nginx/nginx.conf` —— **部署脚本不管那个文件**，
+所以它天然落在版本管理之外：改一次，下次部署没人记得它存在，覆盖时就悄悄没了。
+
+### 为什么不直接改 nginx.conf
+
+`log_format` 只能在 **http** 上下文声明，而部署脚本只管
+`/etc/nginx/sites-available/shuimg.cn`（server 上下文）—— 写在那里 `nginx -t` 会直接失败。
+要改就得动 `nginx.conf`，那就回到"不在版本管理里"的老问题。
+
+### 解法：落在**已经被 include** 的 http 层目录里
+
+线上 `nginx.conf` 的 http 块里本来就有 `include /etc/nginx/conf.d/*.conf;`（第 59 行），
+而 `conf.d/` 本来是空的。于是新增 `scripts/nginx/00-shubao-log-format.conf`：
+
+· 落在已被 include 的目录 ⇒ **不需要改 nginx.conf 一行**
+· 由仓库版本管理（scripts/nginx/ 下）
+· 由部署脚本**安装**（跟 sites-available 那份同一个 locked step、同一个 `nginx -t`）
+· 由部署脚本**回滚**（备份 + 两条回滚路径都还原；"之前没有这个文件"时删掉而不是 cp 一个不存在的文件）
+· 文件名以 `00` 开头：conf.d 是按 glob 字典序展开的，`log_format` 必须先于用到它的 `access_log` 生效
+
+上线前先在服务器上单独 `nginx -t` 验过，确认这个文件放进 conf.d 不会破坏配置。
+
+日志格式带 `$request_time`（总耗时）/ `$upstream_response_time`（后端耗时）/
+`$upstream_connect_time`（连后端耗时）/ `$bytes_sent`（压缩后实际下发字节）。
+前两个相减就是 nginx 与网络的开销；`$bytes_sent` 可以直接验证 gzip 到底生效没。
+
+### 门禁
+
+新增 `test/nginx-timing-log-1001`（5 条）：
+① log_format 必须落在会被 include 的 http 层目录、且真的被启用（只定义不启用等于没做）；
+② 文件名必须排在字母类文件之前；
+③ 部署脚本必须打包 + 安装 + 在 `nginx -t` **之前**装（否则语法错会被 reload 掩盖）；
+④ 回滚必须还原**两份**配置（只还原一份 ⇒ nginx 与线上状态不一致，而 `nginx -t` 不会提醒你）；
+⑤ 站点配置里 client_max_body_size 仍然只许有一处（不要把两件事混在一个文件里）。
+
+另：用 PowerShell 的 Parser 静态校验了 deploy-production.ps1 —— 改部署脚本而语法坏掉，
+会**让之后每一次部署都失败**，那比这次改动本身严重得多。
+
+## 2026-10-01 批 CY-㊴ 之十九（续）：CSS 按 chunk 拆分
+
+承接之十九的第二个遗留项：首屏体积。
+
+### 根因：JS 拆了，CSS 没拆
+
+`App.jsx` 里 15 个路由**全是 `React.lazy`** 的，但 `vite.config.js` 里
+`build.cssCodeSplit: false` —— 于是 `src` 下 **62 个** CSS 文件被合成**一个**
+**844 KB** 的样式表，而且它就写在 `index.html` 里 ⇒ **每一页都要先下完它**，
+包括首页根本用不到的 VideoStudio(135KB) / EcCanvas(188KB) / Home(179KB)。
+「首屏 844 KB 的 CSS」里有很大一部分是用户这一辈子都不会打开的页面。
+
+### 改法与实测（对着**真实构建产物**量的，不是看配置）
+
+改成 `cssCodeSplit: true`，产物从 1 个 CSS 变成 13 个。逐路由量「首屏实际下了多少 CSS」：
+
+| 路由 | 拆分前 | 拆分后（gzip） | 省 |
+| --- | --- | --- | --- |
+| `/` | 844 KB / 141.8 KB | 508 KB / **88 KB** | −53 KB |
+| `/pricing` | 同上 | 149 KB / **28 KB** | **−114 KB** |
+| `/canvas` | 同上 | 339 KB / **60 KB** | −81 KB |
+| `/video` | 同上 | 508 KB / **88 KB** | −53 KB |
+
+**每个路由都变好了**，而且表从 1 张变多张可以**并行下载**，不再是一张大表挡在最前面。
+
+### FOUC（拆分唯一的真实代价）必须验，不能假设
+
+拆分的风险是懒加载路由「先渲染、后上样式」。对着真实产物（起静态服务器伺服 `dist/`，
+不是 vite dev server —— dev 会把每个 CSS 单独注入，行为与生产完全不同）实测：
+
+· `/`、`/pricing`、`/canvas`、`/video` 四个路由的首元素计算样式都是
+  `display: flex` + 正确的 `font-family` ⇒ **没有 FOUC**。
+· **客户端路由**跳转 `/pricing` 时，样式表从 7 张变 8 张 ⇒ 新增的那一张正是懒路由
+  自己的 CSS，说明「按需加载」真的在按需，而不是被提前全塞进来。
+
+⚠️ 第一版探针有两个错，都会得出**相反**的结论，已记：
+① 比"样式表**个数**"而不是**字节** —— 个数少不代表体积小。
+② 用 `page.goto` 做"导航"，那是**整页重载**（新文档），
+   把首页的 8 张表和 pricing 的 3 张表拿来比毫无意义。
+   懒加载 CSS 的问题**只在客户端路由**（不重载文档）时才会出现。
+
+### 门禁
+
+新增 `test/bundle-first-payload-1001`（3 条）：① `cssCodeSplit` 必须是 true；
+② 产物里 CSS 必须是多个文件、且 index.html 直接引用的那张不许超过 300KB；
+③ **首屏 CSS 合计不许超过 200KB** —— 这一条才是真的防"拆了但没拆掉"：
+只要有任何一个急切引入的模块把大块 CSS 拖回首屏，体积就白拆。
+已做红测：把 `cssCodeSplit` 改回 false，门禁判红。
+
+### 还没做的（下一根杠杆，需要产品决策）
+
+首页仍然要下 508 KB / 88 KB gzip。原因是 `Home/index.jsx` **静态**引入了它的
+各个子模式（XhsContentMode / EcMode / VisualCreationMode / DesignDirection /
+GallerySection / RecoveryShelf），这些模式各自的 CSS（Home 一家就 337 KB / 16 个文件）
+在首页就全下来了。
+
+把这批子模式改成懒加载，能再砍掉首页一大半 CSS —— **但这是产品决策不是性能优化**：
+用户在首页切模式时会看到一次加载（要么转圈要么短暂空白）。要不要做、怎么做，
+需要先定"切模式时希望看到什么"，不该由我在这里替他决定。
+
+全量 4580 条 / 0 失败。
+
+## 2026-10-01 批 CY-㊴ 之二十：首页首屏的图片（并推翻我上一条的一个说法）
+
+### 先说结论：**上一条我说的"316 KB"是错的，实际省了 136 KB**
+
+我把 `Home` 的 `VideoStudioPage` 改成懒加载、重建、重量：
+
+| | 首页首屏 | 请求数 |
+| --- | --- | --- |
+| 改前 | 1511 KB | 75 |
+| 改成懒加载后 | **1608 KB** | 82 |
+
+**反而多了 97 KB 和 7 个请求**，收益是零。原因不在首页，在更深一层：
+`Home → EcMode → EcommerceWorkbench` **静态**引入了 `VideoStudio/VideoProjectDeliveryDialog.jsx`
+与 `videoDeliveryModel.js` —— 懒加载那个页面组件根本没把这些字节从首屏拿走，只是多绕一跳。
+⇒ 已**全部还原**，并在 RTK/门禁里都留了这条记录，免得下一个人再试一遍。
+
+### 首页 1511 KB 真正的构成（逐请求归类）
+
+| 类别 | 体积 | 占比 |
+| --- | --- | --- |
+| **图片** | **809 KB** | **53%** |
+| JS | 571 KB | 38% |
+| CSS | 89 KB | 6% |
+| 其它 | 42 KB | 3% |
+
+最大的一块是图片。
+
+### 但图片里真能省的很小，而且有一半是幻觉
+
+我把每张图相对首屏底边（视口 900px、页面 3169px）的位置和 `loading` 属性都量了：
+
+- 首屏之内 208 KB —— 必须立刻下，动不了
+- 首屏之下 612 KB —— 其中 **10 张本来就有 `loading="lazy"`**
+- 首屏之下**且**标着 `eager` 的：只有 4 张，186 KB
+
+我据此说"改成 lazy 能省 186 KB"。**改完一量，那几张图仍然出现在请求日志里。**
+
+原因：**Chrome 的 lazy 不是"看不见就不下"，而是"离视口一定距离内就预取"**
+（快连约 1250px，慢连更远）。那几张在 1344~2462px，全落在阈值内。
+
+⇒ `loading="lazy"` 是**正确**的声明（不再强行抢首屏带宽，慢网下尤其有用），
+但**不能**当成字节节省来汇报。这条已写进门禁注释，防止下一个人再这么算一遍。
+
+### 真正省下来的：那张 150KB 的 logo
+
+`AppSidebar.jsx` 用 `/images/logo.png` 当侧栏图标 —— **457×457、153 KB**，
+却只渲染成 **30×30**。一张 30 像素的图标传 150 KB。
+
+同目录下就有 `logo-icon.webp`（400×400、23 KB）。换之前**先验过是不是同一个标**：
+用 sharp 把两张都缩到 60×60 逐像素比，平均绝对差 **MAD = 1.8/255**，两者都有 alpha 通道
+⇒ 30px 下视觉无差别，可以换。
+
+用 `<picture>` 而不是直接改：webp 走 `<source>`、png 留在 `<img>` 里兜底，
+万一将来两个文件不再是同一个标，还有退路。
+
+另外顺手把**页脚 appicon**（22 KB，在页面最底 2967px）补上 `loading="lazy"`。
+
+### 实测（同口径：服务器侧记录，1440×900）
+
+| | 改前 | 改后 |
+| --- | --- | --- |
+| 首页总下发(gzip) | 1511 KB | **1375 KB** |
+| 其中图片 | 809 KB | **659 KB** |
+
+**净省 136 KB**，几乎全部来自 logo 那张图。
+（我上一条说"两项加起来约 316 KB"—— 那是**估的**，实际 136 KB。）
+
+### 门禁
+
+新增 `test/home-first-paint-images-1001`（5 条）：logo 必须是 `<picture>`+webp、
+案例区必须显式 `loading="lazy"`（只给 priority 会被 `ResponsiveImage.jsx:118`
+变成 eager）、页脚 appicon 必须 lazy、**并把"Chrome lazy 有距离阈值"这条事实写进注释**、
+以及"logo.png 只许作为 `<picture>` 兜底"。已做红测（改回原样 → 判红）。
+
+⚠️ 这条门禁自己第一版又犯了同一个错：在 ESM 里用 `require`，抛错被吞 ⇒ 假绿。
+这是本轮第三次（第 1 次 nginx 注释、第 2 次 prewarm 注释、第 3 次这个），
+已全部改成 `import`。值得当成个人纪律记下来：**ESM 测试里出现 `require` 一律判可疑**。
+
+全量 4588 条 / 0 失败。
+
+### 更正：之二十一的**理由**是错的（结论侥幸成立）
+
+用户直接质疑了两点，都成立：
+
+> 「首页没有电商模式呀。首页不是只有一个图片生成和视频生成的入口吗？」
+> 「生图和生视频本来就是不同的模型吧。哪有同一批模型可以维护呀？」
+
+**是我错了。** 我是用**静态 import 图**推断的，把只在技能子页面走的代码也算进了首页。
+
+代码自己写着答案：
+
+- `src/store/AppContext.jsx:54`
+  `mode: 'video',  // video | visual ← 首页两处入口；content/ecommerce 见技能子页面与恢复链路`
+- `src/pages/Home/index.jsx:136-147`  `modeOptions` 只有两项：**视频生成 / 图片生成**
+
+浏览器实测首页默认渲染出来的 class：`video-composer` / `is-video` /
+`homepage-mode-card-visual`；`EcMode` 与 `XhsContentMode` **没有**渲染
+（`mode='video'` 时那条三元链走的是第一支）。
+
+所以「首页需要 VideoStudio 的模型」这句话**是错的**。真正的原因是：
+
+> **首页落地页的默认视图，本身就是视频工作台。**（`mode` 默认 `'video'`）
+> 那 158 KB 不是"另一个模式的可选代码"，是**首屏就要用的代码**。
+
+这也解释了为什么懒加载救不了它：默认就要渲染它，lazy 只是把同一份代码换个 chunk 边界。
+
+#### 真正可做的（查清楚之后才敢说的）
+
+首页**静态引入了几个默认不渲染的模块**，它们被 import 进来就进了首屏包、却从没渲染过：
+
+| 模块 | 默认渲染吗 | 何时才需要 |
+| --- | --- | --- |
+| `EcMode` | 否 | 技能子页面 / 恢复链路 |
+| `XhsContentMode` | 否 | 同上（`mode==='content'`） |
+| `DesignDirection` | 否 | 设计方案子页面 |
+| `RecoveryShelf` | 否 | 恢复链路 |
+
+这是**真正**的浪费，而且和 VideoStudio 那 158KB 是两回事。
+
+⚠️ 但这四个**不能**照搬"改 lazy"的写法：
+`Home/index.jsx` 与 `VideoStudio/index.jsx` 是**循环依赖**（VideoStudio 反向引用
+Home 的三个组件）。把 Home 的出边改成 lazy，若对面成环就会白屏 —— 这正是之二十一踩的坑。
+所以规矩是：**改一个、量一次、并且必须同时量"页面有没有渲染坏"**。
+
+## 2026-10-01 批 CY-㊴ 之二十一：首页 JS —— 结论是**这 158KB 不能靠懒加载拿掉**
+
+用户原话：「好的。继续」（指上一条末尾说的"要开 JS 这一批的话跟我说"）。
+
+### 做法：先建立产物→源码的映射，再动手
+
+`vite.config.js` 里 `sourcemap: false`，所以先做了一份**只用于分析**的构建
+（`dist-analysis/`，带 sourcemap，部署脚本不会碰它），把每个 chunk 还原成源码模块。
+
+首页首屏实际加载的 JS（gzip，服务器侧记录，1440×900）：
+
+| chunk | gzip | 里面是什么 |
+| --- | --- | --- |
+| `index-DIushDmy.js` | 251 KB | 入口（81 模块：Home/ui/business/billing） |
+| `index-Dg5vnfHX.js` | **158 KB** | **16× VideoStudio** + media + constant.js |
+| `index-0yYCsEBt.js` | 50 KB | 21× Home |
+| 其余 14 个 | 约 112 KB | |
+| **合计** | **571 KB** | |
+
+**EcCanvas 那一坨（526 KB raw）没有被首页拉** —— 路由懒加载是有效的。
+目标锁定在那个 158 KB。
+
+### ⚠️ 第一次差点被骗过去
+
+把 VideoStudioPage 改成 `lazy()` 之后一量：**总包 1356 → 1058 KB（"省了 298KB"）**。
+但同时 **JS 反而 +204 KB**、文件数 17 → 34，而且**图片从 659 KB 掉到 160 KB** ——
+图片掉一半这件事从懒加载的角度讲不通。
+
+于是加了一条探针专门看**页面有没有渲染坏**：
+
+    改前:  文字 594 字  DOM 768  <img> 20 张  报错 0
+    改后:  文字 106 字  DOM  63  <img>  0 张  报错 2   ← 页面直接崩了
+
+⇒ **那个"-298KB"是页面崩掉造成的假象。** 只量字节不看渲染健康度，
+这次差点就把"首页白屏"当成性能优化发上线了。
+
+### 根因：Home ⇄ VideoStudio 是**循环依赖**
+
+`VideoStudio/index.jsx` 反过来静态引用了 Home 的三个组件：
+
+    import { GroupTitle } from '../Home/ec/PanelPrimitives.jsx';
+    import { EcommerceAddCard, EcommerceImageCard } from '../Home/ec/components/EcommerceAssetCards.jsx';
+    import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
+
+环存在时改成 `lazy(() => import('../VideoStudio'))`，模块求值拿到 undefined ⇒
+`TypeError: Cannot read properties of undefined (reading 'default')` ⇒ 整页进错误边界。
+
+### 把环拆掉之后，懒加载确实能跑
+
+把那三个共用组件下沉到 `src/components/ec-shared/`（563 行，13 个文件的 import 跟着改），
+环就断了（`VideoStudio → Home` 归零）。此时再懒加载：
+
+    改前:  JS 571 KB  合计 1372 KB  | 文字 594  DOM 768  图 20  报错 0
+    改后:  JS 573 KB  合计 1470 KB  | 文字 594  DOM 772  图 20  报错 0
+
+页面**完全正常**（DOM 772 vs 768、文字一样、零报错），但
+**JS +2 KB、合计 +98 KB**。
+
+### 结论：那 158 KB 不是"VideoStudio 页面"，是**两边都要用的共享代码**
+
+懒加载只能把"页面组件本身"挪出首屏；而那 506 KB raw 里绝大部分是
+videoPlanModel / videoStudioModel / videoProjectWorkbenchModel / videoDeliveryModel /
+canvasStudioModel 等**模型层**，Home 的电商模式（EcMode → EcommerceWorkbench）
+本来就要用 —— `EcommerceWorkbench.jsx` 静态引用
+`VideoProjectDeliveryDialog` 与 `videoDeliveryModel`。
+
+拆环也换不来字节，因为**那份代码确实被首屏需要**，不是浪费。
+
+⇒ **已全部还原**（文件移动 + 懒加载都撤掉），工作区与线上 `83ec484a` 一致。
+首页 571 KB JS 属于**真实需要的代码**，不是可以随手砍掉的肥。这一条到此为止，
+除非产品上愿意改"首页电商模式与视频工作台共用同一批模型"这件事本身
+——那是架构决策，不是性能优化。
+
+### 这一条真正的收获（比省下多少 KB 更值钱）
+
+1. **"字节下降"必须配一条"页面有没有渲染坏"的探针。** 否则一次崩溃就能伪装成
+   一次优化 —— 我这次差点上当，是靠"图片从 659 掉到 160 这种说不通的变化"才起疑的。
+2. **负结果也要量、也要写下来。** "这 158KB 拿不掉"是一个有价值的结论：
+   它关掉了这条路，省下以后反复试的力气。
+3. **循环依赖是懒加载的隐形地雷**：改法看着只动一行，跑起来整页白屏。
+
+## 2026-10-01 批 CY-㊴ 之二十二：首页三个默认不渲染的模式改成懒加载（−71 KB）
+
+用户原话：「首页不是只有一个图片生成和视频生成的入口吗？」
+—— 对。这条是对**之二十一结论的修正**（那边把"电商模式"当成了首页常驻，是错的）。
+
+### 先把事实钉死（代码自己写着的）
+
+- `src/store/AppContext.jsx:54`
+  `mode: 'video',  // video | visual ← 首页两处入口；content/ecommerce 见技能子页面与恢复链路`
+- `src/pages/Home/index.jsx` 的 `modeOptions` **只有两项**：视频生成 / 图片生成
+- 浏览器实测首页渲染出来的是 `video-composer` / `is-video`，EcMode、XhsContentMode **没渲染**
+
+### 真正浪费的是这三个
+
+它们只在 `mode==='content'` 或 `'ecommerce'` 时渲染（深链进技能子页面，
+或「做同款」/ 恢复链路），**首页默认一次都不画**，却被静态 import 进了首屏包：
+
+| 组件 | 行数 | 何时才需要 | 拆出的 chunk |
+| --- | --- | --- | --- |
+| `EcMode` | 1760 | 深链进电商套图 / 恢复链路 | 44 KB |
+| `XhsContentMode` | 1954 | 小红书图文 / plog 子页面 | 66 KB |
+| `DesignDirection` | 1189 | 电商第 2 步（确认设计方案） | 34 KB |
+
+### 实测（同口径：服务器侧记录，1440×900，每变体 3 次取中位数）
+
+| | JS | CSS | 合计 | 文字 | DOM | <img> | 默认视频台 | 报错 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 改前 | 571 KB | 89 KB | 1372 KB | 594 | 716 | 20 | 有 | 0 |
+| 改后 | **500 KB** | **80 KB** | **1292 KB** | 594 | 716 | 20 | 有 | **0** |
+
+**JS −71 KB（−12%）、合计 −80 KB**，而渲染健康度**逐项一模一样**。
+
+### 两条纪律（之二十一用一次白屏换来的）
+
+① **每个 lazy 都必须包 Suspense**，否则切到那个模式时没有 fallback 直接报错。
+   我第一版改造时 `DesignDirection` 的 Suspense **漏了**，是门禁抓到的。
+   fallback 也不能是 `null` —— 那会让那块地方"啪"地缩回去再撑开，所以给了有高度、
+   带 `aria-live` 的 `ModeLoading`。
+
+② **"默认页正常"证明不了懒加载能用** —— 因为默认页根本不渲染那三个组件。
+   所以单独验了一次：把拆出来的 chunk 逐个 `import()`，看 default 是不是可用
+   （之二十一的 `Cannot read properties of undefined (reading 'default')` 就是栽在这）。
+   三个全部 `default=function`：EcMode 44KB / XhsContentMode 66KB / DesignDirection 34KB。
+
+### 顺带得到一个纪律：字节测量必须配渲染健康度
+
+之二十一里，页面崩了 → 请求变少 → 字节"降了 298KB" → 我差点当成收益上线。
+这次探针固定同时报两组数（字节 / 文字·DOM·<img>·默认视频工作台·报错），
+B 组缩水就作废 A 组结论。
+
+### 门禁
+
+新增 `test/home-lazy-modes-1001`（4 条）：三个必须 lazy 且不许再有静态 import；
+每个使用点必须落在 `<Suspense …>` 内且 fallback 是 ModeLoading（不是 null）；
+**VideoStudio 必须保持静态 import**（它是首屏必需，且 Home⇄VideoStudio 有循环依赖，
+lazy 必白屏）；首页只有两个入口、不许再冒出第三个。
+改写 `ecommerce-editor-lifecycle`：放宽"紧接着就是组件"→"组件在 Suspense 里"
+（守的实质是"返回时不卸载编辑器"，不是语法形状），并补上"三处都要有 fallback"。
+已做红测（把 DesignDirection 的 fallback 换成 null → 门禁判红）。
+
+全量 4592 条 / 0 失败；precommit 全绿。
+
+## 2026-10-01 部署约定（用户下发，两条线并行改同一个生产环境）
+
+> 用户原话（要点）：
+> 「薯包现在有两条线在同时改画布并部署到同一个生产环境。从 2026-10-01 到今天，
+> 「刚上线就没了」发生了 **16 次** —— 每一次的根因都一样：两条线从分叉的历史分别部署，
+> 谁后部署谁覆盖，而且没有任何告警。」
+
+### 硬规则
+
+1. **所有会话从同一条发布分支部署：`gm/release-merge-1001`**
+2. **禁止从 detached 工作树部署。** 建工作树时不要加 `--detach`：
+   `git worktree add <路径> gm/release-merge-1001`
+   （从分叉历史发出来的提交不在任何分支上，随时和线上分叉）
+3. **部署前先合并当前线上那次提交**：
+   ```
+   ssh -i "%USERPROFILE%\.ssh\shubao_deploy_ed25519" ubuntu@114.132.157.250 "readlink -f /var/www/shubao/current"
+   git fetch && git merge <上面那条命令输出的 release 号后缀 sha>
+   ```
+4. **一条龙**：`pwsh -NoProfile -File scripts\deploy-production.ps1 -SkipPublicChecks`
+   脚本自己会跑 test 和 build，红了会抛错并不切换 production。
+5. ⚠️ **不要在部署前额外再跑一遍 precommit** —— 同一道门禁跑两遍，白花十分钟，
+   而两条线的发布间隔差不多就是十分钟。
+6. 紧急情况（故意回滚 / 从分叉分支救火）可以加 `-SkipForwardOnlyCheck` 或
+   `-SkipDetachedDeployCheck`，但跳过会在输出里留醒目告警，**而且要知会对方**。
+
+### 脚本里已有的机械保障
+
+- `Assert-DeployIsFromNamedBranch` —— 拒绝 detached HEAD，也拒绝不在 `gm/release-merge-1001` 上的分支
+- `Assert-ReleaseIsForwardOnly` —— 要求本次提交必须是**当前真正在跑的那个** release 的后代
+  （读 `readlink -f $WebRoot`，**不是**读备份目录）
+
+⚠️ 关键不是"我加了一道检查"，而是**两边都从同一条分支发** —— 做到之后这道检查
+会自动对我生效，我已经发出去的部署它拦不住。
+
+### 我这次犯的错（如实记）
+
+**我整个 session 都在 detached HEAD 上部署。** 中途看到过 git log 输出里的
+「(no branch)」，但只当是环境信息记了一笔，没当成部署纪律。
+结果：我的 8 个提交全部只存在于 detached HEAD 上，**随时可能和线上分叉**。
+
+发现它的是一个意外：部署脚本突然多了两道我从来没写过的检查
+（`Assert-DeployIsFromNamedBranch` / `Assert-ReleaseIsForwardOnly`），
+说明对方已经把发布分支合进来了。
+
+### 当前状态（已核实）
+
+| | 值 |
+| --- | --- | 
+| 线上 release | `20261002-152023-24736fab` |
+| `gm/release-merge-1001` 顶端 | `24736fab`（同一次） |
+| 我的 8 个提交 | **全部是 24736fab 的祖先**（逐个 merge-base 验过） |
+
+也就是说：对方已经把我的 `48ee3175` merge 进发布分支并发上线了，
+**我这批改动已经在生产上**（三个懒加载 chunk 都在，且都不在首屏）。
+⇒ 现在**没有需要部署的东西**，我也就不该再发一次。
+
+### 下一步的阻塞点
+
+`gm/release-merge-1001` 现在检出在 `F:/da/shubao/.worktrees/gm-b4`
+（对方的工作树），而且那里**有未提交改动**：
+`M src/pages/EcCanvas/canvasActionRegistry.js`。
+
+git 不允许两个工作树同时检出一条分支（`git checkout` 报
+「already used by worktree at ...」）。所以在对方让出这条分支之前，
+我**不能**把工作树转到发布分支，也就**不该**再部署 ——
+否则要么得用 `--ignore-other-worktrees` 硬抢（两条线同时往一条分支提交，
+正是这套约定要防的撞车），要么从 detached 发（我这次犯的错）。
+
+⇒ 已停下，等对方把 `gm-b4` 的未提交改动提交/让出分支，或明确指示怎么分工。
+
+### 关于门禁互相变红
+
+用户提醒（重要，且我今晚已经栽过好几次）：
+
+> 「如果你看到某条门禁因为我改了实现而变红，先看它问的是什么问题 —— 很可能是它钉住了
+> 某个措辞或写法，而我改的是它背后的意图。这种情况应该把判据改成断言**意图**，
+> 而不是把实现改回去。我自己今晚在这上面栽了七次。」
+
+我今晚在这一条上的实际记录（同一类错误）：
+1. nginx 配置里用了 `/* */` 注释 —— nginx 只认 `#`。
+2. prewarm effect 的注释里含有 `requestIdleCallback(prewarm`，把"不许再出现它"的判据自己判红了。
+3. ESM 测试里用 `require` —— 抛错被 `catch` 吞掉 ⇒ **假绿**，比假红更危险。
+4. 门禁正则写成 `<Suspense fallback={<ModeLoading[^>]*}>`，而实际是自闭合的 `/>}`。
+
+共同点：**判据读的是"写法"而不是"意图"**。处理方式应当是把判据改成问意图，
+而不是把我的实现改回去 —— 我的三条里前两条确实是实现写错了（该改），
+但第 3、4 条是我的判据写错了（该改判据）。分辨方法是问一句：
+**"这条门禁想防的事故，我的改动有没有让它重新发生？"** 没有的话就是判据过窄/过宽。
+
+## 2026-10-01 批 CY-㊴ 之二十三：VisualCreationMode 常驻挂载 —— 量了，不改
+
+之二十二结尾留的候选：首页那句 `<div hidden={!isVisual}><VisualCreationMode …/></div>`
+让「图片生成」那一整套（1284 行、22 个 useState、11 个 useEffect）**常驻挂载**。
+hidden 只让它看不见，React 照样渲染整棵树、11 个 effect 照样全跑。
+改成 `{isVisual && …}` 可以省掉，但代价在别处 —— 两边都量出来再决定。
+
+### 实测（两边用同一个判定信号，各跑一次真实点击）
+
+| | 常驻挂载（现状） | 条件渲染 | 差 |
+| --- | --- | --- | --- |
+| 首页 DOM 总数 | 716 | **642** | **−74（−10.3%）** |
+| 其中藏着的 DOM | 73 | **0** | −73 |
+| 首屏 FCP | 104 ms | 112 ms | 噪声 |
+| DOMContentLoaded | 52 ms | 57 ms | 噪声 |
+| **点「图片生成」→ 内容出现** | **124 ms** | **145 ms** | **+21 ms** |
+| JS 首屏 | 500 KB | 500 KB | 0 |
+
+### 结论：不改
+
+省下的 74 个 DOM **没有变成可感知的首屏变快**（FCP 104→112 是噪声），
+而代价是**切换到图片生成多等 21ms**（124→145，+17%）。
+
+用户的抱怨一直是"操作慢"。拿一个交互动作的确定劣化，去换一个测不出来的首屏收益，
+方向是反的。⇒ **保持常驻挂载**，源码已完全还原（git checkout），没有上线任何东西。
+
+### 这一条真正学到的：我的一个探针差点给出错误结论
+
+第一版测量里，条件渲染的「切换耗时」量出来是 **3 ms**，看起来是"白赚"。
+那个数是假的：判定信号写的是「div[hidden] 消失了」——
+而条件渲染下那个 div **本来就不存在**，页面一改完立即满足，量到的其实是 0。
+
+改成等「homepage-mode-showcase 带 is-visual **且**工作台里真的有表单元素」之后，
+真实值是 145 ms。
+
+⚠️ 这跟之二十一「字节下降是崩溃伪装成的」是同一个错误的两个版本：
+拿一个**判据本身失效**的指标当优化结果。区别只在于上次是判据**太松**（崩溃也算通过），
+这次是判据**太松且方向相反**（立刻通过）。
+⇒ 通用纪律：**探针的判定信号必须先自证它能区分"真发生"和"什么都没发生"** ——
+先在一个已知会有差异的场景上跑一遍，确认它量得出差别，再拿它去量优化。
+`readableUploadError` 那次做对了（先红测证明门禁会判红）；这次没做，是我的疏漏。
+
+## 2026-10-01：用户报「回来一阵子就自己掉登录」+「突然无法访问，刷新两下」
+
+用户原话（两条）：
+
+> ① 「为什么有时候一段时间没来看网站，突然来访问一下，他会自己掉落登录呢，
+>    弹出登录窗，然后过一会才显示已登录的状态呀」
+> ② 「而且有时候过一会才来访问网站，网站会突然无法访问，要刷新两下才能访问」
+
+这两条是**同一个错误**：把「这次没验成」当成了「你已经登出」。
+
+### ① 掉登录 + 弹登录窗
+
+access token 只有 30 分钟；refresh token 是**独立的另一个键**，
+而 clearSession() **并不删它**（删它的是 clearRefreshCredential()）。
+
+也就是说：access 过期本来是**可以静默续期的正常情况**。但 auth.js 里：
+
+    export function handleSessionResponse(response) {
+      captureSessionRenewal(response);
+      if (response?.status === 401) clearSession();   // ← 任何 401 都"下线"
+      return response;
+    }
+
+而 clearSession() 会广播"会话失效"，AppContext.jsx:406-412 收到后：
+
+    dispatch({ type: 'SET_LOGGED', logged: false, phone: '', softSignOut: true });
+    dispatch({ type: 'SHOW_LOGIN', show: true });   // ← 登录窗弹出来
+
+「**过一会**又显示已登录」是竞速的结果：refreshSession() 随后成功 →
+notifyRestored() → SET_LOGGED true → 窗子又收起。
+谁先落地决定你看不看得见那一闪 —— 这就是「**有时候**」的来源。
+
+handleSessionResponse 有 **10 个调用点**（admin / apiError / conceptCopy /
+planPreview / video / videoUploadClient / auth.js），覆盖所有数据面请求，
+所以回来打开页面、那一串并发请求里**任何一个**先拿到 401，登录窗就弹了。
+
+改法：手上有 refresh 凭证时，401 只触发一次静默续期、**不下线**；
+续期真失败时 refreshSession 自己会 clearRefreshCredential() + clearSession() 广播下线（auth.js:167）。
+
+### ② 「突然无法访问、刷新两下」
+
+verifyAndAdoptSession 里：
+
+    if (!response.ok) { clearSession(); return null; }   // ← !ok 包含 502/500/超时
+
+**服务器打个嗝就人踢下线。** 用之十九加的耗时日志一查，线上真有：
+
+    120.86.252.241 "GET /api/session HTTP/2.0"    502  rt=0.013  ref="https://shuimg.cn/"
+    120.86.252.241 "POST /api/billing/quote" 401  rt=0.008  ref="https://shuimg.cn/"
+
+同一个 IP、同一个真实 Chrome、同一秒 —— 一次 502 紧接着一次 401。
+
+（顺便说明：日志里那些 >1 秒的慢请求，查完全是**扫描器 / 攻击流量** ——
+TLS 握手垃圾包、一个 wget 挖矿尝试，而且 urt=- 说明压根没到后端。
+真实用户请求里 2109/2164 在 50ms 以内。）
+
+改法：**只有 401 才算会话失效**；5xx / 网络错误只是"这次没验成"，
+保留本地凭证让下一次重试。catch 分支同样不再当成掉线。
+
+### 门禁与鉴权边界（这条特别要紧）
+
+改 handleSessionResponse 动的是**鉴权语义**，必须盯住别把安全边界改松：
+
+- 新增 test/auth-signout-cause-1001（5 条）
+- 改写 canvas-401-keeps-canvas-0918 里那条断言：原来写的是**字面量**
+  「if (response?.status === 401) clearSession();」，守的是"401 最终必须导致下线"。
+  改实现后这句字面量不再成立，但**意图没变**（续期失败照样彻底清理）。
+  按用户的交代（钉措辞 vs 钉意图），这里改成**意图断言，并且比原来更严**：
+  额外盯住「refresh 失败必须清 refresh 凭证 + 清 session」这条回路 ——
+  真正的鉴权边界靠的是这条，不是上面那条。
+  两条门禁都做了红测：
+  · 把两处修复还原成旧写法 → 判红 2 条
+  · 删掉 refresh 失败回路 → 判红 2 条
+
+### 我自己出的事故（如实记）
+
+做红测时用 pwsh -Command 内联脚本改 auth.js，转义失败，
+Set-Content 把整个文件写成了 **1 个字节**（只剩一个反斜杠）。
+好在动手前留了备份，恢复了。
+
+⇒ **纪律：改文件一律用脚本文件（.mjs），绝不在 cmd / pwsh -Command 里做替换。**
+这一轮我在这上面已经栽过好几次（中文被 cmd 吞、node -e 里 require 报错、
+ESM 里用 require、模板字符串里套反引号），现在固化成规则。
+
+全量 4597 条 / 0 失败。
+
+## 2026-10-02：修完上线 —— 以及一条差点重演「刚上线就没了」的发现
+
+上一条的修复已上线：release `6d0a317e`（`/var/www/shubao/releases/20261002-180556-6d0a317e`）。
+
+### 一、我自己的 3 个 commit 当时挂在**任何分支都没有**的地方
+
+要部署时才发现：dep-cy31 工作树是 detached HEAD，
+48ee3175 / 1d63e9ad / ef51adcd 三个提交**不在任何分支上**。
+而线上跑的 5390a4b5 里有一行：
+
+    24736fab Merge commit '48ee3175' into gm/release-merge-1001
+
+也就是说 gm 一直在正确地把我的提交合进发布分支，
+可我自己这条工作树**从来没跟上**，越走越远 —— 这正是部署约定里警告的那个形状。
+再晚一步（一次 gc / 一次 checkout），这三个提交就没了。
+
+⇒ 固化检查：**动部署前先 `git branch --show-current`，空输出就是 detached，立刻建分支。**
+建分支不能只建在本地：先 `git switch -c <名字>`，再 `git merge <线上 sha>`，
+最后才提交/部署。顺序反了又会卡在 "local changes would be overwritten"。
+
+发布分支当时被 gm-b4 工作树占着（git 不允许一个分支在两个工作树同时 checkout），
+但 gm-b4 树是干净的、最近一次改动在 33 分钟前且已经上线，
+所以直接**在 gm-b4 里 `git merge cy/auth-signout-1001`** —— 发布分支本来就是共用的集成点。
+合并是 fast-forward（因为我已经先把线上 sha 合进来了），无冲突。
+
+顺带一个便宜的验证：合并后对比两个工作树的 tree hash
+（`git rev-parse HEAD^{tree}`），两边都是 `be50af6a…` 完全一致，
+所以我在 dep-cy31 跑的 4657 条 / 0 失败**可以原样算数**，不用在 gm-b4 重跑一遍十分钟。
+
+### 二、怎么证明「修的确实上线了」——从压缩产物里读控制流
+
+不看日志、不靠感觉，直接读线上的 minified chunk。
+esbuild 会把可选链 `response?.status === 401` 编成 `(e==null?void 0:e.status)===401`，
+所以 grep `status===401` 找不到，得用 `[?]*\.status` 去找。
+
+    老代码会编成：(e?.status)===401 && va()          // va = clearSession，无条件
+    新代码编成：  (e?.status)===401){ if(ga()?.refreshToken) return tl().catch(()=>{}),e; va() }
+
+第二条就是上线后的样子。`ga()`=`getStoredRefresh`、`tl()`=`refreshSession`、`va()`=`clearSession`。
+同理 verifyAndAdoptSession 的 5xx 分支：老的是 `return va(),null`，
+新的是 `return a.ok?bp(e,await a.json()):n`（`n` 就是 null，**不调 va**）。
+
+**判据是「无条件清理还在不在」，不是「有没有出现某个函数名」。**
+后者在压缩后极易被同名的其它调用点骗过去。
+
+同时顺手验了那条安全边界没被顺手改松：
+    [400,401,403].includes(o) && (Dm(), va())
+Dm=clearRefreshCredential、va=clearSession —— refresh 失败仍然彻底清理，在线上。
+
+### 三、顺带清掉的 202 个临时脚本
+
+之前几轮探针脚本全堆在仓库根目录，`git status` 已经没法看了（200+ 未跟踪项）。
+写了个只删「git 明确报未跟踪 + 命中我自己的命名规则」的脚本清掉，
+只留下 `.p94-shots/`（取证截图）和 `HANDOFF-0930.md`（交接文档）。
+
+清垃圾时踩到一个坑：`git status` 默认把中文/特殊字符文件名转义成 `\346\212\200...`，
+直接拿那个字符串去 `fs.existsSync` 永远 false。必须 `-c core.quotepath=false` 且加 `-z`。
+
+## 批 CY-㊴ 之十九 · 视频节点换成**视频专属**工具栏（`3f3ef9f5`）
+
+用户 2026-10-02：「而且你上面的这些功能栏太少了。而且好像也不完全是为视频功能去定制的一些功能呀。
+**视频跟图片生成他们是不同的逻辑才对呀**，你应该定制化的为他去开发一些功能。」
+
+### ① 病根不是"少注册了几个动作"，是整条筛选链路**不认视频**
+
+`canvasActionRegistry.js` 里两处都只认图片：
+- `action()` 的默认 `canRun` 是 `isReadyImage`（只认 image / output / layer-group）
+- `stableActionsForSurface` 的兜底 `hasPreview = canRunLocally(node)` 也只认图片
+
+⇒ 视频节点被筛两道，最后拿到的是"恰好 `canRun` 里写了 video"的那几颗
+（save-to-assets / replace-media）。**编辑文字 / 宫格切分 / 智能分层 / 去除背景 / 图片标注**
+之所以挂着，是因为它们本来就是图片动作 —— 不是"视频功能太少"，是视频
+**根本不在这套筛选的考虑范围内**。
+
+⇒ 新增 `isReadyVideoNode` / `isVideoNode`，注册一组 `['video-toolbar']` 的视频专属动作，
+`stableActionsForSurface` 在视频节点上返回这一组（外加两边都成立的"加入资产库"）。
+
+⚠️ **刻意没有**把 `isReadyImage` 改成 `isReadyMedia` —— 那会把图片动作一股脑放给视频，
+正是用户说的"不完全是为视频定制的"。两套逻辑必须分开。
+
+⚠️ 视频动作**只挂 `['video-toolbar']`、不挂 `'selection'`**：
+`stableActionsForSurface` 的图片分支是 `hasPreview || canRun(node)`，
+**hasPreview 为真时 `canRun` 根本不被求值** ⇒ 挂了 selection 就会漏进图片工具栏。
+（这是门禁当场抓到的，不是事后想到的。）
+
+预览复用**同一个**放大灯箱、按 `kind` 分渲染（另起一个 = 两套关闭/缩放/滚轮逻辑，迟早打架）；
+视频分支用 `controls` 且**不套**图片那套 `scale(previewScale)`（会与 video 控件层互相干扰）。
+
+## 批 CY-㊴ 之二十 · 画布计价表第一次支持**按秒**（`5390a4b5`）
+
+用户 2026-10-02 定调：「肯定不能跳走啊，你可以直接内置skill去实现，
+**当时一定是在画布上实现啊**」⇒ 在画布上就地做，但先把计费的地基补对。
+
+### ① 差 1000 倍的形状
+
+`canvasBillingModel.ACTIONS` 里所有动作的 `units` 语义都是**这个动作的固定总价**，
+`formatCanvasActionPrice` 直接渲染 `${units} 积分`。而去字幕在服务端是：
+
+```js
+video_desubtitle_local_short: { units: 40, perSecond: true, priceFen: 4 }   // 0.04 积分/秒
+```
+
+数量 = 秒数（`billableQuantity`）。我第一版照别的动作填了 `units: 40`
+⇒ **按钮上会写「40 积分」，而 10 秒的片子真实只扣 0.4 积分**。
+而且这张表原来**连"按秒"这个概念都没有**（`perSecond` 出现 0 次）。
+
+`canvas-billing` 门禁的注释原话就是这个事故：
+「注册表写 'layers'，而计价表里叫 'layer-edit' ⇒ 查表落空回落 FREE，**UI 显示免费但后端实收 3 积分**」。
+它在我挂上那个按钮的瞬间**当场判红**。
+
+### ② 做法：只声明**单价**，不声明总价
+
+`video-desubtitle` = `{ paid, perSecond, unitsPerSecond: 0.04, sku/skus: video_desubtitle_local_* }`，
+`formatCanvasActionPrice` 对按秒的档渲染「0.04 积分/秒」而不是总价。
+
+总价**不在这里算**：挑 short/long 两档（≤8 秒走 short）+ ×秒数 那件事，
+`videoStudioModel.localQuoteFor(product, seconds)` 已经做了，由服务端 capabilities 派生。
+**不在前端另写一份** —— 那正是 `catalog.mjs` 注释里警告的
+「菜单与扣费各写一份就是『看着 0.5、扣的是 0.04』那类事故」。
+界面显示与 hold 扣费将来用**同一个 quote**。
+
+### ③ 门禁 `canvas-billing-per-second-1002`（4 条）
+
+① **单价必须与服务端 catalog 逐值一致** —— 从 `server/billing/catalog.mjs` 读出真实 `units`，
+   断言 `=== 前端单价 × 1000`，并逐条验 `perSecond: true` / `public: true`。
+   即 0.04 不可能是前端拍脑袋写的。
+② 按秒的档不许被渲染成总价；按条的档行为一字未变（layer-edit 仍「3.2 积分」）
+③ 计价表里不许出现 `totalUnits`；按秒的档**不许有 `units` 字段**
+   （那个字段语义是"固定总价"，一填就会被 `formatCanvasActionPrice` 当总价显示出去）
+④ 新键必须落进 `CANVAS_BILLING_KEYS`；注册表里不许再出现不存在的 `video-subtitle`
+
+## ⚠️ 一件必须记的：**半成品被我主动撤回了**
+
+接着做「智能去字幕」时，我把按钮、portal 框选面板、`localProducts` 加载都接上了，
+但**提交那一步（`runVideoDesubtitle`）没写完** —— 点"开始擦除"会 ReferenceError **整页白屏**。
+
+剩下轮次不足以写完那个**碰钱**的提交（要 productId、源视频 assetId、时长、`billingQuoteId`、
+`createVideoJob` 的 idempotency），所以 `git checkout --` 撤掉了整个半成品。
+
+⇒ **宁可不做，也不能发一个"点了会崩"的版本进画布。**
+派生卡片那次发了"看着改好了其实没改好"的版本，被用户退回来两次；那次是 UI，
+这次会**白屏**，性质更重。
+
+### 已经查清、下一轮可直接用的四步（不要重新推导）
+
+1. **画布要加载 `capabilities.localProducts`**（`index.jsx` 的 capabilities effect）。
+   ⚠️ 上游模型 `data.products` 与本机 `data.localProducts` **不是一份东西**，
+   画布现在**只拉了前者** ⇒ 没有 productId、也就没有报价、没法建单。
+2. 注册 `smart-subtitle-erase`，`priceFeature: 'video-desubtitle'`（批 之二十 已经接好）。
+3. **`VideoRegionPicker` 必须 portal 到画布外**。它内部用 `surface.offsetWidth`
+   （未缩放的布局尺寸）配 `rect ÷ 自身放大(1.8)` 换算**源视频像素**（delogo 的坐标口径）；
+   画布 stage 带 `transform: scale(viewport.scale)`，直接内嵌会让 `rect/1.8` 仍差一个
+   viewport.scale ⇒ **框出来的区域整体偏移**（用户框底部字幕、擦出来落在画面中间）。
+   挂到 body 后它回到"没有祖先 transform"的坐标系，**算法一行都不用改**
+   （与 `CanvasPopoverPortal` 同一个理由）。
+4. 提交照 `VideoStudio/index.jsx:1523` 的签名抄：
+   `createVideoJob({ productId, mode: 'local', duration, billingQuoteId: quote.quoteId,
+   localSpecs: { regions }, references: { videos: [source.id], urls: {...} }, idempotencyKey })`。
+
+### ⚠️ 顺带记一件部署上的好消息
+
+`6d0a317e` 是对方把**我的 `5390a4b5` 合并进了他们那条分支**（`cy/auth-signout-1001`）——
+说明他们开始走同一条发布分支而不是各自从 detached 工作树发。
+**这正是 批 之十八 那道根因守卫能生效的前提**：守卫只对"用了这份脚本的部署"起作用，
+而它现在对他们也生效了。
+
+### ⚠️ 本批门禁/判据的教训（今晚第三次同类）
+
+我给视频动作挂 `['selection','video-toolbar']` 时，`stableActionsForSurface` 的图片分支
+`hasPreview || canRun(node)` 在 hasPreview 为真时**根本不求值 canRun**
+⇒ 我的视频动作漏进了图片工具栏。**门禁当场抓到**（② 图片行为一字未变）。
+另一条：预览灯箱的 aria-label 兜底词从「图片」改成「素材」，而 `ec-canvas-state`
+把「图片」**逐字**钉住 ⇒ 行为完全正确却被判红，已改成断言**意图**。
+
+⇒ **钉措辞的门禁会在实现正确时制造假红，然后诱导你把实现改回去** —— 比没有门禁更坏。
+判据要问「这件事成立吗」，不要问「这行字长这样吗」。
+
+
+## 批 CY-㊴ 之二十一 · 画布「智能去字幕」（照知渔 · 框选擦除）· `b1883265`
+
+用户 2026-10-02 定调（逐字）：
+> 「**肯定不能跳走啊，你可以直接内置 skill 去实现，当时一定是在画布上实现啊**」
+
+用户先问了个更基础的问题，答案决定了整个做法：
+> 「你所说的服务器 CPU 上面跑，就是我们现在的那个腾讯云的 CPU 吗？也就是说我的电脑不打开的情况下，
+>   这个任务也是能够正常的实现的对吧」
+
+### ⓪ 先核实「电脑关掉能不能跑」（不假设，去看）
+
+- 服务器 `/usr/bin/ffmpeg` **4.4.2**，`delogo` 滤镜在；**当场跑了一遍**
+  （`color=black -vf delogo=… ` → 产出 2320 bytes）⇒ 不是"配置上写着有"，是能跑。
+- 机器：`VM-0-17-ubuntu` / Ubuntu 22.04.5 / 4 核 / 7.7GB，`shubao-production` 在 PM2 online。
+- **作业是服务器自己驱动的**，三条证据：
+  ① 没有 `executeOnPoll` / `requireClientPoll`（不存在"客户端不轮询就不执行"）
+  ② `videoGeneration.mjs:2001` 有常驻 `reconciliationTimer`（30s）
+  ③ 重启后 `recover()` 扫 `video_jobs` 里 queued/submitting/processing 的行挨个 `enqueue`
+
+⚠️ `ps aux` 查不到 ffmpeg **是正常的**：它不是常驻服务，是每个作业 spawn 一次、跑完就退。
+**看不到进程 ≠ 不工作。**
+⚠️ 但**上传**那一段依赖浏览器（tus 分片从你机器发出）⇒ **传的时候电脑得开着，传完就可以关。**
+
+### ① 钱扣的是谁的（用户追问的，答案要分两层说）
+
+| | 金额 |
+| --- | --- |
+| 用户站内 AI 积分 | 0.04 积分/秒（10 秒片子 0.4）——**真扣** |
+| **我们付给第三方的成本** | **¥0** |
+
+服务端目录原文（`video_desubtitle_local_*`）：
+`{ units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4 }`
+`videoExportRender.mjs` 全文 128 行，只有 `spawn('ffmpeg', args)`，**没有一次 fetch / http / provider**。
+
+catalog 原话：「这两个功能**不走上游模型**（用户原话：『为什么一切都要追究模型呢』）…
+`providerCostCny` 记 **0** —— 这不是『漏记成本』，而是成本**确实为零**；面值毛利接近 100%，是引流款。」
+
+⇒ 另有一条**自动识别**档 `video_desubtitle_volc_*`（火山 MediaKit，¥0.4/分钟）才花钱，
+纪律是「自动档**不能**与手动档同价（同价只有 33.3%，跌破 40% 地板）」。
+**用户要的「框选擦除」是免费那条。**
+
+### ② 三个会真出错的约束
+
+**产品来源**：去字幕是**本机产品**，`capabilities.localProducts` 与上游模型
+`data.products` **不是一份东西**；画布此前**只拉了后者** ⇒ 没有 productId 就没法报价、没法建单。
+
+**记账**（VideoStudio:1034-1040 原话，照抄）：
+> 「份数一律由**服务端**定……这里只报『这段片子多少秒』这个**事实**，不报份数、更不报金额：
+>   前端不得把『算出来的份数/金额』发给服务端」
+> 「只有服务端能把它算成份数（它同时决定建单时冻结多少，两边不一致就是 **409 费用确认不一致**）」
+
+⇒ 只传 `{ sku, seconds }`，建单带 `billingQuoteId: quote.quoteId`。
+**界面显示与 hold 扣费用同一个 quote**，不在前端算第二份。
+
+**坐标（唯一的硬约束）**：`VideoRegionPicker` 用 `surface.offsetWidth`（未缩放布局尺寸）
+配 `rect ÷ 自身放大(1.8)` 换算**源视频像素**（delogo 口径）。画布 stage 带
+`transform: scale(viewport.scale)`，**内嵌会让 `rect/1.8` 仍差一个 viewport.scale**
+⇒ 框出来的区域整体偏移（用户框底部字幕、擦出来落在画面中间）。
+⇒ **portal 到 body**，回到"没有祖先 transform"的坐标系，**算法一行都不用改**
+（与 `CanvasPopoverPortal` 同一个理由）。区域存节点 `subtitleRegions`：框错能改、刷新不丢。
+
+### ③ 门禁 `canvas-video-desubtitle-1002`（4 条）
+
+① 记账：只报 seconds；反向断言**不许**出现前端自算总价
+② 框选面板必须 portal 出画布 + 必须复用同一个组件（不许另写一份坐标换算）
+③ 产品取自 localProducts、建单模式取产品声明、delogo 区域走 `localSpecs.regions`
+④ 动作注册用**真实存在**的计价键，且不许残留查不到的键（`video-subtitle` 那个形状）
+
+### ④ ⚠️ 三条门禁因我新增调用而变红 —— **都是门禁问错了对象**
+
+1. `plan-affects-output-audit-0918` / `video-plan-billing-chain-0918` 用
+   `canvas.indexOf('await createVideoJob({')` 取**第一个**建单点。画布现在有**两个**
+   （生成器 + 去字幕），去字幕那个定义在 `handleToolAction` 旁边、排得更靠前 ⇒ 判据匹配到我的调用。
+   **已改成锚「带 `videoPlan` 的那个建单调用」。**
+   ⚠️ 中间还错了一次：先改成 `indexOf('composerDuration')` —— 那名字在 254 行的 helper 里也出现，
+   照样落到我的调用上。**锚点要选"这段判据真正关心的那个唯一标记"。**
+2. `no-clickable-div`：我的 backdrop 是裸 `<div onClick>`。加 `role="presentation"` ——
+   点空白关闭属于**容器级辅助行为**，真控件是里面「取消 / 开始擦除」两个 button；
+   该门禁明确放行显式非交互容器角色。
+3. **我自己上一轮写的门禁断言反了**：那时计价项还没接，我写的是「去字幕不该出现」。
+   已翻转成「**应该**出现；若这条又红，说明有人把计价键改回了查不到的名字」。
+
+### ⑤ 上一轮那次**回滚**（记下来，别当没发生过）
+
+第一版接了 ①②③ 但没写完 `runVideoDesubtitle` ⇒ 点「开始擦除」会 ReferenceError **整页白屏**。
+轮次不够写那个**碰钱**的提交，所以 `git checkout --` 撤掉整批。
+**宁可不做，也不发一个"点了会崩"的版本进画布** —— 派生卡片那次发"看着改好了其实没改好"
+只是 UI，这次会白屏，性质更重。
+
+### ⑥ ⚠️ 这一批只做到**代码级**验证，没真机点过
+
+门禁 + 全量 4661 条 0 失败 + 服务器侧验产物，但**框选这条路没有真人手点过**。
+若用户反馈字幕区域有偏移，第一嫌疑是 canvas 的 `viewport.scale` 在 portal 定位层
+还残留了一点影响（`VideoRegionPicker` 自己的算法是量过 `offsetWidth` 的，但**外层容器**
+的定位没有参与过实测）。

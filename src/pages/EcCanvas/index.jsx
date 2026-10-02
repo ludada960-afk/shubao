@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
   Upload, Type, Video, Wand2, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
@@ -19,6 +20,8 @@ import {
   readableInitialViewport,
   removeConnectionsForNodes,
   selectNodesInRect,
+  canvasNodesInViewport,
+  canvasViewportWorldRect,
   zoomAroundCursor,
   zoomPreviewByWheel,
 } from './canvasState';
@@ -36,6 +39,8 @@ import { CanvasPortHandle, CanvasWorkflowNode } from './components/workflowNodes
 import { CanvasBottomToolbar, CanvasLayersPanel, CanvasLeftRail, CanvasTopBar, CanvasZoomControls } from './components/CanvasChrome.jsx';
 import WatermarkPanel from './components/WatermarkPanel.jsx';
 import { DEFAULT_IMAGE_WATERMARK, DEFAULT_VIDEO_WATERMARK, normalizeWatermark } from './canvasWatermarkModel.js';
+/* 2026-10-02：上传前本地探真实尺寸 —— 建框要用它，别等服务器传完才拿到。 */
+import { probeLocalMediaSizes } from './canvasUploadPrepare.js';
 import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegistry.js';
 import {
   CanvasAddMenu,
@@ -107,7 +112,9 @@ import { markStaleDownstream } from './canvasGraphEngine.js';
 import { buildRunPlan, buildTransitiveDownstream, createGraphRunner, createTerminalAwaiter } from './canvasGraphRunController.js';
 /* P2 工作流模板一键铺开: 模板 API (铺开/点赞) + 连线@引用合一的纯函数（无入边节点回退旧并集, 与 P0 无图契约逐字节一致）*/
 import { collectRunInputs, instantiateWorkflowTemplate, legacyComposerSourceIds, markP3PendingNodes, mergeGraphMentionSources } from './workflowTemplates.js';
-import { useCanvasVisibleViewport } from './canvasVisibleViewport.js';
+import { useCanvasVisibleViewport, useCanvasStageRect } from './canvasVisibleViewport.js';
+/* 批 CY-㊴ 之十八：每个节点一套稳定回调 —— 这是让节点组件 React.memo 真正生效的前提 */
+import { createPrunableNodeHandlerCache, pruneNodeHandlerCache } from './canvasNodeHandlers.js';
 import { migrateMentionsToEdges } from './mentionEdgeMigration.js';
 import WorkflowTemplateGallery from './WorkflowTemplateGallery.jsx';
 /* P0.5 分组"运行整链"：能安全映射到既有单节点执行器的 kind（文本/视频/音频 走 P1，这里先跳过） */
@@ -141,6 +148,8 @@ import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy 
 import { quoteBillingAction } from '../../services/billing.js';
 import { analyzeVideoPlan, createVideoJob, fetchVideoCapabilities, getVideoJob, uploadVideoAsset } from '../../services/video.js';
 import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js';
+/* 2026-10-02：视频「智能去字幕」的框选控件 —— 复用 VideoStudio 那一页**同一个**组件，算法一行没改。 */
+import VideoRegionPicker from '../../components/media/VideoRegionPicker.jsx';
 import { resolveVideoApiMode, hasRequiredVideoInputs, snapVideoDuration } from '../VideoStudio/videoStudioModel.js';
 import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
 import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
@@ -479,6 +488,9 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [hovered, setHovered] = useState(false);
+  /* 2026-10-01：抽成具名变量，下面要判"有没有图"（草稿可能没存下这张图）。
+     原来是内联的 `node.localPreviewUrl || node.url`，在 JSX 里散着用了好几处。 */
+  const imageSrc = node.localPreviewUrl || node.url || '';
 
   return (
     <div
@@ -513,7 +525,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid var(--sb-brand-600)', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
       <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--sb-brand-600)', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
       <div style={{ position: 'relative', width: '100%', borderRadius: '8px 8px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
-        {!loaded && !error && <SkeletonCard w={node.w} h={node.h} />}
+        {!loaded && !error && imageSrc && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
           <div style={{ width: '100%', height: node.h, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fef2f2' }}>
             <div style={{ fontSize: 24, opacity: 0.45 }}>!</div>
@@ -530,7 +542,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
         )}
         <ResponsiveImage
           key={retryKey}
-          src={node.localPreviewUrl || node.url}
+          src={imageSrc}
           alt={node.label}
           variant="canvas"
           sizes={`${Math.ceil(node.w)}px`}
@@ -615,6 +627,13 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds }) {
     </svg>
   );
 }
+
+/* ═══ 2026-10-01 性能：这三类指针状态下**不做**快照/持久化 ═══════════════════════
+   拖动、缩放、抠图这三类操作会按帧产生大量中间态；每一次中间态都去算一遍
+   createCanvasSnapshot（12 个图片节点实测 59ms 同步占用）等于把主线程点着。
+   用一个常量表达这个集合，别再散落成三处字面量 —— 加一种模式时容易漏改。 */
+const TRANSIENT_POINTER_KINDS = new Set(['drag', 'resize', 'layer-extract']);
+const isTransientPointer = kind => TRANSIENT_POINTER_KINDS.has(kind);
 
 function ConnectionDraftLine({ draft, nodes }) {
   const pointer = draft?.pointer || draft?.world;
@@ -772,12 +791,22 @@ export default function EcCanvas() {
   /* 9-11 用户批注: 视频模型与首页同源 —— 拉 /api/video/capabilities (与 VideoStudio 同一 API),
      首页上新模型, 画布视频生成器同步出现; 拉取失败回落内置两档 (不阻塞画布)。 */
   const [videoProducts, setVideoProducts] = useState([]);
+  /* 2026-10-02：去字幕走**本机产品**（`capabilities.localProducts`）——与上面的
+     `videoProducts`（上游模型 `data.products`）**不是一份东西**。VideoStudio 也是分开取的。
+     没有它就没有 productId，也就没有报价、没法建单。 */
+  const [videoLocalProducts, setVideoLocalProducts] = useState([]);
+  /* 正在框选字幕区域的目标视频节点（null = 未进入框选）。**必须 portal 出画布渲染**。 */
+  const [subtitlePickNodeId, setSubtitlePickNodeId] = useState(null);
   useEffect(() => {
     let cancelled = false;
     fetchVideoCapabilities().then(data => {
       if (cancelled) return;
       const products = Array.isArray(data?.products) ? data.products.filter(product => product?.public !== false) : [];
       if (products.length) setVideoProducts(products);
+      const localProducts = Array.isArray(data?.localProducts)
+        ? data.localProducts.filter(product => product?.public !== false)
+        : [];
+      if (localProducts.length) setVideoLocalProducts(localProducts);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -899,7 +928,7 @@ export default function EcCanvas() {
   const [projectAssetUploadBusy, setProjectAssetUploadBusy] = useState(false);
   const projectAssetUploadRef = useRef(null);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
-const [minimapOpen, setMinimapOpen] = useState(true);
+const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-08 素材水印系统（用户批注重构）: 单面板 + 素材类型切换 + 拖拽定位 + 实时预览 */
   const [imageWatermark, setImageWatermark] = useState(DEFAULT_IMAGE_WATERMARK);
   const [videoWatermark, setVideoWatermark] = useState(DEFAULT_VIDEO_WATERMARK);
@@ -1009,6 +1038,42 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const selectedKind = nodes.find(node => node.id === selected)?.kind;
     setWatermarkMaterial(WATERMARK_VIDEO_KINDS.includes(selectedKind) ? 'video' : 'image');
   }, [nodes, selected, watermarkPanelOpen, dismissAllCanvasSurfacesExcept]);
+  /* ═══ 2026-10-02 用户批注：「我这里点击了你左下角的这个功能栏的三个不同的按钮。为什么他们都能
+     同时触发呀？他们同时都触发并且存在在一起的话，那岂不就互相的堆叠，互相的遮挡了吗？
+     **按理说我点击其中某一个的话，另外一个就应该关掉呀**」
+
+     病根不是"忘了关"，是**三颗按钮里只有一颗走了互斥**：水印那顆调了
+     `dismissAllCanvasSurfacesExcept('watermarkPanelOpen')`（批 CY-⑭ 加的），
+     而「图层」与「小地图」只是 `setX(!x)` —— 于是它们能同时开着，
+     三块面板又都停靠在左下角这一带（批 CY-㊴ 之十三/十四刚把图层也搬到这里），
+     于是**互相压在一起**。
+
+     ⇒ 两个 handler 都改成与水印**同一条**路径：先判开合 → 关掉其它浮层 → 再开自己。
+
+     ⚠️ **小地图不在 `canvasSurfaceDismiss` 登记册里**（它是常驻 HUD，不是"临时浮层"，
+        而且点空白不该把它收掉）。所以关它只能**显式** `setMinimapOpen(false)` ——
+        这正是上面水印那条 handler 已经在用的写法（`dismissAllCanvasSurfacesExcept` 之后
+        还跟了一句 `setMinimapOpen(false)`）。
+        ⚠️ **不要**为了"看起来统一"就把 minimapOpen 塞进登记册并标 `blank: true`：
+           那会让「点画布空白」顺手把用户的地图也关了，是没人要求的行为变更。
+        同理，开小地图时走 `dismissCanvasSurfaces('blank')`（全关）而不是 Except ——
+        因为它自己没有登记 key，没法"排除自己"。
+
+     ⚠️ 不要在 setState 的 updater 里调别的 setter（渲染期重算 ⇒ 副作用执行多次），
+        与上面水印那条同一个坑。 */
+  const handleToggleLayersPanel = useCallback(() => {
+    if (layersPanelOpen) { setLayersPanelOpen(false); return; }
+    dismissAllCanvasSurfacesExcept('layersPanelOpen');
+    setMinimapOpen(false);
+    setLayersPanelOpen(true);
+  }, [layersPanelOpen, dismissAllCanvasSurfacesExcept]);
+
+  const handleToggleMinimap = useCallback(() => {
+    if (minimapOpen) { setMinimapOpen(false); return; }
+    dismissCanvasSurfaces('blank');
+    setMinimapOpen(true);
+  }, [minimapOpen, dismissCanvasSurfaces]);
+
   /* 用户 9-05 反馈: 小地图必须展示"我们处于大画布的哪个部分" —
      固定一个大世界窗口 (以世界原点为中心 ±4200x±3000), 节点与当前视口框
      都映射进去, 当前位置一目了然; 不再随内容收缩导致视口框占满整张地图。 */
@@ -1050,6 +1115,17 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const [canvasLibraryOpen, setCanvasLibraryOpen] = useState(false);
   const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
+  /* ═══ 批 CY-㊴ 之十七：容器尺寸/rect 改到**提交后**测量（批 CY-㉙ 的同一套约束）══════
+     为什么必须放在这里（containerRef 之后、任何消费者之前）：
+       ① 视口裁剪要用 `canvasVisibleViewportSize` 算世界坐标矩形；
+       ② 工具栏的 bounds 要用 `canvasStageRect`；
+       ③ 原来这两处都是在 render 期间 `containerRef.current?.getBoundingClientRect()`，
+          那是**强制同步重排**。实测浪费（每次渲染）：
+             200 节点 10.7ms ｜ 500 节点 30.7ms ｜ 1000 节点 67.9ms ｜ 2000 节点 133.9ms
+          而且读到的还是**上一次提交**的布局。
+     两个 hook 都返回"尺寸不变则引用不变"的对象，配合 React.memo 才真能跳过渲染。 */
+  const canvasVisibleViewportSize = useCanvasVisibleViewport(containerRef);
+  const canvasStageRect = useCanvasStageRect(containerRef);
   const previewDialogRef = useRef(null);
   const canvasSaveKeyRef = useRef(null);
   const touchPointsRef = useRef(new Map());
@@ -1063,6 +1139,9 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   /* 9-12 用户批注：带设计方案进来后应**自动生成方案**（不用再点一次）；这里记下待自动生成的方案节点 id */
   const autoPlanNodeRef = useRef('');
   const segmentationAbortRef = useRef(new Map());
+  /* 2026-10-01 性能：抠图预热的 AbortController（由"首次悬停到图上"触发，
+     不再是挂载即自动下 18MB —— 详见下面那个 effect 的注释）。 */
+  const segmentationPrewarmAbortRef = useRef(null);
   const workflowProcessRef = useRef(null);
   const workflowGenerateRef = useRef(null);
   const graphRunAbortRef = useRef(null);
@@ -1072,6 +1151,8 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const mediaReplaceTargetRef = useRef(null);
   /* 4c183cd4 续命 画布总监督 2026-08-30 - 音频上传 ref + 撤销/重做 history */
   const audioUploadRef = useRef(null);
+  /* 2026-10-02：底部工具栏那颗「上传素材」用的**统一**文件选择器（三类都收）。 */
+  const materialUploadRef = useRef(null);
   const historyRef = useRef(null);
   if (!historyRef.current) historyRef.current = createCanvasHistory();
   const objectClipboardRef = useRef(null);
@@ -1146,44 +1227,125 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const resultVideoUrl = String(result.video_url || result.videoUrl || result.video?.url || result._videoResult?.url || '').trim();
   const resultMediaAssets = collectCanvasMediaAssets(result);
   const hasCurrent = imageList.length > 0 || Boolean(resultVideoUrl) || resultMediaAssets.length > 0;
-  const visibleNodes = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
+  /* ═══ 批 CY-㊴ 之十七：视口裁剪 ═══════════════════════════════════════════════
+     原来 `visibleNodes` 只是**按 group 过滤**（不是按可见性）—— 名字骗人，
+     屏外的节点 DOM 一样全量渲染、全量重渲染。世界是 6400×4800，节点一多就吃不消。
+
+     现在再叠一层"是否与可视矩形相交"。三件事必须同时成立才不会出事：
+       ① overscan 外扩 25%（见 canvasState.js）—— 否则节点在边缘会突然出现/消失；
+       ② 隐藏节点不渲染（原来是用 visibility:hidden 照样占着 DOM）；
+       ③ **当前正在用的节点全部钉住** —— 文字编辑是靠 querySelector 找节点的，
+          裁掉了就"点进去编辑光标不出现"。钉住的是：
+            选中 / 多选 / 悬停 / 正在编辑文字 / 聚焦编辑器 / 连线草稿与连线选择器
+     这几个加起来最多十几个，渲染开销可忽略，却让裁剪**没有任何例外**。 */
+  const pinnedNodeIds = useMemo(() => {
+    const ids = new Set();
+    if (selected) ids.add(selected);
+    if (multiSelected) for (const id of multiSelected) ids.add(id);
+    if (hoveredNodeId) ids.add(hoveredNodeId);
+    if (editingTextNodeId) ids.add(editingTextNodeId);
+    if (focusedEditor?.nodeId) ids.add(focusedEditor.nodeId);
+    if (connectionDraft?.sourceNodeId) ids.add(connectionDraft.sourceNodeId);
+    if (connectionDraft?.from) ids.add(connectionDraft.from);
+    if (connectionPicker?.sourceNodeId) ids.add(connectionPicker.sourceNodeId);
+    return ids;
+  }, [selected, multiSelected, hoveredNodeId, editingTextNodeId, focusedEditor, connectionDraft, connectionPicker]);
+  const cullWorldRect = useMemo(
+    () => canvasViewportWorldRect(viewport, canvasVisibleViewportSize),
+    [viewport.x, viewport.y, viewport.scale, canvasVisibleViewportSize.width, canvasVisibleViewportSize.height],
+  );
+  const visibleNodes = useMemo(() => {
+    const grouped = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
+    return canvasNodesInViewport(grouped, cullWorldRect, pinnedNodeIds);
+  }, [nodes, activeFilter, cullWorldRect, pinnedNodeIds]);
   /* 9-08 事故修复: 水印改动误删了 selectedNode 定义, 但下方 20+ 处仍在引用它 → 渲染期 ReferenceError 整页白屏 ("画布打不开") */
   const selectedNode = selected ? nodes.find(node => node.id === selected) : null;
+
+  /* ═══ 2026-10-01 性能③：把渲染循环里的 O(n²) 查表变成 O(1) ═════════════════════
+     用户原话：「整个网站各个地方进行操作，都会有所延迟」。
+
+     下面那个回收器 effect（以及渲染循环里的两处）原来都在**每次 nodes 变化**时
+     全表扫描：\`nodes.some(node => node.id === selected)\`、\`nodes.find(source => …)\`、
+     \`nodes.filter(child => child.parentLayerGroupId === node.id)\`。
+     尤其后面两处是**写在 \`visibleNodes.map\` 里面**的 ⇒ 每帧 O(n²)。
+
+     实测（Node，同一份代码）：
+        节点数   nodes.find    nodes.filter   合计
+           50     0.012ms       0.027ms      0.033ms
+          500     0.808ms       1.229ms      2.20ms
+         2000     8.174ms      10.470ms     25.77ms
+         5000        —         55.348ms     78.66ms
+
+     两张表建一次、复用全部：id → node、parentLayerGroupId → 子节点数组。
+
+     ⚠️ \`nodeById\` 刻意**先到先得**（已有 id 不覆盖），和 \`nodes.find()\` 的
+     "返回第一个匹配" 完全一致。若图上真出现重复 id（正常不该有），
+     \`new Map(nodes.map(…))\` 会变成"最后一个赢"，行为就变了。
+     等价性由 test/canvas-node-lookup-1001.test.mjs 守住（含重复 id 的用例）。 */
+  const nodeById = useMemo(() => {
+    const map = new Map();
+    for (const node of nodes) {
+      if (node?.id && !map.has(node.id)) map.set(node.id, node);
+    }
+    return map;
+  }, [nodes]);
+  const layerChildrenByParent = useMemo(() => {
+    const map = new Map();
+    for (const node of nodes) {
+      const parent = node?.parentLayerGroupId;
+      if (!parent) continue;
+      const bucket = map.get(parent);
+      if (bucket) bucket.push(node);
+      else map.set(parent, [node]);
+    }
+    return map;
+  }, [nodes]);
+  /* 稳定的空数组常量：给"没有子节点"用，避免每次渲染新建 [] 让 memo 的子组件全部失效 */
+  const noLayerChildren = useMemo(() => Object.freeze([]), []);
+  /* 同理：没有多选时不每次新建 Set */
+  const EMPTY_GROUP_IDS = useMemo(() => new Set(), []);
 
   /* 选中回收器 (用户 9-10 反馈: 节点删掉后功能栏还在): 任何让选中 id 脱离 nodes 的路径
      (删除/隐藏/整张画布被替换/恢复会话/模板铺开/换作品) 都在这里立即回收选中态,
      使工具栏与右面板永远不可能比节点活得久。返回同引用即无变化, 不触发额外渲染。
      9-11 扩展 (用户反馈: 中央弹窗上传后删节点, 右侧派生菜单仍在): 所有以节点为锚点的
      浮层态 (派生菜单/连线草稿/聚焦编辑器/文字检查器/水印预览) 一并在此回收——
-     它们的源节点一旦不在 nodes 里, 浮层立即关闭, 面板永远不可能比节点活得久。 */
+     它们的源节点一旦不在 nodes 里, 浮层立即关闭, 面板永远不可能比节点活得久。
+
+     2026-10-01 性能：这里是**每次 nodes 变化都全表扫 7 次**（selected、multiSelected
+     每个 id、connectionPicker、connectionDraft、focusedEditor、textInspector、
+     watermarkPreview）⇒ 拖一个节点就是 7×n 次比较。改成查上面那张 `nodeById`：
+     7 次 O(n) 扫描 → 1 次 O(1) 表查询。
+     `!nodeById.has(id)` 与 `!nodes.some(node => node.id === id)` 完全等价
+     （都没有 id ⇒ has 为 false）。 */
   useEffect(() => {
-    if (selected && !nodes.some(node => node.id === selected)) setSelected(null);
+    if (selected && !nodeById.has(selected)) setSelected(null);
     setMultiSelected(previous => {
       if (!previous.size) return previous;
-      const next = new Set([...previous].filter(id => nodes.some(node => node.id === id)));
+      const next = new Set([...previous].filter(id => nodeById.has(id)));
       return next.size === previous.size ? previous : next;
     });
     setConnectionPicker(previous => (
-      previous?.sourceNodeId && !nodes.some(node => node.id === previous.sourceNodeId)
+      previous?.sourceNodeId && !nodeById.has(previous.sourceNodeId)
       ? null : previous
     ));
     setConnectionDraft(previous => {
       const source = previous?.sourceNodeId || previous?.from;
-      return (source && !nodes.some(node => node.id === source)) ? null : previous;
+      return (source && !nodeById.has(source)) ? null : previous;
     });
     setFocusedEditor(previous => (
-      previous?.nodeId && !nodes.some(node => node.id === previous.nodeId)
+      previous?.nodeId && !nodeById.has(previous.nodeId)
       ? null : previous
     ));
     setTextInspectorNodeId(previous => (
-      previous && !nodes.some(node => node.id === previous)
+      previous && !nodeById.has(previous)
       ? null : previous
     ));
     setWatermarkPreview(previous => {
       if (!previous?.nodeId) return previous;
-      return nodes.some(node => node.id === previous.nodeId) ? previous : null;
+      return nodeById.has(previous.nodeId) ? previous : null;
     });
-  }, [nodes, selected]);
+  }, [nodeById, nodes, selected]);
   /* 9-11 用户批注: 铺开 offer 常驻顶部不行 → 并入底部提示, 8s 自动关闭 */
   useEffect(() => {
     if (!workflowRunOffer) return undefined;
@@ -1250,6 +1412,18 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     dispatchExportDelivery({ type: 'reset', config: { mode: exportMode, format: exportFormat } });
   }, [exportOpen]);
   const multiSelectionBounds = selectedCanvasBounds(nodes, multiSelected);
+  /* 2026-10-01 性能③：组框高亮原来在 `canvasGroupFrames(nodes).map(...)` 里写
+     `nodes.some(node => multiSelected.has(node.id) && node.groupId === frame.groupId)`
+     ⇒ 每帧 O(组数 × 节点数)。先算一次"被选中的节点属于哪些组"，之后每帧只查 Set。 */
+  const selectedGroupIds = useMemo(() => {
+    if (!multiSelected.size) return EMPTY_GROUP_IDS;
+    const ids = new Set();
+    for (const id of multiSelected) {
+      const groupId = nodeById.get(id)?.groupId;
+      if (groupId) ids.add(groupId);
+    }
+    return ids;
+  }, [multiSelected, nodeById]);
   const focusedEditorNode = focusedEditor ? nodes.find(node => node.id === focusedEditor.nodeId) : null;
   const textInspectorNode = textInspectorNodeId ? nodes.find(node => node.id === textInspectorNodeId) : null;
   const connectionNodes = nodes;
@@ -1275,8 +1449,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
        `test/canvas-port-geometry` 与 `test/ec-canvas-state` 各有一条断言，禁止画布页
      订阅容器尺寸（守的是「端口/连线几何不许来自 DOM 实测」）。
        把测量留在画布页会被它们判成回归 —— 与其改别人的判据，不如让画布页
-       **一处 DOM 实测都没有**，两条门禁的意图同时被满足。 */
-  const canvasVisibleViewportSize = useCanvasVisibleViewport(containerRef);
+       **一处 DOM 实测都没有**，两条门禁的意图同时被满足。
+     ⚠️ 批 CY-㊴ 之十七：这两个 hook 的**声明已上移到 containerRef 之后**（约 :1069），
+        因为视口裁剪要在本行之前用到 `canvasVisibleViewportSize`。 */
+  /* （canvasVisibleViewportSize / canvasStageRect 声明见上方 containerRef 之后） */
   /* ═══ 批 CY-㉙：@ 菜单**不得列出整张画布的图** ════════════════════════════════════════════
      用户 2026-09-30 逐字（电商套图那张）：
        「然后你这里为什么@ 按钮是能生效的呢……他现在能够艾特到一个完全跟当前节点不相关的
@@ -1330,7 +1506,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     node: selectedNode,
     selectedId: selected,
     selectedCount: multiSelected.size,
-    viewportBounds: containerRef.current?.getBoundingClientRect(),
+    viewportBounds: canvasStageRect,
     viewport,
     avoidNodes: nodes,
     height: selectedNode?.kind === 'suite-composer' ? 420 : selectedNode?.kind === 'image-composer' ? 320 : selectedNode?.kind === 'video-composer' ? 330 : 300,
@@ -1364,12 +1540,13 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   };
 
   /** 造一个给 uploadVideoAsset 用的 callbacks：把字节进度写进 uploadProgress */
-  const makeUploadReporter = useCallback((name, index = 0, total = 1) => ({
+  const makeUploadReporter = useCallback((name, index = 0, total = 1, nodeId = '') => ({
     onState(state) {
       if (state === 'completed' || state === 'error' || state === 'cancelled') setUploadProgress(null);
     },
     onProgress({ bytesUploaded = 0, bytesTotal = 0 } = {}) {
       const percent = bytesTotal > 0 ? Math.min(100, (bytesUploaded / bytesTotal) * 100) : 0;
+      const percentText = percent >= 99.95 ? '99.9' : percent.toFixed(1);
       setUploadProgress({
         name: name || '素材',
         index,
@@ -1377,9 +1554,15 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         bytesUploaded,
         bytesTotal,
         percent,
-        /* 一位小数：慢网下 1% 可能要好几秒，取整看起来就是"卡住了" */
-        percentText: percent >= 99.95 ? '99.9' : percent.toFixed(1),
+        percentText,
       });
+      /* ⚠️ 2026-10-02：进度**同时**写回那个占位节点（用户：「他上传的进度是在整个素材里面的」）。
+         只有传 nodeId 的调用点会走到这里；没占位节点的入口（比如「替换素材」那条）
+         仍然只看底部横条 —— 两边不冲突，因为横条是 `uploadProgress`，这里是节点自己的字段。 */
+      if (!nodeId) return;
+      setNodes(previous => previous.map(node => (
+        node.id === nodeId ? { ...node, uploadPercent: percent, uploadPercentText: percentText } : node
+      )));
     },
   }), []);
 
@@ -2021,14 +2204,30 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   }, [result.id, result._saveKey, state.creationLaunch]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || !canvasSaveKeyRef.current || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
-    const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
-    const timer = setTimeout(() => saveCanvasDraft(canvasSaveKeyRef.current, snapshot), 350);
+    if (!draftReadyRef.current || !canvasSaveKeyRef.current || TRANSIENT_POINTER_KINDS.has(pointerMode?.kind)) return undefined;
+    /* ═══ 2026-10-01 性能：把 createCanvasSnapshot 移进 setTimeout ═════════════════
+       原来长这样（用户原话：「我在水印面板进行操作，都要延迟一会才会生效」）：
+           const snapshot = createCanvasSnapshot({...});   ← 同步跑在 effect 主体里
+           const timer = setTimeout(() => saveCanvasDraft(key, snapshot), 350);
+       那个 350ms **只推迟了写 localStorage，推迟不了已经跑完的那次快照**。
+       实测（用仓库里真实的 createCanvasSnapshot 跑的，见 RTK 性能批）：
+         12 个图片节点 → 中位 59 ms 同步占用；20 个 → 102 ms。
+       浏览器一帧只有 16.7ms ⇒ 光这一行，单次交互就掉 3~6 帧。
+
+       守卫只挡了 ['drag','resize','layer-extract']，于是**平移、框选、滚轮缩放、
+       改水印全部照跑**；滚轮缩放还是 rAF 节流的（每秒最多 60 次），足以把主线程打满。
+
+       现在快照在 setTimeout 里面算 ⇒ 防抖终于防抖了：连续操作只在停下 350ms 后
+       算一次，中间那些中间态一次都不算。 */
+    const timer = setTimeout(() => {
+      const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
+      saveCanvasDraft(canvasSaveKeyRef.current, snapshot);
+    }, 350);
     return () => clearTimeout(timer);
   }, [connections, nodes, pendingProjectAssetImports, pointerMode?.kind, viewport]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || result.browserQa || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
+    if (!draftReadyRef.current || result.browserQa || isTransientPointer(pointerMode?.kind)) return undefined;
     const fingerprint = canvasWorkOutputFingerprint(nodes);
     if (!fingerprint || fingerprint === workOutputFingerprintRef.current) return undefined;
     const baseImages = canvasOutputImages(result);
@@ -2067,15 +2266,22 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   }, [canvasSession]);
 
   useEffect(() => {
-    if (!draftReadyRef.current || canvasSessionBusy || ['drag', 'resize', 'layer-extract'].includes(pointerMode?.kind)) return undefined;
+    if (!draftReadyRef.current || canvasSessionBusy || isTransientPointer(pointerMode?.kind)) return undefined;
     const projectId = result.projectId;
     const baseVersionId = result.resultVersionId || result.sourceVersionId;
     if (!projectId || !baseVersionId) return undefined;
-    const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
-    const fingerprint = JSON.stringify(snapshot);
-    if (fingerprint === remoteSnapshotRef.current) return undefined;
+    /* ═══ 2026-10-01 性能：这里原来是全画布**最贵**的一处 ════════════════════════
+       原来：createCanvasSnapshot（深拷贝）+ JSON.stringify（再整棵树序列化一遍）
+       都**同步跑在 effect 主体里**，1200ms 的防抖只推迟了网络请求，推迟不了它们。
+       实测 12 个图片节点：clone+stringify 中位 59ms，这里还要再 string 一次 ⇒ ~120ms，
+       而这 120ms 是**每一次** nodes/viewport 变动都要付的（改水印、平移、缩放…）。
 
+       现在两件事都挪进 setTimeout：防抖窗口内无论触发多少次，中间态一次都不算，
+       只在真正安静下来之后算一次。语义不变（还是把最新状态存下去）。 */
     remoteSaveTimerRef.current = setTimeout(async () => {
+      const snapshot = createCanvasSnapshot({ nodes, connections, viewport, pendingProjectAssetImports });
+      const fingerprint = JSON.stringify(snapshot);
+      if (fingerprint === remoteSnapshotRef.current) return;
       const persistenceGeneration = canvasPersistenceGenerationRef.current;
       setCanvasSessionBusy(true);
       try {
@@ -2115,25 +2321,44 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     cleanupLegacyCanvasStorage(localStorage);
   }, []);
 
+  /* ═══ 2026-10-01 性能：抠图模型**不许**再自动下载 ═══════════════════════════════
+     原来这里在**挂载后约 1.8 秒**就无条件预热：
+         requestIdleCallback(prewarm, { timeout: 1800 })
+     而 prewarm 会：new Worker → worker 里 import onnxruntime-web/wasm →
+     拉 ort-wasm-simd-threaded-*.wasm（**13,479,978 字节**）→ 再拉
+     /models/u2netp-v1.onnx（4,574,861 字节）→ 对 4.5MB 算 SHA-256 →
+     InferenceSession.create。
+     实测（Chromium，14 秒窗口）：画布一进去就传输了 **16,325 KB，其中 13,164 KB
+     是那个 wasm**；算上 onnx 合计约 18MB。**而绝大多数人根本不会用抠图** ——
+     为一个可能一辈子不点的功能，先赔上 18MB 和一段主线程哈希时间。
+
+     改法：预热改由**真实意图**触发 —— 用户第一次把指针放到一张图上
+     （hoveredNodeId 非空）。这是"他正在看图、接下来可能要抠"的最好信号。
+     而真正点「抠图」的那条路径（handleCanvasSegmentation 里 :3158）**本来就会
+     自己调 prewarm**，所以第一次点击的等待时间不变，只是绝大多数人不用再付这 18MB。
+     saveData 的用户依旧完全不下。 */
+  const hoverIntentRef = useRef(false);
   useEffect(() => {
+    if (!hoveredNodeId || hoverIntentRef.current) return undefined;
+    hoverIntentRef.current = true;
     if (result.browserQa || globalThis.navigator?.connection?.saveData) return undefined;
     const controller = new AbortController();
-    const prewarm = () => {
-      void canvasSegmentationRuntime.prewarm({ signal: controller.signal }).catch(() => {});
-    };
-    const idleId = typeof globalThis.requestIdleCallback === 'function'
-      ? globalThis.requestIdleCallback(prewarm, { timeout: 1800 })
-      : globalThis.setTimeout(prewarm, 900);
-    return () => {
-      controller.abort();
-      if (typeof globalThis.cancelIdleCallback === 'function') globalThis.cancelIdleCallback(idleId);
-      else globalThis.clearTimeout(idleId);
-    };
-  }, [result.id, result.browserQa]);
+    segmentationPrewarmAbortRef.current = controller;
+    void canvasSegmentationRuntime.prewarm({ signal: controller.signal }).catch(() => {});
+    /* ⚠️ 这里**故意不 return cleanup**。指针移开时 hoveredNodeId 变 null，
+       依赖变化会跑 cleanup —— 一旦在这里 abort，预热就被打断，而
+       hoverIntentRef 已经是 true，不会再触发第二次 ⇒ 抠图永远冷启动。
+       真正的中止交给下面那个「卸载画布时」的 effect，它只跑一次。 */
+    return undefined;
+  }, [hoveredNodeId, result.browserQa]);
 
   useEffect(() => () => {
     for (const controller of segmentationAbortRef.current.values()) controller.abort();
     segmentationAbortRef.current.clear();
+    /* 2026-10-01：预热也是一条会发 18MB 请求的线，离开画布就得停，
+       否则用户开一次画布就走，白下 18MB。 */
+    segmentationPrewarmAbortRef.current?.abort();
+    segmentationPrewarmAbortRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -2660,7 +2885,19 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         dy,
         preserveAspect: pointerMode.preserveAspect,
       });
-      setNodes(previous => previous.map(node => node.id === pointerMode.nodeId ? resized : node));
+      /* ⚠️ 2026-10-02 用户批注：「我刚刚只是随便拉动了一下这个视频区块。他现在已经没有办法进行
+         任何操作了，我连删除都删除不了他，而且他连上面的那个功能栏现在也出不来了。」
+      
+         病根：视频的 <video onLoadedMetadata> 是在**用户拖完之后**才触发的，而
+         handleMediaNaturalSize 无条件改写 node.h —— 节点在手底下弹回去，观感就是「拽不动、然后卡死」。
+         全仓原先**没有**任何「用户已手动缩放」的标记（userSized/manualResize 全 0 命中）。
+      
+         ⇒ 在**这里**（结果落到节点的那一行）打标记，而不是塞进 resizeCanvasNodeByHandle：
+            那个函数是纯几何、门禁钉了它的确定性返回值，塞业务字段会破坏契约（三条门禁实测因此变红）。
+            语义只是记一个事实——「用户已自己定过尺寸」，后续自动校正读��要给路。 */
+      setNodes(previous => previous.map(node => node.id === pointerMode.nodeId
+        ? { ...resized, userSized: true }
+        : node));
       return;
     }
     if (pointerMode.kind === 'layer-extract') {
@@ -2985,6 +3222,17 @@ const handlePointerUp = useCallback((e) => {
          （handleTextNodeAutoHeight），拿素材比例去改它们会把用户排好的版面推倒。 */
       if (!MEDIA_FIT_KINDS.has(node.kind)) return node;
       if (node.naturalWidth === measuredWidth && node.naturalHeight === measuredHeight) return node;
+      /* ⚠️ 2026-10-02 用户批注：「我刚刚只是随便拉动了一下这个视频区块。他现在已经没有办法进行
+         任何操作了，我连删除都删除不了他，而且他连上面的那个功能栏现在也出不来了。」
+
+         病根就在下面那行 h：视频的 <video onLoadedMetadata> 是在**用户拖完之后**才触发的，
+         而这里无条件改写 node.h —— 节点在手底下弹回去，观感就是「拽不动、然后卡死」。
+         ⚠️ 全仓原先**没有任何**「用户已手动缩放」的标记（userSized/manualResize 全 0 命中），
+            这条链路上两边一直在互相打架。
+
+         ⇒ 用户自己定过尺寸就让路：**只更新信息**（真实比例 / 真实像素 / 规格串），
+            不动他拉出来的 h。比例信息照样更新 —— 后续按比例裁切要用它。 */
+      const userSized = node.userSized === true;
       const width = Math.max(1, Number(node.w) || 240);
       /* 批 CY-⑲：`node.h` 是**图片本体**的高度（`.ec-canvas-media-frame`），
          footer 在它下面另外渲染。所以这里算出来的 height 必须夹上限 ——
@@ -3886,6 +4134,48 @@ const handlePointerUp = useCallback((e) => {
     }
   }, [textOcrLoading]);
 
+
+  /* ═══ 2026-10-02 视频「智能去字幕」提交（本机 ffmpeg delogo，零上游成本）══════════════════
+     ⚠️ 记账纪律（VideoStudio/index.jsx:1034-1040 的原话，照抄）：
+       「份数一律由**服务端**定……这里只报『这段片子多少秒』这个**事实**，不报份数、更不报金额：
+        前端不得把『算出来的份数/金额』发给服务端」
+        「只有服务端能把它算成份数（它同时决定建单时冻结多少，两边不一致就是 409「费用确认不一致」）」
+     ⇒ 这里只传「{ sku, seconds }」，金额与份数全用服务端返回的 quote；
+        界面上显示的价也来自同一个 quote —— **不在前端算第二份**。 */
+  const runVideoDesubtitle = useCallback(async (targetNode) => {
+    if (!targetNode?.url) { showToast('这条视频还没有可用的地址', 'error'); return; }
+    const regions = Array.isArray(targetNode.subtitleRegions) ? targetNode.subtitleRegions : [];
+    if (!regions.length) { showToast('先在视频上框出要擦除的字幕区域', 'info'); return; }
+    const product = videoLocalProducts.find(item => item.id === 'desubtitle_local');
+    if (!product) { showToast('去字幕方案暂不可用，请稍后再试', 'error'); return; }
+    /* 时长以**元素读到的**为准（上传那一步已经本地探过并写进节点）；拿不到就按 1 秒起算。 */
+    const seconds = Math.max(1, Math.ceil(Number(targetNode.duration) || 0));
+    let quote = null;
+    try { quote = (await quoteBillingAction({ sku: product.sku, seconds })).quote; }
+    catch { showToast('费用确认失败，请稍后再试', 'error'); return; }
+    if (!quote?.quoteId) { showToast('费用确认失败，请稍后再试', 'error'); return; }
+    const sourceId = targetNode.assetId || targetNode.videoAssetId || targetNode.id;
+    try {
+      await createVideoJob({
+        productId: product.id,
+        /* 建单模式取产品声明（本机 = 'local'）——写的一定要是这条产品真正的模式。 */
+        mode: product.modes?.[0] || 'local',
+        duration: seconds,
+        resolution: '',
+        aspectRatio: '',
+        generateAudio: false,
+        billingQuoteId: quote.quoteId,
+        /* delogo 的坐标口径：{type:'delogo', x, y, w, h}，服务端 localVideoPlan.normalizeRegion 会再判一次 */
+        localSpecs: { regions },
+        references: { videos: [sourceId], audios: [], urls: { [sourceId]: targetNode.url } },
+        idempotencyKey: `canvas-desubtitle-${targetNode.id}-${Date.now()}`,
+      });
+      showToast('已提交去字幕，成片会出现在作品里', 'success');
+    } catch (error) {
+      showToast(error?.message || '去字幕提交失败，请重试', 'error');
+    }
+  }, [videoLocalProducts, showToast]);
+
   const handleToolAction = async (action, node) => {
     if (!node) return;
     const actionSpec = getCanvasAction(action?.id || action);
@@ -3932,6 +4222,35 @@ const handlePointerUp = useCallback((e) => {
     }
     if (handler.startsWith('create:')) {
       if (actionSpec) handleCreateDerivedNode(node.id, actionSpec, { x: node.x + node.w + GAP * 2, y: node.y });
+      return;
+    }
+    /* ═══ 2026-10-02 视频专属动作（用户照知渔提的：「视频跟图片生成是不同的逻辑，
+       你应该定制化的为他去开发一些功能」）═══════════════════════════════════════ */
+    if (handler === 'smart-subtitle-erase') {
+      /* ⚠️ 必须 portal 出画布：VideoRegionPicker 内部用 `surface.offsetWidth`（未缩放布局尺寸）
+         配 `rect ÷ 自身放大(1.8)` 换算**源视频像素**（delogo 的坐标口径）。画布 stage 带
+         `transform: scale(viewport.scale)`，内嵌会让 `rect/1.8` 仍差一个 viewport.scale
+         ⇒ **框出来的区域整体偏移**（用户框底部字幕、擦出来落在画面中间）。 */
+      setSubtitlePickNodeId(node.id);
+      return;
+    }
+    if (handler === 'preview-media') {
+      /* 复用画布原有的放大预览灯箱。视频只是把 kind 带上，让灯箱按 <video> 渲染，
+         而不是另起一个弹窗（另起一个 = 两套关闭/缩放逻辑，迟早打架）。 */
+      openImagePreview({ url: node.url, kind: 'video', label: node.name || node.displayLabel || '视频预览' });
+      return;
+    }
+    if (handler === 'export-video') {
+      /* 单条视频下载：走站内现成的导出链路（同源地址，直接 <a download>）。 */
+      const url = String(node.url || '');
+      if (!url) { showToast('这条视频还没有可用的地址', 'error'); return; }
+      const href = url.startsWith('/') ? url : new URL(url, window.location.origin).toString();
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = node.name || node.displayLabel || 'video.mp4';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
       return;
     }
     if (handler === 'add-text') {
@@ -5976,8 +6295,19 @@ const handlePointerUp = useCallback((e) => {
     setPromptLoading(true);
     try {
       const assets = [];
+      /* ⚠️ 2026-10-02：上传前先**本地探一次**真实尺寸（用户：「素材的尺寸要跟你的框是同等适配的……这些你自己要想明白」）。
+         改之前这里什么都不探：节点尺寸只能等服务器上传完才拿得到，于是
+         `createUploadedVideoNodes` 里那个写死的 `width = 320` + 落回 16:9 先把框摆出来，
+         再由 `<video onLoadedMetadata>` 校正一次 —— **用户会看见框跳一下**。
+         本地探是纯 `URL.createObjectURL` + `preload="metadata"`，毫秒级、不走服务器；
+         探不到就返回 null，照常上传（尺寸是锦上添花，传不上去才是硬伤）。 */
+      const probedSizes = await probeLocalMediaSizes(files);
       for (const [index, file] of files.entries()) {
-        assets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))), name: file.name });
+        assets.push({
+          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))),
+          ...(probedSizes[index] || {}),
+          name: file.name,
+        });
       }
       let projectContext = null;
       try {
@@ -6115,6 +6445,37 @@ const handlePointerUp = useCallback((e) => {
     canvasDropActiveRef.current = false;
     setCanvasDropActive(false);
   }, []);
+  /* ═══ 2026-10-02 用户批注：底部那颗按钮要**一个入口收所有素材** ════════════════════════
+     「既然现在下面居中的这个功能栏它只有四个按钮，那它就没有分上传图片，上传视频，上传音频
+       这些不同的功能渠道呀。**我觉得它应该合成成一个单独的上传素材的一个按钮。
+       就是这个按钮，它应该可以上传任意素材上来才对。把我们现在的图片，视频，音频他们的逻辑都传给他。**」
+
+     ⇒ 把「按 MIME 分发到三条既有上传链路」这段从拖拽那条里**提出来共用**，
+        拖拽与那颗新按钮走**同一个**函数 —— 否则两条入口迟早会走岔
+        （这正是批 DC 续-36 记的"两套逻辑互相打架"）。
+        ⚠️ 数量上限沿用拖拽那条原有的口径（图 8 / 视频 4 / 音频 4），不在这里另发明一套。
+
+     ⚠️⚠️ **必须定义在拖拽 handler「之前」**：拖拽那条的依赖数组 `[uploadCanvasMaterials]`
+        是**渲染期**求值的，而 `const` 在自己那行之前处于 TDZ ⇒ 定义在后会整页崩
+        （"Cannot access 'x' before initialization"）。
+        本仓已踩过两次同样的坑（批 续-9 那次是 2906 条测试全绿仍然整页白屏）。 */
+  const uploadCanvasMaterials = useCallback(async (files = []) => {
+    const list = Array.from(files || []).filter(Boolean);
+    if (!list.length) return;
+    const images = list.filter(file => file.type?.startsWith('image/')).slice(0, 8);
+    const videos = list.filter(file => file.type?.startsWith('video/')).slice(0, 4);
+    const audios = list.filter(file => file.type?.startsWith('audio/')).slice(0, 4);
+    if (!images.length && !videos.length && !audios.length) {
+      showToast('只支持上传图片、视频或音频文件', 'info');
+      return;
+    }
+    /* 合成最小假 event 复用既有上传链路（它们只读 event.target.files 与 event.target.value） */
+    const asEvent = batch => ({ target: { files: batch, value: '' } });
+    if (images.length) await handleCanvasSourceUpload(asEvent(images));
+    if (videos.length) await handleCanvasVideoUpload(asEvent(videos));
+    if (audios.length) await handleCanvasAudioUpload(asEvent(audios));
+  }, [handleCanvasAudioUpload, handleCanvasSourceUpload, handleCanvasVideoUpload, showToast]);
+
   const handleCanvasDrop = useCallback(async event => {
     const dropped = [...(event.dataTransfer?.files || [])];
     event.preventDefault();
@@ -6124,19 +6485,8 @@ const handlePointerUp = useCallback((e) => {
     /* 拖进来一律是"新增"，绝不接管"替换素材"那个上下文 ——
        否则用户以为在加素材，实际上把某个节点换掉了。 */
     mediaReplaceTargetRef.current = null;
-    const images = dropped.filter(file => file.type?.startsWith('image/')).slice(0, 8);
-    const videos = dropped.filter(file => file.type?.startsWith('video/')).slice(0, 4);
-    const audios = dropped.filter(file => file.type?.startsWith('audio/')).slice(0, 4);
-    if (!images.length && !videos.length && !audios.length) {
-      showToast('只支持把图片、视频或音频文件拖进画布', 'info');
-      return;
-    }
-    /* 合成最小假 event 复用既有上传链路（它们只读 event.target.files 与 event.target.value） */
-    const asEvent = list => ({ target: { files: list, value: '' } });
-    if (images.length) await handleCanvasSourceUpload(asEvent(images));
-    if (videos.length) await handleCanvasVideoUpload(asEvent(videos));
-    if (audios.length) await handleCanvasAudioUpload(asEvent(audios));
-  }, [handleCanvasAudioUpload, handleCanvasSourceUpload, handleCanvasVideoUpload, showToast]);
+    await uploadCanvasMaterials(dropped);
+  }, [uploadCanvasMaterials]);
 
   const handleComposerSourceUpload = useCallback(async (composerId, files = [], role = 'reference') => {
     const composer = nodes.find(node => node.id === composerId && ['image-composer', 'text-composer', 'suite-composer', 'video-composer'].includes(node.kind));
@@ -6151,15 +6501,90 @@ const handlePointerUp = useCallback((e) => {
       const imageFiles = accepted.filter(file => file.type.startsWith('image/'));
       const videoFiles = accepted.filter(file => file.type.startsWith('video/'));
       const audioFiles = accepted.filter(file => file.type.startsWith('audio/'));
+
+      /* ═══ 2026-10-02 用户批注（照知渔）：「他上传的进度是在整个素材里面的。我觉得他们这种做法
+         可能更合理一些，我们现在是在整个画布的最下方，我觉得可能不太对。」
+
+         **为什么之前进度只能在画布最下方**：节点是**最后**才进画布的 ——
+         上传 → 入库 → 建节点 → `.concat(uploadedNodes)`。进度发生在上传那一步，
+         而那一刻画布上**还没有这个节点**，所以无处可挂，只能做成一块全局横条。
+
+         ⇒ 这里把顺序倒过来：**先本地探尺寸 → 先建占位节点（带本地预览）→ 再上传**，
+            进度实时写回**那个节点**。传完后按 id 就地更新（换持久 url、清进度），
+            不再 concat 新节点 —— 这样 id / 连线 / 选中态全程稳定。
+
+         ⚠️ 占位节点的 id **必须沿用** `createUploadedVideoNodes` 的命名规则
+            （`video_upload_<ts>_<i>` / `audio_upload_<ts>_<i>`），
+            否则最后那一步按 id 对不上，节点会变成两份。
+         ⚠️ blob URL 必须在**成功/失败两条路**上都 revoke，否则长时间上传会漏内存。 */
+      const probedVideoSizes = await probeLocalMediaSizes(videoFiles);
+      const placeholders = [
+        ...videoFiles.map((file, index) => ({ kind: 'video', index, file, probe: probedVideoSizes[index] })),
+        ...audioFiles.map((file, index) => ({ kind: 'audio', index, file, probe: null })),
+      ].map(({ kind, index, file, probe }) => {
+        const blobUrl = URL.createObjectURL(file);
+        const ratio = probe?.width > 0 && probe?.height > 0 ? probe.width / probe.height : 16 / 9;
+        const w = 320;
+        return {
+          kind, index, file, blobUrl,
+          node: {
+            id: `${kind}_upload_${uploadStartedAt}_${index}`,
+            kind,
+            assetId: `${kind}-pending-${uploadStartedAt}-${index}`,
+            provenance: 'source',
+            status: 'uploading',
+            url: blobUrl,
+            name: file.name,
+            displayLabel: file.name,
+            group: kind === 'audio' ? '音频' : '视频',
+            role,
+            aspectRatio: ratio,
+            duration: Number(probe?.duration) || 0,
+            w,
+            h: Math.round(w / ratio),
+            uploadPercent: 0,
+            rotation: 0, flipX: false, flipY: false,
+            locked: false, hidden: false, editable: true, showMeta: true,
+            sourceNodeIds: [], x: 0, y: 0,
+          },
+        };
+      });
+      if (placeholders.length) {
+        /* 位置沿用同一套避让排版（探到的尺寸已经是真的了，排版与最终一致 ⇒ 不会跳） */
+        const pbBounds = containerRef.current?.getBoundingClientRect();
+        const pbPlacements = resolveSourceStackPlacement({
+          anchor: composer,
+          existingSourceNodes: (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(Boolean),
+          existingNodes: nodes.filter(node => node.id !== composerId),
+          entries: placeholders.map(p => ({ w: p.node.w, h: p.node.h })),
+        });
+        placeholders.forEach((p, i) => {
+          p.node.x = pbPlacements[i]?.x ?? p.node.x;
+          p.node.y = pbPlacements[i]?.y ?? p.node.y;
+        });
+        setNodes(previous => previous.concat(placeholders.map(p => p.node)));
+        setConnections(previous => placeholders.reduce(
+          (edges, p) => addConnection(edges, p.node.id, composerId, 'derived'), previous));
+      }
+      const placeholderFor = (kind, index) =>
+        placeholders.find(p => p.kind === kind && p.index === index)?.node.id || '';
+
       const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
       const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
       const videoAssets = [];
       for (const [index, file] of videoFiles.entries()) {
-        videoAssets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length))), name: file.name });
+        videoAssets.push({
+          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length, placeholderFor('video', index)))),
+          ...(probedVideoSizes[index] || {}),
+          name: file.name,
+        });
       }
       const audioAssets = [];
       for (const [index, file] of audioFiles.entries()) {
-        audioAssets.push({ ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length))), name: file.name });
+        audioAssets.push({
+          ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length, placeholderFor('audio', index)))),
+          name: file.name,
+        });
       }
       let projectContext = null;
       if (persistedAssets.length || videoAssets.length || audioAssets.length) {
@@ -6211,6 +6636,14 @@ const handlePointerUp = useCallback((e) => {
         y: placements[index]?.y ?? node.y,
       }));
       const uploadedIds = uploadedNodes.map(node => node.id);
+      /* ⚠️ 2026-10-02：占位节点已经**在画布上**了（上传前就建好了，进度写在它身上）。
+         所以这里不能再无条件 `.concat(uploadedNodes)` —— 那会把每个节点变成两份
+         （一份 uploading 的、一份 ready 的），而且 id 相同 ⇒ React key 撞车、连线也会双份。
+         ⇒ 按 id 就地更新：命中占位节点的换成 ready + 持久 url；没命中的才新增。 */
+      const placeholderIds = new Set(placeholders.map(p => p.node.id));
+      const finalizeNode = node => (placeholderIds.has(node.id)
+        ? { ...node, status: 'ready', uploadPercent: 0, uploadPercentText: '' }
+        : node);
       draftReadyRef.current = true;
       const mediaFields = canvasMediaFields(result, uploadedNodes);
       if (projectContext || Object.keys(mediaFields).length) {
@@ -6223,16 +6656,32 @@ const handlePointerUp = useCallback((e) => {
           },
         });
       }
-      setNodes(previous => previous
-        .map(node => node.id === composerId
-          ? {
-            ...node,
-            sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), ...uploadedIds])],
-            sourceRoles: { ...(node.sourceRoles || {}), ...Object.fromEntries(uploadedIds.map(id => [id, role])) },
-          }
-          : node)
-        .concat(uploadedNodes));
-      setConnections(previous => uploadedIds.reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
+      setNodes(previous => {
+        const byId = new Map(uploadedNodes.map(node => [node.id, node]));
+        return previous
+          .map(node => {
+            if (node.id === composerId) {
+              return {
+                ...node,
+                sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), ...uploadedIds])],
+                sourceRoles: { ...(node.sourceRoles || {}), ...Object.fromEntries(uploadedIds.map(id => [id, role])) },
+              };
+            }
+            /* 就地替换：保持节点在画布上的位置与 id，只换内容与状态 */
+            const fresh = byId.get(node.id);
+            if (!fresh) return node;
+            byId.delete(node.id);
+            return finalizeNode({ ...node, ...fresh, x: fresh.x ?? node.x, y: fresh.y ?? node.y });
+          })
+          /* 剩下没在画布上的（图片那条路径没有占位节点）才新增 */
+          .concat([...byId.values()].map(finalizeNode));
+      });
+      /* blob URL 用完了：占位节点已换成持久 url，本地那份必须回收，
+         否则长时间连续上传会一直漏内存（每个几十 MB）。 */
+      placeholders.forEach(p => { try { URL.revokeObjectURL(p.blobUrl); } catch { /* 已回收 */ } });
+      setConnections(previous => uploadedIds
+        .filter(id => !previous.some(edge => edge.from === id && edge.to === composerId))
+        .reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
       setSelected(composerId);
       setMultiSelected(new Set([composerId]));
       const failedImageIds = new Set(importedImages.failed.map(item => canvasImportSourceId('image', item.asset)));
@@ -6284,6 +6733,75 @@ const handlePointerUp = useCallback((e) => {
       clearUploadProgress();
     }
   }, [canvasMediaFields, clearUploadProgress, dispatch, enqueuePendingProjectAssetImports, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, makeUploadReporter, nodes, result, showToast]);
+
+  /* ═══ 批 CY-㊴ 之十八（2026-10-01）：每个节点一套**稳定**的回调 ═══════════════════
+     要让节点组件 React.memo 真正生效，光包一层 memo 没用 —— 渲染循环里传给每个节点的
+     回调绝大多数是内联箭头：
+         onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
+         onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+         onContextMenu={(e, n) => setContextMenu({ … })}
+     每个箭头**每次渲染都是新函数** ⇒ memo 永远判定 props 变了，永远不生效。
+     （实测 7 个节点分支共 120 个 prop，内联箭头就有十几处。）
+
+     ⚠️ 不用「把箭头挪进 useCallback、依赖里塞 node.id」：那是**给每个节点注册一个 hook**，
+     违反 Hooks 规则（数量随节点数变化），而且依赖一变照样要重建。
+     这里是**按 node.id 缓存一个回调包**，包里每个箭头都走 ref 去取真实实现，
+     所以底层 handler 换了也不用重建 —— 引用永远稳定。
+
+     包里的实现统一写成 (nodeId, …) 形式，由缓存把 nodeId 插在第一个参数。
+
+     ⚠️⚠️ 这四行**必须显式换位**，不能把 handler 直接丢进去当实现：
+       缓存调的是 \`impl(nodeId, event, side)\`，
+       而 \`handlePortPointerDown\` 的签名是 \`(event, nodeId, side)\` —— nodeId 在**第二个**。
+       直接传 ⇒ 它收到 \`event = nodeId\`（一个字符串）、\`nodeId = event\`（一个事件对象）。
+       症状：点「+」派生菜单**打不开**（\`handlePortPointerDown\` 拿事件对象当 id 去查节点，查不到）。
+       这个 bug 是被 \`test/canvas-popover-live-anchored-0920\`（实机点派生菜单）抓到的，
+       构建与所有静态门禁都发现不了 —— 所以下面每一条都手写换位，不图省事。 */
+  const nodeHandlerImplRef = useRef({});
+  nodeHandlerImplRef.current = {
+    onPortPointerDown: (nodeId, event, side) => handlePortPointerDown(event, nodeId, side),
+    onPortPointerUp: (nodeId, event, side) => handlePortPointerUp(event, nodeId, side),
+    onPortClick: (nodeId, event, side) => handlePortClick(event, nodeId, side),
+    onResizeStart: (nodeId, event, corner) => handleNodeResizeStart(event, nodeId, corner),
+    onContextMenu: (nodeId, event, node) => setContextMenu({ x: event.clientX, y: event.clientY, node: node || nodeById.get(nodeId) }),
+    onDoubleClickImage: (nodeId, node) => {
+      const target = node || nodeById.get(nodeId);
+      const url = target?.localPreviewUrl || target?.url;
+      if (url) openImagePreview({ url, label: target?.name || target?.displayLabel || '图片预览' });
+    },
+    onPreviewSource: (nodeId, node) => {
+      const target = node || nodeById.get(nodeId);
+      const url = target?.localPreviewUrl || target?.url;
+      if (url) openImagePreview({ url, label: target?.name || '商品素材' });
+    },
+    onHoverChange: (nodeId, nodeIdOrNull) => setHoveredNodeId(nodeIdOrNull),
+    /* 「替换」原来也是内联箭头 `() => handleToolAction(replaceAction, node)` ——
+       它是条件渲染（有就传箭头、没就传 null），但**有**的时候依然每次新建引用，
+       等于白包 memo。改成由缓存按 nodeId 反查 node 与 action。 */
+    onReplaceMedia: nodeId => {
+      const action = getCanvasAction('replace-media');
+      const target = nodeById.get(nodeId);
+      if (action && target) return handleToolAction(action, target);
+      return undefined;
+    },
+    /* 素材分组节点的「输出」端口 side 恒为 'out'，所以单独给一个固定 side 的包装，
+       免得为了固定一个常量再写一遍换位。 */
+    onOutputPortPointerDown: (nodeId, event) => handlePortPointerDown(event, nodeId, 'out'),
+  };
+  const nodeHandlersRef = useRef(null);
+  nodeHandlersRef.current ||= createPrunableNodeHandlerCache(
+    [
+      'onPortPointerDown', 'onPortPointerUp', 'onPortClick', 'onResizeStart',
+      'onContextMenu', 'onDoubleClickImage', 'onPreviewSource', 'onHoverChange',
+      'onReplaceMedia', 'onOutputPortPointerDown',
+    ],
+    nodeHandlerImplRef,
+  );
+  /* 节点被删掉之后，把它的回调包从缓存里清掉 ——
+     否则这是个只增不减的 Map，用户开着一张画布删来删去几轮内存会慢慢涨。 */
+  useEffect(() => {
+    pruneNodeHandlerCache(nodeHandlersRef.current.cache, new Set(nodes.map(node => node.id)));
+  }, [nodes]);
 
   const removeComposerSource = useCallback((composerId, sourceId) => {
     const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);
@@ -7517,6 +8035,32 @@ const handlePointerUp = useCallback((e) => {
           <input ref={videoUploadRef} type="file" accept="video/mp4,video/webm,video/quicktime" multiple onChange={handleCanvasVideoUpload} style={{ display: 'none' }} />
           {/* 9-13 用户批注：音频入口点了没反应 —— 根因是这个 input 从来没渲染过（只有 ref 没有元素） */}
           <input ref={audioUploadRef} type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm" multiple onChange={handleCanvasAudioUpload} style={{ display: 'none' }} />
+          {/* 2026-10-02 用户批注：底部那颗按钮要**一个入口收所有素材**。
+              刻意**不复用**上面三个 input：它们的 `accept` 各自锁死一种类型，
+              而这一颗三类都要收；选中后由 `uploadCanvasMaterials` 按 MIME 分发
+              （与拖拽走同一个函数）。`event.target.value` 每次清空，
+              否则同一个文件第二次就选不中了 —— 这是 `<input type=file>` 的老毛病。
+
+              ⚠️⚠️ `accept` 这里**逐个类型写全**，**不写** `image/*,video/*,audio/*`：
+              仓库里不少门禁用 `replace(/\/\*[\s\S]*?\*\//g,'')` 剥注释，
+              而属性值里那个「斜杠星号」会被当成**注释开始**，一路吞到后面某个
+              「星号斜杠」。我第一版就是写成三个通配的，结果多出一个起点、
+              把配对弄乱 ⇒ `canvas-surface-dismiss-0929` 整段 `onAddMenuToggle`
+              被吞掉，那条门禁直接判红（原文 @370952 → 剥后 @-1，整段消失）。
+              上面 video / audio 两个 input **本来就是逐个扩展名写的** ——
+              这里跟着它们的口径走，顺带把这颗地雷拆掉。 */}
+          <input
+            ref={materialUploadRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/mp3,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/webm"
+            multiple
+            onChange={(event) => {
+              const picked = Array.from(event.target.files || []);
+              event.target.value = '';
+              uploadCanvasMaterials(picked);
+            }}
+            style={{ display: 'none' }}
+          />
           <CanvasLeftRail
             addMenuOpen={addMenuOpen}
             onAddMenuToggle={() => {
@@ -7581,7 +8125,7 @@ const handlePointerUp = useCallback((e) => {
           <CanvasBottomToolbar
             activeTool={activeTool}
             onToolChange={setActiveTool}
-            onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
+            onUpload={() => { materialUploadRef.current?.click(); setActiveTool('select'); }}
             onText={() => handleAddTextNode()}
           />
           {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 (整个面板跟 tab=assets + 底部"添加图片/视频" 完全重复)
@@ -7632,7 +8176,7 @@ const handlePointerUp = useCallback((e) => {
                 aria-label="图层"
                 title="图层"
                 aria-pressed={layersPanelOpen}
-                onClick={() => setLayersPanelOpen(open => !open)}
+                onClick={handleToggleLayersPanel}
               ><Layers3 size={15} /></button>
               {/* 9-11 用户批注: 与其他图标按钮同款 —— 纯图标 + 悬停提示, 不显示「运行」文字;
                   未就绪(单选)不高亮, 多选成链才 is-active; 提示告知「选中 2 个以上节点」。 */}
@@ -7651,7 +8195,7 @@ const handlePointerUp = useCallback((e) => {
                 aria-label="小地图"
                 title="小地图"
                 aria-pressed={minimapOpen || undefined}
-                onClick={() => setMinimapOpen(!minimapOpen)}
+                onClick={handleToggleMinimap}
               ><MapIcon size={15} /></button>
               <button
                 type="button"
@@ -7666,7 +8210,7 @@ const handlePointerUp = useCallback((e) => {
           {/* 9-11 用户批注: 确认弹窗太简陋 → 卡片化: 头部标题/预估 + 节点清单 + 主/次按钮 (不变式①: 确认后才扣费) */}
           {graphRunConfirm && (() => {
             const confirmNames = (graphRunConfirm.plan.executableNodeIds || [])
-              .map(id => { const n = nodes.find(item => item.id === id); return n ? (n.name || n.displayLabel || id) : null; })
+              .map(id => { const n = nodeById.get(id); return n ? (n.name || n.displayLabel || id) : null; })
               .filter(Boolean).slice(0, 6);
             const moreCount = (graphRunConfirm.plan.executableNodeIds || []).length - confirmNames.length;
             return (
@@ -7879,31 +8423,34 @@ const handlePointerUp = useCallback((e) => {
             <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
             {visibleNodes.map(node => {
               const selectedNodeState = isNodeSelected(node.id);
-              const nodeSource = nodes.find(source => source.id === node.sourceNodeIds?.[0]);
+              const nodeSource = nodeById.get(node.sourceNodeIds?.[0]);
               const sourcePreviewUrl = nodeSource?.url || nodeSource?.assets?.find(asset => asset?.url)?.url || '';
               const sourcePreview = sourcePreviewUrl ? { ...nodeSource, url: proxyImg(sourcePreviewUrl) } : null;
               const workflowPortDown = (event, side) => handlePortPointerDown(event, node.id, side);
               const workflowPortUp = (event, side) => handlePortPointerUp(event, node.id, side);
               const workflowContext = event => setContextMenu({ x: event.clientX, y: event.clientY, node });
               if (node.kind === 'source_group') {
+                const h = nodeHandlersRef.current(node.id);
                 return <StudioSourceNode
                   key={node.id}
                   node={node}
                   selected={selectedNodeState}
                   dimmed={Boolean(focusedNodeIds && !focusedNodeIds.has(node.id))}
                   onPointerDown={handleNodeDown}
-                  onPortPointerDown={event => handlePortPointerDown(event, node.id, 'out')}
-                  onPortClick={event => handlePortClick(event, node.id)}
-                  onHoverChange={setHoveredNodeId}
-                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={preview => openImagePreview({ url: preview.url, label: node.name || '商品素材' })}
+                  /* 批 CY-㊴ 之十八：这几处原来也是内联箭头，同样会让 memo 失效。
+                     「输出」端口固定是 out，所以用缓存里另一个固定 side 的包装。 */
+                  onPortPointerDown={h.onOutputPortPointerDown}
+                  onPortClick={h.onPortClick}
+                  onHoverChange={h.onHoverChange}
+                  onContextMenu={h.onContextMenu}
+                  onDoubleClick={h.onPreviewSource}
                 />;
               }
               if (node.kind === 'layer-group') {
                 return <CanvasGenerationNode
                   key={node.id}
                   node={node}
-                  layerChildren={nodes.filter(child => child.parentLayerGroupId === node.id)}
+                  layerChildren={layerChildrenByParent.get(node.id) || noLayerChildren}
                   imageWatermark={nodeWatermark(node, 'image')}
                   videoWatermark={nodeWatermark(node, 'video')}
                   selected={selectedNodeState}
@@ -7934,6 +8481,10 @@ const handlePointerUp = useCallback((e) => {
               }
               if (node.kind === 'image' || node.kind === 'output') {
                 const replaceAction = getCanvasAction('replace-media');
+                /* 批 CY-㊴ 之十八：这七处原来是内联箭头，每次渲染都产生新函数
+                   ⇒ StudioImageNode 的 React.memo 永远判定 props 变了。
+                   改成从"按 node.id 缓存的回调包"里取，引用跨渲染稳定。 */
+                const h = nodeHandlersRef.current(node.id);
                 return <StudioImageNode
                   key={node.id}
                   node={node}
@@ -7946,17 +8497,17 @@ const handlePointerUp = useCallback((e) => {
                   /* 批 CY-㊴：side 必须透传。改前两侧都写死 'out'，
                      于是 handlePortPointerUp 的 `side !== 'in'` 直接丢弃 ——
                      用户看到左边也有加号，但把线拉过去连不上。 */
-                  onPortPointerDown={(event, side) => handlePortPointerDown(event, node.id, side)}
-                  onPortPointerUp={(event, side) => handlePortPointerUp(event, node.id, side)}
-                  onPortClick={(event, side) => handlePortClick(event, node.id, side)}
+                  onPortPointerDown={h.onPortPointerDown}
+                  onPortPointerUp={h.onPortPointerUp}
+                  onPortClick={h.onPortClick}
                   connectActive={Boolean(connectingFromNodeId) && connectingFromNodeId !== node.id}
                   snapActive={connectSnapNodeId === node.id}
-                  onResizeStart={(event, corner) => handleNodeResizeStart(event, node.id, corner)}
+                  onResizeStart={h.onResizeStart}
                   canDerive={canDeriveFromCanvasSource(node)}
-                  onHoverChange={setHoveredNodeId}
-                  onContextMenu={(e, n) => setContextMenu({ x: e.clientX, y: e.clientY, node: n })}
-                  onDoubleClick={node => openImagePreview({ url: node.localPreviewUrl || node.url, label: node.name || node.displayLabel || '图片预览' })}
-                  onReplace={replaceAction.canRun(node) ? () => handleToolAction(replaceAction, node) : null}
+                  onHoverChange={h.onHoverChange}
+                  onContextMenu={h.onContextMenu}
+                  onDoubleClick={h.onDoubleClickImage}
+                  onReplace={replaceAction.canRun(node) ? h.onReplaceMedia : null}
                   onImageReady={handleImagePreviewReady}
                   /* 批 CY-⑭：这一支（image / output = **上传 + 生成的图片结果**）以前**根本没接**
                      onNaturalSize，所以框永远按请求里的比例画。接上。 */
@@ -8092,7 +8643,7 @@ const handlePointerUp = useCallback((e) => {
                 组内节点不再显示左右加号（见 CanvasGenerationNode / CanvasMediaNode 的 canDerive）。 */}
             {!focusedEditor && canvasGroupFrames(nodes).map(frame => <div
               key={frame.groupId}
-              className={`ec-canvas-node-group is-${frame.kind}${multiSelectionBounds && frame.kind === 'group' && nodes.some(node => multiSelected.has(node.id) && node.groupId === frame.groupId) ? ' is-selected' : ''}`}
+              className={`ec-canvas-node-group is-${frame.kind}${multiSelectionBounds && frame.kind === 'group' && selectedGroupIds.has(frame.groupId) ? ' is-selected' : ''}`}
               aria-hidden="true"
               data-canvas-group-id={frame.groupId}
               style={{ left: frame.bounds.x, top: frame.bounds.y, width: frame.bounds.w, height: frame.bounds.h }}
@@ -8102,19 +8653,19 @@ const handlePointerUp = useCallback((e) => {
               aria-hidden="true"
               style={{ left: multiSelectionBounds.x, top: multiSelectionBounds.y, width: multiSelectionBounds.w, height: multiSelectionBounds.h }}
             />}
-            {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} onAction={handleMultiSelectionAction} />}
+            {!focusedEditor && <CanvasMultiSelectionToolbar nodes={nodes} selectedIds={multiSelected} viewport={viewport} bounds={canvasStageRect} onAction={handleMultiSelectionAction} />}
 
 
             {!focusedEditor && multiSelected.size <= 1 && ['text', 'text-composer'].includes(selectedNode?.kind) && <CanvasTextToolbar
               node={selectedNode}
               viewport={viewport}
-              bounds={containerRef.current?.getBoundingClientRect()}
+              bounds={canvasStageRect}
               onStyleChange={change => setNodes(previous => previous.map(node => node.id === selectedNode.id ? { ...node, textStyle: { ...(node.textStyle || {}), ...change } } : node))}
               onDuplicate={() => handleToolAction(getCanvasAction('duplicate'), selectedNode)}
               onFullscreen={() => setTextInspectorNodeId(selectedNode.id)}
               onDelete={() => handleToolAction(getCanvasAction('delete'), selectedNode)}
             />}
-            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={containerRef.current?.getBoundingClientRect()} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={{ enabled: false }} />}
+            {selectionPanelsVisible && <CanvasObjectToolbar node={selectedNode} viewport={viewport} bounds={canvasStageRect} actions={stableActionsForSurface({ surface: 'selection', node: selectedNode })} onAction={handleToolAction} videoDelivery={{ enabled: false }} />}
             {/* 9-11 三轮用户批注: 画布节点只留一个素材动作 (「加入资产库」) —
                 「发往视频项目」与资产库语义冲突, 已从节点工具条移除 (视频路径走 生成视频 节点 / 首页视频模块)。 */}
             {!focusedEditor && selectedComposerPosition && selectedNode?.kind === 'image-composer' && <CanvasImageComposer
@@ -8279,8 +8830,8 @@ const handlePointerUp = useCallback((e) => {
                 setMultiSelected(new Set([childId]));
                 const child = nodes.find(node => node.id === childId);
                 if (child) {
-                  const viewW = (containerRef.current?.clientWidth || window.innerWidth) / viewport.scale;
-                  const viewH = (containerRef.current?.clientHeight || window.innerHeight) / viewport.scale;
+                  const viewW = (canvasStageRect.width || window.innerWidth) / viewport.scale;
+                  const viewH = (canvasStageRect.height || window.innerHeight) / viewport.scale;
                   setViewport(current => ({ ...current, x: viewW / 2 - (child.x + child.w / 2) * current.scale, y: viewH / 2 - (child.y + child.h / 2) * current.scale }));
                 }
               }}
@@ -8642,8 +9193,8 @@ const handlePointerUp = useCallback((e) => {
           y={addNodePanel.y}
           onAdd={(kind, id) => {
             const world = addNodePanel.world || {
-              x: Math.max(40, Math.round((-viewport.x + (containerRef.current?.clientWidth || window.innerWidth) * 0.5) / viewport.scale)),
-              y: Math.max(40, Math.round((-viewport.y + (containerRef.current?.clientHeight || window.innerHeight) * 0.5) / viewport.scale)),
+              x: Math.max(40, Math.round((-viewport.x + (canvasStageRect.width || window.innerWidth) * 0.5) / viewport.scale)),
+              y: Math.max(40, Math.round((-viewport.y + (canvasStageRect.height || window.innerHeight) * 0.5) / viewport.scale)),
             };
             /* 9-13 用户批注：双击空白处添加的应该是**生成文案（AI）**，不是纯文本节点；
                纯文本注解只从底部工具栏的 T 进入。 */
@@ -8939,11 +9490,64 @@ const handlePointerUp = useCallback((e) => {
 
       {/* 图片放大预览 */}
       {zoomImg && (
-        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '图片'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
+        <div ref={previewDialogRef} role="dialog" aria-modal="true" aria-label={`${zoomImg.label || '素材'}大图预览`} onClick={closeImagePreview} style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, overflow: 'hidden', background: 'rgba(12,10,9,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          {/* 2026-10-02：视频节点的工具栏加了「预览」，这里按 kind 分渲染。
+              **不另起一个弹窗** —— 另起一个就等于两套关闭/缩放/滚轮逻辑，迟早打架。
+              ⚠️ 视频用 `controls` 自带播放/进度/音量，**不要**再套图片那套
+                 `scale(previewScale)` 缩放 —— 缩放会和 video 的控件层互相干扰。 */}
+          {zoomImg.kind === 'video' ? (
+            <video
+              src={zoomImg.url}
+              controls
+              autoPlay
+              muted
+              playsInline
+              onClick={e => e.stopPropagation()}
+              style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8, background: '#000' }}
+            />
+          ) : (
+            <img src={proxyImg(zoomImg.url)} alt={zoomImg.label || '图片预览'} draggable="false" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, transform: `scale(${previewScale})`, transformOrigin: 'center', transition: 'transform 120ms ease-out', willChange: 'transform', cursor: previewScale > 1 ? 'zoom-out' : 'zoom-in' }} onClick={e => e.stopPropagation()} />
+          )}
           <button type="button" aria-label="关闭大图预览" onClick={closeImagePreview} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, border: 0, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 24, color: '#fff' }}>x</button>
         </div>
       )}
+
+      {/* ═══ 2026-10-02 视频「智能去字幕」：框选字幕区域 ═══════════════════════════════
+          ⚠️ **必须 portal 到 body** —— 见 handleToolAction 里 'smart-subtitle-erase' 那段：
+          VideoRegionPicker 用未缩放的 offsetWidth 配 rect/自身放大 换算源视频像素，
+          画布 stage 的 transform: scale 会插进来导致框选区域整体偏移。 */}
+      {subtitlePickNodeId && typeof document !== 'undefined' && createPortal((() => {
+        const target = nodes.find(item => item.id === subtitlePickNodeId);
+        if (!target?.url) return null;
+        return <div
+          data-video-subtitle-picker="true"
+          /* 点空白关闭属于**容器级辅助行为**：真控件是下面「取消 / 开始擦除」两个 button，
+             这个 backdrop 自己不该可聚焦。role="presentation" 同时满足语义与
+             no-clickable-div 门禁（它明确放行显式非交互容器角色）。 */
+          role="presentation"
+          style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, display: 'grid', placeItems: 'center',
+                   background: 'rgba(12,10,9,0.72)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setSubtitlePickNodeId(null)}
+        >
+          <div onClick={event => event.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '92vh', overflow: 'auto' }}>
+            <VideoRegionPicker
+              videoUrl={target.url}
+              regions={target.subtitleRegions || []}
+              hint={target.name || ''}
+              onChange={(next) => setNodes(previous => previous.map(node => (
+                node.id === target.id ? { ...node, subtitleRegions: next } : node)))}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '10px 12px 0' }}>
+              <button type="button" onClick={() => setSubtitlePickNodeId(null)}>取消</button>
+              <button
+                type="button"
+                disabled={!(target.subtitleRegions || []).length}
+                onClick={() => { setSubtitlePickNodeId(null); void runVideoDesubtitle(target); }}
+              >开始擦除</button>
+            </div>
+          </div>
+        </div>;
+      })(), document.body)}
 
       <SkillLibraryModal
         open={Boolean(skillLibraryTarget)}

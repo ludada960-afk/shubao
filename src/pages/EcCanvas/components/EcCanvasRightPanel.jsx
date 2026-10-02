@@ -77,13 +77,52 @@ export function EcCanvasRightPanel({
   /* 调整参数 (双面板联动: 上方 toolbar 跟这个面板永远同步) */
   const opacity = typeof node.opacity === 'number' ? node.opacity : 1;
   const volume = typeof node.volume === 'number' ? node.volume : 1;
-  const duration = typeof node.duration === 'number' ? node.duration : (node.videoDuration || 5);
+  /* 2026-10-02：`const duration = ...` 已删除。
+     它只被下面那条**死的**时长滑块消费（那条滑块打在源素材上、不起作用，已改成只读显示
+     元素读到的真实时长）。留着会让人以为"节点上还挂着一个可用的时长参数"，
+     而实际上它读到的 `node.duration` 就是 0 —— 正是用户截图里那个「0s」的来源。 */
   const ratio = node.ratio || node.direction?.ratio || '1:1';
   const position = node.x != null && node.y != null ? { x: Math.round(node.x), y: Math.round(node.y) } : null;
   const size = node.w != null && node.h != null ? { w: Math.round(node.w), h: Math.round(node.h) } : null;
 
   const debouncedOpacity = useDebouncedValue(opacity, 80);
   const debouncedVolume = useDebouncedValue(volume, 80);
+
+  /* ═══ 2026-10-02 用户批注（两条，同一处根因）═══════════════════════════════════════
+     ① 「你右边这个拍摄面板也很奇怪呀，就是你为什么这里没有视频第一帧的或者说是他的封面的
+          样式展示在这里呢。**为什么这里是个黑图呀？**」
+     ② 「而且你这条时长的条我其实不是很明白。它是一条进度条，还是当前这个视频有多长的一个
+          秒数显示呢？我不管他现在是个什么逻辑，**首先在这里现在是个零，他就绝对是错的**。
+          他好像是一个死的条。他好像没有任何的逻辑存在。」
+
+     ① 的病根：`<video preload="metadata">` 只拉元数据，**不解码第一帧** ⇒ 首帧位置是黑的。
+        修法：`loadedmetadata` 后把 `currentTime` 拨到 0.05s，逼浏览器解码并画出第一帧。
+        （不加 poster 属性是因为我们**没有**独立的封面图，帧是从视频本身取的。）
+
+     ② 的病根比 ① 更根本：**「时长」是"生成参数"，不是"文件属性"**。
+        它写的是 `onPatch({ duration })` —— 打到**上传来的源视频节点**上，
+        而时长真正生效的地方是视频**生成框**的「生成配置（清晰度·画幅·时长）」。
+        ⇒ 源素材上的这个滑块**改了不起任何作用**，是一条"死的条"，
+        正是用户说的「他好像没有任何的逻辑存在」。
+        而且 `node.duration` 实测就是 **0**（不是缺省 5）⇒ 标签显示「0s」，滑块却被 min=2 顶到最左。
+
+        ⇒ 这里改成**只读地显示这个视频自己的真实时长**（从元素 `duration` 读），
+          语义说清楚：它是"这条视频多长"，不是"你要生成多长"。
+          真要改生成时长，去视频生成框的「生成配置」里改。 */
+  const [probedDuration, setProbedDuration] = React.useState(0);
+  const heroVideoRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const onMeta = (event) => {
+      const el = event.currentTarget;
+      if (Number.isFinite(el.duration) && el.duration > 0) setProbedDuration(Math.round(el.duration * 10) / 10);
+      // 拨一下时间轴，逼浏览器解码并画出第一帧（否则首帧位置是黑的）
+      if (!el.currentTime) { try { el.currentTime = 0.05; } catch { /* 元数据还没就绪，忽略 */ } }
+    };
+    heroVideoRef.current?.addEventListener('loadedmetadata', onMeta);
+    return () => heroVideoRef.current?.removeEventListener('loadedmetadata', onMeta);
+  }, [previewUrl]);
+
   React.useEffect(() => {
     if (debouncedOpacity !== opacity && onPatch) onPatch({ opacity: debouncedOpacity });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,7 +152,22 @@ export function EcCanvasRightPanel({
               imgStyle={{ objectFit: 'cover' }}
             />
           ) : previewUrl && isVideo ? (
-            <video src={previewUrl} muted playsInline preload="metadata" />
+            /* 2026-10-02：ref + onLoadedMetadata —— 拨一下 currentTime 逼它解码第一帧，
+               否则这个 78px 的缩略图位置是**黑的**（用户原话「为什么这里是个黑图呀」）。 */
+            <video
+              ref={heroVideoRef}
+              src={previewUrl}
+              muted
+              playsInline
+              preload="metadata"
+              onLoadedMetadata={(event) => {
+                const el = event.currentTarget;
+                if (Number.isFinite(el.duration) && el.duration > 0) {
+                  setProbedDuration(Math.round(el.duration * 10) / 10);
+                }
+                if (!el.currentTime) { try { el.currentTime = 0.05; } catch { /* 忽略 */ } }
+              }}
+            />
           ) : previewUrl && isAudio ? (
             <div className="ec-canvas-right-panel__thumb-icon"><Music size={26} /></div>
           ) : isText ? (
@@ -237,18 +291,21 @@ export function EcCanvasRightPanel({
         )}
 
         {isVideo && (
+          /* 2026-10-02：这一格原来是**可拖的时长滑块**（min2/max15 → `onPatch({duration})`），
+             但它打在**上传来的源视频节点**上，而时长真正生效的地方是视频生成框的
+             「生成配置（清晰度·画幅·时长）」⇒ **拖它不起任何作用**，是一条"死的条"。
+             而且 `node.duration` 实测就是 0 ⇒ 标签显示「0s」、滑块却被 min=2 顶到最左。
+
+             ⇒ 改成**只读**地显示这条视频自己的真实时长（从元素读，不是从 node 字段读），
+               并把语义写清楚。生成时长要去生成框改。 */
           <div className="ec-canvas-right-panel__row">
-            <span className="ec-canvas-right-panel__row-label">时长</span>
-            <input
-              type="range"
-              min={2}
-              max={15}
-              step={1}
-              value={duration}
-              aria-label="调整视频时长"
-              onChange={(event) => onPatch?.({ duration: Number(event.target.value) })}
-            />
-            <span className="ec-canvas-right-panel__row-value">{duration}s</span>
+            <span className="ec-canvas-right-panel__row-label">视频时长</span>
+            <span
+              className="ec-canvas-right-panel__row-value"
+              style={{ flex: '1 1 auto', textAlign: 'right' }}
+            >
+              {probedDuration > 0 ? `${probedDuration}s` : '读取中…'}
+            </span>
           </div>
         )}
 

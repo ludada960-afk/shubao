@@ -146,6 +146,11 @@ test('⑨ CanvasNodeActionBar 整条死链已删除（组件 / state / 接线 / 
   assert.doesNotMatch(registryCode, /nodeActionBar/,
     '登记册里也不能留 —— 留着会让「关掉所有浮层」一直以为有个叫它的东西，却没有任何代码会打开它');
   // 画布上真正生效的那条节点操作链必须还在
-  assert.match(studio, /export function CanvasGenerationNode/);
+  /* 2026-10-01（批 CY-㊴ 之十八）：节点组件改成了 `React.memo` 包装版
+     （函数改名 *View、导出 memo 结果），所以这里是「导出名存在」而不是
+     「必须以 export function 形式存在」—— 死链判据要守的是**有没有这个东西**，
+     不是它用哪种语法声明。 */
+  assert.match(studio, /export const CanvasGenerationNode = React\.memo\(/,
+    '画布上真正生效的那条节点操作链必须还在（现在是 memo 包装版）');
   assert.match(page, /CanvasObjectToolbar/, '选中态工具条才是真正生效的那条，不能被误删');
 });

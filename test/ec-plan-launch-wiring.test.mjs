@@ -57,7 +57,8 @@ test('方案节点三动作: 生成/刷新先报价 (不变式①), 刷新走 re
 
 test('设计方案节点组件: 未生成给「生成方案」, 已生成给「换一套 + 应用到画布」', () => {
   const source = studio();
-  assert.match(source, /export function CanvasDirectionNode/);
+  /* 2026-10-01（批 CY-㊴ 之十八）：节点组件现在以 React.memo 导出（实现改名 *View）。 */
+  assert.match(source, /export const CanvasDirectionNode = React\.memo\(/);
   assert.match(source, /生成方案 · 1 积分/);
   assert.match(source, /换一套 · 1 积分/);
   assert.match(source, /应用到画布/);

@@ -31,7 +31,21 @@ const canvas = read('src/pages/EcCanvas/index.jsx');
 /* ── ① 视频生成：方案必须进请求 ─────────────────────────────────── */
 
 test('视频：请求体带结构化方案 + 确认标记', () => {
-  const start = canvas.indexOf('await createVideoJob({');
+  /* ⚠️ 2026-10-02：这里**不再**用「第一个 createVideoJob 调用」。
+     画布上现在有**两个**建单点：视频**生成器**那条（要带 videoPlan / planConfirmed）
+     与画布「智能去字幕」那条（本机 ffmpeg delogo，走 localSpecs.regions，**不收费方案费**）。
+     `indexOf` 取第一个会匹配到去字幕那条（它排在前面，因为定义在 handleToolAction 旁边），
+     于是判据问错了对象。
+     ⇒ 锚到**生成器**那条：它一定带着 composer 的字段。 */
+  /* 再精确一点：直接用「那个带 videoPlan 的建单调用」本身当锚 ——
+     `composerDuration` 这个名字在文件开头的 helper 里也出现过一次（254 行），
+     用它当起点仍会落到去字幕那条去。
+     ⇒ 取「videoPlan 字段所在处**之前最近**的一个 createVideoJob 调用」，
+        这正是本条断言要问的那个调用。 */
+  const planAt = canvas.indexOf('videoPlan: composer.videoPlan');
+  assert.ok(planAt > 0, '必须能找到视频生成器带 videoPlan 的建单调用');
+  const start = canvas.lastIndexOf('await createVideoJob({', planAt);
+  assert.ok(start > 0, '必须能找到视频生成器的建单调用');
   const seg = canvas.slice(start, start + 2600);
   assert.match(seg, /videoPlan: composer\.videoPlan/, 'videoPlan 必须进请求体');
   assert.match(seg, /planConfirmed: composer\.planReviewed === true/, 'planConfirmed 必须进请求体');

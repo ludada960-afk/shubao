@@ -10,7 +10,6 @@ import {
   EyeOff,
   Hand,
   ImagePlus,
-  ImageUp,
   Layers3,
   Lock,
   LockOpen,
@@ -21,6 +20,7 @@ import {
   RotateCcw,
   Sparkles,
   Type,
+  Upload,
   Workflow,
   X,
 } from 'lucide-react';
@@ -127,11 +127,26 @@ export function CanvasLeftRail({ addMenuOpen = false, onAddMenuToggle }) {
   </aside>;
 }
 
-export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText }) {
+export function CanvasBottomToolbar({ activeTool, onToolChange, onUpload, onText }) {
   const tools = [
     { id: 'select', label: '选择工具：拖拽框选 / Shift+点击多选', icon: MousePointer2 },
     { id: 'hand', label: '抓手', icon: Hand },
-    { id: 'image', label: '添加图片', icon: ImageUp, onClick: onImage },
+    /* ═══ 2026-10-02 用户批注 ═══════════════════════════════════════════════════════════
+       「然后这个图片按钮我觉得也不太对，因为既然现在下面居中的这个功能栏它只有四个按钮，
+        那它就没有分上传图片，上传视频，上传音频这些不同的功能渠道呀。
+        **我觉得它应该合成成一个单独的上传素材的一个按钮。就是这个按钮，它应该可以上传任意素材上来才对。**
+        把我们现在的图片，视频，音频他们的逻辑都传给他。
+        然后他这个图标的样式你可能也得改一下了……**应该不会是这种一张图片的图标**，
+        这种图片的图标是很明显用来上传图片的。」
+
+       ⇒ ① 语义：图片/视频/音频 → **上传素材**（`accept` 三类都收，再按 MIME 分发到
+            各自的上传处理函数，见 index.jsx 的 `handleCanvasMaterialUpload`）。
+       ⇒ ② 图标：`ImageUp`（一张图片 + 向上箭头，**明确是"传图片"**）换成 `Upload`
+            （托盘 + 向上箭头，通用"上传任意文件"），与同一排的 18px 线性图标同规格。
+       ⚠️ `id` 也从 'image' 改成 'upload'：它是 `activeTool` 的取值之一，
+          沿用 'image' 会让"当前工具=图片"这种高亮继续出现在一个已不存在的工具上。
+          ⚠️ `ImageUp` 在本文件已无其它用处，但 `ImagePlus` 仍在用 —— 只删真正死掉的那个。 */
+    { id: 'upload', label: '上传素材：图片 / 视频 / 音频', icon: Upload, onClick: onUpload },
     { id: 'text', label: '添加文本', icon: Type, onClick: onText },
     /* ⚠️ 2026-10-01 用户批注：「你这个图层为什么点击之后会弹到上面去呀？我感觉其实这个按钮
        放到中间的下面这里会不会其实不太好？因为他打开的那个面板在中间其实不怎么好。

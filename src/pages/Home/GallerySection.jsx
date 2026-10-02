@@ -178,13 +178,22 @@ export default function GallerySection({ maxItems = 200, showHeader = true, onUs
           const ratio = itemRatio(item);
           // P0-B: 缩小首屏 eager 窗口 (8 -> 4), 让剩余 12 张图走 ResponsiveImage 自带的 loading=lazy.
           // 案例区首屏 16 个图, 只前 4 个 fetchpriority=high, 其余 fetchpriority=auto + loading=lazy.
+          //
+          // 2026-10-01 性能：实测这一整块在**页面 1344px 处**（视口 900px）——
+          // 也就是说它**整块都在首屏之外**，但 priority 仍然让前 4 张走了 loading="eager"
+          // （ResponsiveImage.jsx:118 `loading || (priority ? 'eager' : 'lazy')`），
+          // 于是首屏白拉 163 KB。
+          //
+          // 修法：**显式**给 loading="lazy"，只保留 priority 带来的 fetchpriority="high"
+          // —— 那是"用户滚到这里时，先下哪几张"的排序，**不是**"首屏就要下"。
+          // 两者不冲突：loading=lazy + fetchpriority=high 是标准组合。
           const priority = index < 4;
           return (
             <article key={`${type}-${item.id}`} className="gallery-card" onMouseEnter={() => { void predecodeResponsiveImage(item.cover_url, 'display').catch(() => {}); }}>
               <button type="button" className="gallery-card-preview" aria-label={`查看案例：${item.title}`} onClick={() => openItem(item)} onFocus={() => { void predecodeResponsiveImage(item.cover_url, 'display').catch(() => {}); }}>
                 {item.intent === 'anything_tryon'
                   ? <TryOnWorkflowCard item={item} priority={priority} />
-                  : item.cover_url ? <ResponsiveImage src={item.cover_url} alt={item.title} variant="thumb" ratio={ratio} priority={priority} sizes="(min-width: 1280px) 25vw, (min-width: 768px) 34vw, 50vw" className="gallery-img-scale" style={{ width: '100%' }} imgStyle={{ height: '100%', objectFit: 'contain' }} /> : <span className="gallery-card-placeholder">{item.title}</span>}
+                  : item.cover_url ? <ResponsiveImage src={item.cover_url} alt={item.title} variant="thumb" ratio={ratio} priority={priority} loading="lazy" sizes="(min-width: 1280px) 25vw, (min-width: 768px) 34vw, 50vw" className="gallery-img-scale" style={{ width: '100%' }} imgStyle={{ height: '100%', objectFit: 'contain' }} /> : <span className="gallery-card-placeholder">{item.title}</span>}
               </button>
               <div className="gallery-card-overlay" aria-hidden="true">
                 <span className="gallery-card-badge">{galleryTypeIcon(type)}{galleryTypeLabel(type, item)}</span>

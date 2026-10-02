@@ -39,9 +39,19 @@ test('contract (9-10): panels can never outlive their node — hidden guard + st
   const page = pageSource();
   // 节点被隐藏 -> 面板同步关闭 (原来只看 selectedNode 是否存在, hidden 节点会让面板残留)
   assert.match(page, /&& !selectedNode\.hidden/, 'hidden nodes must close the selection panels');
-  // 选中 id 一旦脱离 nodes (删除/整张画布被替换/恢复会话/模板铺开/换作品) 立即回收
-  assert.match(page, /if \(selected && !nodes\.some\(node => node\.id === selected\)\) setSelected\(null\)/, 'stale selection must be reaped');
-  assert.match(page, /const next = new Set\(\[\.\.\.previous\]\.filter\(id => nodes\.some\(node => node\.id === id\)\)\)/, 'multi-selection must be pruned to existing nodes');
+  /* 2026-10-01 性能：回收器原来每次 nodes 变化都全表扫 7 次
+     （`nodes.some(node => node.id === …)`），改成查一次建好的 `nodeById`。
+     `!nodes.some(n => n.id === id)` 与 `!nodeById.has(id)` **完全等价**
+     —— nodeById 装的就是 nodes 里出现过的全部 id（先到先得，见 canvasState 注释）。
+     所以这里守的是**语义不变**，顺手把性能属性也钉住。 */
+  assert.match(page, /if \(selected && !nodeById\.has\(selected\)\) setSelected\(null\)/, 'stale selection must be reaped');
+  assert.match(page, /const next = new Set\(\[\.\.\.previous\]\.filter\(id => nodeById\.has\(id\)\)\)/, 'multi-selection must be pruned to existing nodes');
+  const recycler = page.slice(
+    page.indexOf('if (selected && !nodeById.has(selected))'),
+    page.indexOf('}, [nodeById, nodes, selected]);'),
+  );
+  assert.doesNotMatch(recycler, /nodes\.some\(/,
+    '回收器不得再全表扫描（拖一次节点要付 7×n 次比较）');
 });
 
 test('contract (9-11): node-anchored floating layers are reaped with their source node', () => {
@@ -49,15 +59,16 @@ test('contract (9-11): node-anchored floating layers are reaped with their sourc
   // 根因: 上传完成会 openConnectionPickerForNode, 而删除路径(Delete 键/多选删除)不清 picker。
   // 结构性防御: 回收器 effect 监听 nodes, 源节点消失即回收全部节点锚定浮层;
   // handleDelete 同时即时清理, 双保险。
+  // 2026-10-01: `nodes.some(…)` → `nodeById.has(…)`（等价，见上一条的注释）。
   const page = pageSource();
   assert.match(
     page,
-    /setConnectionPicker\(previous => \(\s*previous\?\.sourceNodeId && !nodes\.some\(node => node\.id === previous\.sourceNodeId\)\s*\? null : previous\s*\)\)/,
+    /setConnectionPicker\(previous => \(\s*previous\?\.sourceNodeId && !nodeById\.has\(previous\.sourceNodeId\)\s*\? null : previous\s*\)\)/,
     'stale derive-menu picker must be reaped when its source node leaves nodes',
   );
   assert.match(
     page,
-    /setFocusedEditor\(previous => \(\s*previous\?\.nodeId && !nodes\.some\(node => node\.id === previous\.nodeId\)\s*\? null : previous\s*\)\)/,
+    /setFocusedEditor\(previous => \(\s*previous\?\.nodeId && !nodeById\.has\(previous\.nodeId\)\s*\? null : previous\s*\)\)/,
     'stale focused editor must be reaped when its node leaves nodes',
   );
   // 删除键路径(handleDelete)即时回收同款状态

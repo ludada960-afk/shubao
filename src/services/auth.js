@@ -132,7 +132,30 @@ function atobPayload(part) {
 
 export function handleSessionResponse(response) {
   captureSessionRenewal(response);
-  if (response?.status === 401) clearSession();
+  /* ═══ 2026-10-01 修：401 **不等于**会话失效 ════════════════════════════════════════
+     用户原话：「有时候一段时间没来看网站，突然来访问一下，他会自己掉落登录呢，
+     弹出登录窗，然后过一会才显示已登录的状态呀」
+
+     原来：任何 401 都 clearSession() —— 而 clearSession 会广播"会话失效"，
+     AppContext 收到后 dispatch SHOW_LOGIN，**登录窗就弹出来了**。
+     可 access token 只有 30 分钟、refresh token 是独立的（clearSession 并不删它），
+     于是 access 过期本来是**可以静默续期**的正常情况，却被当成"你掉线了"。
+
+     现象之所以是「**过一会**又显示已登录」：这是一场竞速 ——
+       · refresh 先跑完 ⇒ 没问题；
+       · 某个数据请求的 401 先落地 ⇒ 先弹登录窗，随后 refresh 完成、
+         notifyRestored 再把 UI 拉回已登录。
+     「有时候」就是这么来的。
+
+     改法：手上有 refresh 凭证时，401 只触发一次静默续期，**不下线**。
+     续期真失败时 refreshSession 自己会 clearSession + 广播（auth.js:167 那条路），行为不变。 */
+  if (response?.status === 401) {
+    if (getStoredRefresh()?.refreshToken) {
+      void refreshSession().catch(() => { /* refresh 自己会处理失败 */ });
+      return response;
+    }
+    clearSession();
+  }
   return response;
 }
 
@@ -443,12 +466,24 @@ async function verifyAndAdoptSession(session) {
       clearSession();
       return null;
     }
+    /* ═══ 2026-10-01 修：**服务端出故障不等于你掉线** ══════════════════════════════
+       用户原话：「有时候过一会才来访问网站，网站会突然无法访问，要刷新两下才能访问」
+
+       原来 `!response.ok` 一律 clearSession() —— 而 !ok 包含 **502 / 500 / 超时**。
+       实测线上真有一条：`GET /api/session → 502`（Chrome，来自 shuimg.cn 的 referer），
+       下一秒同一个人 `POST /api/billing/quote → 401`。
+
+       一台服务器打个嗝就把人踢下线、弹登录窗，页面还卡在中间态 ——
+       这正是"突然无法访问、刷新两下才好"的形状。
+
+       现在：**只有 401 才算会话失效**；5xx / 网络错误只是"这次没验成"，
+       保留本地凭证让下一次重试（access token 还在的话本来就能用）。 */
     if (!response.ok) {
-      clearSession();
       return null;
     }
     return finalizeVerifiedSession(session, await response.json());
   } catch {
+    /* 网络中断 / 请求被取消：同样**不是**掉线，不动本地凭证。 */
     return null;
   }
 }

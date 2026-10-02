@@ -52,10 +52,23 @@ test('① 上传体积上限只有一份真相：三处必须共用 mediaUploadL
   assert.match(serverIndex, /const limits = mediaUploadLimits\(\);/,
     '直传通道的 limits 必须来自 mediaUploadLimits()');
 
-  /* 权威值本身：视频必须真的够大（手机随手拍一段就上百 MB） */
+  /* 权威值本身 */
   const { MEDIA_UPLOAD_LIMITS } = await import('../server/mediaUploadLimits.mjs');
-  assert.equal(MEDIA_UPLOAD_LIMITS.video, 300 * 1024 * 1024,
-    '视频上限必须是 300MB（50MB 时代"上传视频传不上去"）');
+  /* ⚠️ 2026-10-02：**这条断言的值从 300MB 改回 50MB**（用户拍板，对标知渔）。
+     原断言的理由是「视频上限必须是 300MB（50MB 时代"上传视频传不上去"）」——
+     那条理由**没有被推翻，是被用户的产品选择覆盖了**（本站真实反馈 vs 竞品对标，用户选竞品）。
+     ⚠️ 连带要记住的代价：1080p 手机视频约 1 分钟就可能超过 50MB，
+        本站用户会更常遇到"传不上去"，而这类问题通常**不会再反馈第二次**。
+        ⇒ 要回调只改 `server/mediaUploadLimits.mjs` 那一行 + 这里这一个数字。
+     ⚠️ 而 10-01 真正修掉的"传很久最后才失败"**与取值无关** —— 它的根因是三处上限各写一份，
+        现在三处都从 MEDIA_UPLOAD_LIMITS 取（本条 ① 守的就是那个结构），所以改回 50MB 不会复发。 */
+  assert.equal(MEDIA_UPLOAD_LIMITS.video, 50 * 1024 * 1024,
+    '视频上限按用户 2026-10-02 拍板对标知渔：50MB（改这一行即可回调）');
+  /* nginx 必须比应用宽松，否则它会先于应用拒绝、用户看到的是英文 HTML 错误页 */
+  const nginx = readFileSync(new URL('../scripts/nginx/shuimg.cn.conf', import.meta.url), 'utf8');
+  const nginxLimit = Number(/client_max_body_size\s+(\d+)m/.exec(nginx)?.[1] || 0);
+  assert.ok(nginxLimit * 1024 * 1024 > MEDIA_UPLOAD_LIMITS.video,
+    `nginx 的 client_max_body_size(${nginxLimit}m) 必须大于应用上限，否则 nginx 先拒、用户看到英文错误页`);
   assert.equal(MEDIA_UPLOAD_LIMITS.image, 10 * 1024 * 1024, '图片上限保持 10MB');
   assert.equal(MEDIA_UPLOAD_LIMITS.audio, 100 * 1024 * 1024, '音频上限 100MB');
   assert.ok(Object.isFrozen(MEDIA_UPLOAD_LIMITS), '上限必须冻结，防止运行期被改');
@@ -63,16 +76,18 @@ test('① 上传体积上限只有一份真相：三处必须共用 mediaUploadL
 
 test('② nginx 必须比应用宽松：它不能先于应用返回 413（那是一张英文 HTML 错误页）', async () => {
   /* 用户看到"英文"的另一个来源：nginx 抢先拒绝时给的是 HTML 错误页，
-     既不是中文也没有"上限是多少"。必须保证**应用**永远是第一个拒绝的地方。 */
+     既不是中文也没有"上限是多少"。必须保证**应用**永远是第一个拒绝的地方。
+     ⚠️ 2026-10-01 性能批：这条判据原来查的是 `/api/` 块里的那份，现已**只保留
+     server 级一处**（两处各写一个数字，早晚只改一处 —— 上传上限就栽在这上面）。 */
   const { MEDIA_UPLOAD_LIMITS } = await import('../server/mediaUploadLimits.mjs');
-  const apiBlock = nginx.match(/location \^~ \/api\/ \{[\s\S]*?\n    \}/);
-  assert.ok(apiBlock, '找不到 /api/ 的 location 块');
-  const bodySize = apiBlock[0].match(/client_max_body_size\s+(\d+)([mk])/);
-  assert.ok(bodySize, '/api/ 块里必须有 client_max_body_size');
+  const occurrences = nginx.match(/client_max_body_size\s+\d+[mk]/g) || [];
+  assert.equal(occurrences.length, 1,
+    `client_max_body_size 必须**只有一处**（server 级），实际 ${occurrences.length} 处：${occurrences.join(' / ')}`);
+  const bodySize = occurrences[0].match(/(\d+)([mk])/);
   const unit = bodySize[2] === 'k' ? 1024 : 1024 * 1024;
   const nginxBytes = Number(bodySize[1]) * unit;
   assert.ok(nginxBytes > MEDIA_UPLOAD_LIMITS.video,
-    `nginx 的上限（${bodySize[0]}）必须大于应用上限（300MB），`
+    `nginx 的上限（${occurrences[0]}）必须大于应用上限（300MB），`
     + '否则 nginx 会先返回它自己的 413 HTML —— 用户看到的是英文错误页，不是中文提示');
 });
 

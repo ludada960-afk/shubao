@@ -326,7 +326,13 @@ test('video assets preview immediately and upload resumably without proxy buffer
   assert.match(uploadServer, /owner_email/);
   assert.match(server, /\/api\/video\/uploads/);
   assert.match(server, /\/api\/video\/upload-results\/\:id/);
-  assert.match(nginx, /client_max_body_size\s+64m/);
+  /* 2026-10-01 性能批：nginx 的请求体上限从 64m 提到 512m。
+     原值 64m 小于应用侧的视频上限（300MB），于是 nginx 会**先于**应用
+     返回它自己的 413 HTML 错误页 —— 用户看到的是一张英文 nginx 错误页，
+     既没有"上限是多少"也没有"怎么缩小"。必须是 512m（> 300MB），让应用
+     永远第一个拒绝（它给的是中文 + 真实上限 + 可执行建议）。
+     另一条更细的判据（"只许有一处"）在 video-upload-limit-and-message-1001 里。 */
+  assert.match(nginx, /client_max_body_size\s+512m/);
   assert.match(nginx, /proxy_request_buffering\s+off/);
 });
 

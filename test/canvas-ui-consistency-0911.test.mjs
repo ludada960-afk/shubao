@@ -19,7 +19,12 @@ test('① 替换按钮在节点上: node-capsule 角标胶囊, 工具条不再�
   assert.match(studio, /ec-canvas-node-replace/, '节点替换胶囊类名');
   assert.match(studio, /onReplace\(\);/, '胶囊点击走 onReplace');
   const page = pageSource();
-  assert.match(page, /onReplace=\{replaceAction\.canRun\(node\) \? \(\) => handleToolAction\(replaceAction, node\) : null\}/, '图片节点接 onReplace');
+  /* 2026-10-01（批 CY-㊴ 之十八）：图片节点的替换改走「按 node.id 缓存的稳定回调」，
+     这里守的是"仍然接到 handleToolAction"这件事，而不是必须写成内联箭头
+     —— 后者恰恰是会让 React.memo 失效的写法。 */
+  assert.match(page, /onReplace=\{replaceAction\.canRun\(node\) \? h\.onReplaceMedia : null\}/, '图片节点接 onReplace');
+  assert.match(page, /onReplaceMedia: nodeId => \{[\s\S]*?getCanvasAction\('replace-media'\)[\s\S]*?handleToolAction\(action, target\)/,
+    'onReplaceMedia 必须仍然打到 handleToolAction');
   assert.match(page, /onReplace=\{replaceGenAction\.canRun\(node\)/, '生成节点接 onReplace');
 });
 

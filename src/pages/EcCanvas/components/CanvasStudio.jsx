@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions, DEFAULT_IMAGE_MODEL } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
@@ -1308,7 +1308,7 @@ function layerCompositeOrder(layer = {}) {
    `index.jsx` 从 2026-08-13 起就一直往这里传，组件签名不接、也不往下传，于是图片框
    永远按「请求里的比例」画，真实比例被丢掉（用户看到的上下/左右白边与「被截断」）。
    现在补上，并且给视频补一条 `onLoadedMetadata` 通路（以前全仓没有一处读 videoWidth）。 */
-export function CanvasGenerationNode({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, onNaturalSize = null, canDerive = false, connectActive = false, snapActive = false }) {
+function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, dimmed = false, editing = false, imageWatermark, videoWatermark, onPointerDown, onContextMenu, onDoubleClick, onTextDoubleClick, onTextBlur, onHoverChange, onResizeStart, onTextChange, onTextSelect, onAutoHeight, onReplace = null, onPortPointerDown, onPortPointerUp, onPortClick, onNaturalSize = null, canDerive = false, connectActive = false, snapActive = false }) {
   const isLayerGroup = node.kind === 'layer-group';
   const isText = node.kind === 'text-composer';
   const isImage = node.kind === 'image-composer' || isLayerGroup;
@@ -1328,6 +1328,24 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
   const nodeHasResult = canvasGenerationBoxHasResult(node) && !inCanvasGroup;
   const textBoardRef = useRef(null);
   const textComposingRef = useRef(false);
+  /* 2026-10-02 用户批注（照知渔）：「他目前的情况是鼠标只要挪动到这块区域，他的视频就会自动播放，
+     然后他的鼠标只要挪开这块播放的区域的话，视频就会停下来。我觉得你也可以照他这个模式去做。」
+     ⚠️ `play()` 返回 Promise 且可能被浏览器自动播放策略拒绝 ⇒ 必须 catch，
+        否则控制台会留一条 unhandled rejection（而且表现为"点了没反应又不知道原因"）。 */
+  const hoverVideoRef = useRef(null);
+  const playOnHover = useCallback(() => {
+    const el = hoverVideoRef.current;
+    if (!el) return;
+    const p = el.play();
+    if (p && typeof p.catch === 'function') p.catch(() => { /* 被策略拒绝：保持暂停，不报错 */ });
+  }, []);
+  const pauseOnLeave = useCallback(() => {
+    const el = hoverVideoRef.current;
+    if (!el) return;
+    el.pause();
+    /* 回到开头，下次移回来从头播 —— 否则每次悬停都从上次停的位置接着播，很怪 */
+    try { el.currentTime = 0; } catch { /* 元数据未就绪，忽略 */ }
+  }, []);
   const textEditSeedRef = useRef('');
   /* 文案板高度跟随内容 (与 CanvasTextNode 同策略) */
   const syncTextBoardHeight = () => {
@@ -1393,7 +1411,7 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
         syncTextBoardHeight();
       }}
       onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
-    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame"><video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame" onPointerEnter={playOnHover} onPointerLeave={pauseOnLeave}><video ref={hoverVideoRef} src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); /* 首帧拨一下，否则没播过之前是黑的（用户：「为什么这里是个黑图呀」） */ if (!media.currentTime) { try { media.currentTime = 0.05; } catch { /* 元数据未就绪 */ } } }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>
@@ -1404,6 +1422,22 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
       <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
       {node.status === 'processing' && <small>{node.progressLabel || '正在处理...'}</small>}
+      {/* ⚠️ 2026-10-02：上传进度**长在素材自己身上**（用户照知渔提的：「他上传的进度是在
+          整个素材里面的……我们现在是在整个画布的最下方，我觉得可能不太对」）。
+          `uploadPercent` 由 index.jsx 的 makeUploadReporter 直接写到占位节点上 ——
+          能这么写的前提是**节点先于上传存在**（原来节点是传完才建的，进度无处可挂，
+          只能做成画布底部那条全局横条）。 */}
+      {node.status === 'uploading' && (
+        <div className="ec-canvas-node-upload-progress">
+          <div className="ec-canvas-node-upload-progress-track">
+            <div
+              className="ec-canvas-node-upload-progress-fill"
+              style={{ width: `${Math.max(2, node.uploadPercent || 0)}%` }}
+            />
+          </div>
+          <small>上传中 {node.uploadPercentText || `${Math.round(node.uploadPercent || 0)}%`}</small>
+        </div>
+      )}
       {node.mediaPlaybackError && <small className="is-error">{node.mediaPlaybackError}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
     </div>}
@@ -1430,13 +1464,17 @@ export function CanvasGenerationNode({ node, layerChildren = [], selected = fals
            输出加号维持原语义。两条判据各司其职，不再共用一个门。 */}
     <DerivePort side="input" visible={selected || connectActive} active={snapActive} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />
     {nodeHasResult && <DerivePort visible={selected || connectActive} disabled={!canDerive} onPointerDown={onPortPointerDown} onPointerUp={onPortPointerUp} onClick={onPortClick} />}
-    <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
+    {/* 2026-10-02 用户批注：「为什么我们的视频区块他们周边都会有一个可以拉动大小的这种操作呀？
+         **视频是不需要去拉动它变形的呀，你这个功能应该取消掉，就是我们的框它是不能自己去拉动大小的，
+         用户他不能自己去拉���。**」
+         ⇒ 视频节点不给缩放手柄；图片仍给（那条要按比例裁切）。 */}
+    <ResizeHandles visible={selected && !node.locked && !isVideo} onResizeStart={onResizeStart} />
   </article>;
 }
 
 /* P7 方案入画布: 设计方案 = 画布对象 (可生成/可换一套/可应用到画布), 不是独立整页。
    计费不变式①: 生成/刷新方案都走 ec_direction_analysis / ec_direction_refresh 报价扣费 (handler 在 index.jsx)。 */
-export function CanvasDirectionNode({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onHoverChange, onAutoHeight, onGenerate, onRefresh, onApply }) {
+function CanvasDirectionNodeView({ node, selected = false, dimmed = false, onPointerDown, onContextMenu, onHoverChange, onAutoHeight, onGenerate, onRefresh, onApply }) {
   const directions = Array.isArray(node.directions) ? node.directions : [];
   const hasPlan = directions.length > 0;
   const busy = node.status === 'processing';
@@ -2351,7 +2389,17 @@ function MaterialWatermarkOverlay({ kind, watermark, width = 1, height = 1 }) {
 
 export { MaterialWatermarkOverlay };
 
-export function CanvasImageNode({
+/* ═══ 批 CY-㊴ 之十八（2026-10-01）：节点组件一律 React.memo ═══════════════════════
+   画布上动一个节点会重渲染**整棵树**；没有 memo 的话，画布上每一个节点都会跟着
+   重新执行一遍（实测每节点约 47 个元素）。
+
+   ⚠️ memo 只在 props 引用**都没变**时才跳过渲染。所以 index.jsx 那边必须同时
+   把内联箭头换成"按 node.id 缓存的稳定回调"（canvasNodeHandlers.js）——
+   只包 memo 而不换箭头，等于白包（每次渲染 props 里的函数都是新的）。
+
+   这里把函数改名成 *View，导出的是 memo 包装版；这样**导出名不变**，
+   index.jsx 的 import 与既有的契约门禁都不用动。 */
+function CanvasImageNodeView({
   node,
   imageWatermark,
   selected = false,
@@ -2383,7 +2431,8 @@ export function CanvasImageNode({
      retryKey 用来给 src 加 cache-busting，点「重试」重新拉一次。 */
   const [imgFailed, setImgFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const mediaSrc = `${node.localPreviewUrl || node.url || ''}${retryKey ? `?retry=${retryKey}` : ''}`;
+  const mediaSrcBase = node.localPreviewUrl || node.url || '';
+  const mediaSrc = `${mediaSrcBase}${retryKey ? `?retry=${retryKey}` : ''}`;
   /* 换图（替换素材 / 换 url）要把失败态清掉，否则会一直停在"加载失败"上。 */
   const lastSrcRef = useRef(mediaSrc);
   if (lastSrcRef.current !== mediaSrc) {
@@ -2406,7 +2455,25 @@ export function CanvasImageNode({
     onMouseLeave={() => onHoverChange?.(null)}
   >
     <div className="ec-canvas-media-frame" style={{ height: node.h }}>
-      {!imgFailed && <ResponsiveImage
+      {/* ═══ 2026-10-01（批 CY-㊴ 之十五）：没有地址时要说人话 ═══════════════════
+          本地草稿不再存 base64（见 canvasDraftRepository 顶部注释：8 张以上图会撑爆
+          localStorage 配额，而且那个失败是**静默**的）。于是刷新之后，
+          「当时还没传完」的那个节点会**没有任何地址**。
+
+          原来这里会渲染一个 \`<img src="">\` —— 浏览器显示裂图，用户分不清
+          「素材坏了」还是「加载中」，也没法补救。
+
+          ⚠️ 这个占位**曾经加错了地方**：第一版加在 index.jsx 里的 \`ImageNode\`
+          上，而那个组件在 index.jsx 里**一次都没被用到**（真正渲染的是本文件的
+          \`CanvasImageNode\`，被 import 成 \`StudioImageNode\`）。所以那段文案
+          连构建产物都没进去 —— 是靠「在 dist 里 grep 中文却找不到」发现的。 */ }
+      {!mediaSrcBase && (
+        <div className="ec-canvas-media-failed">
+          <strong>这张素材当时没传完</strong>
+          <span>重新上传原图即可继续使用</span>
+        </div>
+      )}
+      {!imgFailed && mediaSrcBase && <ResponsiveImage
         /* 9-11 用户批注#2: 本地预览优先 — 持久 url 尚未解码成功前用本地 data URI 兜底, 不再空白闪屏 */
         src={mediaSrc}
         alt={node.name || node.displayLabel || '图片'}
@@ -2467,7 +2534,7 @@ export function CanvasImageNode({
   </article>;
 }
 
-export function CanvasSourceNode({
+function CanvasSourceNodeView({
   node,
   selected = false,
   dimmed = false,
@@ -2509,7 +2576,7 @@ export function CanvasSourceNode({
   </article>;
 }
 
-export function CanvasTextNode({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart, onAutoHeight }) {
+function CanvasTextNodeView({ node, selected = false, editing = false, dimmed = false, onPointerDown, onContextMenu, onChange, onSelect, onDoubleClick, onBlur, onResizeStart, onAutoHeight }) {
   const isComposing = useRef(false);
   const boardRef = useRef(null);
   const editSeedRef = useRef('');
@@ -2583,7 +2650,7 @@ export function CanvasTextNode({ node, selected = false, editing = false, dimmed
   </article>;
 }
 
-export function CanvasAudioNode({
+function CanvasAudioNodeView({
   node,
   selected = false,
   dimmed = false,
@@ -2619,3 +2686,18 @@ export function CanvasAudioNode({
     <ResizeHandles visible={selected && !node.locked} onResizeStart={onResizeStart} />
   </article>;
 }
+
+/* ═══ 批 CY-㊴ 之十八（2026-10-01）：节点组件一律 React.memo ═════════════════════
+   画布上动一个节点会重渲染**整棵树**；没有 memo，画布上每个节点都会跟着重新执行一遍
+   （实测每节点约 47 个元素）。
+   ⚠️ memo 只在 props 引用都没变时才跳过渲染，所以 index.jsx 那边必须同时把内联箭头
+     换成「按 node.id 缓存的稳定回调」（canvasNodeHandlers.js）—— 只包 memo 而不换箭头
+     等于白包：每次渲染 props 里的函数都是新的。
+   函数改名成 *View、导出 memo 包装版 ⇒ **导出名不变**，index.jsx 的 import 与既有
+   契约门禁都不用动。 */
+export const CanvasGenerationNode = React.memo(CanvasGenerationNodeView);
+export const CanvasDirectionNode = React.memo(CanvasDirectionNodeView);
+export const CanvasImageNode = React.memo(CanvasImageNodeView);
+export const CanvasSourceNode = React.memo(CanvasSourceNodeView);
+export const CanvasTextNode = React.memo(CanvasTextNodeView);
+export const CanvasAudioNode = React.memo(CanvasAudioNodeView);

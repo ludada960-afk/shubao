@@ -63,7 +63,13 @@ export default defineConfig({
     },
   },
   build: {
-        cssCodeSplit: false,
+        /* 2026-10-01（批 CY-㊴ 之十九）：CSS 拆分。
+           原来是 `false` —— 全站 62 个 CSS 被合成**一个** 844 KB 的样式表，
+           而且它在 index.html 里 ⇒ **每一页**都要先下完它才能看，
+           包括首页根本用不到的 VideoStudio(256KB) / EcCanvas(252KB) / Home(337KB)。
+           路由本来就是 React.lazy 的（App.jsx 里 15 处），CSS 却没跟着拆 —— 不一致。
+           改成默认的按 chunk 拆分：每个懒路由带自己那份 CSS，首屏只下用到的那部分。 */
+        cssCodeSplit: true,
     outDir: 'dist',
     sourcemap: false,
   },

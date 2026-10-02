@@ -14,8 +14,12 @@ test('加号只挂在“已产出结果的节点”左右，生成面板不再�
   const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
   /* 9-15 用户决定：“生成之前（现在的样式）这四个框可以不用左右加号；生成结果出来之后左右必须有加号”。
      生成节点（CanvasGenerationNode）：左右加号用 nodeHasResult 门控（canvasGenerationBoxHasResult）。 */
-  const nodeStart = studio.indexOf('export function CanvasGenerationNode(');
-  const nodeBody = studio.slice(nodeStart, studio.indexOf('export function CanvasDirectionNode('));
+  /* 2026-10-01（批 CY-㊴ 之十八）：节点组件改名成 *View 并以 memo 导出，
+     所以这里按新名字取组件体 —— 守的仍然是"生成节点用 canvasGenerationBoxHasResult 判定"这件事。 */
+  const nodeStart = studio.indexOf('function CanvasGenerationNodeView(');
+  const nodeBody = studio.slice(nodeStart, studio.indexOf('function CanvasDirectionNodeView('));
+  assert.ok(nodeStart > 0 && nodeBody.includes('function CanvasGenerationNodeView('),
+    '找不到生成节点的实现体');
   assert.ok(nodeBody.includes('nodeHasResult = canvasGenerationBoxHasResult(node)'), '生成节点必须用 canvasGenerationBoxHasResult 判定“结果已落框”');
   /* ⚠️ 2026-09-30 批 CY-㊴：这条判据**方向错了**，按用户新要求推翻。
      用户原话：「他为什么不能够跟我们当前的任意节点创建连接呢？」——

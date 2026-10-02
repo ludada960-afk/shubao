@@ -4,11 +4,12 @@ import { createApiError } from './apiError.js';
 
 const RETRY_DELAYS = [0, 1000, 3000, 5000, 10000];
 
-/* ═══ 批 CY-㊴（2026-10-01）：上传体积上限 ═══════════════════════════════════════
-   用户截图里那条红字 `POST /api/video/uploads → 413, "Maximum size exceeded"` 就是它：
-   服务端上限 50MB，手机拍一段就超了；而且 tus 的英文原文被当成 toast 直接甩给用户。
-   权威值来自 /api/video/capabilities 的 uploadLimits（服务端 videoUploadService 的 LIMITS），
-   下面这份只是"接口没回来之前"的兜底，两边刻意写成同一个数。 */
+/* ═══ 批 CY-㊴ 之十四（2026-10-01）：上传体积上限的**客户端兜底** ══════════════════
+   权威值来自 /api/video/capabilities 的 uploadLimits（服务端 mediaUploadLimits.mjs），
+   下面这份只在"接口还没回来"时兜一下，两边刻意写成同一个数。
+   ⚠️ 批 CY-㊴ 之前的注释写的是"服务端上限 50MB"——那正是本次线上事故的形状：
+      服务端有三份上限（300 / 50 / 50），只改了一份。真相已搬到
+      server/mediaUploadLimits.mjs，这里只保留兜底。 */
 const MEDIA_UPLOAD_LIMIT_FALLBACK = Object.freeze({
   image: 10 * 1024 * 1024,
   video: 300 * 1024 * 1024,
@@ -44,7 +45,8 @@ export function describeUploadTooLarge(file, kind, limits = MEDIA_UPLOAD_LIMIT_F
      ② 响应正文里是我们自己的中文 `error` 字段，不是 "Maximum size exceeded"。
    ⇒ `readableUploadError` 老老实实 `return raw`，把整段英文原样甩给用户。
    现在：先从 originalResponse 拿状态码与正文，正文里的中文 `error` 优先用；
-   拿不到中文就退回按状态码给中文；**任何还带英文骨架的消息一律不外泄**。 */
+   拿不到中文就退回按状态码给中文；最后一道只放行"确实是中文、且没裹着
+   英文外壳"的消息（见下面 HAS_CHINESE / ENGLISH_SHELL 的注释）。 */
 
 /** tus 的 DetailedError 把状态码和响应体挂在 originalResponse 上，不在 error 本身 */
 function readTusResponse(error) {

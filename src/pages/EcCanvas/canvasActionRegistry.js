@@ -22,6 +22,33 @@ function isReadyMedia(node = {}) {
   return isReadyImage(node) || (node.kind === 'video' && Boolean(node.url) && ['ready', 'success', 'completed'].includes(node.status));
 }
 
+/* ═══ 2026-10-02 用户批注：视频节点的工具栏必须是**视频专属**的一套 ═══════════════════════
+   > 「而且你上面的这些功能栏太少了。而且好像也不完全是为视频功能去定制的一些功能呀。
+   >   **视频跟图片生成他们是不同的逻辑才对呀，你应该定制化的为他去开发一些功能。**」
+
+   **病根不是"少注册了几个动作"，是筛选链路整个不认视频**：
+     · `action()` 的默认 `canRun` 是 `isReadyImage`（**只认 image/output/layer-group**）
+     · `stableActionsForSurface` 的兜底 `hasPreview = canRunLocally(node)` 也只认图片
+   ⇒ 一条视频节点进来，`hasPreview=false`、每个动作再被 `canRun` 拦一遍
+     ⇒ 拿到的那几颗，是"恰好 canRun 里写了 video"的（save-to-assets / replace-media），
+        其余全是图片动作（编辑文字 / 宫格切分 / 智能分层 / 去除背景 / 图片标注）。
+
+   ⇒ 这里补一个显式的**视频判定**，并让 selection 面在视频节点上返回视频专属动作组。
+      刻意**不**把 `isReadyImage` 改成 `isReadyMedia` —— 那会把图片动作一股脑放给视频，
+      正是用户说的"不完全是为视频定制的"。 */
+
+/** 视频节点是否可跑本地/导出类动作（有稳定地址 + 不在失败态即可）。 */
+export function isReadyVideoNode(node = {}) {
+  return String(node?.kind || '') === 'video'
+    && Boolean(node?.url)
+    && !['error', 'upload-error', 'generating', 'draft'].includes(String(node?.status || ''));
+}
+
+/** 这个节点是不是视频（工具栏分流用）。 */
+export function isVideoNode(node = {}) {
+  return String(node?.kind || '') === 'video';
+}
+
 /* 用户 9-05 反馈: 图片工具栏"大部分功能不能点"是反人类的。
    上传节点落地时 url 就是服务器稳定地址且 status=ready, 有 url 即可发起
    全部图片能力; source_group 仍保留原有严格门槛。 */
@@ -195,6 +222,41 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('application-caption', '应用: 字幕动效', ['image-editor'], null, true, {
     type: 'node', handler: 'create:application-caption', nodeActionId: 'application-caption', nodeKind: 'application', route: '/api/canvas/caption',
   }, { description: '应用节点字幕动效 (弹出/淡入/逐字动画, 烧入视频节点)', group: '应用节点', canRun: canCreateWorkflowFromNode }),
+
+  /* ═══ 视频专属动作组 ═════════════════════════════════════════════════════════════
+     用户 2026-10-02（照知渔视频工具栏：智能去字幕 / 聚焦 / 下载 / 添加 / 预览）：
+       「你上面的这些功能栏太少了。而且好像也不完全是为视频功能去定制的一些功能呀。
+         视频跟图片生成他们是不同的逻辑才对呀，你应该定制化的为他去开发一些功能。」
+
+     下面这一组**只**在视频节点上出现（见 actionsForSurface 的分流），
+     刻意不与图片动作混在一张表里 —— 混了就会重演"视频拿到一堆图片功能"。 */
+  /* ⚠️ 2026-10-02：计价项接好之后（批 之二十）才挂上来。第一版挂过又被撤 —— 那时
+     priceFeature 写的是不存在的 'video-subtitle' ⇒ 查表落空、**静默回落成「免费」**，
+     而后端 delogo 是按秒真扣的（canvas-billing 门禁原话："UI 显示免费但后端实收"）。
+     现在键是真实存在的 'video-desubtitle'（perSecond + unitsPerSecond 0.04，
+     单价由门禁从服务端 catalog 逐值核对）。
+     ⚠️ 按钮上显示的是**单价**；总价随这条视频的时长变化，由服务端 quote 给出。 */
+  action('smart-subtitle-erase', '智能去字幕', ['video-toolbar'], 'video-desubtitle', false, {
+    type: 'local', handler: 'smart-subtitle-erase',
+  }, {
+    description: '在视频上框出字幕区域，用本机 ffmpeg delogo 补掉（照知渔的「智能去字幕 · 框选擦除」）',
+    group: '视频处理',
+    canRun: isReadyVideoNode,
+  }),
+  action('preview-media', '预览', ['video-toolbar'], null, false, {
+    type: 'local', handler: 'preview-media',
+  }, {
+    description: '放大预览这条视频',
+    group: '视频处理',
+    canRun: isReadyVideoNode,
+  }),
+  action('export-video', '下载视频', ['video-toolbar'], null, false, {
+    type: 'local', handler: 'export-video',
+  }, {
+    description: '把这条视频存到本地',
+    group: '视频处理',
+    canRun: isReadyVideoNode,
+  }),
 ]);
 
 const ACTION_BY_ID = new Map(CANVAS_ACTIONS.map(item => [item.id, item]));
@@ -208,9 +270,21 @@ export function actionsForSurface({ surface, node } = {}) {
   return CANVAS_ACTIONS.filter(item => item.surfaces.includes(surface) && item.canRun(node));
 }
 
+/* ⚠️ 2026-10-02：视频节点走**视频专属**那一组，不与图片动作混在一起。
+   混在一起会重演用户抱怨的「不完全是为视频定制的」—— 编辑文字/宫格切分/图片标注
+   对一条视频毫无意义。 */
+const VIDEO_SELECTION_SURFACES = new Set(['video-toolbar']);
+
 /* selection 工具栏: 素材存在期间结构稳定且全部可用 (用户 9-05 反馈:
    "功能栏的功能就是留给图片用的, 平时应该开放给用户" — 不再置灰)。 */
 export function stableActionsForSurface({ surface, node } = {}) {
+  /* 视频节点 ⇒ 只给视频专属动作（外加"加入资产库"这种两边都成立的通用项） */
+  if (isVideoNode(node) && !VIDEO_SELECTION_SURFACES.has(surface)) {
+    return CANVAS_ACTIONS
+      .filter(item => item.surfaces.includes('video-toolbar') || item.id === 'save-to-assets')
+      .filter(item => item.canRun(node))
+      .map(item => ({ ...item, disabled: false, disabledHint: '' }));
+  }
   const hasPreview = canRunLocally(node);
   return CANVAS_ACTIONS
     .filter(item => item.surfaces.includes(surface))

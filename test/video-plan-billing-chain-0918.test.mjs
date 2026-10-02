@@ -187,7 +187,15 @@ test('plan_hash 是内部字段：不得出现在用户可见文案里', () => {
 /* ── ④ 客户端负责传，不负责拼 ───────────────────────────────────── */
 
 test('客户端把结构化方案 + 确认标记一起发上去', () => {
-  const start = canvas.indexOf('await createVideoJob({');
+  /* ⚠️ 2026-10-02：画布上现在有**两个** createVideoJob 调用点 ——
+     视频**生成器**（要带 videoPlan / planConfirmed）与画布「智能去字幕」
+     （本机 ffmpeg delogo，走 localSpecs.regions，**不收费方案费**）。
+     `indexOf` 取第一个会落到去字幕那条（它定义在 handleToolAction 旁边、排得更靠前），
+     于是判据问错了对象。
+     ⇒ 锚到「带 videoPlan 的那个建单调用」：取该字段**之前最近**的 createVideoJob。 */
+  const planAt = canvas.indexOf('videoPlan: composer.videoPlan');
+  assert.ok(planAt > 0, '必须能找到视频生成器带 videoPlan 的建单调用');
+  const start = canvas.lastIndexOf('await createVideoJob({', planAt);
   assert.ok(start > 0, '必须能找到 createVideoJob 调用');
   const seg = canvas.slice(start, start + 2600);
   assert.match(seg, /videoPlan: composer\.videoPlan \|\| null/, '必须把 videoPlan 发上去');
