@@ -17874,3 +17874,122 @@ Dm=clearRefreshCredential、va=clearSession —— refresh 失败仍然彻底清
 
 清垃圾时踩到一个坑：`git status` 默认把中文/特殊字符文件名转义成 `\346\212\200...`，
 直接拿那个字符串去 `fs.existsSync` 永远 false。必须 `-c core.quotepath=false` 且加 `-z`。
+
+## 批 CY-㊴ 之十九 · 视频节点换成**视频专属**工具栏（`3f3ef9f5`）
+
+用户 2026-10-02：「而且你上面的这些功能栏太少了。而且好像也不完全是为视频功能去定制的一些功能呀。
+**视频跟图片生成他们是不同的逻辑才对呀**，你应该定制化的为他去开发一些功能。」
+
+### ① 病根不是"少注册了几个动作"，是整条筛选链路**不认视频**
+
+`canvasActionRegistry.js` 里两处都只认图片：
+- `action()` 的默认 `canRun` 是 `isReadyImage`（只认 image / output / layer-group）
+- `stableActionsForSurface` 的兜底 `hasPreview = canRunLocally(node)` 也只认图片
+
+⇒ 视频节点被筛两道，最后拿到的是"恰好 `canRun` 里写了 video"的那几颗
+（save-to-assets / replace-media）。**编辑文字 / 宫格切分 / 智能分层 / 去除背景 / 图片标注**
+之所以挂着，是因为它们本来就是图片动作 —— 不是"视频功能太少"，是视频
+**根本不在这套筛选的考虑范围内**。
+
+⇒ 新增 `isReadyVideoNode` / `isVideoNode`，注册一组 `['video-toolbar']` 的视频专属动作，
+`stableActionsForSurface` 在视频节点上返回这一组（外加两边都成立的"加入资产库"）。
+
+⚠️ **刻意没有**把 `isReadyImage` 改成 `isReadyMedia` —— 那会把图片动作一股脑放给视频，
+正是用户说的"不完全是为视频定制的"。两套逻辑必须分开。
+
+⚠️ 视频动作**只挂 `['video-toolbar']`、不挂 `'selection'`**：
+`stableActionsForSurface` 的图片分支是 `hasPreview || canRun(node)`，
+**hasPreview 为真时 `canRun` 根本不被求值** ⇒ 挂了 selection 就会漏进图片工具栏。
+（这是门禁当场抓到的，不是事后想到的。）
+
+预览复用**同一个**放大灯箱、按 `kind` 分渲染（另起一个 = 两套关闭/缩放/滚轮逻辑，迟早打架）；
+视频分支用 `controls` 且**不套**图片那套 `scale(previewScale)`（会与 video 控件层互相干扰）。
+
+## 批 CY-㊴ 之二十 · 画布计价表第一次支持**按秒**（`5390a4b5`）
+
+用户 2026-10-02 定调：「肯定不能跳走啊，你可以直接内置skill去实现，
+**当时一定是在画布上实现啊**」⇒ 在画布上就地做，但先把计费的地基补对。
+
+### ① 差 1000 倍的形状
+
+`canvasBillingModel.ACTIONS` 里所有动作的 `units` 语义都是**这个动作的固定总价**，
+`formatCanvasActionPrice` 直接渲染 `${units} 积分`。而去字幕在服务端是：
+
+```js
+video_desubtitle_local_short: { units: 40, perSecond: true, priceFen: 4 }   // 0.04 积分/秒
+```
+
+数量 = 秒数（`billableQuantity`）。我第一版照别的动作填了 `units: 40`
+⇒ **按钮上会写「40 积分」，而 10 秒的片子真实只扣 0.4 积分**。
+而且这张表原来**连"按秒"这个概念都没有**（`perSecond` 出现 0 次）。
+
+`canvas-billing` 门禁的注释原话就是这个事故：
+「注册表写 'layers'，而计价表里叫 'layer-edit' ⇒ 查表落空回落 FREE，**UI 显示免费但后端实收 3 积分**」。
+它在我挂上那个按钮的瞬间**当场判红**。
+
+### ② 做法：只声明**单价**，不声明总价
+
+`video-desubtitle` = `{ paid, perSecond, unitsPerSecond: 0.04, sku/skus: video_desubtitle_local_* }`，
+`formatCanvasActionPrice` 对按秒的档渲染「0.04 积分/秒」而不是总价。
+
+总价**不在这里算**：挑 short/long 两档（≤8 秒走 short）+ ×秒数 那件事，
+`videoStudioModel.localQuoteFor(product, seconds)` 已经做了，由服务端 capabilities 派生。
+**不在前端另写一份** —— 那正是 `catalog.mjs` 注释里警告的
+「菜单与扣费各写一份就是『看着 0.5、扣的是 0.04』那类事故」。
+界面显示与 hold 扣费将来用**同一个 quote**。
+
+### ③ 门禁 `canvas-billing-per-second-1002`（4 条）
+
+① **单价必须与服务端 catalog 逐值一致** —— 从 `server/billing/catalog.mjs` 读出真实 `units`，
+   断言 `=== 前端单价 × 1000`，并逐条验 `perSecond: true` / `public: true`。
+   即 0.04 不可能是前端拍脑袋写的。
+② 按秒的档不许被渲染成总价；按条的档行为一字未变（layer-edit 仍「3.2 积分」）
+③ 计价表里不许出现 `totalUnits`；按秒的档**不许有 `units` 字段**
+   （那个字段语义是"固定总价"，一填就会被 `formatCanvasActionPrice` 当总价显示出去）
+④ 新键必须落进 `CANVAS_BILLING_KEYS`；注册表里不许再出现不存在的 `video-subtitle`
+
+## ⚠️ 一件必须记的：**半成品被我主动撤回了**
+
+接着做「智能去字幕」时，我把按钮、portal 框选面板、`localProducts` 加载都接上了，
+但**提交那一步（`runVideoDesubtitle`）没写完** —— 点"开始擦除"会 ReferenceError **整页白屏**。
+
+剩下轮次不足以写完那个**碰钱**的提交（要 productId、源视频 assetId、时长、`billingQuoteId`、
+`createVideoJob` 的 idempotency），所以 `git checkout --` 撤掉了整个半成品。
+
+⇒ **宁可不做，也不能发一个"点了会崩"的版本进画布。**
+派生卡片那次发了"看着改好了其实没改好"的版本，被用户退回来两次；那次是 UI，
+这次会**白屏**，性质更重。
+
+### 已经查清、下一轮可直接用的四步（不要重新推导）
+
+1. **画布要加载 `capabilities.localProducts`**（`index.jsx` 的 capabilities effect）。
+   ⚠️ 上游模型 `data.products` 与本机 `data.localProducts` **不是一份东西**，
+   画布现在**只拉了前者** ⇒ 没有 productId、也就没有报价、没法建单。
+2. 注册 `smart-subtitle-erase`，`priceFeature: 'video-desubtitle'`（批 之二十 已经接好）。
+3. **`VideoRegionPicker` 必须 portal 到画布外**。它内部用 `surface.offsetWidth`
+   （未缩放的布局尺寸）配 `rect ÷ 自身放大(1.8)` 换算**源视频像素**（delogo 的坐标口径）；
+   画布 stage 带 `transform: scale(viewport.scale)`，直接内嵌会让 `rect/1.8` 仍差一个
+   viewport.scale ⇒ **框出来的区域整体偏移**（用户框底部字幕、擦出来落在画面中间）。
+   挂到 body 后它回到"没有祖先 transform"的坐标系，**算法一行都不用改**
+   （与 `CanvasPopoverPortal` 同一个理由）。
+4. 提交照 `VideoStudio/index.jsx:1523` 的签名抄：
+   `createVideoJob({ productId, mode: 'local', duration, billingQuoteId: quote.quoteId,
+   localSpecs: { regions }, references: { videos: [source.id], urls: {...} }, idempotencyKey })`。
+
+### ⚠️ 顺带记一件部署上的好消息
+
+`6d0a317e` 是对方把**我的 `5390a4b5` 合并进了他们那条分支**（`cy/auth-signout-1001`）——
+说明他们开始走同一条发布分支而不是各自从 detached 工作树发。
+**这正是 批 之十八 那道根因守卫能生效的前提**：守卫只对"用了这份脚本的部署"起作用，
+而它现在对他们也生效了。
+
+### ⚠️ 本批门禁/判据的教训（今晚第三次同类）
+
+我给视频动作挂 `['selection','video-toolbar']` 时，`stableActionsForSurface` 的图片分支
+`hasPreview || canRun(node)` 在 hasPreview 为真时**根本不求值 canRun**
+⇒ 我的视频动作漏进了图片工具栏。**门禁当场抓到**（② 图片行为一字未变）。
+另一条：预览灯箱的 aria-label 兜底词从「图片」改成「素材」，而 `ec-canvas-state`
+把「图片」**逐字**钉住 ⇒ 行为完全正确却被判红，已改成断言**意图**。
+
+⇒ **钉措辞的门禁会在实现正确时制造假红，然后诱导你把实现改回去** —— 比没有门禁更坏。
+判据要问「这件事成立吗」，不要问「这行字长这样吗」。
