@@ -17993,3 +17993,100 @@ video_desubtitle_local_short: { units: 40, perSecond: true, priceFen: 4 }   // 0
 
 ⇒ **钉措辞的门禁会在实现正确时制造假红，然后诱导你把实现改回去** —— 比没有门禁更坏。
 判据要问「这件事成立吗」，不要问「这行字长这样吗」。
+
+
+## 批 CY-㊴ 之二十一 · 画布「智能去字幕」（照知渔 · 框选擦除）· `b1883265`
+
+用户 2026-10-02 定调（逐字）：
+> 「**肯定不能跳走啊，你可以直接内置 skill 去实现，当时一定是在画布上实现啊**」
+
+用户先问了个更基础的问题，答案决定了整个做法：
+> 「你所说的服务器 CPU 上面跑，就是我们现在的那个腾讯云的 CPU 吗？也就是说我的电脑不打开的情况下，
+>   这个任务也是能够正常的实现的对吧」
+
+### ⓪ 先核实「电脑关掉能不能跑」（不假设，去看）
+
+- 服务器 `/usr/bin/ffmpeg` **4.4.2**，`delogo` 滤镜在；**当场跑了一遍**
+  （`color=black -vf delogo=… ` → 产出 2320 bytes）⇒ 不是"配置上写着有"，是能跑。
+- 机器：`VM-0-17-ubuntu` / Ubuntu 22.04.5 / 4 核 / 7.7GB，`shubao-production` 在 PM2 online。
+- **作业是服务器自己驱动的**，三条证据：
+  ① 没有 `executeOnPoll` / `requireClientPoll`（不存在"客户端不轮询就不执行"）
+  ② `videoGeneration.mjs:2001` 有常驻 `reconciliationTimer`（30s）
+  ③ 重启后 `recover()` 扫 `video_jobs` 里 queued/submitting/processing 的行挨个 `enqueue`
+
+⚠️ `ps aux` 查不到 ffmpeg **是正常的**：它不是常驻服务，是每个作业 spawn 一次、跑完就退。
+**看不到进程 ≠ 不工作。**
+⚠️ 但**上传**那一段依赖浏览器（tus 分片从你机器发出）⇒ **传的时候电脑得开着，传完就可以关。**
+
+### ① 钱扣的是谁的（用户追问的，答案要分两层说）
+
+| | 金额 |
+| --- | --- |
+| 用户站内 AI 积分 | 0.04 积分/秒（10 秒片子 0.4）——**真扣** |
+| **我们付给第三方的成本** | **¥0** |
+
+服务端目录原文（`video_desubtitle_local_*`）：
+`{ units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4 }`
+`videoExportRender.mjs` 全文 128 行，只有 `spawn('ffmpeg', args)`，**没有一次 fetch / http / provider**。
+
+catalog 原话：「这两个功能**不走上游模型**（用户原话：『为什么一切都要追究模型呢』）…
+`providerCostCny` 记 **0** —— 这不是『漏记成本』，而是成本**确实为零**；面值毛利接近 100%，是引流款。」
+
+⇒ 另有一条**自动识别**档 `video_desubtitle_volc_*`（火山 MediaKit，¥0.4/分钟）才花钱，
+纪律是「自动档**不能**与手动档同价（同价只有 33.3%，跌破 40% 地板）」。
+**用户要的「框选擦除」是免费那条。**
+
+### ② 三个会真出错的约束
+
+**产品来源**：去字幕是**本机产品**，`capabilities.localProducts` 与上游模型
+`data.products` **不是一份东西**；画布此前**只拉了后者** ⇒ 没有 productId 就没法报价、没法建单。
+
+**记账**（VideoStudio:1034-1040 原话，照抄）：
+> 「份数一律由**服务端**定……这里只报『这段片子多少秒』这个**事实**，不报份数、更不报金额：
+>   前端不得把『算出来的份数/金额』发给服务端」
+> 「只有服务端能把它算成份数（它同时决定建单时冻结多少，两边不一致就是 **409 费用确认不一致**）」
+
+⇒ 只传 `{ sku, seconds }`，建单带 `billingQuoteId: quote.quoteId`。
+**界面显示与 hold 扣费用同一个 quote**，不在前端算第二份。
+
+**坐标（唯一的硬约束）**：`VideoRegionPicker` 用 `surface.offsetWidth`（未缩放布局尺寸）
+配 `rect ÷ 自身放大(1.8)` 换算**源视频像素**（delogo 口径）。画布 stage 带
+`transform: scale(viewport.scale)`，**内嵌会让 `rect/1.8` 仍差一个 viewport.scale**
+⇒ 框出来的区域整体偏移（用户框底部字幕、擦出来落在画面中间）。
+⇒ **portal 到 body**，回到"没有祖先 transform"的坐标系，**算法一行都不用改**
+（与 `CanvasPopoverPortal` 同一个理由）。区域存节点 `subtitleRegions`：框错能改、刷新不丢。
+
+### ③ 门禁 `canvas-video-desubtitle-1002`（4 条）
+
+① 记账：只报 seconds；反向断言**不许**出现前端自算总价
+② 框选面板必须 portal 出画布 + 必须复用同一个组件（不许另写一份坐标换算）
+③ 产品取自 localProducts、建单模式取产品声明、delogo 区域走 `localSpecs.regions`
+④ 动作注册用**真实存在**的计价键，且不许残留查不到的键（`video-subtitle` 那个形状）
+
+### ④ ⚠️ 三条门禁因我新增调用而变红 —— **都是门禁问错了对象**
+
+1. `plan-affects-output-audit-0918` / `video-plan-billing-chain-0918` 用
+   `canvas.indexOf('await createVideoJob({')` 取**第一个**建单点。画布现在有**两个**
+   （生成器 + 去字幕），去字幕那个定义在 `handleToolAction` 旁边、排得更靠前 ⇒ 判据匹配到我的调用。
+   **已改成锚「带 `videoPlan` 的那个建单调用」。**
+   ⚠️ 中间还错了一次：先改成 `indexOf('composerDuration')` —— 那名字在 254 行的 helper 里也出现，
+   照样落到我的调用上。**锚点要选"这段判据真正关心的那个唯一标记"。**
+2. `no-clickable-div`：我的 backdrop 是裸 `<div onClick>`。加 `role="presentation"` ——
+   点空白关闭属于**容器级辅助行为**，真控件是里面「取消 / 开始擦除」两个 button；
+   该门禁明确放行显式非交互容器角色。
+3. **我自己上一轮写的门禁断言反了**：那时计价项还没接，我写的是「去字幕不该出现」。
+   已翻转成「**应该**出现；若这条又红，说明有人把计价键改回了查不到的名字」。
+
+### ⑤ 上一轮那次**回滚**（记下来，别当没发生过）
+
+第一版接了 ①②③ 但没写完 `runVideoDesubtitle` ⇒ 点「开始擦除」会 ReferenceError **整页白屏**。
+轮次不够写那个**碰钱**的提交，所以 `git checkout --` 撤掉整批。
+**宁可不做，也不发一个"点了会崩"的版本进画布** —— 派生卡片那次发"看着改好了其实没改好"
+只是 UI，这次会白屏，性质更重。
+
+### ⑥ ⚠️ 这一批只做到**代码级**验证，没真机点过
+
+门禁 + 全量 4661 条 0 失败 + 服务器侧验产物，但**框选这条路没有真人手点过**。
+若用户反馈字幕区域有偏移，第一嫌疑是 canvas 的 `viewport.scale` 在 portal 定位层
+还残留了一点影响（`VideoRegionPicker` 自己的算法是量过 `offsetWidth` 的，但**外层容器**
+的定位没有参与过实测）。
