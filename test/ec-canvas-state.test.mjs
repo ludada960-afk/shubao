@@ -131,12 +131,30 @@ test('white-background deliverables keep a dedicated Canvas lane', () => {
   assert.equal(node.group, '白底图');
 });
 
-test('marquee selection includes intersecting nodes only', () => {
+test('marquee 只选中**完整落在框内**的节点（部分相交不算 —— 批 CY-㊴ 改了口径）', () => {
   const nodes = [
     { id: 'a', x: 10, y: 10, w: 100, h: 100 },
     { id: 'b', x: 300, y: 300, w: 100, h: 100 },
   ];
   assert.deepEqual(selectNodesInRect(nodes, { x: 0, y: 0, w: 150, h: 150 }), ['a']);
+
+  /* ⚠️ 口径在批 CY-㊴（2026-10-01）变过一次：原来只要**相交**就算选中。
+     用户原话：「你的拖动框选却没有把最下面的图**完整选中**呀。
+       …这下面为什么还是漏了一些呀？」—— 蓝色框选矩形并没有盖住那个节点，
+     它却整块变成了选中态，视觉上就是"框没盖满却被选中"。
+     ⇒ 现在要求**四条边都落在框内**。下面这几条才是那次变更真正要守的东西。 */
+  const one = [{ id: 'p', x: 10, y: 10, w: 100, h: 100 }];
+  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 60, h: 60 }), [],
+    '只框住一部分不算选中（本次口径变更的核心）');
+  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 1000, h: 1000 }), ['p'],
+    '完整框住就选中');
+  /* 方向无关：往右下拖与往左上拖结果一致（w/h 为负） */
+  assert.deepEqual(selectNodesInRect(nodes, { x: 150, y: 150, w: -150, h: -150 }), ['a'],
+    '反向拖拽结果必须一致');
+  /* 隐藏节点不参与 */
+  const hidden = [{ id: 'h', x: 10, y: 10, w: 100, h: 100, hidden: true }];
+  assert.deepEqual(selectNodesInRect(hidden, { x: 0, y: 0, w: 1000, h: 1000 }), [],
+    '隐藏节点不该被框选');
 });
 
 test('moving a selection preserves unrelated node positions', () => {

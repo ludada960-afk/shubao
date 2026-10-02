@@ -416,6 +416,16 @@ export function CanvasMinimap({
   const stage = viewportSize && Number(viewportSize.width) > 0 && Number(viewportSize.height) > 0
     ? { width: Number(viewportSize.width), height: Number(viewportSize.height) }
     : { width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900 };
+  /* ═══ 批 CY-㊴（2026-10-01）：把「被右侧面板遮住的那一条」**画出来** ══════════════
+     用户连续三次反馈（逐字）：
+       「感觉还是一样啊，小地图依然会被派生框遮住一部分呀，素材图的右边为什么还是比较窄呢」
+       「这个派生面板在你的小地图里依然是被遮蔽的元素呀，你根本没解决呀」
+     我前面两次都搞错了方向：一直在把实心框**改窄**（让它等于看得见的部分），
+     还加了一层"框外压暗"的遮罩 —— 那等于把"被遮住"画成了"窗外"。
+     用户要的是：画布右边被面板盖住的那一段**在框里要看得见，并且看得出它是被遮住的**。
+     ⇒ 实心框 = 看得见的部分；紧接在它右边再画一段**斜纹**的"被面板压住"，
+       两段合起来正好是画布的完整宽度。 */
+  const coveredWidth = Math.max(0, Number(viewportSize?.coveredWidth) || 0);
   const safeScale = Math.max(0.01, Number(viewport.scale) || 1);
   const rawVisibleRect = {
     x: toMapX(-viewport.x / safeScale),
@@ -431,6 +441,15 @@ export function CanvasMinimap({
     x: Math.min(canvasWidth - visibleW, Math.max(0, rawVisibleRect.x)),
     y: Math.min(canvasHeight - visibleH, Math.max(0, rawVisibleRect.y)),
   };
+  /* 被面板压住的那一段：与实心框**合成同一个盒子**。
+     ⚠️ 批 CY-㊴（2026-10-01，第二版）：第一版画了两个盒子（实心 + 斜纹）拼在一起，
+     用户原话「你这很明显是加了一层样式上去啊，看起来很割裂啊……不要这样割裂式的去组装」。
+     ⇒ 现在只有一个 div：宽度 = 看得见的 + 被遮住的，边框连续；
+       被遮住的那段靠**同一层背景**（repeating-linear-gradient，用 --covered-w 限定宽度）
+       区分，不是另加一个盒子。 */
+  const coveredW = coveredWidth > 0
+    ? Math.max(0, Math.min(canvasWidth - (visibleRect.x + visibleW), (coveredWidth / safeScale) * scale))
+    : 0;
 
   function handlePointerDown(event) {
     setIsDragging(true);
@@ -526,8 +545,10 @@ export function CanvasMinimap({
           style={{
             left: Math.max(0, visibleRect.x),
             top: Math.max(0, visibleRect.y),
-            width: visibleRect.w,
-            height: visibleRect.h,
+            /* 一个盒子：看得见的 + 被面板遮住的，加起来正好是画布的完整范围 */
+            width: visibleW + coveredW,
+            height: visibleH,
+            '--covered-w': coveredW > 0 ? `${coveredW}px` : '0px',
           }}
         />
       </div>

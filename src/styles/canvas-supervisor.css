@@ -495,6 +495,9 @@
   min-height: 0;
   margin: var(--sb-space-1-5);
   background: var(--sb-neutral-100);
+  /* 批 CY-㊴：视窗框用一圈巨大的 box-shadow 做「框外遮罩」，
+     必须由画布裁掉，否则会糊到小地图卡片外面去。 */
+  overflow: hidden;
   border-radius: var(--sb-radius-md);
   cursor: pointer;
   overflow: hidden;
@@ -504,12 +507,32 @@
   border-radius: 4px;
   transition: all 0.16s;
 }
+/* 批 CY-㊴（2026-10-01）：框外压暗。
+   用户两次反馈「小地图里右边被截断」「派生面板在小地图里依然是被遮蔽的元素」——
+   数值其实是对的（框宽/画布宽两态都是 0.0409），是小地图画的是 6400 宽的世界、
+   而画布只有 1920，框天然只占约 1/4，框外那片和框内画得一样清楚，
+   于是读起来像渲染被切掉。⇒ 用遮罩把它明确成「窗外」。 */
+/* 批 CY-㊴（2026-10-01）：画布右边被右侧面板压住的那一段。
+   用户连着三次反馈「小地图依然会被派生框遮住一部分」「素材图的右边为什么还是比较窄」——
+   之前两次都把实心框改窄 + 给框外加压暗，等于把"被遮住"画成了"窗外"，方向就错了。
+   现在：实心框 = 看得见的部分；紧接其右再画一段**斜纹**的"被面板压住"，
+   两段合起来正好是画布的完整宽度，一眼能看出右边被盖了多宽。 */
+/* 批 CY-㊴（2026-10-01，第二版）：**一个盒子，不是两个拼的**。
+   第一版画了"实心框 + 斜纹段"两个 div，用户原话「你这很明显是加了一层样式上去啊，
+   看起来很割裂啊……我觉得应该做成整体啊，不要这样割裂式的去组装」。
+   ⇒ 现在只有一个 div：宽度 = 看得见的 + 被面板遮住的，边框连续；
+     被遮住的那段靠**同一层背景**（斜纹，用 --covered-w 限定宽度）区分。 */
 .ec-canvas-minimap-viewport {
   position: absolute;
   border: 1px solid rgba(78, 205, 196, 0.7);
-  background: rgba(78, 205, 196, 0.06);
+  background:
+    /* 被右侧面板压住的那一段：同一层背景里的斜纹，宽度由 --covered-w 给 */
+    repeating-linear-gradient(135deg, rgba(78, 205, 196, 0.2) 0 3px, rgba(78, 205, 196, 0.05) 3px 6px) right center / var(--covered-w, 0px) 100% no-repeat,
+    rgba(78, 205, 196, 0.06);
   border-radius: 4px;
   pointer-events: none;
+  /* 一圈巨大的外阴影 = 把框外整片压暗；由 .ec-canvas-minimap-canvas 的 overflow:hidden 裁住 */
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.13);
   box-shadow: 0 0 8px rgba(78, 205, 196, 0.3);
 }
 /* P0-5: 小地图关闭后的重开按钮 (内联在左下角缩放条右侧) */

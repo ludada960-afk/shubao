@@ -1,8 +1,8 @@
 import React from 'react';
-import { resolveAnchoredRight, CANVAS_Z } from '../canvasVisualLanguage.js';
-
-/** 图层面板固定宽度（与 CSS .ec-canvas-layers-panel 的 288px 一致；定位要用同一个数） */
-const LAYERS_PANEL_WIDTH = 288;
+/* 2026-10-01：图层面板的几何改由 CSS 说了算（照水印面板 `.ec-wm-panel`），
+   于是这里曾用到的 `resolveAnchoredRight` / `CANVAS_Z` / `LAYERS_PANEL_WIDTH`
+   全部成了死代码 —— 一并删掉。留着会让人以为"定位还在 JS 里"，
+   下一个人照着 `resolveAnchoredRight` 改半天，改的却是一条已经不再生效的内联样式。 */
 import {
   ArrowLeft,
   Download,
@@ -127,24 +127,25 @@ export function CanvasLeftRail({ addMenuOpen = false, onAddMenuToggle }) {
   </aside>;
 }
 
-export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText, layersOpen = false, onLayers }) {
+export function CanvasBottomToolbar({ activeTool, onToolChange, onImage, onText }) {
   const tools = [
     { id: 'select', label: '选择工具：拖拽框选 / Shift+点击多选', icon: MousePointer2 },
     { id: 'hand', label: '抓手', icon: Hand },
     { id: 'image', label: '添加图片', icon: ImageUp, onClick: onImage },
     { id: 'text', label: '添加文本', icon: Type, onClick: onText },
-    { id: 'layers', label: '图层', icon: Layers3, onClick: onLayers },
+    /* ⚠️ 2026-10-01 用户批注：「你这个图层为什么点击之后会弹到上面去呀？我感觉其实这个按钮
+       放到中间的下面这里会不会其实不太好？因为他打开的那个面板在中间其实不怎么好。
+       你还不如把它放到左下角的那个栏里面。」
+       ⇒ 「图层」从底部 dock 移出，改挂在**左下角缩放条**的 trailing 槽（见 index.jsx），
+         面板锚点也换成那颗按钮 ⇒ 面板落在左下角这一带，不再跑到画面中间。 */
   ];
   return <div className="ec-canvas-bottom-dock">
     <div className="ec-canvas-bottom-toolbar" role="toolbar" aria-label="画布工具">
       {tools.map(tool => <IconButton
         key={tool.id}
         label={tool.label}
-        active={tool.id === 'layers' ? layersOpen : activeTool === tool.id}
-        onClick={() => {
-          if (tool.id !== 'layers') onToolChange?.(tool.id);
-          tool.onClick?.();
-        }}
+        active={activeTool === tool.id}
+        onClick={() => { onToolChange?.(tool.id); tool.onClick?.(); }}
       ><tool.icon size={18} /></IconButton>)}
     </div>
   </div>;
@@ -183,29 +184,24 @@ export function CanvasLayersPanel({
   if (!open) return null;
   const selected = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
   const layers = nodes.filter(node => !['image-composer', 'suite-composer'].includes(node.kind)).slice().reverse();
-  /* 2026-09-20 用户口径：弹层锚在触发元素上向右展开，不再钉在画布左缘。
-     旧实现 CSS 写死 left:72px —— 实测面板左缘 72，而触发按钮（底部「图层」）在 775，
-     面板跑到离触发元素 700px 外的画布左边。现在由共用规则算出视口像素位置。 */
-  const solved = anchorRect && typeof window !== 'undefined'
-    ? resolveAnchoredRight({
-      anchor: anchorRect,
-      width: LAYERS_PANEL_WIDTH,
-      height: Math.min(460, Math.max(240, (anchorRect.y || 0) - 40)),
-      gap: 12,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-    })
-    : null;
-  const panelStyle = solved
-    /* 批 CY-⑭：z-index 原来写死 **10004**（inline style，压过 EcCanvas.css 里全部规则，
-       包括文件末尾专门收口 47 个历史裸值的 `CANVAS_Z` 权威块）。改成走权威阶梯的 popover(40)：
-       仍然高于画布内部所有层（`.ec-canvas-stage` 自成层叠上下文、z=1），
-       但不再越权压到模态(71)与 Toast(90)之上。与 CanvasPopoverPortal 同一个口径。 */
-    ? { position: 'fixed', left: solved.left, top: 'auto', bottom: Math.max(12, window.innerHeight - solved.top), zIndex: CANVAS_Z.popover }
-    : undefined;
+  /* ⚠️ 2026-10-01 用户批注（这一段原来是「弹层锚在触发元素上向右展开」那套）：
+       「你这个图层按钮为什么打开之后的面板是这么高呀？……它整体应该是**吸附在图层这个按钮上面**的，
+         而不是悬空的……为什么没有往左边靠呢？……你看一下下面不是有一个**水印面板**吗？他是比较靠左
+         一些的，你要照他那样子往左边靠一些」
+
+     ⇒ **几何交给 CSS**（`.ec-canvas-layers-panel` 已照抄水印面板 `.ec-wm-panel`：
+       left:60px + bottom:底栏偏移 + 只有 max-height ⇒ 高度随内容、贴底、靠左）。
+
+     为什么之前会「悬空」：这里算出的 `position:fixed + left + bottom` 是**内联样式**，
+     优先级高于 EcCanvas.css 那条 class 规则 —— 而 CSS 那边其实一直是贴底的（left:72/bottom:70）。
+     两套几何同时存在，内联那套赢，看起来就成了悬在画面中间。
+     ⚠️ 同一段还有个副作用：它写死了 `height: max(240, …)`，于是**一个素材也撑出 240px 高**，
+     与「有多少素材就张开多少」直接冲突。
+
+     `anchorRect` 保留：它仍用于 aria 定位与将来的「贴着按钮」微调，但**不再驱动几何**。 */
   return <aside className="ec-canvas-layers-panel" data-canvas-control="true" aria-label="图层"
-    style={panelStyle}
-    data-anchored-right={solved ? 'true' : undefined}>
+    data-anchored-bottom="true"
+    data-anchor-width={anchorRect ? Math.round(anchorRect.width || 0) || undefined : undefined}>
     <header>
       <span><Layers3 size={16} /><strong>图层</strong></span>
       <button type="button" aria-label="关闭图层面板" title="关闭" onClick={onClose}><X size={16} /></button>

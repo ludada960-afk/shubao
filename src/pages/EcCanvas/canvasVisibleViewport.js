@@ -62,11 +62,16 @@ import { useLayoutEffect, useMemo, useState } from 'react';
 
 
 /**
- * 读一个容器**真正看得见**的尺寸。
+ * 读一个容器**真正看得见**的尺寸，以及**被遮住**的那部分有多宽。
  *
  * 口径：元素自己的 border box（`getBoundingClientRect()`）。
  * **不减 margin** —— margin 在 border box 之外，对"看得见多大一片"没有贡献，
  * 而 flex/block-auto 布局早已把它算进去了（见文件头缺陷①）。
+ *
+ * ⚠️ `coveredWidth` 是**额外**读出来的：右侧面板开着时，
+ *   `.ec-canvas-stage` 的 `margin-right` 就是面板压住画布的那一条。
+ *   画布本身**没有变短**，只是右端被盖住了 ——
+ *   小地图要能说清"这一段是被面板遮住的"，就必须把它单独报上去。
  *
  * ⚠️ 若将来调用对象改成**写了显式 width** 的元素（border box 不再为 margin 收缩），
  *   溢出被裁掉的那部分才需要减 —— 那时必须在本函数里**显式**处理并写清理由，
@@ -75,20 +80,26 @@ import { useLayoutEffect, useMemo, useState } from 'react';
  * @param {object|null} element   容器元素（调用点是 `.ec-canvas-stage`）
  * @param {{width:number,height:number}} [fallback]  取不到有效值时的兜底
  * @param {(el: object) => ({width:number,height:number}|null)} [readRect] 便于测试注入
- * @returns {{width:number,height:number}}
+ * @param {(el: object) => number} [readCovered] 便于测试注入（默认读 margin-right）
+ * @returns {{width:number,height:number,coveredWidth:number}}
  */
-export function readCanvasVisibleViewport(element, fallback = { width: 1440, height: 900 }, readRect) {
-  if (!element) return { width: fallback.width, height: fallback.height };
+export function readCanvasVisibleViewport(element, fallback = { width: 1440, height: 900 }, readRect, readCovered) {
+  if (!element) return { width: fallback.width, height: fallback.height, coveredWidth: 0 };
   const rect = readRect
     ? readRect(element)
     : (typeof element.getBoundingClientRect === 'function' ? element.getBoundingClientRect() : null);
   /* 没有 getBoundingClientRect 的场合（非 DOM 环境）退回 clientWidth/clientHeight */
   const width = Number(rect?.width) || Number(element.clientWidth) || 0;
   const height = Number(rect?.height) || Number(element.clientHeight) || 0;
+  const coveredRaw = readCovered
+    ? readCovered(element)
+    : (globalThis.getComputedStyle ? parseFloat(globalThis.getComputedStyle(element).marginRight) : 0);
+  const coveredWidth = Math.max(0, Number(coveredRaw) || 0);
   return {
     // 兜底到 fallback：拿不到有效值时宁可给一个保守值，也不要给 0（0 会让视窗框消失）
     width: width > 0 ? width : fallback.width,
     height: height > 0 ? height : fallback.height,
+    coveredWidth,
   };
 }
 
@@ -107,23 +118,35 @@ export function useCanvasVisibleViewport(elementRef) {
   /* 兜底只依赖挂载那一刻的视口大小，所以必须 memo 住：
      否则每次渲染都是新对象，effect 会跟着重跑。 */
   const fallback = useMemo(
-    () => ({ width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900 }),
+    () => ({ width: globalThis.innerWidth || 1440, height: globalThis.innerHeight || 900, coveredWidth: 0 }),
     [],
   );
   const [size, setSize] = useState(fallback);
   useLayoutEffect(() => {
     const measure = () => {
       const next = readCanvasVisibleViewport(elementRef.current, fallback);
-      setSize(prev => (prev.width === next.width && prev.height === next.height ? prev : next));
+      setSize(prev => (
+        prev.width === next.width && prev.height === next.height && prev.coveredWidth === next.coveredWidth
+          ? prev
+          : next
+      ));
     };
     measure();
     const element = elementRef.current;
-    if (!element || typeof ResizeObserver === 'undefined') return undefined;
+    if (!element) return undefined;
+    /* 面板的 margin-right 有 220ms 过渡，过渡期间只有观察 margin 才会逐帧回调 ——
+       ResizeObserver 只盯着 border box（它不变），所以这里必须再补一个过渡监听。 */
+    const onTransitionEnd = event => { if (event?.propertyName === 'margin-right') measure(); };
+    element.addEventListener('transitionend', onTransitionEnd);
+    if (typeof ResizeObserver === 'undefined') {
+      return () => element.removeEventListener('transitionend', onTransitionEnd);
+    }
     const observer = new ResizeObserver(measure);
     observer.observe(element);
-    /* CSS 里 `.ec-canvas-stage` 的 margin-right 有 220ms 过渡，过渡期间本观察者会逐帧回调 ——
-       视窗框因此跟着面板动画一起走，而不是等动画结束才跳一下。 */
-    return () => observer.disconnect();
+    return () => {
+      element.removeEventListener('transitionend', onTransitionEnd);
+      observer.disconnect();
+    };
   }, [elementRef, fallback]);
   return size;
 }

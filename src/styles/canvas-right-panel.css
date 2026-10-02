@@ -199,6 +199,15 @@
   outline-offset: 1px;
 }
 .ec-canvas-right-panel__menu-hint {
+  /* 批 CY-㊴（2026-10-01）：整行改 flex 居中。
+     实测加号中心比周围文字中心**高 8.5px**；之前用 `vertical-align: -6px` 去猜，
+     而 vertical-align 依赖**字体基线** —— 换字体/字号就得重量，这就是"改了还是歪"的原因。
+     改成 center 对 center，与基线无关。 */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 2px;
   margin: var(--cvl-sp1, 4px) 0 0;
   padding: var(--cvl-sp3, 12px);
   border: 1px dashed var(--sb-border-subtle, rgba(15, 23, 42, .12));
@@ -219,6 +228,10 @@
   background: var(--sb-info);
   color: var(--sb-neutral-0);
   font-size: var(--sb-text-md);
+  /* 这条规则随批 CY-㊴ 失效了：提示句里那个文本 `+` 已换成与画布端口**同一个** SVG 图标
+     （`.ec-canvas-node-port.is-hint`），`strong` 不再出现在这一句里。
+     保留是为了不给别处留隐患；真要对齐应该用 `.ec-canvas-node-port.is-hint`，
+     那边已由 test/canvas-right-panel-hint-1001 钉住「同一图标 + 居中 + 不可点」。 */
   vertical-align: -4px;
 }
 

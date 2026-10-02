@@ -201,9 +201,17 @@ test('视频框两颗触发器：width:100% + min-width:0 + 不许省略号（�
   assert.match(base, /min-width:\s*0/, '触发器必须 min-width:0（才能在槽内收缩）');
   assert.match(base, /overflow:\s*hidden/, '必须 overflow:hidden（纯裁切）');
   assert.match(base, /white-space:\s*nowrap/, '必须 nowrap（不换行）');
-  /* 视频框那一档更矮（32px，与同行其它控件同基线），仍不许内容参与定宽 */
-  const video = allRuleText(main, /\.ec-canvas-video-controls > \.ec-canvas-parameter-item > \.ec-canvas-config-trigger \{([\s\S]*?)\}/g);
-  assert.match(video, /height:\s*var\(--cvl-control-compact, 32px\)/, '视频框触发器与同行控件同高');
+  /* ⚠️ 批 CY-㊴（2026-10-01）：原断言要求视频侧是 32px，依据是「与同行其它控件同基线」。
+     那条依据经**实测**不成立 —— `.ec-canvas-video-controls` 那一行的全部直接子元素是：
+       ec-canvas-video-field（@ 引用按钮）        24.5×24.5
+       ec-canvas-parameter-item ×3（三颗触发器）  当时 21.8
+     24.5 既不是 27.2 也不是 32 —— 那一行本来就没有统一基线；
+     而文案/图片/套图三侧的 @ 按钮同样挨着 27.2 的触发器。
+     ⇒ 删掉视频侧专属覆盖，**四个板块统一到 27.2**；这里改为断言"不许再有例外"。 */
+  assert.doesNotMatch(stripped, /\.ec-canvas-video-controls > \.ec-canvas-parameter-item > \.ec-canvas-config-trigger\s*\{/,
+    '视频侧不得再有触发器专属尺寸覆盖 —— 四个板块必须同档');
+  assert.doesNotMatch(stripped, /\.ec-canvas-video-controls > \.ec-canvas-parameter-item > \.ec-canvas-config-trigger-copy\s*\{/,
+    '视频侧不得再单独收两行间距');
 });
 
 test('参数行不参与收缩（flex-shrink:0）；放不下**换行**，不再靠底栏裁切', () => {

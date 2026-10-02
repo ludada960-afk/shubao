@@ -27,10 +27,17 @@ export function getVideoJob(id) {
   return request(`/api/video/jobs/${encodeURIComponent(id)}`);
 }
 
-export async function uploadVideoAsset(file, kind) {
+/* 批 CY-㊴ 之十四（2026-10-01）：
+   ① 把服务端公布的上限传下去 —— 画布这条路以前调 uploadVideoAssetResumable(file, kind)
+      不带 callbacks，于是 createVideoAssetUpload 拿不到 limits，只能用兜底常量；
+      服务端一旦改过上限，前端这道"上传前拦截"就是拿旧数字在拦。
+   ② callbacks 透传，让画布能显示真实进度（一条 200MB 视频要传好几分钟，
+      没有进度用户只会觉得"卡住了"）。 */
+export async function uploadVideoAsset(file, kind, callbacks = {}) {
   const capabilities = await fetchVideoCapabilities().catch(() => ({ uploadMode: 'tus' }));
-  if (capabilities.uploadMode !== 'direct') return uploadVideoAssetResumable(file, kind);
-  const { promise } = createVideoAssetUpload(file, kind, { resumable: false });
+  const options = { ...callbacks, limits: callbacks.limits || capabilities?.uploadLimits };
+  if (capabilities.uploadMode !== 'direct') return uploadVideoAssetResumable(file, kind, options);
+  const { promise } = createVideoAssetUpload(file, kind, { ...options, resumable: false });
   return promise;
 }
 

@@ -1278,6 +1278,10 @@ export default function VideoStudioPage({
     const entry = { file, kind, status: 'uploading', progress: 0, asset: null, error: null, promise: null, abort: null };
     const operation = createVideoAssetUpload(file, kind, {
       resumable: capabilities.uploadMode !== 'direct',
+      /* 批 CY-㊴（2026-10-01）：把服务端公布的体积上限传进去 ——
+         上传前就能拦下超限文件（用户原话：「为什么我上传视频上传不了呢？」，
+         截图里是传到一半才被 413 打回、还甩了一串 tus 英文）。 */
+      limits: capabilities.uploadLimits,
       onProgress({ progress }) {
         if (uploadsRef.current.get(file) !== entry) return;
         entry.progress = progress;

@@ -425,3 +425,24 @@
   .app-sidebar-tile, .app-sidebar-brand, .app-sidebar-cell::after, .app-sidebar-task-bar { transition: none; }
   .app-sidebar-cell:hover .app-sidebar-tile, .app-sidebar-brand:hover { transform: none; }
 }
+
+/* ═══ 2026-10-01：画布弹窗打开时，侧栏与「生成过程」那颗按钮一起压暗 ═══════════════════════
+   用户原话：「而且你这个生成过程的这个按钮为什么会跟他**在同一层**呢。这个按钮不是应该暗下去吗？」
+   （截图里是工作流模板弹窗开着）
+
+   为什么它压不暗 —— **两套层级表根本不可比**：
+     · 画布弹窗走画布自己的表（canvasVisualLanguage.js）：modalScrim 70 / modal 71；
+     · 「生成过程」按钮走应用外壳的表（TaskSidebar.jsx）：`--sb-z-panel` = **40000000**。
+   40000000 > 71 ⇒ 它永远浮在画布弹窗之上，遮罩盖不到它。
+   而画布原有的 `.is-dialog-open` 规则也救不了：TaskSidebar 是 `createPortal` 挂到
+   侧栏底部插槽里的，**在 `.ec-canvas-page` 之外**，选择器够不着。
+
+   ⇒ 由 EcCanvas 把「有弹窗」这件事复制到 `<html data-cvl-dialog-open>`，这里统一压暗。
+   `pointer-events: none` 一并上：压暗的东西不该还能点（点下去等于穿透到弹窗后面）。 */
+html[data-cvl-dialog-open] .app-sidebar,
+html[data-cvl-dialog-open] .task-sidebar,
+html[data-cvl-dialog-open] .app-sidebar-task-host {
+  opacity: .45;
+  pointer-events: none;
+  transition: opacity var(--sb-dur-fast, .16s) ease;
+}

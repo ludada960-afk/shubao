@@ -83,12 +83,18 @@ async function measure(page) {
        会被算成看得见，而它在小地图里的标记本来就该画在框外 —— 那是诚实的，不是 bug。
        （实测踩过：output-asset_sku-01_3 屏幕矩形 t=987/b=1154，stage 底边只有 1000。） */
     const visible = nodes.filter(n => n.cx > sr.left && n.cx < sr.right && n.cy > sr.top && n.cy < sr.bottom);
+    /* 批 CY-㊴ 第二版：视窗框是**一个盒子**，宽度 = 看得见的 + 被右侧面板遮住的。
+       被遮住那一段的宽度由 CSS 变量 --covered-w 给出（同一层背景的斜纹），
+       所以"看得见的那部分" = 总宽 − covered-w。 */
+    const coveredW = parseFloat(getComputedStyle(box).getPropertyValue('--covered-w')) || 0;
     return {
       ok: true,
       panelOpen: stage.classList.contains('has-right-panel'),
       stageW: sr.width,
       marginRight: parseFloat(cs.marginRight) || 0,
       boxW: br.width,
+      coveredW,
+      visibleBoxW: br.width - coveredW,
       box: { left: br.left, right: br.right, top: br.top, bottom: br.bottom },
       map: { left: mr.left, right: mr.right },
       marks,
@@ -139,7 +145,7 @@ test('实机：视窗框宽度与画布可见宽同比例，且**看得见的每
       if (closed.panelOpen) failures.push('面板关态却量到 has-right-panel');
       if (closed.visibleCount < 1) failures.push('面板关态没有任何"看得见的节点" ⇒ 判据②空转');
       if (closed.box.right > closed.map.right + 0.5) failures.push('面板关态框超出小地图画布右缘（被 clamp，比例判据不可用）');
-      measured.push({ state: '面板关', stageW: closed.stageW, boxW: closed.boxW, visible: closed.visibleCount, outside: closed.outsideBox.length });
+      measured.push({ state: '面板关', stageW: closed.stageW, boxW: closed.boxW, visibleBoxW: closed.visibleBoxW, coveredW: closed.coveredW, visible: closed.visibleCount, outside: closed.outsideBox.length });
     }
 
     await selectFirstNode(page);
@@ -151,25 +157,43 @@ test('实机：视窗框宽度与画布可见宽同比例，且**看得见的每
       if (opened.visibleCount < 1) failures.push('面板开态没有任何"看得见的节点" ⇒ 判据②空转');
       if (opened.unmapped.length) failures.push('有 ' + opened.unmapped.length + ' 个可见节点在小地图里找不到对应标记');
       if (opened.box.right > opened.map.right + 0.5) failures.push('面板开态框超出小地图画布右缘（被 clamp，比例判据不可用）');
-      measured.push({ state: '面板开', stageW: opened.stageW, boxW: opened.boxW, visible: opened.visibleCount, outside: opened.outsideBox.length });
+      measured.push({ state: '面板开', stageW: opened.stageW, boxW: opened.boxW, visibleBoxW: opened.visibleBoxW, coveredW: opened.coveredW, visible: opened.visibleCount, outside: opened.outsideBox.length });
     }
 
-    /* ① 比例不变量 */
+    /* ① 两条不变量（批 CY-㊴ 第二版：框是**一个盒子**）
+       ①-A 总宽恒定：看得见的 + 被遮住的 = 画布的**完整**宽度，
+             面板开关都不该改变它（实测两态都是 65.44）。
+       ①-B 看得见的那一段随面板变：visibleBoxW ∝ stageW。 */
     if (closed?.ok && opened?.ok) {
-      const boxRatio = opened.boxW / closed.boxW;
+      /* ①-A */
+      const totalRel = Math.abs(opened.boxW - closed.boxW) / closed.boxW;
+      if (!(totalRel <= RATIO_TOLERANCE)) {
+        failures.push('视窗框**总宽**在两态下不等：关 ' + closed.boxW.toFixed(2)
+          + ' vs 开 ' + opened.boxW.toFixed(2) + '，相对差 ' + (totalRel * 100).toFixed(2) + '%'
+          + '（总宽应恒为画布完整宽度）');
+      }
+      /* ①-B */
+      const boxRatio = opened.visibleBoxW / closed.visibleBoxW;
       const stageRatio = opened.stageW / closed.stageW;
       const rel = Math.abs(boxRatio - stageRatio) / stageRatio;
       if (!(rel <= RATIO_TOLERANCE)) {
-        failures.push('视窗框宽 开/关 = ' + boxRatio.toFixed(4) + '，而画布可见宽 开/关 = ' + stageRatio.toFixed(4)
+        failures.push('视窗框「看得见的那段」 开/关 = ' + boxRatio.toFixed(4)
+          + '，而画布可见宽 开/关 = ' + stageRatio.toFixed(4)
           + '，相对差 ' + (rel * 100).toFixed(2) + '% > ' + (RATIO_TOLERANCE * 100) + '%');
       }
+      /* 面板开着时，被遮住的那段必须**真的画出来了**（--covered-w ≈ 0 说明没画） */
+      if (opened.coveredW < 1) {
+        failures.push('面板开着，但被遮住的那一段宽度 = ' + opened.coveredW.toFixed(2)
+          + '（应为 margin-right = ' + opened.marginRight + ' 折算后的值）——'
+          + '「画布右边被面板盖住」在小地图里就看不见，正是用户连着三次反馈的那件事');
+      }
     }
-    /* ② 看得见的节点都在框内 */
+    /* ② 看得见的节点都落在「看得见的那段」内 */
     for (const m of [closed, opened]) {
       if (!m?.ok) continue;
       for (const o of m.outsideBox) {
         failures.push((m.panelOpen ? '面板开' : '面板关') + '：节点 ' + o.id
-          + ' 的中心在画布可视区内，但它在小地图里的中心落在视窗框之外（标记中心 x=' + o.mark.cx.toFixed(2)
+          + ' 的中心在画布可视区内，但它在小地图里的中心落在可见段之外（标记中心 x=' + o.mark.cx.toFixed(2)
           + ' y=' + o.mark.cy.toFixed(2) + '，框 = [' + o.box.left.toFixed(2) + ',' + o.box.right.toFixed(2)
           + ']×[' + o.box.top.toFixed(2) + ',' + o.box.bottom.toFixed(2) + ']）');
       }
@@ -178,7 +202,9 @@ test('实机：视窗框宽度与画布可见宽同比例，且**看得见的每
     console.log('  ── 视窗框实测（' + WIDTH + '×' + HEIGHT + '）──');
     for (const r of measured) {
       console.log('    ' + r.state + '  画布可见宽=' + r.stageW.toFixed(1).padStart(7)
-        + '  视窗框宽=' + r.boxW.toFixed(2).padStart(6)
+        + '  框总宽=' + r.boxW.toFixed(2).padStart(6)
+        + '  其中看得见=' + r.visibleBoxW.toFixed(2).padStart(6)
+        + '  被遮住=' + r.coveredW.toFixed(2).padStart(5)
         + '  看得见的节点=' + r.visible
         + '  落在框外的=' + r.outside);
     }

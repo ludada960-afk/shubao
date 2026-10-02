@@ -1,6 +1,6 @@
 /* 9-13：统一成具名导入（文件内既有 React.useX 也有裸写，守卫测试据此报错） */
 import React, { useEffect, useState } from 'react';
-import { Coins, Image as ImageIcon, Video as VideoIcon, Volume2, X, Film, Music } from 'lucide-react';
+import { Coins, Image as ImageIcon, Video as VideoIcon, Volume2, X, Film, Music, Plus } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
 
 /* ═══════ 4c183cd4 续命 画布右侧固定面板 (用户 8-29 硬性反馈) ═══════
@@ -166,7 +166,15 @@ export function EcCanvasRightPanel({
           </ul>
         ) : (
           <p className="ec-canvas-right-panel__menu-hint">
-            还没有派生结果。点素材右侧的 <strong>+</strong> 拖出连线即可从这里继续创作
+            还没有派生结果。点素材右侧的
+            {/* ═══ 批 CY-㊴（2026-10-01）：这个 + 原本是**一个文本字符**（不是图标） ═══
+                用户原话：「这个+号的图标明显是歪的，向下歪了呀，
+                  你不是应该跟真正画布上的+号图标一致才对嘛」
+                根因：文本字符走的是面板字体、坐在基线上，而画布上那个是
+                30px 圆钮里的 SVG 图标（`DerivePort` 用的 `Plus`）—— 两者根本不是同一种东西。
+                ⇒ 这里换成**同一个 SVG 图标 + 同一个圆钮外观**（类名与画布端口一致）。 */}
+            <span className="ec-canvas-node-port is-hint" aria-hidden="true"><Plus size={16} /></span>
+            拖出连线即可从这里继续创作
           </p>
         )}
       </div>

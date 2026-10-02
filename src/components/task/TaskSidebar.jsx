@@ -79,24 +79,42 @@ export default function TaskSidebar() {
   useLayoutEffect(() => {
     if (inline) { setFloatBottom(86); return undefined; }
     let observer = null;
+    let presence = null;
     let timer = null;
     let tries = 0;
+    const FALLBACK = 86;
+    const apply = next => setFloatBottom(current => (Math.abs(current - next) > 1 ? next : current));
     const sync = () => {
       const minimap = document.querySelector('.ec-canvas-minimap');
+      /* ═══ 批 CY-㊴（2026-10-01，第二次修正）：目标是"**别互相遮挡**" ════════
+         用户原话：「他现在生成进度的按钮会跟小地图互相遮挡，我要你挪在小地图上面呀，避免遮挡。」
+
+         我第一版只做了"跟着小地图走"，那**不保证不遮挡**，而且有两个具体原因会让它压上去：
+
+         ① 旧算法里的 `Math.max(72, …)`：**这个下限只会把按钮往小地图的带子里推**。
+            小地图实测占距底 **70~250px**，`72` 正好落在里面。
+            ⇒ 去掉它。算出来多少就是多少（按钮高 46，小地图顶沿之上留 12，本来就够）。
+         ② 小地图**不在**时复位到 `FALLBACK = 86` —— 而 86 **同样落在小地图的带子里**；
+            小地图稍后一出现，按钮就先压上去了。
+            ⇒ 小地图不在时**保持上一次算好的值**（那本来就是"在小地图上方"的位置），
+              而不是回落到一个会撞车的数字。首屏还没有值时才用 86
+              （非画布页没有小地图，86 正确），MutationObserver 会在小地图挂载时立刻纠正。
+
+         两处都不再有任何"魔法数字"把按钮往小地图身上推。 */
       if (!minimap) return false;
       const rect = minimap.getBoundingClientRect();
-      const next = Math.max(72, Math.round(window.innerHeight - rect.top + 12));
-      setFloatBottom(current => (Math.abs(current - next) > 1 ? next : current));
+      apply(Math.round(window.innerHeight - rect.top + 12));
       return true;
     };
     /* ⚠️ 画布是**异步**挂上来的：第一次渲染时 `.ec-canvas-minimap` 往往还不存在
        （实测就是这样 —— 提前 return 的话按钮会一直停在 86 上，依旧压着小地图）。
        所以先轮询等它出现（最多 5 秒），再挂 ResizeObserver（小地图可被拖拽改尺寸）。 */
     const attach = () => {
-      const minimap = document.querySelector('.ec-canvas-minimap');
-      if (!minimap) { setFloatBottom(86); return; }
       sync();
-      observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
+      const minimap = document.querySelector('.ec-canvas-minimap');
+      observer = typeof ResizeObserver === 'function' && minimap
+        ? new ResizeObserver(sync)
+        : null;
       observer?.observe(minimap);
     };
     if (!sync()) {
@@ -107,10 +125,18 @@ export default function TaskSidebar() {
     } else {
       attach();
     }
+    /* ⚠️ ResizeObserver **只对尺寸变化触发**；而小地图的**开/关**改的是它**在不在**，
+       面板开合改的是**位置**。这两类都不触发它 —— 这就是用户看到错位的原因。
+       ⇒ 另挂一个 childList 观察：小地图挂载/卸载/换位都重算一次。 */
+    if (typeof MutationObserver === 'function' && document.body) {
+      presence = new MutationObserver(() => { attach(); });
+      presence.observe(document.body, { childList: true, subtree: true });
+    }
     window.addEventListener('resize', sync);
     return () => {
       if (timer) clearInterval(timer);
       observer?.disconnect();
+      presence?.disconnect();
       window.removeEventListener('resize', sync);
     };
   }, [inline]);

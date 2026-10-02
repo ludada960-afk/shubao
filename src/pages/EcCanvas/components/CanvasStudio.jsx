@@ -362,14 +362,32 @@ export function CanvasDeriveMenu({ actions = [], anchorRect = null, title = '引
         const bucket = bucketMap[group.id];
         if (!bucket || !bucket.length) return null;
         return <div key={group.id} className={`ec-canvas-derive-bucket is-${group.id}`} role="group" aria-label={group.label}>
-          <div className="ec-canvas-derive-bucket-label"><span>{group.label}</span></div>
+          {/* 批 CY-㊴（2026-10-01）：**去掉这一层的分组标题**。
+             用户原话：「你上面已经有一个标题了呀，下面为什么还要加这个核心常用这四个字呢？
+               干嘛要搞两个标题呀？我觉得没有必要呀。下面这个标题就不要了。」
+             面板头已经有「引用当前素材生成 · N 项」+ aria-label 说明了分组含义，
+             再来一个「核心常用」纯属重复。aria-label 保留（读屏仍能知道分组）。 */}
           <div className="ec-canvas-derive-grid">
             {bucket.map(action => {
               const Icon = DERIVE_ICONS[action.id] || Sparkles;
               const priceBadge = action.priceLabel && action.priceLabel !== '免费' ? action.priceLabel : '';
-              return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
+              return <button key={action.id} type="button" role="menuitem" data-derive-action={action.id} className="ec-canvas-derive-tile" title={action.description} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onSelect?.(action); }}>
                 <span className="ec-canvas-derive-chip"><Icon /></span>
-                <span className="ec-canvas-derive-copy"><strong>{action.label}</strong><small>{action.description}</small></span>
+                {/* ⚠️⚠️ 2026-10-01 用户批注：「什么情况啊，你为什么还是把这些暴露出来啊，
+                    不是说鼠标放上去按钮再显示提示文案吗，你现在怎么还乱码了呀」
+                    —— 这条注释原来写的是**裸的**斜杠星号。JSX 里那不是注释，
+                    它被当成**文本子节点**渲染出来，于是整段内部批注变成了卡片上显示的文案，
+                    看上去就是"乱码"。必须写成花括号包起来的形式。
+                    门禁 `jsx-bare-comment-1001` 用 esbuild 扫 src 下全部 jsx：
+                    它把「裸注释会变成字符串子节点」这件事变成可判定的，不再靠肉眼。
+
+                    ⚠️ 描述**怎么藏**是批 CY-㊴ 的决定（保留 `<small aria-hidden>`、
+                    由 CSS `display:none` 收起），门禁 canvas-right-panel-hint-1001 钉着它。
+                    我第一版把 `<small>` 直接删了，那会让那条门禁变红 —— 已改回他们的做法：
+                    元素留着（读屏仍拿得到）、界面上不显示、完整句子走 hover 的 `title`。 */}
+                {/* 批 CY-㊴：描述默认不直接显示（两行截断读不全），hover 用原生提示给完整句子。
+                   整条描述进 title，键盘/读屏也能拿到 —— 之前它是纯视觉的。 */}
+                <span className="ec-canvas-derive-copy" title={action.description}><strong>{action.label}</strong><small aria-hidden="true">{action.description}</small></span>
                 <span className="ec-canvas-derive-meta">{priceBadge ? <em>{priceBadge}</em> : null}<ArrowUpRight size={14} /></span>
               </button>;
             })}
@@ -2359,6 +2377,19 @@ export function CanvasImageNode({
   connectActive = false,
   snapActive = false,
 }) {
+  /* 批 CY-㊴（2026-10-01）：图片加载失败要有**可见、可恢复**的落点。
+     之前这张图没有 onError —— 失败时界面上什么都不渲染，就是一个白框，
+     用户分不清"还在加载"还是"加载失败"，也没法恢复（他只能刷新或重传）。
+     retryKey 用来给 src 加 cache-busting，点「重试」重新拉一次。 */
+  const [imgFailed, setImgFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+  const mediaSrc = `${node.localPreviewUrl || node.url || ''}${retryKey ? `?retry=${retryKey}` : ''}`;
+  /* 换图（替换素材 / 换 url）要把失败态清掉，否则会一直停在"加载失败"上。 */
+  const lastSrcRef = useRef(mediaSrc);
+  if (lastSrcRef.current !== mediaSrc) {
+    lastSrcRef.current = mediaSrc;
+    if (imgFailed) { setImgFailed(false); setRetryKey(0); }
+  }
   /* 9-16（图15~19）：打组后的组内节点不显示左右加号（绑定元素不改变这一点） */
   const inCanvasGroup = canvasGroupKindOf(node.groupId) === 'group';
   const presentation = getCanvasNodePresentation({ selected, hovered, focusActive, related });
@@ -2375,22 +2406,43 @@ export function CanvasImageNode({
     onMouseLeave={() => onHoverChange?.(null)}
   >
     <div className="ec-canvas-media-frame" style={{ height: node.h }}>
-      <ResponsiveImage
+      {!imgFailed && <ResponsiveImage
         /* 9-11 用户批注#2: 本地预览优先 — 持久 url 尚未解码成功前用本地 data URI 兜底, 不再空白闪屏 */
-        src={node.localPreviewUrl || node.url}
+        src={mediaSrc}
         alt={node.name || node.displayLabel || '图片'}
         variant="canvas"
         sizes={`${Math.ceil(node.w)}px`}
         ratio={node.ratio}
         style={{ width: '100%', height: '100%' }}
         imgStyle={{ objectFit: 'contain', objectPosition: 'center', transform: `rotate(${Number(node.rotation) || 0}deg) ${node.flipX ? 'scaleX(-1)' : ''} ${node.flipY ? 'scaleY(-1)' : ''}`.trim() }}
+        onError={() => setImgFailed(true)}
         onLoad={event => {
+          setImgFailed(false);
           const naturalWidth = Number(event.naturalWidth || event.currentTarget?.naturalWidth);
           const naturalHeight = Number(event.naturalHeight || event.currentTarget?.naturalHeight);
           if (naturalWidth > 0 && naturalHeight > 0) onNaturalSize?.(node.id, { naturalWidth, naturalHeight });
           onImageReady?.(node.id);
         }}
-      />
+      />}
+      {imgFailed && (
+        /* ═══ 批 CY-㊴（2026-10-01）：图片加载失败**必须有可见、可恢复的落点** ═══════
+           用户原话：「有时候图片上传上去就是显示不出来呀。偶尔会出现这种情况。
+             这是你的问题呀，你要去解决」
+           事故：`<ResponsiveImage>` 之前**没有 onError** —— 加载失败时界面上什么都不渲染，
+           就是一个白框：既分不清是"还在加载"还是"加载失败"，也没有任何办法恢复。
+           "偶尔"尤其糟：草稿重载时持久图可能还没可读，之后就一直空着。
+           ⇒ 失败时显示「加载失败 + 文件名 + 重试」，重试用 cache-busting 换 src 重新拉。 */
+        <div className="ec-canvas-media-failed" role="alert">
+          <strong>图片加载失败</strong>
+          <span>{node.name || node.displayLabel || '未命名素材'}</span>
+          <button
+            type="button"
+            data-canvas-control="true"
+            onPointerDown={event => event.stopPropagation()}
+            onClick={event => { event.stopPropagation(); setImgFailed(false); setRetryKey(value => value + 1); }}
+          >重试</button>
+        </div>
+      )}
       <MaterialWatermarkOverlay kind="image" watermark={imageWatermark} width={node.w || 1} height={node.h || 1} />
     </div>
     {node.showMeta !== false && <footer>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
-import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
+import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
   Upload, Type, Video, Wand2, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
@@ -58,6 +58,14 @@ import {
 import { normalizeWorkImages } from '../../utils/workImages.js';
 import { stripTransientWorkPlayback } from '../../utils/workRecords.js';
 import { handleGenerationAccessError } from '../../utils/generationAccess.js';
+/* ⚠️ 2026-10-01 用户批注：「然后你这个切换主题的按钮点了是没有任何反应的呀。你没有去���理吗？」
+   真因：右键菜单那一档 `case 'toggle-theme'` 调的是**本组件自己的 React state**
+   （下面 `const [themeMode, setThemeMode] = useState(...)`），而那个 state
+   **全组件没有任何地方读** —— 真正落地主题的是 `utils/themeMode.js`（写 localStorage
+   + `<html data-theme>`，ThemeSwitcher 与 main.jsx 用的都是它）。
+   两边同名：一边是"没人读的状态"、一边是"真正生效的函数"，于是点下去毫无反应。
+   ⇒ 显式导入那两个纯函数，本地 state 只用来让菜单显示"当前是第几档"。 */
+import { applyThemeToDocument, readStoredThemeMode, writeStoredThemeMode } from '../../utils/themeMode.js';
 import CanvasLibraryModal from './components/CanvasLibraryModal.jsx';
 import CanvasAssetPickerModal from './components/CanvasAssetPickerModal.jsx';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset, deleteCanvas,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
@@ -127,6 +135,7 @@ import { selectDeliverableNodes } from './canvasAssetProvenance.js';
 import { moveDetailItem, orderDetailNodes } from './detailCompositionModel.js';
 import { placeDerivedRightOfSources } from './canvasDerivedPlacement.js';
 import { chooseDeliveryDestination, prepareImageDeliverables, safeDeliveryName, writePreparedDeliverables } from './browserFileDelivery.js';
+import { exportDestinationLabel, recallExportDirectory, rememberExportDirectory } from './exportDestinationMemory.js';
 import { deliveryNameFor, looksLikeContentHash } from './deliveryNameModel.js';
 import { createExportDeliveryState, exportDeliveryReducer, isExportDeliveryBusy } from './exportDeliveryModel.js';
 import { quoteBillingAction } from '../../services/billing.js';
@@ -869,6 +878,13 @@ export default function EcCanvas() {
   const [zoomImg, setZoomImg] = useState(null);
   const [previewScale, setPreviewScale] = useState(1);
   const [toast, setToast] = useState(null);
+  /* ═══ 批 CY-㊴ 之十四（2026-10-01）：素材上传进度 ═══════════════════════════════
+     用户原话：「等了非常久它才弹出来这个提示」「上传通道不太流畅」。
+     以前整条上传链路**一个数字都不给**：只有 setPromptLoading(true) 转圈，
+     300MB 视频要传好几分钟，屏幕上什么都不变 —— 用户既不知道在传、也不知道传到哪，
+     唯一的信号是最后那条（当时还是英文的）报错。
+     现在按字节实时报进度，并把「已传 / 总量 / 百分比」显式写出来。 */
+  const [uploadProgress, setUploadProgress] = useState(null);
   /* 4c183cd4 续命 画布总监督 2026-08-30 - Quantv 功能状态 */
   const [saveStatus, setSaveStatus] = useState('saved');
   const [lastSavedAt, setLastSavedAt] = useState(null);
@@ -1006,7 +1022,10 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const [addNodePanel, setAddNodePanel] = useState(null);
   const [canvasContextPanel, setCanvasContextPanel] = useState(null);
   const [snapEnabled, setSnapEnabled] = useState(false);
-  const [themeMode, setThemeMode] = useState('auto');
+  /* 只用于**显示**当前是第几档；真正落地主题的是 utils/themeMode.js。
+     初始值从 localStorage 读 —— 原来写死 'auto'，用户明明切到 dark，
+     刷新后菜单又显示 auto（点一下就会"跳回"一个用户没选过的档）。 */
+  const [themeMode, setThemeMode] = useState(() => readStoredThemeMode() || 'auto');
 
   useEffect(() => {
     const requestedTab = state.canvasEntryTab;
@@ -1332,6 +1351,40 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       setToast(null);
     }, 3000);
   }, []);
+
+  /* 批 CY-㊴ 之十四：上传进度。
+     百分比**不四舍五入到整数**再显示 —— 5MB 一块的 tus 在慢网上 1% 要好几秒，
+     取整会让进度条长时间"卡住不动"，反而更像坏了。保留一位小数。 */
+  const formatUploadBytes = bytes => {
+    const value = Number(bytes || 0);
+    if (!(value > 0)) return '0 MB';
+    return value >= 1024 * 1024 * 1024
+      ? `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`
+      : `${(value / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  /** 造一个给 uploadVideoAsset 用的 callbacks：把字节进度写进 uploadProgress */
+  const makeUploadReporter = useCallback((name, index = 0, total = 1) => ({
+    onState(state) {
+      if (state === 'completed' || state === 'error' || state === 'cancelled') setUploadProgress(null);
+    },
+    onProgress({ bytesUploaded = 0, bytesTotal = 0 } = {}) {
+      const percent = bytesTotal > 0 ? Math.min(100, (bytesUploaded / bytesTotal) * 100) : 0;
+      setUploadProgress({
+        name: name || '素材',
+        index,
+        total,
+        bytesUploaded,
+        bytesTotal,
+        percent,
+        /* 一位小数：慢网下 1% 可能要好几秒，取整看起来就是"卡住了" */
+        percentText: percent >= 99.95 ? '99.9' : percent.toFixed(1),
+      });
+    },
+  }), []);
+
+  /** 包一层 try/finally，保证任何结局都不会留下一个永远转不掉的进度条 */
+  const clearUploadProgress = useCallback(() => setUploadProgress(null), []);
 
   /* P7 方案入画布：发射图的装配并入下面「从草稿/会话重建」的同一个效应。
      9-12 三次反馈后的真因（本地 QA 通道实测）：本函数原先声明在 showToast 之前，
@@ -4316,10 +4369,30 @@ const handlePointerUp = useCallback((e) => {
         return;
       }
       dispatchExportDelivery({ type: 'destination-ready', destination });
+      /* 记住他刚选的文件夹（用户 2026-10-01：「下次导出不需要再让他去选」）。
+         只对 directory 策略有意义；记不住不影响本次导出，所以不 await 到 UI。 */
+      if (destination?.strategy === 'directory') rememberExportDirectory(destination.handle);
     } catch (error) {
       dispatchExportDelivery({ type: 'error', error: error.message || '无法选择保存位置' });
     }
   };
+
+  /* 打开导出弹窗时先把上次那个文件夹接回来。
+     `requestPermission` 必须在**用户手势**里调用，浏览器不允许后台弹权限框，
+     所以这里只做无手势的 queryPermission；拿不到就照旧显示「选择保存位置」，
+     由用户点一下「选择保存位置」时顺带恢复权限（见 handleChooseExportDestination 之前的那次尝试）。 */
+  useEffect(() => {
+    if (!exportOpen) return;
+    let cancelled = false;
+    recallExportDirectory().then(handle => {
+      if (cancelled || !handle) return;
+      dispatchExportDelivery({
+        type: 'destination-ready',
+        destination: { strategy: 'directory', handle, name: handle.name || '上次的文件夹', restored: true },
+      });
+    });
+    return () => { cancelled = true; };
+  }, [exportOpen]);
 
   const handleStartExport = async () => {
     const { deliverables: exportNodes, excludedSources } = exportScope;
@@ -5872,7 +5945,7 @@ const handlePointerUp = useCallback((e) => {
       mediaReplaceTargetRef.current = null;
       setPromptLoading(true);
       try {
-        const asset = { ...(await uploadVideoAsset(files[0], 'video')), name: files[0].name };
+        const asset = { ...(await uploadVideoAsset(files[0], 'video', makeUploadReporter(files[0].name, 0, 1))), name: files[0].name };
         if (!asset?.url) { showToast('视频上传结果为空，请重试', 'error'); return; }
         setNodes(previous => previous.map(node => node.id === targetId ? {
           ...node,
@@ -5894,6 +5967,7 @@ const handlePointerUp = useCallback((e) => {
       } catch (error) {
         showToast(error?.message || '替换视频素材失败，请重试', 'error');
       } finally {
+        clearUploadProgress();
         setPromptLoading(false);
       }
       return;
@@ -5902,7 +5976,9 @@ const handlePointerUp = useCallback((e) => {
     setPromptLoading(true);
     try {
       const assets = [];
-      for (const file of files) assets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      for (const [index, file] of files.entries()) {
+        assets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, files.length))), name: file.name });
+      }
       let projectContext = null;
       try {
         projectContext = await ensureCanvasMediaProject(files[0]?.name || 'Canvas 视频项目');
@@ -5953,6 +6029,7 @@ const handlePointerUp = useCallback((e) => {
     } catch (error) {
       showToast(error.message || '视频上传失败，请重试', 'error');
     } finally {
+      clearUploadProgress();
       setPromptLoading(false);
     }
   };
@@ -5967,7 +6044,9 @@ const handlePointerUp = useCallback((e) => {
     setPromptLoading(true);
     try {
       const assets = [];
-      for (const file of files) assets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
+      for (const [index, file] of files.entries()) {
+        assets.push({ ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, files.length))), name: file.name });
+      }
       const bounds = containerRef.current?.getBoundingClientRect();
       const worldX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
       const worldY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
@@ -6005,6 +6084,7 @@ const handlePointerUp = useCallback((e) => {
     } catch (error) {
       showToast(error.message || '音频上传失败，请重试', 'error');
     } finally {
+      clearUploadProgress();
       setPromptLoading(false);
     }
   };
@@ -6074,9 +6154,13 @@ const handlePointerUp = useCallback((e) => {
       const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
       const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
       const videoAssets = [];
-      for (const file of videoFiles) videoAssets.push({ ...(await uploadVideoAsset(file, 'video')), name: file.name });
+      for (const [index, file] of videoFiles.entries()) {
+        videoAssets.push({ ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length))), name: file.name });
+      }
       const audioAssets = [];
-      for (const file of audioFiles) audioAssets.push({ ...(await uploadVideoAsset(file, 'audio')), name: file.name });
+      for (const [index, file] of audioFiles.entries()) {
+        audioAssets.push({ ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length))), name: file.name });
+      }
       let projectContext = null;
       if (persistedAssets.length || videoAssets.length || audioAssets.length) {
         try {
@@ -6194,8 +6278,12 @@ const handlePointerUp = useCallback((e) => {
       showToast(`已连接 ${uploadedNodes.length} 个素材`, 'success');
     } catch (error) {
       showToast(error.message || '参考图读取失败', 'error');
+    } finally {
+      /* 批 CY-㊴ 之十四：这个 handler 原来**没有 finally**。加了上传进度之后，
+         任何一条失败路径都会把进度条永久留在屏幕上（一个永远转不完的 47%）。 */
+      clearUploadProgress();
     }
-  }, [canvasMediaFields, dispatch, enqueuePendingProjectAssetImports, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, nodes, result, showToast]);
+  }, [canvasMediaFields, clearUploadProgress, dispatch, enqueuePendingProjectAssetImports, ensureCanvasMediaProject, importCanvasImageAssets, importCanvasMediaAssets, makeUploadReporter, nodes, result, showToast]);
 
   const removeComposerSource = useCallback((composerId, sourceId) => {
     const mention = buildImageMentions(nodes.filter(node => node?.url)).find(image => image.sourceNodeId === sourceId);
@@ -6664,7 +6752,20 @@ const handlePointerUp = useCallback((e) => {
      core/magic 桶全空 → 右面板只剩标题"从当前素材继续创作 9 项"、动作按钮全部不渲染,
      用户看不到任何派生动作 (即"右面板怎么东西都不见了").
      去掉覆盖, 保留各动作自身 group, 9 项按 5 core + 4 magic 正确分桶渲染. */
+  /* ═══ 批 CY-㊴（2026-10-01）：右栏**去掉「生成文案」** ═══════════════════════════════
+     用户逐字：「"反推提示词"和"生成文案"我觉得只保留反推提示词就好，你把生成文案去掉吧，
+       然后右边的面板就只有4个核心常用功能了，你就把他们重新适配一下，让UI整体更舒服一点」
+
+     为什么删得掉（原先它是和"反推提示词"摆在一起的）：
+       · 「反推提示词」= 从这张图反推**画面提示词**（喂给生图模型），在节点工具条上；
+       · 「生成文案」= 从这张图生成**营销文案**，在右栏派生菜单里。
+         两者名字听着一样、放在两个面板里，用户分不清哪个是哪个。
+       · 真正写文案的路径没丢：**画布上「生成文案」节点**仍在（双击空白处那一项、
+         以及文案 composer 面板都照旧），只是右栏这一个"从素材派生文案"的入口收掉了。
+     ⇒ 4 个核心项：图片生成 / 电商套图 / 上传视频 / 生成视频。 */
+  const DERIVE_MENU_HIDDEN_IDS = useMemo(() => new Set(['text-generation']), []);
   const portCreationActions = CANVAS_CREATION_OPTIONS
+    .filter(option => !DERIVE_MENU_HIDDEN_IDS.has(option.id))
     .filter(option => !(option.videoOnly && selectedNode?.kind !== 'video'))
     .map(option => {
       const imageAction = option.id === 'image-edit' ? getCanvasAction('product-remix') : null;
@@ -7256,6 +7357,25 @@ const handlePointerUp = useCallback((e) => {
     /* 资产库是页签式全屏弹窗，同样算"弹窗打开" */
     assetLibraryTab: tab === 'assets' && state.logged,
   });
+
+  /* ⚠️ 2026-10-01 用户批注：「而且你这个生成过程的这个按钮为什么会跟他在同一层呢。
+     这个按钮不是应该暗下去吗？」（截图里是工作流模板弹窗打开着）
+     真因是**两套层级表根本不可比**：
+       · 画布弹窗走画布自己的表 —— `CANVAS_Z.modalScrim 70 / modal 71`；
+       · 「生成过程」那颗按钮走应用外壳的表 —— `TaskSidebar` 用 `--sb-z-panel` = **40000000**。
+     40000000 > 71 ⇒ 它永远浮在所有画布弹窗之上，遮罩压不到它，于是既不暗、
+     看上去还跟弹窗"同一层"。
+     而且 `.is-dialog-open` 那条 CSS 也救不了：TaskSidebar 是用 `createPortal` 挂到侧栏底部
+     插槽里的，**在 `.ec-canvas-page` 之外**，选择器够不着。
+     ⇒ 把同一个状态复制到 `<html>` 上，由 CSS 把侧栏与那颗按钮一起压暗。 */
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const root = document.documentElement;
+    if (dialogOpen) root.setAttribute('data-cvl-dialog-open', 'true');
+    else root.removeAttribute('data-cvl-dialog-open');
+    return () => root.removeAttribute('data-cvl-dialog-open');
+  }, [dialogOpen]);
+
   const visibleWorks = filterCanvasWorks(pastWorks, workCategory);
   const workCategoryCounts = Object.fromEntries(WORK_CATEGORY_OPTIONS.map(option => [
     option.id,
@@ -7463,8 +7583,6 @@ const handlePointerUp = useCallback((e) => {
             onToolChange={setActiveTool}
             onImage={() => { sourceUploadRef.current?.click(); setActiveTool('select'); }}
             onText={() => handleAddTextNode()}
-            layersOpen={layersPanelOpen}
-            onLayers={() => setLayersPanelOpen(open => !open)}
           />
           {/* 4c183cd4 续命 2026-08-30 画布总统筹重审: 拿掉 1-click 拖入面板 (整个面板跟 tab=assets + 底部"添加图片/视频" 完全重复)
               用户原话 8-30: "你必须把这些重复的东西都给拿掉"
@@ -7479,7 +7597,14 @@ const handlePointerUp = useCallback((e) => {
           <CanvasLayersPanel
             open={layersPanelOpen}
             anchorRect={layersPanelOpen ? (() => {
-              const btn = containerRef.current?.querySelector('.ec-canvas-bottom-toolbar button[aria-label*="图层"]');
+              /* ⚠️ 2026-10-01：锚点跟着入口一起搬了。
+                 原来按钮在**底部 dock**（`.ec-canvas-bottom-toolbar`），面板按同一口径定位，
+                 于是落在画面中间偏右；用户要它回**左下角**那个栏（见 CanvasZoomControls 的 trailing）。
+                 两个选择器都留着：入口搬过来之前的老标记删干净了，但留一个兜底免得
+                 「按钮改名/改类名 ⇒ 面板静默失去锚点」这种哑失败。 */
+              const btn = containerRef.current?.querySelector(
+                '.ec-canvas-zoom-controls button[aria-label*="图层"], .ec-canvas-bottom-toolbar button[aria-label*="图层"]',
+              );
               const r = btn?.getBoundingClientRect?.();
               return r ? { x: r.left, y: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom } : null;
             })() : null}
@@ -7497,6 +7622,18 @@ const handlePointerUp = useCallback((e) => {
             onZoomIn={() => zoomTo(viewport.scale * 1.25)}
             onFit={fitView}
             trailing={<>
+              {/* ⚠️ 2026-10-01 用户批注：「你这个图层为什么点击之后会弹到上面去呀？……
+                 你还不如把它放到左下角的那个栏里面。」
+                 ⇒ 「图层」入口从底部 dock 搬到这里（左下角缩放条的 trailing 槽），
+                   CanvasLayersPanel 的锚点也跟着换到这颗按钮，面板就落在左下角这一带。 */}
+              <button
+                type="button"
+                className={`ec-canvas-icon-button ${layersPanelOpen ? 'is-active' : ''}`}
+                aria-label="图层"
+                title="图层"
+                aria-pressed={layersPanelOpen}
+                onClick={() => setLayersPanelOpen(open => !open)}
+              ><Layers3 size={15} /></button>
               {/* 9-11 用户批注: 与其他图标按钮同款 —— 纯图标 + 悬停提示, 不显示「运行」文字;
                   未就绪(单选)不高亮, 多选成链才 is-active; 提示告知「选中 2 个以上节点」。 */}
               {multiSelected.size >= 1 && (
@@ -8470,7 +8607,13 @@ const handlePointerUp = useCallback((e) => {
                 setNodes(prev => autoArrangeCanvasNodes(prev, connections || []));
                 break;
               case 'toggle-snap': setSnapEnabled(v => !v); break;
-              case 'toggle-theme': setThemeMode(prev => prev === 'dark' ? 'light' : prev === 'light' ? 'auto' : 'dark'); break;
+              case 'toggle-theme': {
+                const next = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark';
+                setThemeMode(next);
+                writeStoredThemeMode(next);
+                applyThemeToDocument(next);
+                break;
+              }
               case 'undo': {
                 const current = { nodes };
                 const previous = historyRef.current.undo(current);
@@ -8697,7 +8840,11 @@ const handlePointerUp = useCallback((e) => {
         /* 批 CY-⑭：遮罩 z-index 原来写死 10005（同 10004 那一族，越权压在 Toast 之上）→ 走权威阶梯。 */
         <div style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modalScrim, background: 'rgba(15,23,42,.44)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ width: 'min(520px,100%)', maxHeight: 'min(760px, calc(100vh - 40px))', overflow: 'auto', background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 24px 70px rgba(15,23,42,.24)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}><div><div style={{ fontSize: 16, fontWeight: 800 }}>{exportCopy.title}</div><div style={{ fontSize: 12, color: '#68717d', marginTop: 3 }}>{/* 「保存为 N 张图片」的数字要**高亮**：用户多框几张，这里得立刻变，
+                 不高亮的话他察觉不到这一行会随选择变化（用户 2026-10-01 原话）。 */}
+              {exportCopy.saveAs
+                ? <>{exportCopy.saveAs.before}<b style={{ color: '#1f2937', fontSize: 13, fontWeight: 800, margin: '0 2px' }}>{exportCopy.saveAs.count}</b>{exportCopy.saveAs.after}</>
+                : exportCopy.subtitle}</div></div><button type="button" aria-label="关闭导出" title="关闭" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => setExportOpen(false)} style={{ border: 0, background: '#f3f4f6', borderRadius: 8, width: 30, height: 30, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .45 : 1 }}>×</button></div>
             {/* 批 CY-㊴：零张时**不渲染任何选项**（旧版无条件渲染一条
                 「导出 ${total} 张图片」，于是弹窗里赫然写着「导出 0 张图片」——
                 用户 9-30 截图里就有这句）。零张时改为说明"怎么才能导出"。 */}
@@ -8711,9 +8858,22 @@ const handlePointerUp = useCallback((e) => {
             </div>}
             {/* 批 CY-㊴：把另外两种导出方式说出来（用户原话：「你得告诉用户，除了导出单张之外，
                 我们还可以导出多张，并且我们还可以导出合成的长图」）。 */}
-            {exportCopy.hints.length > 0 && <div style={{ display: 'grid', gap: 6, marginBottom: 14, padding: '10px 11px', borderRadius: 8, background: '#f8fafc', border: '1px solid #eef1f4' }}>
-              {exportCopy.hints.map(hint => <div key={hint} style={{ fontSize: 11.5, color: '#5b6472', lineHeight: 1.6 }}>· {hint}</div>)}
-            </div>}
+            {exportCopy.hints.length > 0 && (
+              <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#98a1ad', letterSpacing: '.02em' }}>
+                  还可以这样导出
+                </div>
+                {exportCopy.hints.map(item => (
+                  <div key={item.title} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0,1fr)', gap: 8, alignItems: 'start', padding: '9px 11px', borderRadius: 9, background: '#f8fafc', border: '1px solid #eef1f4' }}>
+                    <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', width: 18, height: 18, marginTop: 1, borderRadius: 5, background: '#e8edf6', color: '#5b6472', fontSize: 11, fontWeight: 800 }}>+</span>
+                    <span style={{ display: 'grid', gap: 2, minWidth: 0 }}>
+                      <strong style={{ fontSize: 12.5, fontWeight: 700, color: '#1f2937' }}>{item.title}</strong>
+                      <span style={{ fontSize: 11.5, color: '#5b6472', lineHeight: 1.55 }}>{item.body}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {exportMode === 'long-detail' && <div style={{ borderTop: '1px solid #edf0f3', paddingTop: 12, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><strong style={{ fontSize: 12 }}>长图顺序</strong><span style={{ fontSize: 11, color: '#7b8490' }}>从上到下拼接</span></div>
               <div style={{ display: 'grid', gap: 6 }}>
@@ -8727,7 +8887,7 @@ const handlePointerUp = useCallback((e) => {
               </div>
             </div>}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 15 }}><span style={{ fontSize: 11, color: '#6b7280' }}>交付格式</span>{['PNG', 'JPG'].map(format => <button key={format} type="button" disabled={isExportDeliveryBusy(exportDelivery)} onClick={() => configureExport(exportMode, format)} style={{ border: 0, borderRadius: 'var(--sb-radius-pill)', padding: '5px 10px', background: exportFormat === format ? '#1f2937' : '#f3f4f6', color: exportFormat === format ? '#fff' : '#666', fontSize: 10, cursor: isExportDeliveryBusy(exportDelivery) ? 'not-allowed' : 'pointer', opacity: isExportDeliveryBusy(exportDelivery) ? .5 : 1 }}>{format}</button>)}</div>
-            {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDelivery.destination.name}</div>}
+            {exportDelivery.destination && <div style={{ marginBottom: 12, padding: '9px 11px', border: '1px solid #dbe4ee', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#475569' }}><strong style={{ color: '#1f2937' }}>保存位置：</strong>{exportDestinationLabel(exportDelivery.destination)}{exportDelivery.destination.restored && <span style={{ marginLeft: 6, color: '#6b7280' }}>（上次用的，点「更改保存位置」可换）</span>}</div>}
             {(exportDelivery.status === 'preparing' || exportDelivery.status === 'writing') && <div style={{ marginBottom: 12, fontSize: 12, color: '#475569' }}>{exportDelivery.status === 'preparing' ? '正在校验图片' : '正在写入文件'} · {exportDelivery.progress.completed}/{exportDelivery.progress.total}</div>}
             {exportDelivery.status === 'success' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#ecfdf5', color: '#047857', fontSize: 12, fontWeight: 700 }}>{exportDelivery.result?.verification === 'filesystem' ? '已验证写入' : '已开始下载'} {exportDelivery.result?.count || 0} 张图片{exportDelivery.result?.verification === 'filesystem' ? `到 ${exportDelivery.destination?.name || '所选位置'}` : '，请在浏览器下载列表确认'}</div>}
             {exportDelivery.status === 'cancelled' && <div style={{ marginBottom: 12, padding: '9px 11px', borderRadius: 8, background: '#f8fafc', color: '#64748b', fontSize: 12 }}>已取消选择保存位置，导出配置仍保留。</div>}
@@ -8805,6 +8965,33 @@ const handlePointerUp = useCallback((e) => {
             <RefreshCw size={15} aria-hidden="true" />
             {pendingProjectAssetImportsBusy ? '处理中' : '重试处理'}
           </button>
+        </div>
+      )}
+
+      {/* ═══ 批 CY-㊴ 之十四（2026-10-01）：素材上传进度 ═══════════════════════════
+          以前整条上传链路一个数字都不给，300MB 视频传好几分钟屏幕纹丝不动
+          （用户原话：「上传通道不太流畅」「等了非常久它才弹出来这个提示」）。
+          这里显式给出文件名、已传/总量、百分比。 aria-live 让读屏也能听到。 */}
+      {uploadProgress && (
+        <div className="ec-canvas-upload-progress" role="status" aria-live="polite">
+          <div className="ec-canvas-upload-progress-head">
+            <span className="ec-canvas-upload-progress-name" title={uploadProgress.name}>{uploadProgress.name}</span>
+            <span className="ec-canvas-upload-progress-figure">
+              {uploadProgress.total > 1 ? `${uploadProgress.index + 1}/${uploadProgress.total} · ` : ''}
+              {formatUploadBytes(uploadProgress.bytesUploaded)} / {formatUploadBytes(uploadProgress.bytesTotal)}
+            </span>
+          </div>
+          <div
+            className="ec-canvas-upload-progress-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Number(uploadProgress.percent.toFixed(1))}
+            aria-label={`${uploadProgress.name} 上传进度`}
+          >
+            <div className="ec-canvas-upload-progress-fill" style={{ width: `${uploadProgress.percent}%` }} />
+          </div>
+          <span className="ec-canvas-upload-progress-percent">{uploadProgress.percentText}%</span>
         </div>
       )}
 

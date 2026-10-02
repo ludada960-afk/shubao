@@ -1,3 +1,7 @@
+/* 批 CY-㊴：框选要按"节点真实占位"判（含 footer），不再用写死的 +60。
+   这条 import 只为 selectNodesInRect 服务，别把它挪去别处。 */
+import { canvasNodeFootprint } from './canvasMediaFitModel.js';
+
 export function getCanvasPointerIntent({ tool = 'select', button = 0, altKey = false, spaceKey = false, isInteractive = false } = {}) {
   if (isInteractive) return 'ignore';
   if (button === 1) return 'pan';
@@ -130,15 +134,35 @@ export function canStitch(nodes, selectedIds) {
   return [...selectedIds].filter(id => nodes.find(n => n.id === id)?.group === '详情图').length >= 2;
 }
 
+/* ═══ 批 CY-㊴（2026-10-01）：框选口径 = **完整框住**才选中 ═══════════════════════
+   用户原话（澄清后）：「我选中了右边三张图，你的拖动框选却没有把最下面的图
+     **完整选中**呀。…这下面为什么还是漏了一些呀？」
+   ⇒ 他要的不是"碰到就选"，而是"**整个节点都在框里才选中**"。
+
+   走过的两步，都要记下来：
+   ① 原来底边写的是 `node.y + node.h + 60` —— 一个**写死的 60px**，
+      "节点占位要算上 footer"的真值其实早就存在（`canvasNodeFootprint`，
+      footer 34px 且按 showMeta 分支），不是这项的根因。
+   ② 真正的根因是**相交即选**：框的下沿压到节点上面一点点，它就整块变选中态，
+      而蓝色框选矩形并没有盖住它 —— 用户看到的就是"框没盖满，却被选中了"。
+
+   ⚠️ 这里推翻了 `test/canvas-interaction-model.test.mjs` 里
+   「marquee selection includes **intersecting** nodes only」那条门禁 ——
+   那是**旧口径**（相交即选），与用户现在的要求相反。门禁已同步改写为
+   「必须完整框住」，并保留"矩形方向无关、隐藏节点不参与"这两个真正要守的性质。
+   ============================================================================ */
 export function selectNodesInRect(nodes, rect) {
   const left = Math.min(rect.x, rect.x + rect.w);
   const right = Math.max(rect.x, rect.x + rect.w);
   const top = Math.min(rect.y, rect.y + rect.h);
   const bottom = Math.max(rect.y, rect.y + rect.h);
   return nodes.filter(node => {
-    const nodeRight = node.x + (node.w || 0);
-    const nodeBottom = node.y + (node.h || 0) + 60;
-    return nodeRight >= left && node.x <= right && nodeBottom >= top && node.y <= bottom;
+    if (node?.hidden) return false;
+    const box = canvasNodeFootprint(node);
+    if (!box) return false;
+    /* 完整包含：四条边都落在框内（用户要的"完整选中"） */
+    return box.x >= left && box.x + box.w <= right
+      && box.y >= top && box.y + box.h <= bottom;
   }).map(node => node.id);
 }
 

@@ -4,20 +4,33 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { FileStore } from '@tus/file-store';
 import { Server } from '@tus/server';
+import {
+  MEDIA_UPLOAD_LIMITS,
+  formatMediaSize,
+  isSupportedMediaContentType,
+  mediaUploadLimits,
+} from './mediaUploadLimits.mjs';
 
 const DEFAULT_PATH = '/api/video/uploads';
 const RESULT_PATH = '/api/video/upload-results/';
 const DEFAULT_EXPIRATION_MS = 24 * 60 * 60 * 1000;
-const LIMITS = Object.freeze({
-  image: 10 * 1024 * 1024,
-  video: 50 * 1024 * 1024,
-  audio: 15 * 1024 * 1024,
-});
-const CONTENT_TYPES = Object.freeze({
-  image: new Set(['image/jpeg', 'image/png', 'image/webp']),
-  video: new Set(['video/mp4', 'video/webm', 'video/quicktime']),
-  audio: new Set(['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav', 'audio/webm']),
-});
+/* ═══ 批 CY-㊴ 之十四（2026-10-01）：上限搬去 server/mediaUploadLimits.mjs ══════
+   这里原来自己写了一份 LIMITS（视频 50MB→300MB），但 videoGeneration.mjs 的
+   INPUT_LIMITS 和 server/index.mjs 的内联 limits **都还是 50MB** ⇒ tus 把整个文件
+   传完了，最后一块 PATCH 才在 onUploadFinish 撞上 50MB 被拒。
+   用户原话：「等了非常久它才弹出来这个提示，然后素材上传不上来。」—— 就是这个。
+   现在三处共用同一份上限（见 mediaUploadLimits.mjs 的文件头）。 */
+const LIMITS = MEDIA_UPLOAD_LIMITS;
+const KIND_LABEL = { image: '图片', video: '视频', audio: '音频' };
+
+/** 413 一律给"多大 / 上限多少 / 怎么办"，不再让用户对着一个状态码猜 */
+export function mediaTooLargeMessage(kind, bytes) {
+  const label = KIND_LABEL[kind] || '素材';
+  return `${label}有 ${formatMediaSize(bytes)}，超过单文件上限 ${formatMediaSize(LIMITS[kind])}。`
+    + '请压缩后再传，或换一个更小的文件。';
+}
+
+export { mediaUploadLimits };
 
 function clean(value, max = 500) {
   return String(value || '').trim().slice(0, max);
@@ -153,9 +166,12 @@ export function createVideoUploadService({
       const expectedSha256 = clean(metadata.sha256, 64).toLowerCase();
       const bytes = Number(upload.size);
       if (!Object.hasOwn(LIMITS, kind)) throw tusError(400, 'VIDEO_ASSET_KIND_INVALID', '素材类型不支持');
-      if (!CONTENT_TYPES[kind].has(contentType)) throw tusError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
-      if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes > LIMITS[kind]) {
-        throw tusError(413, 'VIDEO_ASSET_SIZE_INVALID', '素材文件大小不符合要求');
+      if (!isSupportedMediaContentType(kind, contentType)) throw tusError(415, 'VIDEO_ASSET_TYPE_INVALID', '素材文件格式不支持');
+      if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+        throw tusError(413, 'VIDEO_ASSET_SIZE_INVALID', mediaTooLargeMessage(kind, bytes));
+      }
+      if (bytes > LIMITS[kind]) {
+        throw tusError(413, 'VIDEO_ASSET_SIZE_INVALID', mediaTooLargeMessage(kind, bytes));
       }
       if (expectedSha256 && !/^[a-f0-9]{64}$/.test(expectedSha256)) {
         throw tusError(400, 'VIDEO_ASSET_CHECKSUM_INVALID', '素材校验信息无效');
