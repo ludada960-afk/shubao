@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IMAGE_MODELS, SELECTABLE_IMAGE_MODELS, imageModelLabel, imageModelResolutions, DEFAULT_IMAGE_MODEL } from '../../../services/imageModelCatalog.js';
 import WatermarkLayer from './WatermarkLayer.jsx';
@@ -1328,6 +1328,24 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
   const nodeHasResult = canvasGenerationBoxHasResult(node) && !inCanvasGroup;
   const textBoardRef = useRef(null);
   const textComposingRef = useRef(false);
+  /* 2026-10-02 用户批注（照知渔）：「他目前的情况是鼠标只要挪动到这块区域，他的视频就会自动播放，
+     然后他的鼠标只要挪开这块播放的区域的话，视频就会停下来。我觉得你也可以照他这个模式去做。」
+     ⚠️ `play()` 返回 Promise 且可能被浏览器自动播放策略拒绝 ⇒ 必须 catch，
+        否则控制台会留一条 unhandled rejection（而且表现为"点了没反应又不知道原因"）。 */
+  const hoverVideoRef = useRef(null);
+  const playOnHover = useCallback(() => {
+    const el = hoverVideoRef.current;
+    if (!el) return;
+    const p = el.play();
+    if (p && typeof p.catch === 'function') p.catch(() => { /* 被策略拒绝：保持暂停，不报错 */ });
+  }, []);
+  const pauseOnLeave = useCallback(() => {
+    const el = hoverVideoRef.current;
+    if (!el) return;
+    el.pause();
+    /* 回到开头，下次移回来从头播 —— 否则每次悬停都从上次停的位置接着播，很怪 */
+    try { el.currentTime = 0; } catch { /* 元数据未就绪，忽略 */ }
+  }, []);
   const textEditSeedRef = useRef('');
   /* 文案板高度跟随内容 (与 CanvasTextNode 同策略) */
   const syncTextBoardHeight = () => {
@@ -1393,7 +1411,7 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
         syncTextBoardHeight();
       }}
       onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
-    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame"><video src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame" onPointerEnter={playOnHover} onPointerLeave={pauseOnLeave}><video ref={hoverVideoRef} src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); /* 首帧拨一下，否则没播过之前是黑的（用户：「为什么这里是个黑图呀」） */ if (!media.currentTime) { try { media.currentTime = 0.05; } catch { /* 元数据未就绪 */ } } }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>
