@@ -1164,6 +1164,12 @@ test('preflight route enforces governance without creating a paid generation job
   store.bindShotAssetVersion({ ownerEmail, projectId: project.id, shotId: shot.id,
     assetId: asset.id, assetVersionId: version.id, role: 'scene' });
   const headers = signedHeaders(sessionTokens, ownerEmail);
+  /* ═══ 2026-10-02 P2-1：这里原来断言「客户端传 moderation.status=passed ⇒ preflight ready」。
+     那条路当时确实是通的，于是测试把**漏洞本身**锁成了断言。routes 已改为不采信客户端结论，
+     这个测试变红是**红得对**。
+
+     现在断言的是正确行为：审核体系未落地前，视频预检一律拦在「审核未完成」，
+     客户端伪造任何 status 都不影响服务端判定。 */
   const response = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/preflight', {
     headers, params: { projectId: project.id }, body: {
       productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
@@ -1173,10 +1179,29 @@ test('preflight route enforces governance without creating a paid generation job
     },
   });
   assert.equal(response.statusCode, 200);
-  assert.equal(response.body.preflight.plan.preflight.status, 'ready');
+  assert.equal(response.body.preflight.plan.preflight.status, 'blocked');
+  assert.ok(
+    response.body.preflight.plan.preflight.blockers.some(item => item.code === 'MODERATION_NOT_PASSED'),
+    '伪造的 moderation.status=passed 必须被拦，且理由是审核未完成',
+  );
   assert.equal(response.body.preflight.providerSubmission, false);
   assert.equal(response.body.preflight.billingMutation, false);
   assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('video_jobs', 'wallet_transactions')").get().count, 0);
+
+  /* 再加一条：不传 moderation 也一样拦 —— 证明拦的是"没有服务端审核记录"，
+     而不是"读到了某个非法 status"。 */
+  const noModeration = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/preflight', {
+    headers, params: { projectId: project.id }, body: {
+      productId: 'seedance_fast', mode: 'smart', resolution: '720p', generateAudio: false,
+      rightsConfirmations: [{ assetId: asset.id, assetVersionId: version.id, confirmed: true }],
+      storage: { durable: true, target: 'durable', contentType: 'video/mp4', maxBytes: 50_000_000, uploadStrategy: 'multipart' },
+    },
+  });
+  assert.equal(noModeration.body.preflight.plan.preflight.status, 'blocked');
+  assert.ok(
+    noModeration.body.preflight.plan.preflight.blockers.some(item => item.code === 'MODERATION_NOT_PASSED'),
+    '不传 moderation 时也应因审核未完成被拦',
+  );
 
   const blocked = await invoke(app, 'POST', '/api/video/projects/:projectId/workbench/preflight', {
     headers, params: { projectId: project.id }, body: {

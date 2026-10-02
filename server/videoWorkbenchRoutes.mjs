@@ -326,7 +326,20 @@ export function mountVideoWorkbenchRoutes(app, {
         generateAudio: req.body?.generateAudio !== false,
         enforcePreflight: true,
         rightsConfirmations: req.body?.rightsConfirmations,
-        moderation: req.body?.moderation,
+        /* ═══ 2026-10-02 P2-1 门禁防伪造 ════════════════════════════════════════
+           原来这里是 `moderation: req.body?.moderation` —— 审核结论由**客户端**传入，
+           preflight 认它为通过条件，于是前端传 {"status":"passed"}（或白名单里的
+           "not_required"）即可放行。这不是"审核覆盖不全"，是**审核结果可伪造**：
+           《生成式AI暂行办法》第14条要求发现违法内容即停止生成/传输/消除，
+           伪造的 passed 会让系统"从未发现"。
+
+           改为：**不再采信客户端的审核结论**。只允许 'not_checked'（= 未审核），
+           走 preflight 既有的 blocker；'passed'/'approved' 一律不认。
+
+           ⚠️ 刻意选择的副作用：审核体系落地前，视频生成会在预检被一律拦住。
+           这是「宁可不可用，不可假装审过」。阶段2 落 moderation_records 表后，
+           这里改成按 assetId 查服务端记录，不改其余逻辑。 */
+        moderation: { status: 'not_checked' },
         storage: req.body?.storage,
         budgetCapPoints: req.body?.budgetCapPoints,
         ...routeHistoryFor(request),
