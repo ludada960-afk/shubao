@@ -197,9 +197,20 @@ function hasImplicitLabel(buffer) {
   return Object.values(AIGC_METADATA_KEYS).every(k => text.includes(k));
 }
 
-test('downloadAndPersist：显式 + 隐式**两个**标识都在（并行义务，缺一不可）', async t => {
+/* ⚠️ 2026-10-03 产品决定：**显式标识（画面角标）默认关闭**，只保留隐式标识。
+   理由与法律敞口写在 server/generatedAssets.mjs 的 visibleLabelEnabled() 注释里
+   （核心：电商图带角标会直接破坏产物可用性与平台审核；而《标识办法》第九条
+   那条「用户申请即可不提供显式标识」的路径目前**尚未实现**，所以默认不带角标
+   并不等于合规，此处只做产品行为断言）。
+   开关打开时行为不变，下面两条分别锁住「关」和「开」两种状态。 */
+
+test('downloadAndPersist：默认**只写隐式标识**，像素逐字节不变（不带角标）', async t => {
   const { dir } = await tmpStore(t);
   const upstream = await whitePng(200, 150);
+  const prev = process.env.AIGC_VISIBLE_LABEL;
+  delete process.env.AIGC_VISIBLE_LABEL; // 默认态
+  t.after(() => { if (prev === undefined) delete process.env.AIGC_VISIBLE_LABEL; else process.env.AIGC_VISIBLE_LABEL = prev; });
+
   const store = createGeneratedAssetStore({
     directory: dir,
     fetchImpl: async () => ({
@@ -212,13 +223,39 @@ test('downloadAndPersist：显式 + 隐式**两个**标识都在（并行义务�
   const asset = await store.persist({ sourceUrl: 'https://example.com/a.png', taskId: 't-vis', label: 'x' });
   const written = await fs.readFile(path.join(dir, asset.fileName));
 
-  /* 隐式：文件元数据里的三要素 */
-  assert.ok(hasImplicitLabel(written), '缺隐式标识（元数据三要素）');
-  /* 显式：像素被改过 —— 与上游字节不同 */
-  assert.notDeepEqual(written, upstream, '缺显式标识（像素没变）');
+  assert.ok(hasImplicitLabel(written), '隐式标识（元数据三要素）必须始终写入 —— 第五条是「应当」');
+  /* 默认不带角标 ⇒ 像素数据必须与上游完全一致 */
+  const rawUp = await sharp(upstream).raw().toBuffer();
+  const rawOut = await sharp(written).raw().toBuffer();
+  assert.equal(Buffer.compare(rawUp, rawOut), 0, '默认不该画角标，像素却变了');
   const meta = await sharp(written).metadata();
   assert.equal(meta.width, 200);
   assert.equal(meta.height, 150);
+});
+
+test('downloadAndPersist：AIGC_VISIBLE_LABEL=1 时角标回来（法务可随时打开）', async t => {
+  const { dir } = await tmpStore(t);
+  const upstream = await whitePng(200, 150);
+  const prev = process.env.AIGC_VISIBLE_LABEL;
+  process.env.AIGC_VISIBLE_LABEL = '1';
+  t.after(() => { if (prev === undefined) delete process.env.AIGC_VISIBLE_LABEL; else process.env.AIGC_VISIBLE_LABEL = prev; });
+
+  const store = createGeneratedAssetStore({
+    directory: dir,
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: name => (name === 'content-type' ? 'image/png' : null) },
+      arrayBuffer: async () => new Uint8Array(upstream).buffer,
+    }),
+  });
+
+  const asset = await store.persist({ sourceUrl: 'https://example.com/a.png', taskId: 't-vis', label: 'x' });
+  const written = await fs.readFile(path.join(dir, asset.fileName));
+
+  assert.ok(hasImplicitLabel(written), '隐式标识也必须在');
+  const rawUp = await sharp(upstream).raw().toBuffer();
+  const rawOut = await sharp(written).raw().toBuffer();
+  assert.notEqual(Buffer.compare(rawUp, rawOut), 0, '开关打开后应当画出角标');
 });
 
 test('persistBuffer 不声明 generated：**用户上传**绝不能被打标', async t => {
@@ -233,7 +270,7 @@ test('persistBuffer 不声明 generated：**用户上传**绝不能被打标', a
   assert.ok(!hasImplicitLabel(written), '用户上传不能有隐式标识');
 });
 
-test('persistBuffer 声明 generated: true：provider 直回的 base64 产物**要**打标', async t => {
+test('persistBuffer 声明 generated: true：provider 直回的 base64 产物**要**打隐式标', async t => {
   const { dir } = await tmpStore(t);
   const store = createGeneratedAssetStore({ directory: dir });
   const generated = await whitePng(120, 90);
@@ -243,5 +280,8 @@ test('persistBuffer 声明 generated: true：provider 直回的 base64 产物**�
   const written = await fs.readFile(path.join(dir, asset.fileName));
 
   assert.ok(hasImplicitLabel(written), '这批是真正的生成结果，必须有隐式标识');
-  assert.notDeepEqual(written, generated, '必须有显式标识（像素要变）');
+  /* 显式默认关 ⇒ 像素必须不变（只有 iTXt chunk 多出来） */
+  const rawGen = await sharp(generated).raw().toBuffer();
+  const rawOut = await sharp(written).raw().toBuffer();
+  assert.equal(Buffer.compare(rawGen, rawOut), 0, '默认不该画角标');
 });
