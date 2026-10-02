@@ -13,6 +13,10 @@ import {
   clampCanvasPickerPosition,
   getCanvasPortCenter,
 } from '../src/pages/EcCanvas/nodeWorkflow.js';
+/* 2026-10-02：端点 y 改取**整卡**中线，需要 footer 高度这个常量。
+   `getCanvasPortCenter`（nodeWorkflow）内部转发到 canvasGeometry 的
+   `getNodePortCenter`，所以常量要从 canvasGeometry 取。 */
+import { CANVAS_CARD_FOOTER_H } from '../src/pages/EcCanvas/canvasGeometry.js';
 import { CANVAS_ACTIONS } from '../src/pages/EcCanvas/canvasActionRegistry.js';
 
 test('legacy image assets normalize as image nodes', () => {
@@ -115,17 +119,26 @@ test('action picker stays within the visible Canvas world rectangle', () => {
 
 test('connection endpoints use the node geometry that is updated during drag', () => {
   // 9-11: 端点 = 加号按钮中心 (节点边缘外 17px)
+  /* 2026-10-02：y 从 130 改成**整卡**中线（20 + (220 + footer)/2）。
+     用户批注：「为什么你右边这些图片的线都没拉到加号上呢，你现在都是偏移加号上下面的呀」
+     端口 CSS 是 top:50%，参照物是整张卡片（媒体 + footer）；原来这里算的是
+     「只有媒体」的中线 ⇒ 端点比加号高了半个 footer。业界四家一致取**整卡**中线。
+     `renderedWidth/Height` 是**故意**留在入参里的陈旧 DOM 实测值 —— 本条要守的
+     仍然是「不被它们带偏」，而 y 必须来自模型。 */
+  const midY = 20 + (220 + CANVAS_CARD_FOOTER_H) / 2;
   assert.deepEqual(
     getCanvasPortCenter({ x: 10, y: 20, w: 200, h: 220, renderedWidth: 240, renderedHeight: 300 }, 'output'),
-    { x: 227, y: 130 },
+    { x: 227, y: midY },
   );
   assert.deepEqual(
     getCanvasPortCenter({ x: 10, y: 20, w: 200, h: 220, renderedWidth: 240, renderedHeight: 300 }, 'input'),
-    { x: -7, y: 130 },
+    { x: -7, y: midY },
   );
 });
 
 test('connection endpoints ignore stale DOM measurements and stay deterministic', () => {
+  /* 同上：y 取整卡中线；portCenters 是**陈旧 DOM 实测**，必须被忽略（批 CY-⑭/⑮ 事故）。 */
+  const midY = 20 + (220 + CANVAS_CARD_FOOTER_H) / 2;
   assert.deepEqual(
     getCanvasPortCenter({
       x: 10,
@@ -134,6 +147,6 @@ test('connection endpoints ignore stale DOM measurements and stay deterministic'
       h: 220,
       portCenters: { input: { x: 7, y: 101 }, output: { x: 237, y: 103 } },
     }, 'output'),
-    { x: 227, y: 130 },
+    { x: 227, y: midY },
   );
 });

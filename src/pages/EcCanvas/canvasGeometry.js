@@ -27,13 +27,35 @@ export function mediaHeightForRatio(ratio, width = LANE_METRICS.cardWidth) {
    所以中心在节点边缘外 17px。端点停在边缘会看起来「线路和加号不重叠」。 */
 export const CANVAS_PORT_CENTER_OFFSET = 17;
 
+/* ═══ 卡片 footer 高度：**整卡几何的唯一事实源** ═══════════════════════════════════════════
+   为什么必须是常量（而不是让模型去复刻 CSS 的 padding/字号/行高）：
+     footer 现在是**内容撑出来**的（padding 6+7 + gap 2 + 两行文字 + border 1 ≈ 45.7px）。
+     字体 token 或文案一变，这个高度就变，而模型端点会**默默偏移** —— 正是 2026-10-02
+     用户报「线偏移在加号上面」的那个 bug。
+   ⇒ 这里定死，并由 `test/canvas-port-geometry` 钉住与 CSS 的 footer 规则一致。
+   ⚠️ `showMeta === false` 的节点**不渲染** footer ⇒ 该节点本��就不该加这截高度
+      （也是这个 bug「时有时无」的原因）。 */
+export const CANVAS_CARD_FOOTER_H = 46;
+
+/** 节点**整卡**高度 = 媒体本体 + footer。端口 / 吸附 / 框选 / 碰撞 / 小地图都用它。 */
+export function getCanvasCardHeight(node = {}) {
+  const media = Math.max(1, numeric(node.h, 200));
+  const footer = node.showMeta === false ? 0 : CANVAS_CARD_FOOTER_H;
+  return media + footer;
+}
+
 export function getNodePortCenter(node = {}, port = 'output') {
   const isInput = port === 'input' || port === 'in';
   const width = Math.max(1, numeric(node.w, 200));
-  const height = Math.max(1, numeric(node.h, 200));
+  /* ⚠️ 用**整卡**高度，不是 node.h：端口的 CSS 是 `top:50%`，参照物就是整张卡片
+     （外壳没有显式 height，是媒体 + footer 撑出来的）。
+     原来这里用 node.h（**只有媒体本体**）⇒ 端点比加号高了半个 footer（≈22.85px），
+     正是用户报的「线偏移到加号上面 / 没有连到素材本身身上」。
+     业界口径见文件头：React Flow / tldraw / Excalidraw / Draw.io 四家都取**整卡**中线。 */
+  const cardHeight = getCanvasCardHeight(node);
   return {
     x: numeric(node.x) + (isInput ? -CANVAS_PORT_CENTER_OFFSET : width + CANVAS_PORT_CENTER_OFFSET),
-    y: numeric(node.y) + height / 2,
+    y: numeric(node.y) + cardHeight / 2,
   };
 }
 

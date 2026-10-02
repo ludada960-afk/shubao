@@ -196,7 +196,7 @@ import {
   estimateNodeCost,
   canConnectCanvasNodes,
 } from './canvasQuantvExtensions.js';
-import { pickCanvasConnectionSnapTarget, CANVAS_SNAP_RADIUS } from './canvasGeometry.js';
+import { getCanvasCardHeight, pickCanvasConnectionSnapTarget, CANVAS_SNAP_RADIUS } from './canvasGeometry.js';
 import {
   copyNodesToClipboard,
   readClipboardNodes,
@@ -522,8 +522,8 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
           return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 8, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
         })}
       </div>}
-      <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid var(--sb-brand-600)', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
-      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--sb-brand-600)', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
+      <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: getCanvasCardHeight(node) / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid var(--sb-brand-600)', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
+      <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: getCanvasCardHeight(node) / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--sb-brand-600)', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
       <div style={{ position: 'relative', width: '100%', borderRadius: '8px 8px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
         {!loaded && !error && imageSrc && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
