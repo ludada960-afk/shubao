@@ -2411,7 +2411,8 @@ function CanvasImageNodeView({
      retryKey 用来给 src 加 cache-busting，点「重试」重新拉一次。 */
   const [imgFailed, setImgFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const mediaSrc = `${node.localPreviewUrl || node.url || ''}${retryKey ? `?retry=${retryKey}` : ''}`;
+  const mediaSrcBase = node.localPreviewUrl || node.url || '';
+  const mediaSrc = `${mediaSrcBase}${retryKey ? `?retry=${retryKey}` : ''}`;
   /* 换图（替换素材 / 换 url）要把失败态清掉，否则会一直停在"加载失败"上。 */
   const lastSrcRef = useRef(mediaSrc);
   if (lastSrcRef.current !== mediaSrc) {
@@ -2434,7 +2435,25 @@ function CanvasImageNodeView({
     onMouseLeave={() => onHoverChange?.(null)}
   >
     <div className="ec-canvas-media-frame" style={{ height: node.h }}>
-      {!imgFailed && <ResponsiveImage
+      {/* ═══ 2026-10-01（批 CY-㊴ 之十五）：没有地址时要说人话 ═══════════════════
+          本地草稿不再存 base64（见 canvasDraftRepository 顶部注释：8 张以上图会撑爆
+          localStorage 配额，而且那个失败是**静默**的）。于是刷新之后，
+          「当时还没传完」的那个节点会**没有任何地址**。
+
+          原来这里会渲染一个 \`<img src="">\` —— 浏览器显示裂图，用户分不清
+          「素材坏了」还是「加载中」，也没法补救。
+
+          ⚠️ 这个占位**曾经加错了地方**：第一版加在 index.jsx 里的 \`ImageNode\`
+          上，而那个组件在 index.jsx 里**一次都没被用到**（真正渲染的是本文件的
+          \`CanvasImageNode\`，被 import 成 \`StudioImageNode\`）。所以那段文案
+          连构建产物都没进去 —— 是靠「在 dist 里 grep 中文却找不到」发现的。 */ }
+      {!mediaSrcBase && (
+        <div className="ec-canvas-media-failed">
+          <strong>这张素材当时没传完</strong>
+          <span>重新上传原图即可继续使用</span>
+        </div>
+      )}
+      {!imgFailed && mediaSrcBase && <ResponsiveImage
         /* 9-11 用户批注#2: 本地预览优先 — 持久 url 尚未解码成功前用本地 data URI 兜底, 不再空白闪屏 */
         src={mediaSrc}
         alt={node.name || node.displayLabel || '图片'}

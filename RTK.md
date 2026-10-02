@@ -17195,3 +17195,36 @@ render 期读 DOM 剩 19 处，**全部在事件处理器里**（事件里量是
 
 全量 4572 条 / 0 失败；实机门禁（`canvas-popover-live-anchored-0920`）恢复为绿；
 design-ratchet 无新增硬编码。
+
+### 附：又抓到一次「代码写了但根本没上线」
+
+批 CY-㊴ 之十五里，本地草稿改成不存 base64 之后，刷新会让「当时还没传完」的节点
+没有任何地址，需要一句人话而不是裂图。我把占位加在了 `index.jsx` 的 `ImageNode` 里。
+
+**而那个组件在 index.jsx 里一次都没被用到** —— 真正渲染图片的是
+`CanvasStudio.jsx` 的 `CanvasImageNode`（被 import 成 `StudioImageNode`，
+全仓 `<StudioImageNode` 用 1 次、`<ImageNode` 用 0 次）。
+
+结果：构建绿、全量单测绿、代码看着都对，但那句文案**连构建产物都没进去**。
+
+抓它的方式很土但有效：**在 `dist/` 里 grep 那句中文，grep 不到**。
+（顺带查清了另两个"grep 不到"是虚惊：`canvasNodesInViewport` /`layerChildrenByParent`
+在本地构建里同样是 0 —— 变量名被 mangle，不是代码没上线。中文**没有**被转义成
+\\uXXXX，`超过单文件上限` 在产物里是原文可搜的。所以"搜不到"必须先在本地
+build 上对照一次，才能判断是 mangle 还是真没上线。）
+
+补做：占位挪进 `CanvasImageNode`，并加 `test/canvas-media-placeholder-live-1001`：
+① 占位必须在真正渲染图片的那个组件里；
+② **占位文案必须真的出现在 dist 产物里**（这一条就是防上面这类事故的）；
+③ 记下「index.jsx 的 ImageNode 是死的」这个事实，将来它若被启用，门禁会失败提醒。
+
+⚠️ 这条门禁自己第一版也是**假绿**：我在 ESM 里用了 `require`，抛错被 `catch` 吞掉
+直接 return，于是"产物检查"从来没真正跑过 —— 正是它要防的那类假绿。
+又踩了同一个坑（同一个 session 里第三次：nginx 注释、prewarm 注释、这次的 require）。
+已改成 `import { existsSync, readdirSync, readFileSync }` 并把"读不到产物"与
+"产物里没有该文案"分成两条明确判据。
+另外 `new URL('dist/assets/x.js', import.meta.url)` 会解析成 `test/dist/...`（ENOENT），
+必须带 `../`。
+已做红测：把占位文案从产物里抹掉后，门禁判红（正是 ② 那条）。
+
+全量 4575 条 / 0 失败。

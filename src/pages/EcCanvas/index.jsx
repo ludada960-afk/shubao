@@ -520,16 +520,6 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       <div data-canvas-port-role="input" style={{ position: 'absolute', zIndex: 2, left: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#fff', border: '2px solid var(--sb-brand-600)', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'in'); }} onPointerUp={e => { e.stopPropagation(); onPortPointerUp?.(e, node.id, 'in'); }} />
       <div data-canvas-port-role="output" style={{ position: 'absolute', zIndex: 2, right: -7, top: node.h / 2, transform: 'translateY(-50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--sb-brand-600)', border: '2px solid #fff', cursor: 'crosshair', opacity: selected ? 1 : 0, pointerEvents: selected ? 'auto' : 'none' }} onPointerDown={e => { e.stopPropagation(); onPortPointerDown?.(e, node.id, 'out'); }} onPointerUp={e => onPortPointerUp?.(e, node.id, 'out')} />
       <div style={{ position: 'relative', width: '100%', borderRadius: '8px 8px 0 0', overflow: 'hidden', background: '#f5f5f5' }}>
-        {/* 2026-10-01：本地草稿不再存 base64（理由见 canvasDraftRepository 顶部注释），
-            所以刷新后"当时还没传完"的节点会**没有** src。原来这里会永远显示
-            SkeletonCard —— 一个转不完的加载态，看起来像"还在加载"。
-            现在如实说明：这张图当时没传完，重新上传即可。 */}
-        {!imageSrc && (
-          <div className="ec-canvas-media-failed">
-            <strong>这张素材当时没传完</strong>
-            <span>重新上传原图即可继续使用</span>
-          </div>
-        )}
         {!loaded && !error && imageSrc && <SkeletonCard w={node.w} h={node.h} />}
         {error && (
           <div style={{ width: '100%', height: node.h, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fef2f2' }}>
