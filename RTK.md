@@ -18210,4 +18210,69 @@ pwsh -File scripts/deploy-production.ps1 -ReleaseBranch gm/release-merge-1001 > 
 
 ### ⑤ PowerShell 单行里写 `$_` / `$LASTEXITCODE` 会被外层 cmd 的转义吃掉
 
-**⇒ 复杂 PowerShell 一律写成 `.tmp/xxx.ps1` 再 `-File` 跑。**（本仓既有约定）
+**⇒ 复杂 PowerShell 一律写成 `.tmp/xxx.ps1` 再 `-File` 跑。**（本仓既有约定）---
+
+## 批 之二十三 收尾：用户批注 ⑥⑦⑧ 的根因（2026-10-02）
+
+### ✦ ⑧「详情图这个规格不对呀，我这边明明是 200×267，它显示的是 1:1」
+
+用户接着问「SKU 和 PNG 是不是也有同样的问题」—— 查完的结论是**不是同一个问题**，
+但比想象的更糟：**根因是三张互相打架的比例表 + 一处把服务端下发尺寸整个扔掉的代码**。
+
+| 谁 | 详情图比例 | 说了算吗 |
+| --- | --- | --- |
+| 服务端 `modelCatalog.LEGAL_IMAGE_SIZES` | 9:16 → **1152×2048** | ✅ **真正决定像素的那一方** |
+| `assetPlanner` / `promptAssembler` / `ecommercePromptEngine` | 9:16 | 跟随 catalog |
+| 前端 `ASSET_META`（6 个 `detail_slice_*`） | 9:16 | ❌ 其中 **5 个服务端根本不发** |
+| `src/constants/data.js` 的 `EC_IMG_RATIOS` | **3:4** | ❌ 全仓唯一的异类 |
+| `getAssetMeta` 的兜底 | **1:1** | ⚠️ **实际生效的就是它** |
+
+链路是这样断的：
+
+1. 服务端实际发的 10 个详情 role（`detail_slice_visual_form` / `exterior_structure` /
+   `surface_finish` …）**一个都不在 `ASSET_META` 里** ⇒ 全部掉进兜底；
+2. 兜底写死 `ratio: '1:1'` ⇒ **卡片脚注（`[node.group, node.ratio, node.size]`）显示 1:1**；
+3. 而画面是竖的，因为 `normalizeAsset` 又按自己那套分支算高度 ——
+   用户看到的 `200×267` 就是这个「标签一套算法、画面另一套算法」的产物，
+   **不是真实尺寸**（服务端早就把 `width/height` 一起发过来了，`normalizeAsset` 只读
+   `input.w/h`，把 `width/height` 扔了）；
+4. 更狠的是第四层：画布套图请求写的是 `key: 'detail_slice_feature'`，
+   而服务端 `assetPlanner.COUNTED_SIZING_KEYS = {white_bg, white_background, main_text,
+   main_3x4, transparent, detail}` —— **`detail_slice_*` 不在其中**，
+   `normalizeSizing` 把这一行**整个丢掉**，`configuredCount('detail')` 返回 0
+   ⇒ **画布发的套图请求里，一张详情图都不会生成。**
+
+**SKU 与透明 PNG 没有这个问题**（1:1 三方一致、实际 2048×2048、卡片 200×200 正确）。
+白底图与主图比例正确，但 `ASSET_META` 的 key（`white_bg` / `main_text`）
+与服务端发的（`white_background` / `main`）对不上 ⇒ 名称与分组掉进兜底。
+
+修法（`test/ecommerce-spec-parity-1002.test.mjs` 5 条钉住）：
+- `getAssetMeta` 按 role 前缀兜底（`detail*` → 详情图 / 9:16），并**优先采信服务端下发的 ratio**；
+  加 `ROLE_KEY_ALIASES` 对齐两套 key；连字符写法也认。
+- `normalizeAsset` 先读 `width/height`；比例→高度改用 `mediaHeightForRatio`。
+- `mediaHeightForRatio` 由**枚举**改为**解析** `宽:高` —— 原来只认 3:4/4:3/9:16/16:9/长图，
+  而 catalog 有 13 种，2:3、5:4、1:5 全部退化成正方形。
+  （**每加一种比例就要记得回来补** —— 枚举式写法的固有代价，这次又踩了一次。）
+- 画布请求 `key: 'detail_slice_feature'` → `'detail'`，默认比例 `1:1` → `9:16`。
+
+### ✦ ⑥「全部下拉是白边 + 电商锁定」
+
+两个问题都在一处：
+- **白边**：只写了 `border: 0` 却没写 `appearance: none` —— 那圈"白边"是**浏览器画的**。
+  补上 `appearance: none` + 自绘箭头 + `background-color: transparent`，弹出层底色显式给。
+- **电商锁定**：下拉吃的是 `ASSET_GROUPS`（电商套图的产物分类）。
+  改成按**素材类型**筛（图片/视频/音频/文案），判定下沉到纯函数 `canvasNodeMatchesFilter`。
+  `ASSET_GROUPS` 一个字没动 —— 它是"把这张图归到电商套图哪一类"的**归类**功能，
+  与"画布上现在显示哪些素材"的**筛选**是两件事，不该共用一个下拉。
+  分不清类型的节点（应用节点）只在「全部」里出现 —— 宁可多显示，也不要让用户的视频"消失"。
+
+### ✦ ⑦「AI 积分重复了，按钮也太宽」
+
+`AccountEntitlementControl` 在 compact（画布顶栏）下不再渲染那行 `<small>AI 积分</small>`：
+语义一字不少（`aria-label` 与 `title` 里都还写着「AI 积分」，读屏与悬停都拿得到），
+视觉上少一行字、按钮窄一截。
+
+### ✦ 还没做的（④ 工具栏信息架构）
+
+「去掉重复的『保存到画布』按钮 / 图片式布局从右下角展开」需要先确定新的工具栏分组，
+属于信息架构改动，没有硬依据就动容易改错 —— 留到用户确认过再动。

@@ -13,6 +13,7 @@ import {
 /* 2026-10-02：footer 高度不再由 canvasMediaFitModel 自带（那份 34 与端口几何的 46
    长期打架），改从唯一真相 canvasGeometry 取。 */
 import { CANVAS_CARD_FOOTER_H } from '../src/pages/EcCanvas/canvasGeometry.js';
+import { CANVAS_FILTER_ALL, CANVAS_MEDIA_FILTERS, canvasNodeMatchesFilter } from '../src/pages/EcCanvas/canvasState.js';
 import { findCanvasBlankPlacement } from '../src/pages/EcCanvas/canvasInlineEditorModel.js';
 import { createUploadedImageNodes, createUploadedVideoNodes } from '../src/pages/EcCanvas/canvasStudioModel.js';
 
@@ -229,6 +230,38 @@ test('无限画布的固有属性：素材在视口外只是「没画出来」�
     '裁剪函数只许返回新数组，**绝不允许**改动传入的 nodes');
 });
 
-test('画布仍然只按「图层筛选 chip」过滤节点（CY-⑮ 修过的回归防护）', () => {
-  assert.match(page, /activeFilter === '全部' \? nodes : nodes\.filter\(node => node\.group === activeFilter\)/);
+test('顶栏筛选按**素材类型**筛，不按电商业务分类（2026-10-02 批 之二十三 收尾改口径）', () => {
+  /* 2026-10-02 用户批注⑥：「这个全部的下拉是白边，而且里面是电商锁定的那些分类，
+     能不能换成通用的图片/视频/音频/文案？」
+
+     原来这里就是一行 `node.group === activeFilter`，而 activeFilter 的取值是
+     `['全部', ...ASSET_GROUPS]`（白底图 / 主图 / 详情图 / SKU / 素材）——
+     那是**电商套图**的产物分类。画布本身支持图片/视频/音频/文案，
+     拿业务分类当画布级筛选器，等于把通用画布锁死在一种场景：
+     用户传个视频，能选的只有「全部」和那几个根本不存在的电商分类。
+
+     ⇒ 判定下沉到纯函数 `canvasNodeMatchesFilter`，按 kind 分组；
+       `ASSET_GROUPS` 仍然是"把这张图归到电商套图哪一类"的**归类**功能，没动。 */
+  assert.match(page, /nodes\.filter\(node => canvasNodeMatchesFilter\(node, activeFilter\)\)/);
+  assert.doesNotMatch(page, /node\.group === activeFilter/,
+    '顶栏筛选不许再按业务分类过滤');
+
+  /* 判据本身：'全部' 不筛；按 kind 分四类；分不清的只在「全部」里出现，不假装自己是图片 */
+  assert.equal(canvasNodeMatchesFilter({ kind: 'video' }, '全部'), true);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'video' }, '视频'), true);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'video' }, '图片'), false);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'output' }, '图片'), true);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'image-composer' }, '图片'), true);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'audio' }, '音频'), true);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'text' }, '文案'), true);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'text' }, '视频'), false);
+  /* 应用节点分不清是图片还是视频 ⇒ 只在「全部」里出现，宁可多显示也不要让素材"消失" */
+  assert.equal(canvasNodeMatchesFilter({ kind: 'application' }, '全部'), true);
+  assert.equal(canvasNodeMatchesFilter({ kind: 'application' }, '图片'), false);
+
+  /* 下拉的取值必须是那四类 + 全部，不许再是电商分类 */
+  assert.deepEqual([...CANVAS_MEDIA_FILTERS], ['全部', '图片', '视频', '音频', '文案']);
+  assert.match(page, /filters=\{CANVAS_MEDIA_FILTERS\}/);
+  assert.doesNotMatch(page, /filters=\{\['全部', \.\.\.ASSET_GROUPS\]\}/,
+    '顶栏下拉不许再吃 ASSET_GROUPS');
 });

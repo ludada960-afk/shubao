@@ -10,7 +10,10 @@ import {
   ASSET_GROUPS,
   addConnection,
   bindNonPassiveWheel,
+  CANVAS_FILTER_ALL,
+  CANVAS_MEDIA_FILTERS,
   canvasCursorForState,
+  canvasNodeMatchesFilter,
   fitViewport,
   getCanvasPointerIntent,
   getNodePointerIntent,
@@ -898,7 +901,7 @@ export default function EcCanvas() {
   const [shiftPressed, setShiftPressed] = useState(false);
   const [marquee, setMarquee] = useState(null);
   const [connectionDraft, setConnectionDraft] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('全部');
+  const [activeFilter, setActiveFilter] = useState(CANVAS_FILTER_ALL);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [directionDraft, setDirectionDraft] = useState(null);
   const [directionTitle, setDirectionTitle] = useState('');
@@ -1325,7 +1328,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     [viewport.x, viewport.y, viewport.scale, canvasVisibleViewportSize.width, canvasVisibleViewportSize.height],
   );
   const visibleNodes = useMemo(() => {
-    const grouped = activeFilter === '全部' ? nodes : nodes.filter(node => node.group === activeFilter);
+    const grouped = nodes.filter(node => canvasNodeMatchesFilter(node, activeFilter));
     return canvasNodesInViewport(grouped, cullWorldRect, pinnedNodeIds);
   }, [nodes, activeFilter, cullWorldRect, pinnedNodeIds]);
   /* 9-08 事故修复: 水印改动误删了 selectedNode 定义, 但下方 20+ 处仍在引用它 → 渲染期 ReferenceError 整页白屏 ("画布打不开") */
@@ -5889,7 +5892,15 @@ const handlePointerUp = useCallback((e) => {
     const imageSelections = sizingImages.length ? sizingImages : [
       { key: 'white_bg', count: 1, ratio: composer.ratio || '1:1' },
       { key: 'main_text', count: mainCount, ratio: composer.ratio || '1:1' },
-      { key: 'detail_slice_feature', count: detailCount, ratio: composer.ratio || '1:1' },
+      /* 2026-10-02 用户批注⑧ 的真根因之二：这里写的是 `detail_slice_feature`，
+         而服务端 `assetPlanner.COUNTED_SIZING_KEYS` 只认
+         `{white_bg, white_background, main_text, main_3x4, transparent, detail}` ——
+         `detail_slice_*` 不在其中，`normalizeSizing` 会**把这一行整个丢掉**，
+         `configuredCount('detail')` 于是返回 0 ⇒ **画布的套图一张详情图都不出**，
+         用户看到的详情图其实来自别的路径，比例自然对不上。
+         服务端 assetPlanner:179 本来就把 `detail_slice_*` 映射回 `detail`，
+         所以前端直接写 `detail` 即可。 */
+      { key: 'detail', count: detailCount, ratio: composer.ratio || '9:16' },
     ];
     const rowCounters = new Map();
     const receivedUrls = new Set();
@@ -8237,7 +8248,7 @@ const handlePointerUp = useCallback((e) => {
         tab={tab}
         onTabChange={handleTabChange}
         activeFilter={activeFilter}
-        filters={['全部', ...ASSET_GROUPS]}
+        filters={CANVAS_MEDIA_FILTERS}
         onFilterChange={setActiveFilter}
         onBack={handleBack}
         onExport={() => {

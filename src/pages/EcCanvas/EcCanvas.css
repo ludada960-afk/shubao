@@ -152,7 +152,24 @@
 .ec-canvas-command:disabled { opacity: .46; cursor: not-allowed; }
 
 .ec-canvas-filter { height: var(--ec-canvas-topbar-control-height); border-radius: 8px; background: #f5f6f8; }
-.ec-canvas-filter select { height: 36px; min-width: 94px; padding: 0 30px 0 11px; border: 0; border-radius: 8px; background: transparent; color: #3d434b; font-size: 12px; font-weight: 650; }
+/* 2026-10-02 用户批注：「这个全部的下拉是白边」。
+   原因：只写了 `border: 0`，但没有 `appearance: none` ——
+   原生 <select> 在 Windows/Chromium 上仍会画自己的边框与弹出层，
+   于是那圈"白边"其实是**浏览器画的**，不是我们的样式。
+   ⇒ 显式关掉 appearance，给一个自己的箭头，弹出层的底色也显式给，
+     这样"白边"从哪来、变成什么色都是我们自己说了算。 */
+.ec-canvas-filter select {
+  height: 36px; min-width: 94px; padding: 0 30px 0 11px;
+  appearance: none; -webkit-appearance: none;
+  border: 0; border-radius: 8px; background-color: transparent;
+  color: #3d434b; font-size: 12px; font-weight: 650;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 14px center, right 9px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.ec-canvas-filter select:hover { background-color: var(--sb-hover-bg); }
 
 .ec-canvas-topbar-surface {
   box-sizing: border-box;
