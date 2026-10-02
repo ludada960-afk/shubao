@@ -16695,3 +16695,84 @@ GallerySection / RecoveryShelf），这些模式各自的 CSS（Home 一家就 3
 已全部改成 `import`。值得当成个人纪律记下来：**ESM 测试里出现 `require` 一律判可疑**。
 
 全量 4588 条 / 0 失败。
+
+## 2026-10-01 批 CY-㊴ 之二十一：首页 JS —— 结论是**这 158KB 不能靠懒加载拿掉**
+
+用户原话：「好的。继续」（指上一条末尾说的"要开 JS 这一批的话跟我说"）。
+
+### 做法：先建立产物→源码的映射，再动手
+
+`vite.config.js` 里 `sourcemap: false`，所以先做了一份**只用于分析**的构建
+（`dist-analysis/`，带 sourcemap，部署脚本不会碰它），把每个 chunk 还原成源码模块。
+
+首页首屏实际加载的 JS（gzip，服务器侧记录，1440×900）：
+
+| chunk | gzip | 里面是什么 |
+| --- | --- | --- |
+| `index-DIushDmy.js` | 251 KB | 入口（81 模块：Home/ui/business/billing） |
+| `index-Dg5vnfHX.js` | **158 KB** | **16× VideoStudio** + media + constant.js |
+| `index-0yYCsEBt.js` | 50 KB | 21× Home |
+| 其余 14 个 | 约 112 KB | |
+| **合计** | **571 KB** | |
+
+**EcCanvas 那一坨（526 KB raw）没有被首页拉** —— 路由懒加载是有效的。
+目标锁定在那个 158 KB。
+
+### ⚠️ 第一次差点被骗过去
+
+把 VideoStudioPage 改成 `lazy()` 之后一量：**总包 1356 → 1058 KB（"省了 298KB"）**。
+但同时 **JS 反而 +204 KB**、文件数 17 → 34，而且**图片从 659 KB 掉到 160 KB** ——
+图片掉一半这件事从懒加载的角度讲不通。
+
+于是加了一条探针专门看**页面有没有渲染坏**：
+
+    改前:  文字 594 字  DOM 768  <img> 20 张  报错 0
+    改后:  文字 106 字  DOM  63  <img>  0 张  报错 2   ← 页面直接崩了
+
+⇒ **那个"-298KB"是页面崩掉造成的假象。** 只量字节不看渲染健康度，
+这次差点就把"首页白屏"当成性能优化发上线了。
+
+### 根因：Home ⇄ VideoStudio 是**循环依赖**
+
+`VideoStudio/index.jsx` 反过来静态引用了 Home 的三个组件：
+
+    import { GroupTitle } from '../Home/ec/PanelPrimitives.jsx';
+    import { EcommerceAddCard, EcommerceImageCard } from '../Home/ec/components/EcommerceAssetCards.jsx';
+    import SkillLibraryModal from '../Home/ec/SkillLibraryModal.jsx';
+
+环存在时改成 `lazy(() => import('../VideoStudio'))`，模块求值拿到 undefined ⇒
+`TypeError: Cannot read properties of undefined (reading 'default')` ⇒ 整页进错误边界。
+
+### 把环拆掉之后，懒加载确实能跑
+
+把那三个共用组件下沉到 `src/components/ec-shared/`（563 行，13 个文件的 import 跟着改），
+环就断了（`VideoStudio → Home` 归零）。此时再懒加载：
+
+    改前:  JS 571 KB  合计 1372 KB  | 文字 594  DOM 768  图 20  报错 0
+    改后:  JS 573 KB  合计 1470 KB  | 文字 594  DOM 772  图 20  报错 0
+
+页面**完全正常**（DOM 772 vs 768、文字一样、零报错），但
+**JS +2 KB、合计 +98 KB**。
+
+### 结论：那 158 KB 不是"VideoStudio 页面"，是**两边都要用的共享代码**
+
+懒加载只能把"页面组件本身"挪出首屏；而那 506 KB raw 里绝大部分是
+videoPlanModel / videoStudioModel / videoProjectWorkbenchModel / videoDeliveryModel /
+canvasStudioModel 等**模型层**，Home 的电商模式（EcMode → EcommerceWorkbench）
+本来就要用 —— `EcommerceWorkbench.jsx` 静态引用
+`VideoProjectDeliveryDialog` 与 `videoDeliveryModel`。
+
+拆环也换不来字节，因为**那份代码确实被首屏需要**，不是浪费。
+
+⇒ **已全部还原**（文件移动 + 懒加载都撤掉），工作区与线上 `83ec484a` 一致。
+首页 571 KB JS 属于**真实需要的代码**，不是可以随手砍掉的肥。这一条到此为止，
+除非产品上愿意改"首页电商模式与视频工作台共用同一批模型"这件事本身
+——那是架构决策，不是性能优化。
+
+### 这一条真正的收获（比省下多少 KB 更值钱）
+
+1. **"字节下降"必须配一条"页面有没有渲染坏"的探针。** 否则一次崩溃就能伪装成
+   一次优化 —— 我这次差点上当，是靠"图片从 659 掉到 160 这种说不通的变化"才起疑的。
+2. **负结果也要量、也要写下来。** "这 158KB 拿不掉"是一个有价值的结论：
+   它关掉了这条路，省下以后反复试的力气。
+3. **循环依赖是懒加载的隐形地雷**：改法看着只动一行，跑起来整页白屏。
