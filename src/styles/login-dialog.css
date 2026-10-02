@@ -256,6 +256,37 @@
 .ld-terms a:hover { text-decoration: underline; }
 .ld-terms.is-invalid { animation: ld-shake 0.3s ease both; }
 
+/* ═══ 2026-10-02 合规勾选三条（A 版，用户定）══════════════════════════════════════
+   从原来那一条「您已阅读并同意…」扩成三条，因为一条撑不住两种不同的义务：
+     ① 用途承诺（不给什么用途）② 责任归属（谁担责）③ 协议知情（读了什么）
+   同行把它做成一个带边框的整块，因为我们有三条、每条都要能单独点，
+   所以用 fieldset + 三行，而不是塞进一个 label 里。 */
+.ld-consent {
+  display: flex; flex-direction: column; gap: 9px;
+  margin: 18px 0 0; padding: 12px 13px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 10px;
+  background: var(--sb-surface-tint, rgba(255, 255, 255, 0.6));
+}
+.ld-consent legend {
+  padding: 0 6px; margin-left: -6px;
+  font-size: var(--sb-text-xs); font-weight: 700; color: var(--sb-ink-2);
+}
+.ld-consent-item {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: var(--sb-text-sm); line-height: 1.6; color: var(--sb-ink-3);
+  cursor: pointer; user-select: none;
+}
+.ld-consent-item input {
+  flex: none; width: 15px; height: 15px; margin: 2px 0 0;
+  accent-color: var(--sb-brand-600, #7C3AED); cursor: pointer;
+}
+.ld-consent-item a { color: var(--sb-ink-warning); font-weight: 600; text-decoration: none; }
+.ld-consent-item a:hover { text-decoration: underline; }
+/* 未勾全时整块给警示 —— 与 .ld-terms.is-invalid 的抖动同源，但用边框而非抖动，
+   因为三条里可能只差一条，抖动会让人以为是点错了而不是没勾完 */
+.ld-consent.is-invalid { animation: ld-shake 0.3s ease both; border-color: var(--sb-danger); }
+
 @keyframes ld-pop { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes ld-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } }
 @keyframes ld-spin { to { transform: rotate(360deg); } }
