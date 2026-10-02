@@ -17816,3 +17816,61 @@ Set-Content 把整个文件写成了 **1 个字节**（只剩一个反斜杠）�
 ESM 里用 require、模板字符串里套反引号），现在固化成规则。
 
 全量 4597 条 / 0 失败。
+
+## 2026-10-02：修完上线 —— 以及一条差点重演「刚上线就没了」的发现
+
+上一条的修复已上线：release `6d0a317e`（`/var/www/shubao/releases/20261002-180556-6d0a317e`）。
+
+### 一、我自己的 3 个 commit 当时挂在**任何分支都没有**的地方
+
+要部署时才发现：dep-cy31 工作树是 detached HEAD，
+48ee3175 / 1d63e9ad / ef51adcd 三个提交**不在任何分支上**。
+而线上跑的 5390a4b5 里有一行：
+
+    24736fab Merge commit '48ee3175' into gm/release-merge-1001
+
+也就是说 gm 一直在正确地把我的提交合进发布分支，
+可我自己这条工作树**从来没跟上**，越走越远 —— 这正是部署约定里警告的那个形状。
+再晚一步（一次 gc / 一次 checkout），这三个提交就没了。
+
+⇒ 固化检查：**动部署前先 `git branch --show-current`，空输出就是 detached，立刻建分支。**
+建分支不能只建在本地：先 `git switch -c <名字>`，再 `git merge <线上 sha>`，
+最后才提交/部署。顺序反了又会卡在 "local changes would be overwritten"。
+
+发布分支当时被 gm-b4 工作树占着（git 不允许一个分支在两个工作树同时 checkout），
+但 gm-b4 树是干净的、最近一次改动在 33 分钟前且已经上线，
+所以直接**在 gm-b4 里 `git merge cy/auth-signout-1001`** —— 发布分支本来就是共用的集成点。
+合并是 fast-forward（因为我已经先把线上 sha 合进来了），无冲突。
+
+顺带一个便宜的验证：合并后对比两个工作树的 tree hash
+（`git rev-parse HEAD^{tree}`），两边都是 `be50af6a…` 完全一致，
+所以我在 dep-cy31 跑的 4657 条 / 0 失败**可以原样算数**，不用在 gm-b4 重跑一遍十分钟。
+
+### 二、怎么证明「修的确实上线了」——从压缩产物里读控制流
+
+不看日志、不靠感觉，直接读线上的 minified chunk。
+esbuild 会把可选链 `response?.status === 401` 编成 `(e==null?void 0:e.status)===401`，
+所以 grep `status===401` 找不到，得用 `[?]*\.status` 去找。
+
+    老代码会编成：(e?.status)===401 && va()          // va = clearSession，无条件
+    新代码编成：  (e?.status)===401){ if(ga()?.refreshToken) return tl().catch(()=>{}),e; va() }
+
+第二条就是上线后的样子。`ga()`=`getStoredRefresh`、`tl()`=`refreshSession`、`va()`=`clearSession`。
+同理 verifyAndAdoptSession 的 5xx 分支：老的是 `return va(),null`，
+新的是 `return a.ok?bp(e,await a.json()):n`（`n` 就是 null，**不调 va**）。
+
+**判据是「无条件清理还在不在」，不是「有没有出现某个函数名」。**
+后者在压缩后极易被同名的其它调用点骗过去。
+
+同时顺手验了那条安全边界没被顺手改松：
+    [400,401,403].includes(o) && (Dm(), va())
+Dm=clearRefreshCredential、va=clearSession —— refresh 失败仍然彻底清理，在线上。
+
+### 三、顺带清掉的 202 个临时脚本
+
+之前几轮探针脚本全堆在仓库根目录，`git status` 已经没法看了（200+ 未跟踪项）。
+写了个只删「git 明确报未跟踪 + 命中我自己的命名规则」的脚本清掉，
+只留下 `.p94-shots/`（取证截图）和 `HANDOFF-0930.md`（交接文档）。
+
+清垃圾时踩到一个坑：`git status` 默认把中文/特殊字符文件名转义成 `\346\212\200...`，
+直接拿那个字符串去 `fs.existsSync` 永远 false。必须 `-c core.quotepath=false` 且加 `-z`。
