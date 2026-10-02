@@ -274,13 +274,19 @@
 }
 .ld-consent-item {
   display: flex; align-items: flex-start; gap: 9px;
+  padding: 4px 6px; margin: -4px -6px;
+  border-radius: 7px;
   font-size: var(--sb-text-sm); line-height: 1.6; color: var(--sb-ink-3);
   cursor: pointer; user-select: none;
+  transition: background-color 140ms ease-out;
 }
+/* 可点必有反馈（原则 4.7）：三条各自都能点，hover 要看得见落点 */
+.ld-consent-item:hover { background-color: var(--sb-hover-bg); }
 .ld-consent-item input {
   flex: none; width: 15px; height: 15px; margin: 2px 0 0;
-  accent-color: var(--sb-brand-600, #7C3AED); cursor: pointer;
+  accent-color: var(--sb-brand-600); cursor: pointer;
 }
+.ld-consent-item input:hover { box-shadow: var(--sb-shadow-3); }
 .ld-consent-item a { color: var(--sb-ink-warning); font-weight: 600; text-decoration: none; }
 .ld-consent-item a:hover { text-decoration: underline; }
 /* 未勾全时整块给警示 —— 与 .ld-terms.is-invalid 的抖动同源，但用边框而非抖动，
