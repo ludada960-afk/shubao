@@ -482,6 +482,16 @@
   font-size: 11px; font-weight: 600; cursor: pointer;
 }
 .ec-canvas-media-failed button:hover { background: var(--canvas-bg); }
+/* ═══ 2026-10-02：上传进度**长在素材自己身上**（用户照知渔提的：「他上传的进度是在整个素材
+   里面的……我们现在是在整个画布的最下方，我觉得可能不太对」）。
+   之前进度只能做成画布底部那条 `.ec-canvas-upload-progress` 全局横条 ——
+   因为节点是**传完才建的**，进度发生在上传那一刻、画布上还没有这个节点，无处可挂。
+   现在改成「本地探尺寸 → 建占位节点 → 再上传」，进度写在节点自己的 `uploadPercent` 上。
+   ⚠️ 颜色一律走既有 token，**不新增任何硬编码色**（design-ratchet 只许减不许增）。 */
+.ec-canvas-node-upload-progress { display: grid; gap: 4px; margin-top: 6px; }
+.ec-canvas-node-upload-progress-track { height: 4px; overflow: hidden; border-radius: var(--sb-radius-pill); background: var(--canvas-bg); }
+.ec-canvas-node-upload-progress-fill { height: 100%; border-radius: inherit; background: var(--canvas-command); transition: width 180ms linear; }
+.ec-canvas-node-upload-progress small { color: var(--canvas-muted); font-size: 11px; font-weight: 650; }
 
 .ec-canvas-media-frame { position: relative; width: 100%; overflow: hidden; border-radius: 8px 7px 0 0; background: #f2f3f5; }
 .ec-canvas-media-frame img { pointer-events: none; -webkit-user-drag: none; }

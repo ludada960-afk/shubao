@@ -1527,12 +1527,13 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   };
 
   /** 造一个给 uploadVideoAsset 用的 callbacks：把字节进度写进 uploadProgress */
-  const makeUploadReporter = useCallback((name, index = 0, total = 1) => ({
+  const makeUploadReporter = useCallback((name, index = 0, total = 1, nodeId = '') => ({
     onState(state) {
       if (state === 'completed' || state === 'error' || state === 'cancelled') setUploadProgress(null);
     },
     onProgress({ bytesUploaded = 0, bytesTotal = 0 } = {}) {
       const percent = bytesTotal > 0 ? Math.min(100, (bytesUploaded / bytesTotal) * 100) : 0;
+      const percentText = percent >= 99.95 ? '99.9' : percent.toFixed(1);
       setUploadProgress({
         name: name || '素材',
         index,
@@ -1540,9 +1541,15 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         bytesUploaded,
         bytesTotal,
         percent,
-        /* 一位小数：慢网下 1% 可能要好几秒，取整看起来就是"卡住了" */
-        percentText: percent >= 99.95 ? '99.9' : percent.toFixed(1),
+        percentText,
       });
+      /* ⚠️ 2026-10-02：进度**同时**写回那个占位节点（用户：「他上传的进度是在整个素材里面的」）。
+         只有传 nodeId 的调用点会走到这里；没占位节点的入口（比如「替换素材」那条）
+         仍然只看底部横条 —— 两边不冲突，因为横条是 `uploadProgress`，这里是节点自己的字段。 */
+      if (!nodeId) return;
+      setNodes(previous => previous.map(node => (
+        node.id === nodeId ? { ...node, uploadPercent: percent, uploadPercentText: percentText } : node
+      )));
     },
   }), []);
 
@@ -6387,23 +6394,90 @@ const handlePointerUp = useCallback((e) => {
       const imageFiles = accepted.filter(file => file.type.startsWith('image/'));
       const videoFiles = accepted.filter(file => file.type.startsWith('video/'));
       const audioFiles = accepted.filter(file => file.type.startsWith('audio/'));
+
+      /* ═══ 2026-10-02 用户批注（照知渔）：「他上传的进度是在整个素材里面的。我觉得他们这种做法
+         可能更合理一些，我们现在是在整个画布的最下方，我觉得可能不太对。」
+
+         **为什么之前进度只能在画布最下方**：节点是**最后**才进画布的 ——
+         上传 → 入库 → 建节点 → `.concat(uploadedNodes)`。进度发生在上传那一步，
+         而那一刻画布上**还没有这个节点**，所以无处可挂，只能做成一块全局横条。
+
+         ⇒ 这里把顺序倒过来：**先本地探尺寸 → 先建占位节点（带本地预览）→ 再上传**，
+            进度实时写回**那个节点**。传完后按 id 就地更新（换持久 url、清进度），
+            不再 concat 新节点 —— 这样 id / 连线 / 选中态全程稳定。
+
+         ⚠️ 占位节点的 id **必须沿用** `createUploadedVideoNodes` 的命名规则
+            （`video_upload_<ts>_<i>` / `audio_upload_<ts>_<i>`），
+            否则最后那一步按 id 对不上，节点会变成两份。
+         ⚠️ blob URL 必须在**成功/失败两条路**上都 revoke，否则长时间上传会漏内存。 */
+      const probedVideoSizes = await probeLocalMediaSizes(videoFiles);
+      const placeholders = [
+        ...videoFiles.map((file, index) => ({ kind: 'video', index, file, probe: probedVideoSizes[index] })),
+        ...audioFiles.map((file, index) => ({ kind: 'audio', index, file, probe: null })),
+      ].map(({ kind, index, file, probe }) => {
+        const blobUrl = URL.createObjectURL(file);
+        const ratio = probe?.width > 0 && probe?.height > 0 ? probe.width / probe.height : 16 / 9;
+        const w = 320;
+        return {
+          kind, index, file, blobUrl,
+          node: {
+            id: `${kind}_upload_${uploadStartedAt}_${index}`,
+            kind,
+            assetId: `${kind}-pending-${uploadStartedAt}-${index}`,
+            provenance: 'source',
+            status: 'uploading',
+            url: blobUrl,
+            name: file.name,
+            displayLabel: file.name,
+            group: kind === 'audio' ? '音频' : '视频',
+            role,
+            aspectRatio: ratio,
+            duration: Number(probe?.duration) || 0,
+            w,
+            h: Math.round(w / ratio),
+            uploadPercent: 0,
+            rotation: 0, flipX: false, flipY: false,
+            locked: false, hidden: false, editable: true, showMeta: true,
+            sourceNodeIds: [], x: 0, y: 0,
+          },
+        };
+      });
+      if (placeholders.length) {
+        /* 位置沿用同一套避让排版（探到的尺寸已经是真的了，排版与最终一致 ⇒ 不会跳） */
+        const pbBounds = containerRef.current?.getBoundingClientRect();
+        const pbPlacements = resolveSourceStackPlacement({
+          anchor: composer,
+          existingSourceNodes: (composer.sourceNodeIds || []).map(id => nodes.find(node => node.id === id)).filter(Boolean),
+          existingNodes: nodes.filter(node => node.id !== composerId),
+          entries: placeholders.map(p => ({ w: p.node.w, h: p.node.h })),
+        });
+        placeholders.forEach((p, i) => {
+          p.node.x = pbPlacements[i]?.x ?? p.node.x;
+          p.node.y = pbPlacements[i]?.y ?? p.node.y;
+        });
+        setNodes(previous => previous.concat(placeholders.map(p => p.node)));
+        setConnections(previous => placeholders.reduce(
+          (edges, p) => addConnection(edges, p.node.id, composerId, 'derived'), previous));
+      }
+      const placeholderFor = (kind, index) =>
+        placeholders.find(p => p.kind === kind && p.index === index)?.node.id || '';
+
       const assets = imageFiles.length ? await readCanvasImageFiles(imageFiles, uploadStartedAt) : [];
       const persistedAssets = assets.length ? await persistCanvasUploadAssets(assets, { role }) : [];
       const videoAssets = [];
-      /* ⚠️ 2026-10-02：上传前本地探真实尺寸（用户：「素材的尺寸要跟你的框是同等适配的」）。
-         这条路径是**拖拽 + 底部那颗「上传素材」**都走的（`uploadCanvasMaterials` → 这里），
-         所以探一次就覆盖了图片/视频/音频混传。探不到返回 null，不挡上传。 */
-      const probedVideoSizes = await probeLocalMediaSizes(videoFiles);
       for (const [index, file] of videoFiles.entries()) {
         videoAssets.push({
-          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length))),
+          ...(await uploadVideoAsset(file, 'video', makeUploadReporter(file.name, index, videoFiles.length, placeholderFor('video', index)))),
           ...(probedVideoSizes[index] || {}),
           name: file.name,
         });
       }
       const audioAssets = [];
       for (const [index, file] of audioFiles.entries()) {
-        audioAssets.push({ ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length))), name: file.name });
+        audioAssets.push({
+          ...(await uploadVideoAsset(file, 'audio', makeUploadReporter(file.name, index, audioFiles.length, placeholderFor('audio', index)))),
+          name: file.name,
+        });
       }
       let projectContext = null;
       if (persistedAssets.length || videoAssets.length || audioAssets.length) {
@@ -6455,6 +6529,14 @@ const handlePointerUp = useCallback((e) => {
         y: placements[index]?.y ?? node.y,
       }));
       const uploadedIds = uploadedNodes.map(node => node.id);
+      /* ⚠️ 2026-10-02：占位节点已经**在画布上**了（上传前就建好了，进度写在它身上）。
+         所以这里不能再无条件 `.concat(uploadedNodes)` —— 那会把每个节点变成两份
+         （一份 uploading 的、一份 ready 的），而且 id 相同 ⇒ React key 撞车、连线也会双份。
+         ⇒ 按 id 就地更新：命中占位节点的换成 ready + 持久 url；没命中的才新增。 */
+      const placeholderIds = new Set(placeholders.map(p => p.node.id));
+      const finalizeNode = node => (placeholderIds.has(node.id)
+        ? { ...node, status: 'ready', uploadPercent: 0, uploadPercentText: '' }
+        : node);
       draftReadyRef.current = true;
       const mediaFields = canvasMediaFields(result, uploadedNodes);
       if (projectContext || Object.keys(mediaFields).length) {
@@ -6467,16 +6549,32 @@ const handlePointerUp = useCallback((e) => {
           },
         });
       }
-      setNodes(previous => previous
-        .map(node => node.id === composerId
-          ? {
-            ...node,
-            sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), ...uploadedIds])],
-            sourceRoles: { ...(node.sourceRoles || {}), ...Object.fromEntries(uploadedIds.map(id => [id, role])) },
-          }
-          : node)
-        .concat(uploadedNodes));
-      setConnections(previous => uploadedIds.reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
+      setNodes(previous => {
+        const byId = new Map(uploadedNodes.map(node => [node.id, node]));
+        return previous
+          .map(node => {
+            if (node.id === composerId) {
+              return {
+                ...node,
+                sourceNodeIds: [...new Set([...(node.sourceNodeIds || []), ...uploadedIds])],
+                sourceRoles: { ...(node.sourceRoles || {}), ...Object.fromEntries(uploadedIds.map(id => [id, role])) },
+              };
+            }
+            /* 就地替换：保持节点在画布上的位置与 id，只换内容与状态 */
+            const fresh = byId.get(node.id);
+            if (!fresh) return node;
+            byId.delete(node.id);
+            return finalizeNode({ ...node, ...fresh, x: fresh.x ?? node.x, y: fresh.y ?? node.y });
+          })
+          /* 剩下没在画布上的（图片那条路径没有占位节点）才新增 */
+          .concat([...byId.values()].map(finalizeNode));
+      });
+      /* blob URL 用完了：占位节点已换成持久 url，本地那份必须回收，
+         否则长时间连续上传会一直漏内存（每个几十 MB）。 */
+      placeholders.forEach(p => { try { URL.revokeObjectURL(p.blobUrl); } catch { /* 已回收 */ } });
+      setConnections(previous => uploadedIds
+        .filter(id => !previous.some(edge => edge.from === id && edge.to === composerId))
+        .reduce((edges, id) => addConnection(edges, id, composerId, 'derived'), previous));
       setSelected(composerId);
       setMultiSelected(new Set([composerId]));
       const failedImageIds = new Set(importedImages.failed.map(item => canvasImportSourceId('image', item.asset)));

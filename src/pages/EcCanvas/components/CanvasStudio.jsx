@@ -1422,6 +1422,22 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
       <strong>{isVideo ? (node.kind === 'video' ? '视频素材' : '视频生成') : isLayerGroup ? '智能分层' : isImage ? (node.actionId ? '图片生成（编辑）' : '图片生成') : '电商套图'}</strong>
       {(isSuite || isLayerGroup) && <span>{isLayerGroup ? '识别商品、背景和文字，拖动后展开图层' : direction?.title || '在下方输入需求并发送，生成整体设计规范与图片规划'}</span>}
       {node.status === 'processing' && <small>{node.progressLabel || '正在处理...'}</small>}
+      {/* ⚠️ 2026-10-02：上传进度**长在素材自己身上**（用户照知渔提的：「他上传的进度是在
+          整个素材里面的……我们现在是在整个画布的最下方，我觉得可能不太对」）。
+          `uploadPercent` 由 index.jsx 的 makeUploadReporter 直接写到占位节点上 ——
+          能这么写的前提是**节点先于上传存在**（原来节点是传完才建的，进度无处可挂，
+          只能做成画布底部那条全局横条）。 */}
+      {node.status === 'uploading' && (
+        <div className="ec-canvas-node-upload-progress">
+          <div className="ec-canvas-node-upload-progress-track">
+            <div
+              className="ec-canvas-node-upload-progress-fill"
+              style={{ width: `${Math.max(2, node.uploadPercent || 0)}%` }}
+            />
+          </div>
+          <small>上传中 {node.uploadPercentText || `${Math.round(node.uploadPercent || 0)}%`}</small>
+        </div>
+      )}
       {node.mediaPlaybackError && <small className="is-error">{node.mediaPlaybackError}</small>}
       {node.error && <small className="is-error">{node.error}</small>}
     </div>}
