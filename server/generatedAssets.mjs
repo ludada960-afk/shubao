@@ -1,6 +1,10 @@
 import crypto from 'crypto';
+/* AIGC 隐式标识（《标识办法》第五条三要素）。见 server/aigcStamp.mjs 顶部的法条与待核项。 */
+import { stampImage, contentIdFor } from './aigcStamp.mjs';
 import { link, mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { resolve, basename } from 'node:path';
+/* aigcStamp 写 JPEG/WebP 元数据时要用（PNG 走零重编码的 chunk 插入，用不到它）。 */
+import sharp from 'sharp';
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 20_000;
@@ -122,10 +126,17 @@ export function createGeneratedAssetStore({
     if (declaredLength > maxBytes) throw new Error('生成图片文件过大');
     if (!buffer.length || buffer.length > maxBytes) throw new Error('生成图片文件过大或为空');
 
-    const fileName = assetNameFor(buffer, extension);
+    /* ═══ AIGC 隐式标识：注入必须在 assetNameFor 之前 ═══════════════════════
+       文件名是内容的 sha256，注入后字节变了哈希就变；顺序反了会触发下面的完整性校验失败。 */
+    const stampedBuffer = await stampImage(buffer, {
+      contentType: mimeType,
+      contentId: contentIdFor(taskId, mimeType + ':' + buffer.length),
+      sharp,
+    });
+    const fileName = assetNameFor(stampedBuffer, extension);
     await mkdir(root, { recursive: true });
     const filePath = resolve(root, fileName);
-    try { await stat(filePath); } catch { await writeFile(filePath, buffer, { flag: 'wx' }); }
+    try { await stat(filePath); } catch { await writeFile(filePath, stampedBuffer, { flag: 'wx' }); }
     const asset = {
       id: fileName,
       fileName,
@@ -148,6 +159,14 @@ export function createGeneratedAssetStore({
     if (!MIME_EXTENSIONS[contentType]) throw new Error('生成图片类型不受支持');
     if (buffer.length > maxBytes) throw new Error('生成图片文件过大');
     const extension = MIME_EXTENSIONS[contentType];
+    /* ⚠️ 这条路径**不打** AIGC 标识 ——
+       persistBuffer 同时服务两类东西：
+         · ecommerce-original / ecommerce-preview → **用户上传**（assetUpload.mjs）
+         · canvas_crop / canvas_annotation / canvas_replace_text → 用户素材的派生编辑
+       用户上传的照片不是我们生成的，打上 AIGC 属于**虚假标识**，那本身也是违规；
+       而 test/ecommerce-asset-upload.test.mjs:104 断言的
+       `assert.deepEqual(storedOriginal.buffer, originalBytes)` 正是这条契约。
+       ⇒ 只有 downloadAndPersist（上游 URL 下载的生成结果）打标识。 */
     const fileName = assetNameFor(buffer, extension);
     await mkdir(root, { recursive: true });
     const filePath = resolve(root, fileName);
