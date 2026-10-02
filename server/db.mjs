@@ -133,6 +133,25 @@ export function initDB(dbPath = DB_PATH) {
       created_at TEXT DEFAULT (datetime('now', 'localtime'))
     );
     CREATE INDEX IF NOT EXISTS idx_concept_copy_owner ON concept_copy_log(owner_email, created_at);
+
+    /* ═══ 2026-10-03：内容违规分级处置的计数表 ════════════════════════════════════
+       为什么不用现��的 admin_audit_log：那记的是**管理员操作**，不是用户行为。
+       这张表是「取证 + 分级」两件事的落点：公安上门时，能按账号调出
+       「什么时候、用什么提示词、命中了哪一类」。留存期按《网络安全法》
+       第二十一条第（三）项的网络日志口径做 30 天滚动 + 归档另议。
+
+       为什么 30 天窗口：分级处置要给误伤留容错（用户明确要求「差不多 5 次」，
+       怕我们自己词表太严把人误封）。一个 30 天内 5 次的账号几乎不可能是误伤连发。 */
+    CREATE TABLE IF NOT EXISTS content_strikes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_email TEXT NOT NULL,
+      category TEXT NOT NULL,
+      reason TEXT DEFAULT '',
+      prompt_excerpt TEXT DEFAULT '',
+      prompt_sha256 TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_content_strikes_owner ON content_strikes(owner_email, created_at);
   `);
   // 兼容已经运行过旧版表结构的线上数据库。
   const taskColumns = db.prepare("PRAGMA table_info(tasks)").all().map(column => column.name);

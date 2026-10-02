@@ -1082,17 +1082,67 @@ function sendContentInputError(res) {
    ⚠️ 返回 400（不是 5xx）：这是**客户端的输入问题**，不是我们的故障 —— 上游/监控看到 5xx 会当成
       我们的错误，而这一类必须让人一眼看出"是内容不合规"。
    ⚠️ 只在文本侧生效；图片素材的分级是第二阶段（docs/design/75），这里不假装覆盖了它。 */
-function sendContentScreenedError(res, screen) {
+/* ═══ 分级处置 2026-10-03 ═══════════════════════════════════════════════════════
+   用户定的口径（逐条照办）：
+     · **第 5 次才封号**，前 4 次一律不封。理由是他担心「我们自己词表太严，
+       把正常用户误封」—— 这个担心有实测支撑：候选审核模型对泳装/内衣打 0.4647，
+       距 0.5 阈值只差 0.03；而全行业都没有中文电商的误报率数据。
+       宁可放过，不可错杀。
+     · **不做功能限制**：「限制功能只会把事情搞得更复杂」—— 我们的功能就生图/生视频，
+       限制它等于限制全部使用，没有意义。
+     · 提示要**具体**，第 1 次就告诉用户怎么改。
+
+   计数窗口 30 天：一个 30 天内触发 5 次的账号，几乎不可能是误伤连发。
+   取证价值：content_strikes 表同时是「公安上门时按账号调记录」的落点。 */
+const CONTENT_STRIKE_LIMIT = 5;
+const CONTENT_STRIKE_WINDOW_DAYS = 30;
+
+function strikeGuidance(count) {
+  if (count >= CONTENT_STRIKE_LIMIT) return '内容多次触发平台安全规则，账号已被限制使用；如认为误判请联系客服申诉。';
+  if (count === 4) return '已多次触发平台安全规则，再次触发将限制账号使用。';
+  if (count === 3) return '已多次触发平台安全规则，请注意调整描述与素材。';
+  if (count === 2) return '再次触发平台安全规则将面临处罚，请调整描述与素材。';
+  return '请修改后重试（本次未扣费）。';
+}
+
+/** 记一次违规并落证据，返回「这是第几次」（首次 = 1）。 */
+function recordContentStrike(ownerEmail, screen, text) {
+  const email = String(ownerEmail || '').trim().toLowerCase();
+  const excerpt = String(text || '').slice(0, 300);
+  const sha = String(crypto.createHash('sha256').update(String(text || '')).digest('hex'));
+  if (!email) return 1;                       // 未登录无法计数：只拦不封
+  try {
+    db.prepare(
+      'INSERT INTO content_strikes(owner_email, category, reason, prompt_excerpt, prompt_sha256) VALUES(?,?,?,?,?)'
+    ).run(email, screen.hits.map(h => h.id).join(','), screen.reason, excerpt, sha);
+  } catch { /* 记不上不影响拦截本身 */ }
+  try {
+    const row = db.prepare(
+      "SELECT COUNT(*) AS n FROM content_strikes WHERE owner_email = ? AND created_at >= datetime('now','localtime','-" +
+      CONTENT_STRIKE_WINDOW_DAYS + " days')"
+    ).get(email);
+    return Number(row?.n || 1);
+  } catch { return 1; }
+}
+
+function sendContentScreenedError(res, screen, ownerEmail, text) {
+  const count = recordContentStrike(ownerEmail, screen, text);
+  const suspended = count >= CONTENT_STRIKE_LIMIT;
   return res.status(400).json({
-    error: `${screen.reason}。请修改后重试（本次未扣费）。`,
-    code: 'CONTENT_BLOCKED',
+    error: `${screen.reason}。${strikeGuidance(count)}`,
+    code: suspended ? 'CONTENT_BLOCKED_ACCOUNT_SUSPENDED' : 'CONTENT_BLOCKED',
     categories: screen.hits.map(item => item.label),
+    /* 前端可直接显示「第 N 次」，不必自己数 */
+    strikeCount: count,
+    strikeLimit: CONTENT_STRIKE_LIMIT,
   });
 }
+
 /* 所有走文本的生成入口共用这一道（避免"有的入口查、有的不查"那种漏） */
-function screenOrReject(res, ...texts) {
-  const screen = screenPromptText(texts.filter(Boolean).join('\n'));
-  if (!screen.ok) { sendContentScreenedError(res, screen); return true; }
+function screenOrReject(req, res, ...texts) {
+  const joined = texts.filter(Boolean).join('\n');
+  const screen = screenPromptText(joined);
+  if (!screen.ok) { sendContentScreenedError(res, screen, req?._userEmail, joined); return true; }
   return false;
 }
 
@@ -2793,7 +2843,7 @@ app.post('/api/generate', async (req, res) => {
   const { text, images, referenceAssetIds, referenceAssets } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
   /* 内容安全闸门（提示词侧）：命中即 400 拒掉，不扣费、不发上游 */
-  if (screenOrReject(res, text)) return undefined;
+  if (screenOrReject(req, res, text)) return undefined;
   if (req._contentPreview === true) return runXhsPreview(req, res);
   let resolvedReferenceGroups;
   try {
@@ -6244,7 +6294,7 @@ app.post('/api/plog-generate', async (req, res) => {
   const { text, refImage, referenceAssetIds, referenceAssets, style, layout, coverVariant, skipEnrich } = req.body || {};
   if (!text?.trim()) return sendContentInputError(res);
   /* 内容安全闸门（提示词侧）：与 /api/generate 同一道，命中即 400、不扣费、不发上游 */
-  if (screenOrReject(res, text)) return undefined;
+  if (screenOrReject(req, res, text)) return undefined;
   if (req._contentPreview === true) return runPlogPreview(req, res);
   let resolvedReferenceGroups;
   try {

@@ -61,10 +61,19 @@ test('③ 零宽字符夹字也拦得住（最常见的绕过手法）', () => {
 test('④ 三个文本生成入口都接了同一道闸门（不许有的查有的不查）', () => {
   const server = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
   const video = readFileSync(new URL('../server/videoGeneration.mjs', import.meta.url), 'utf8');
-  assert.match(server, /if \(screenOrReject\(res, text\)\) return undefined;/, '/api/generate 要接');
-  assert.equal((server.match(/screenOrReject\(res, text\)/g) || []).length, 2,
+  /* 2026-10-03 P3：签名加了 req（需要 req._userEmail 记违规次数），
+     所以调用形状从 screenOrReject(res, text) 变成 screenOrReject(req, res, text)。
+     断言锁的是**调用形状**，故同步更新；「三个入口都接同一道闸门」的意图不变。 */
+  assert.match(server, /if \(screenOrReject\(req, res, text\)\) return undefined;/, '/api/generate 要接');
+  assert.equal((server.match(/screenOrReject\(req, res, text\)/g) || []).length, 2,
     '两个文本入口（/api/generate 与 /api/plog-generate）都要接');
-  assert.match(server, /code: 'CONTENT_BLOCKED'/, '要给出可识别的 code（前端才能按它显示）');
+  /* 2026-10-03 P3：分级处置后有**两个** code —— 未到封号线是 CONTENT_BLOCKED，
+     到第 5 次是 CONTENT_BLOCKED_ACCOUNT_SUSPENDED。两个都必须存在，
+     否则前端没法区分「改了再试」和「账号已被限制」。 */
+  assert.match(server, /'CONTENT_BLOCKED'/,
+    '要给出可识别的 code（前端才能按它显示）');
+  assert.match(server, /'CONTENT_BLOCKED_ACCOUNT_SUSPENDED'/,
+    '封号态要有独立 code，前端才能显示申诉入口');
   assert.match(server, /res\.status\(400\)/, '这是输入问题 ⇒ 400（不是 5xx，否则会被当成我们的故障）');
   /* 视频侧：插在**编译之后**（方案段与硬约束段也要过一遍，否则能塞进那两段绕过）。
      判据写成"要出现 screenPromptText 且参数里同时有 prompt 与 negativePrompt"——
