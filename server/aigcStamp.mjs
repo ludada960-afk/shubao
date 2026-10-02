@@ -25,6 +25,7 @@
 //   的 withExif，那条**会重编码**（有 CPU 与画质代价，见 formatSupport）。
 
 import crypto from 'crypto';
+import fs from 'node:fs';
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -154,6 +155,59 @@ export async function stampImage(buffer, { contentType = 'image/png', contentId,
     } catch { /* ignore */ }
     return buffer;
   }
+}
+
+/* ── 视频：写 mp4 容器 metadata（零重编码）───────────────────────────────────
+   《标识办法》第四条(四)要求「在视频起始画面和视频播放周边的适当位置添加显著的
+   提示标识」（= 显式），第五条的隐式标识同样适用于视频。
+   这里的隐式部分落在容器 metadata（comment / title / description）。
+
+   ⚠️ 调用顺序铁律：**必须在 persistOutput 校验上游 x-content-sha256 之后**才调。
+      提前调会改字节，让上游完整性校验失效。 */
+function ffmpegAvailable() {
+  return Boolean(process.env.FFMPEG_PATH || 'ffmpeg');
+}
+
+/**
+ * @param {string} filePath 输入视频路径（原地替换为带标识的副本）
+ * @param {{contentId: string, timeoutMs?: number}} options
+ * @returns {Promise<boolean>} true=已写入；false=跳过或失败（原文件未动）
+ */
+export async function stampVideoFile(filePath, { contentId, timeoutMs = 20000 } = {}) {
+  if (!contentId) return false;
+  const bin = process.env.FFMPEG_PATH || 'ffmpeg';
+  const tmpPath = filePath + '.aigc.tmp.mp4';
+  const values = {
+    comment: `AIGC=1; Producer=${PRODUCER_NAME}(${PRODUCER_CODE}); ContentID=${contentId}`,
+    title: 'AI generated content',
+  };
+  const args = ['-hide_banner', '-loglevel', 'error', '-y', '-i', filePath,
+    '-c', 'copy',                     // ← 关键：不重编码，只换容器
+    '-metadata', `comment=${values.comment}`,
+    '-metadata', `title=${values.title}`,
+    '-movflags', '+faststart', tmpPath];
+  try {
+    const { spawn } = await import('node:child_process');
+    const code = await new Promise(resolve => {
+      const child = spawn(bin, args, { stdio: ['ignore', 'ignore', 'ignore'] });
+      const timer = setTimeout(() => { try { child.kill(); } catch { /* ignore */ } }, timeoutMs);
+      child.on('error', () => { clearTimeout(timer); resolve(-1); });
+      child.on('close', c => { clearTimeout(timer); resolve(c); });
+    });
+    if (code !== 0) return false;
+    const staged = fs.statSync(tmpPath);
+    if (!staged.size) return false;
+    fs.copyFileSync(tmpPath, filePath);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    try { fs.unlinkSync(tmpPath); } catch { /* 没生成就算了 */ }
+  }
+}
+
+export function videoFormatSupport() {
+  return { mp4: 'ffmpeg -c copy 写容器 metadata（零重编码）', 其它: '未处理' };
 }
 
 export function formatSupport() {

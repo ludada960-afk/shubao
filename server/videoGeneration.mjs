@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { stampVideoFile, contentIdFor } from './aigcStamp.mjs';
 import fs from 'node:fs';
 import { copyFile, link, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
@@ -858,11 +859,31 @@ export function createVideoGeneration({
       if (!bytes || (declaredBytes > 0 && declaredBytes !== bytes)) {
         throw httpError(502, 'VIDEO_OUTPUT_TRUNCATED', '视频文件不完整，请重试');
       }
-      const sha256 = hash.digest('hex');
+      let sha256 = hash.digest('hex');
       const expectedSha256 = clean(response.headers.get('x-content-sha256'), 100).toLowerCase();
       if (expectedSha256 && expectedSha256 !== sha256) {
         throw httpError(502, 'VIDEO_OUTPUT_CHECKSUM_INVALID', '视频文件校验失败，请重试');
       }
+      /* ═══ AIGC 隐式标识（视频）════════════════════════════════════════════════
+         ⚠️ 位置铁律：必须在上面**校验完上游 x-content-sha256 之后**才做。
+            ffmpeg -c copy 的 remux 会改字节；提前做，上游完整性校验就形同虚设。
+         stamp 之后 sha256 / bytes 按**落盘文件重算** ——
+         `hash` 这条 Transform 流在 digest 之后已消费完，不能接着用；
+         而库里若记的是改之前的值，取证时对不上实际文件。
+         失败不阻断出片：ffmpeg 不可用或超时 → 返回 false，原文件不动。 */
+      try {
+        const stamped = await stampVideoFile(tempPath, {
+          contentId: contentIdFor(job.id || id, contentType + ':' + id),
+        });
+        if (stamped) {
+          const finalBuffer = fs.readFileSync(tempPath);
+          sha256 = crypto.createHash('sha256').update(finalBuffer).digest('hex');
+          bytes = finalBuffer.length;
+        }
+      } catch (error) {
+        console.warn('[aigcStamp] 视频标识写入失败，交付原文件:', error?.message);
+      }
+
       const handle = await fs.promises.open(tempPath, 'r+');
       try { await handle.sync(); } finally { await handle.close(); }
       await rename(tempPath, finalPath);
