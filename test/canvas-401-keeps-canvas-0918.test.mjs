@@ -98,8 +98,36 @@ test('softSignOut 仍归零账户相关态（额度在会话过期后无意义�
 
 /* ── 链路完整性 ───────────────────────────────────────────────────── */
 
-test('401 → clearSession → onSessionInvalid 链路未被改动', () => {
+test('401 → clearSession → onSessionInvalid 链路未被削弱', () => {
   const auth = read('src/services/auth.js');
-  assert.match(auth, /if \(response\?\.status === 401\) clearSession\(\)/, '401 仍必须清理会话（鉴权语义不变）');
+
+  /* 这条判据原来写的是字面量 `if (response?.status === 401) clearSession();`，
+     守的是**鉴权语义**：401 必须最终导致下线，不能为了让界面不闪登录窗就把 401 忽略掉。
+
+     2026-10-01 改实现（修用户报的「回来一阵子就自己掉登录、弹登录窗」）：
+     有 refresh 凭证时，401 先触发一次静默续期、**不立即下线**；
+     续期成功就继续用，**续期失败仍由 refreshSession 自己彻底清理并广播下线**。
+     ⇒ 安全语义没变，变的是"下线发生在续期失败之后，而不是 401 到达的那一刻"。
+
+     所以这里从**字面量断言**改成**意图断言**，并且比原来更严：
+     额外盯住"续期失败必须清 refresh 凭证 + 清 session"这条回路，
+     免得以后有人为了"少弹一次窗"把这条路也悄悄删了。 */
+  const handler = auth.slice(auth.indexOf('export function handleSessionResponse'),
+    auth.indexOf('async function postJson'));
+  assert.match(handler, /status === 401/,
+    '401 分支必须在（语义没变）');
+
+  /* 没有 refresh 凭证 = 真的登出 ⇒ 直接下线，不能拖 */
+  assert.match(handler, /getStoredRefresh\(\)\?\.refreshToken[\s\S]*return response/,
+    '有 refresh 凭证时先静默续期、原样返回 response，不立即下线');
+  assert.match(handler, /clearSession\(\)/,
+    '没有 refresh 凭证（真登出）时仍要 clearSession');
+
+  /* 最关键的一条：续期真失败时必须彻底清理并广播 —— 鉴权边界靠的是这条，不是上面那条 */
+  const refreshFn = auth.slice(auth.indexOf('export function refreshSession'),
+    auth.indexOf('export function maybeRefreshSession'));
+  assert.match(refreshFn, /\[400,\s*401,\s*403\][\s\S]*clearRefreshCredential\(\)[\s\S]*clearSession\(\)/,
+    'refresh 失效/过期/重放时必须清 refresh 凭证 + 清 session —— 这是真正的下线回路，不能被删');
+
   assert.match(auth, /export function onSessionInvalid\(/, '订阅入口仍必须存在');
 });

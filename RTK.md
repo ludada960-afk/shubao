@@ -17013,3 +17013,89 @@ hidden 只让它看不见，React 照样渲染整棵树、11 个 effect 照样�
 ⇒ 通用纪律：**探针的判定信号必须先自证它能区分"真发生"和"什么都没发生"** ——
 先在一个已知会有差异的场景上跑一遍，确认它量得出差别，再拿它去量优化。
 `readableUploadError` 那次做对了（先红测证明门禁会判红）；这次没做，是我的疏漏。
+
+## 2026-10-01：用户报「回来一阵子就自己掉登录」+「突然无法访问，刷新两下」
+
+用户原话（两条）：
+
+> ① 「为什么有时候一段时间没来看网站，突然来访问一下，他会自己掉落登录呢，
+>    弹出登录窗，然后过一会才显示已登录的状态呀」
+> ② 「而且有时候过一会才来访问网站，网站会突然无法访问，要刷新两下才能访问」
+
+这两条是**同一个错误**：把「这次没验成」当成了「你已经登出」。
+
+### ① 掉登录 + 弹登录窗
+
+access token 只有 30 分钟；refresh token 是**独立的另一个键**，
+而 clearSession() **并不删它**（删它的是 clearRefreshCredential()）。
+
+也就是说：access 过期本来是**可以静默续期的正常情况**。但 auth.js 里：
+
+    export function handleSessionResponse(response) {
+      captureSessionRenewal(response);
+      if (response?.status === 401) clearSession();   // ← 任何 401 都"下线"
+      return response;
+    }
+
+而 clearSession() 会广播"会话失效"，AppContext.jsx:406-412 收到后：
+
+    dispatch({ type: 'SET_LOGGED', logged: false, phone: '', softSignOut: true });
+    dispatch({ type: 'SHOW_LOGIN', show: true });   // ← 登录窗弹出来
+
+「**过一会**又显示已登录」是竞速的结果：refreshSession() 随后成功 →
+notifyRestored() → SET_LOGGED true → 窗子又收起。
+谁先落地决定你看不看得见那一闪 —— 这就是「**有时候**」的来源。
+
+handleSessionResponse 有 **10 个调用点**（admin / apiError / conceptCopy /
+planPreview / video / videoUploadClient / auth.js），覆盖所有数据面请求，
+所以回来打开页面、那一串并发请求里**任何一个**先拿到 401，登录窗就弹了。
+
+改法：手上有 refresh 凭证时，401 只触发一次静默续期、**不下线**；
+续期真失败时 refreshSession 自己会 clearRefreshCredential() + clearSession() 广播下线（auth.js:167）。
+
+### ② 「突然无法访问、刷新两下」
+
+verifyAndAdoptSession 里：
+
+    if (!response.ok) { clearSession(); return null; }   // ← !ok 包含 502/500/超时
+
+**服务器打个嗝就人踢下线。** 用之十九加的耗时日志一查，线上真有：
+
+    120.86.252.241 "GET /api/session HTTP/2.0"    502  rt=0.013  ref="https://shuimg.cn/"
+    120.86.252.241 "POST /api/billing/quote" 401  rt=0.008  ref="https://shuimg.cn/"
+
+同一个 IP、同一个真实 Chrome、同一秒 —— 一次 502 紧接着一次 401。
+
+（顺便说明：日志里那些 >1 秒的慢请求，查完全是**扫描器 / 攻击流量** ——
+TLS 握手垃圾包、一个 wget 挖矿尝试，而且 urt=- 说明压根没到后端。
+真实用户请求里 2109/2164 在 50ms 以内。）
+
+改法：**只有 401 才算会话失效**；5xx / 网络错误只是"这次没验成"，
+保留本地凭证让下一次重试。catch 分支同样不再当成掉线。
+
+### 门禁与鉴权边界（这条特别要紧）
+
+改 handleSessionResponse 动的是**鉴权语义**，必须盯住别把安全边界改松：
+
+- 新增 test/auth-signout-cause-1001（5 条）
+- 改写 canvas-401-keeps-canvas-0918 里那条断言：原来写的是**字面量**
+  「if (response?.status === 401) clearSession();」，守的是"401 最终必须导致下线"。
+  改实现后这句字面量不再成立，但**意图没变**（续期失败照样彻底清理）。
+  按用户的交代（钉措辞 vs 钉意图），这里改成**意图断言，并且比原来更严**：
+  额外盯住「refresh 失败必须清 refresh 凭证 + 清 session」这条回路 ——
+  真正的鉴权边界靠的是这条，不是上面那条。
+  两条门禁都做了红测：
+  · 把两处修复还原成旧写法 → 判红 2 条
+  · 删掉 refresh 失败回路 → 判红 2 条
+
+### 我自己出的事故（如实记）
+
+做红测时用 pwsh -Command 内联脚本改 auth.js，转义失败，
+Set-Content 把整个文件写成了 **1 个字节**（只剩一个反斜杠）。
+好在动手前留了备份，恢复了。
+
+⇒ **纪律：改文件一律用脚本文件（.mjs），绝不在 cmd / pwsh -Command 里做替换。**
+这一轮我在这上面已经栽过好几次（中文被 cmd 吞、node -e 里 require 报错、
+ESM 里用 require、模板字符串里套反引号），现在固化成规则。
+
+全量 4597 条 / 0 失败。
