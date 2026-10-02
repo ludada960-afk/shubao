@@ -81,7 +81,16 @@ export default function AppSidebar() {
   return (
     <nav className={'app-sidebar'} aria-label={'主导航'}>
       <button type={'button'} className={'app-sidebar-brand'} onClick={goHome} title={'薯包 AI · 首页'} aria-label={'薯包 AI 首页'}>
-        <img src={'/images/logo.png'} alt={''} width={30} height={30} />
+        {/* 2026-10-01 性能：原来直接用 `/images/logo.png` —— **457×457、153 KB**，
+             却只渲染成 **30×30**。等于为首屏白传一张 150KB 的图。
+             实测两张图缩到 60×60 后的逐像素平均差 MAD = 1.8/255（视觉同一个标，
+             且都有 alpha 通道），所以换 webp 安全。
+             用 `<picture>` 而不是直接换：webp 走 source、png 留在 img 里兜底，
+             万一将来某天两个文件不再是同一个标，还有退路。 */}
+        <picture>
+          <source srcSet="/images/logo-icon.webp" type="image/webp" />
+          <img src="/images/logo.png" alt="" width={30} height={30} />
+        </picture>
       </button>
 
       <div className={'app-sidebar-scroll'}>

@@ -18,7 +18,10 @@ export default function Footer() {
     }}>
       <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sb-space-1-5)', marginBottom: 8 }}>
-          <img src={IMAGES.appicon} style={{ width: 18, height: 18, borderRadius: 4 }} alt="" />
+          {/* 2026-10-01 性能：页脚在整页**最底部**（首页实测约 2967px 处，视口 900px），
+              而这张 appicon 有 22 KB。原来没写 loading，浏览器默认 eager ⇒ 首屏就下。
+              它是纯装饰（alt 为空、18px），晚一点到完全无感。 */}
+          <img src={IMAGES.appicon} style={{ width: 18, height: 18, borderRadius: 4 }} alt="" loading="lazy" decoding="async" />
           <span style={{ fontSize: 'var(--sb-text-md)', fontWeight: 'var(--sb-weight-bold)' }}>薯包AI</span>
         </div>
         <p style={{ fontSize: 'var(--sb-text-xs)', color: 'var(--sb-ink-4)', margin: '0 0 8px' }}>
