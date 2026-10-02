@@ -28,6 +28,7 @@ try {
 } catch {}
 
 import { mountOnApp } from './extensionRoutes.mjs';
+import { createGeneratedAssetStore } from './generatedAssets.mjs';
 
 const PORT = process.env.EXT_PORT || 3098;
 
@@ -45,6 +46,11 @@ mountOnApp(app, {
       throw Object.assign(new Error('扩展服务必须通过主站账本运行'), { status: 503, code: 'EXTENSION_BILLING_UNAVAILABLE' });
     },
   },
+  // billing 恒抛 ⇒ 这里的 generate 永远跑不到；但 mountOnApp 现在要求 store 存在，
+  // 所以照样给一个（与主站同目录，内容寻址，重复建实例无副作用）。
+  generatedAssetStore: createGeneratedAssetStore({
+    directory: resolve(__dirname, 'generated-assets'),
+  }),
 });
 
 // 启动

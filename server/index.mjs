@@ -6084,7 +6084,7 @@ mountAuthRoutes(app, {
 // ============================================================
 // 扩展端 API 路由
 // ============================================================
-mountExtRoutes(app, { billing: canvasOneShotBilling });
+mountExtRoutes(app, { billing: canvasOneShotBilling, generatedAssetStore });
 
 // ============================================================
 // 启动

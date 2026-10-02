@@ -5,7 +5,6 @@
  * 挂载到 /api/extension/ 下
  */
 
-import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
@@ -19,7 +18,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DOWNLOADS_DIR = path.resolve(__dirname, 'extension_downloads');
 if (!fs.existsSync(DOWNLOADS_DIR)) fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
 
-const router = Router();
 
 function isBillingPreconditionError(error) {
   const code = String(error?.code || '');
@@ -37,124 +35,6 @@ function restoreExtensionTaskAfterFailure(taskId, error, retryStatus, retryProgr
   }
   updateTask(taskId, { status: TASK_STATUS.FAILED, error: error?.message || '扩展任务失败' });
 }
-
-/* ════════════════════════════════════════
- * 接口1：接收插件上传的采集数据
- * ════════════════════════════════════════ */
-router.post('/collect', (req, res) => {
-  try {
-    const { images, title, platform, pageUrl, ratios } = req.body || {};
-
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ ok: false, error: '缺少图片数据' });
-    }
-
-    // 创建任务
-    const taskId = createTask({ images, title, platform, pageUrl, ratios });
-    console.log(`[ext] 新任务 ${taskId}：${images.length} 张图片，来自 ${platform || '未知平台'}`);
-
-    // 异步：开始下载图片
-    downloadImages(taskId).catch(err => {
-      console.error(`[ext] 下载失败 ${taskId}:`, err.message);
-      updateTask(taskId, { status: TASK_STATUS.FAILED, error: err.message });
-    });
-
-    res.json({ ok: true, taskId, imageCount: images.length });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-/* ════════════════════════════════════════
- * 接口2：查询任务进度
- * ════════════════════════════════════════ */
-router.get('/task/:id', (req, res) => {
-  const task = getTask(req.params.id);
-  if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
-
-  // 返回客户端所需信息（去掉敏感/内部字段）
-  res.json({
-    ok: true,
-    taskId: task.taskId,
-    status: task.status,
-    progress: task.progress,
-    createdAt: task.createdAt,
-    updatedAt: task.updatedAt,
-    platform: task.platform,
-    title: task.title,
-    imageCount: task.images.length,
-    analysis: task.analysis,
-    userProduct: task.userProduct,
-    generatedImages: task.generatedImages,
-    error: task.error,
-  });
-});
-
-/* ════════════════════════════════════════
- * 接口3：手动触发 AI 分析（或查询分析结果）
- * ════════════════════════════════════════ */
-router.post('/analyze', async (req, res) => {
-  try {
-    const { taskId } = req.body || {};
-    if (!taskId) return res.status(400).json({ ok: false, error: '请求缺少必要参数', code: 'EXTENSION_REQUEST_INVALID' });
-
-    const task = getTask(taskId);
-    if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
-
-    // 如果已经分析过了，直接返回结果
-    if (task.analysis) {
-      return res.json({ ok: true, analysis: task.analysis });
-    }
-
-    // 如果图片还没下载完，返回等待状态
-    if (task.status !== TASK_STATUS.DOWNLOADED && task.status !== TASK_STATUS.ANALYZING) {
-      return res.json({ ok: true, status: task.status, message: '图片尚未就绪，等待下载完成' });
-    }
-
-    // 开始分析（异步执行）
-    updateTask(taskId, { status: TASK_STATUS.ANALYZING, progress: 30 });
-    runAnalysis(taskId).catch(err => {
-      console.error(`[ext] 分析失败 ${taskId}:`, err.message);
-      updateTask(taskId, { status: TASK_STATUS.FAILED, error: err.message });
-    });
-
-    res.json({ ok: true, status: TASK_STATUS.ANALYZING, message: '分析已启动' });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-/* ════════════════════════════════════════
- * 接口4：用户提交替换信息 → 重新生成
- * ════════════════════════════════════════ */
-router.post('/regenerate', async (req, res) => {
-  try {
-    const { taskId, productName, category, sellingPoints, tier, platform } = req.body || {};
-    if (!taskId || !productName) {
-      return res.status(400).json({ ok: false, error: '请求缺少必要参数', code: 'EXTENSION_REQUEST_INVALID' });
-    }
-
-    const task = getTask(taskId);
-    if (!task) return res.status(404).json({ ok: false, error: '请求的内容不存在', code: 'EXTENSION_TARGET_NOT_FOUND' });
-
-    // 保存用户替换信息
-    updateTask(taskId, {
-      status: TASK_STATUS.GENERATING,
-      progress: 50,
-      userProduct: { productName, category: category || '', sellingPoints: sellingPoints || [], tier: tier || 'basic', platform: platform || '' },
-    });
-
-    // 启动生成（异步）
-    runGeneration(taskId).catch(err => {
-      console.error(`[ext] 生成失败 ${taskId}:`, err.message);
-      updateTask(taskId, { status: TASK_STATUS.FAILED, error: err.message });
-    });
-
-    res.json({ ok: true, taskId, message: '生成已启动' });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
 
 /* ──────── 下载图片（异步） ──────── */
 async function downloadImages(taskId) {
@@ -413,7 +293,10 @@ async function analyzeSingleImage(imgInfo, env, productTitle) {
 }
 
 /* ──────── AI 重新生成 ──────── */
-async function runGeneration(taskId) {
+async function runGeneration(taskId, generatedAssetStore) {
+  if (!generatedAssetStore || typeof generatedAssetStore.persist !== 'function') {
+    throw new Error('扩展生成缺少产物落盘通道');
+  }
   const task = getTask(taskId);
   if (!task) throw Object.assign(new Error('请求的内容不存在'), { status: 404, code: 'EXTENSION_TARGET_NOT_FOUND' });
 
@@ -448,13 +331,28 @@ async function runGeneration(taskId) {
     });
 
     try {
-      // 调用 GPT Image 2 生成
-      const imageUrl = await callImageGeneration(prompt, env);
+      /* ① 上游生成（返回的是上游 CDN 的临时 URL）
+         ② **必须落盘到 generatedAssetStore** —— 插件链路以前直接把上游 URL 塞进
+            generated[].url 就返回给前端，等于：
+              · 产物从不经过我们的服务器 ⇒ 一个字节的 AIGC 隐式标识都没有
+                （《标识办法》第五条），而这条链路是**收费**的付费功能；
+              · 上游地址直接暴露给前端（可被第三方拿去做二次分发）。
+            persist() 内部会下载 → 打隐式标识 → 按内容 sha256 存到
+            server/generated-assets/，返回我们自己的 /api/generated-assets/<sha>.<ext>。
+         ⚠️ 落盘失败**不回退成上游 URL** —— 那等于把上面两个洞重新打开。
+            生成成功但存不下来，这张就按失败计（宁可少交付，不做无标识交付）。 */
+      const upstreamUrl = await callImageGeneration(prompt, env);
+      if (!upstreamUrl) throw new Error('上游没有返回图片地址');
+      const asset = await generatedAssetStore.persist({
+        sourceUrl: upstreamUrl,
+        taskId,
+        label: 'extension_remake',
+      });
       generated.push({
         index: i,
         role: `remake_${i}`,
         style: ref.background?.includes('白底') ? '白底主图' : '场景图',
-        url: imageUrl,
+        url: asset.url,
         group: i === 0 ? '主图' : '详情图',
         referenceIndex: i,
       });
@@ -574,12 +472,18 @@ function loadEnv() {
   };
 }
 
-export default router;
-
 /* 备用：直接挂载到 app 上（如果 Router 方式有兼容问题） */
 
-export function mountOnApp(app, { billing } = {}) {
+export function mountOnApp(app, { billing, generatedAssetStore } = {}) {
   if (!billing || typeof billing.execute !== 'function') throw new TypeError('extension billing service is required');
+  /* 2026-10-03 P7：generatedAssetStore 现在是**必需**依赖，不再是可选。
+     以前可选，是因为插件链路把上游 URL 直接返给前端、根本不需要落盘。
+     改成落盘（为了打 AIGC 隐式标识 + 不暴露上游地址）之后，没有 store 就
+     意味着生成出来的东西交不出去 —— 那应该在**挂载时**就炸掉，
+     而不是等到用户付费生成完才发现存不下来。 */
+  if (!generatedAssetStore || typeof generatedAssetStore.persist !== 'function') {
+    throw new TypeError('extension generatedAssetStore is required');
+  }
   // Express 4: 直接用 app.post/get 注册路由
   app.post('/api/extension/collect', (req, res) => {
     try {
@@ -663,7 +567,7 @@ export function mountOnApp(app, { billing } = {}) {
         providerCostCny: ({ basic: 0.114, standard: 0.19, complete: 0.342 })[tier] || 0.114,
         metadata: { action: 'extension_regenerate', taskId, tier: tier || 'basic' },
         work: async () => {
-          await runGeneration(taskId);
+          await runGeneration(taskId, generatedAssetStore);
           const result = getTask(taskId);
           if (!result?.generatedImages?.length) throw new Error('扩展生成未返回结果');
           return { taskId, generatedImages: result.generatedImages, url: `extension-generation:${taskId}` };
