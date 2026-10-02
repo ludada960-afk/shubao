@@ -16820,3 +16820,65 @@ canvasStudioModel 等**模型层**，Home 的电商模式（EcMode → Ecommerce
 2. **负结果也要量、也要写下来。** "这 158KB 拿不掉"是一个有价值的结论：
    它关掉了这条路，省下以后反复试的力气。
 3. **循环依赖是懒加载的隐形地雷**：改法看着只动一行，跑起来整页白屏。
+
+## 2026-10-01 批 CY-㊴ 之二十二：首页三个默认不渲染的模式改成懒加载（−71 KB）
+
+用户原话：「首页不是只有一个图片生成和视频生成的入口吗？」
+—— 对。这条是对**之二十一结论的修正**（那边把"电商模式"当成了首页常驻，是错的）。
+
+### 先把事实钉死（代码自己写着的）
+
+- `src/store/AppContext.jsx:54`
+  `mode: 'video',  // video | visual ← 首页两处入口；content/ecommerce 见技能子页面与恢复链路`
+- `src/pages/Home/index.jsx` 的 `modeOptions` **只有两项**：视频生成 / 图片生成
+- 浏览器实测首页渲染出来的是 `video-composer` / `is-video`，EcMode、XhsContentMode **没渲染**
+
+### 真正浪费的是这三个
+
+它们只在 `mode==='content'` 或 `'ecommerce'` 时渲染（深链进技能子页面，
+或「做同款」/ 恢复链路），**首页默认一次都不画**，却被静态 import 进了首屏包：
+
+| 组件 | 行数 | 何时才需要 | 拆出的 chunk |
+| --- | --- | --- | --- |
+| `EcMode` | 1760 | 深链进电商套图 / 恢复链路 | 44 KB |
+| `XhsContentMode` | 1954 | 小红书图文 / plog 子页面 | 66 KB |
+| `DesignDirection` | 1189 | 电商第 2 步（确认设计方案） | 34 KB |
+
+### 实测（同口径：服务器侧记录，1440×900，每变体 3 次取中位数）
+
+| | JS | CSS | 合计 | 文字 | DOM | <img> | 默认视频台 | 报错 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 改前 | 571 KB | 89 KB | 1372 KB | 594 | 716 | 20 | 有 | 0 |
+| 改后 | **500 KB** | **80 KB** | **1292 KB** | 594 | 716 | 20 | 有 | **0** |
+
+**JS −71 KB（−12%）、合计 −80 KB**，而渲染健康度**逐项一模一样**。
+
+### 两条纪律（之二十一用一次白屏换来的）
+
+① **每个 lazy 都必须包 Suspense**，否则切到那个模式时没有 fallback 直接报错。
+   我第一版改造时 `DesignDirection` 的 Suspense **漏了**，是门禁抓到的。
+   fallback 也不能是 `null` —— 那会让那块地方"啪"地缩回去再撑开，所以给了有高度、
+   带 `aria-live` 的 `ModeLoading`。
+
+② **"默认页正常"证明不了懒加载能用** —— 因为默认页根本不渲染那三个组件。
+   所以单独验了一次：把拆出来的 chunk 逐个 `import()`，看 default 是不是可用
+   （之二十一的 `Cannot read properties of undefined (reading 'default')` 就是栽在这）。
+   三个全部 `default=function`：EcMode 44KB / XhsContentMode 66KB / DesignDirection 34KB。
+
+### 顺带得到一个纪律：字节测量必须配渲染健康度
+
+之二十一里，页面崩了 → 请求变少 → 字节"降了 298KB" → 我差点当成收益上线。
+这次探针固定同时报两组数（字节 / 文字·DOM·<img>·默认视频工作台·报错），
+B 组缩水就作废 A 组结论。
+
+### 门禁
+
+新增 `test/home-lazy-modes-1001`（4 条）：三个必须 lazy 且不许再有静态 import；
+每个使用点必须落在 `<Suspense …>` 内且 fallback 是 ModeLoading（不是 null）；
+**VideoStudio 必须保持静态 import**（它是首屏必需，且 Home⇄VideoStudio 有循环依赖，
+lazy 必白屏）；首页只有两个入口、不许再冒出第三个。
+改写 `ecommerce-editor-lifecycle`：放宽"紧接着就是组件"→"组件在 Suspense 里"
+（守的实质是"返回时不卸载编辑器"，不是语法形状），并补上"三处都要有 fallback"。
+已做红测（把 DesignDirection 的 fallback 换成 null → 门禁判红）。
+
+全量 4592 条 / 0 失败；precommit 全绿。

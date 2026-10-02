@@ -1,11 +1,8 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { lazy, Suspense, useState, useRef, useEffect, useMemo } from 'react';
 import { MdAutoAwesome, MdEdit, MdPalette, MdShoppingCart, MdVideoLibrary } from 'react-icons/md';
 import { useApp } from '../../store/AppContext';
-import XhsContentMode from './XhsContentMode';
-import EcMode from './EcMode';
 import VideoStudioPage from '../VideoStudio';
 import VisualCreationMode from './VisualCreationMode';
-import DesignDirection from './ec/DesignDirection';
 import GallerySection from './GallerySection';
 /* 批 J-⑨：首页案例表达区复用**既有**的那一块（小红书模式一直在用），不重写版式。 */
 /* 批 T：CreationShowcase 的 import 一并撤掉（首页不再渲染它；组件本身留在
@@ -16,6 +13,50 @@ import Footer from '../../components/layout/Footer';
 import RecoveryShelf from './ec/RecoveryShelf';
 import SkillEntryRow from '../../components/media/SkillEntryRow.jsx';
 import { categoryOrderOf, featuredSkills, hubPath, skillPath, skillsOfBoard } from '../../skills/skillDirectory.js';
+
+/* ═══ 批 CY-㊴ 之二十二（2026-10-01）：首页默认不渲染的三个模式，改成懒加载 ════════
+   实测：首页落地页默认是 **视频工作台**（AppContext: mode 默认 'video'，
+   而 modeOptions 只有「视频生成 / 图片生成」两项 —— 没有电商模式）。
+   下面这三个组件只有切到 mode==='content' / 'ecommerce' 时才渲染
+   （深链进技能子页面、或"做同款"/恢复链路），首页默认一次都不画：
+
+     EcMode           1760 行  深链进电商套图 / 恢复链路
+     XhsContentMode   1954 行  小红书图文 / plog 子页面
+     DesignDirection 1189 行  电商的第 2 步（确认设计方案）
+
+   它们被 import 进来就进了首屏包 —— 实测合计 144 KB 原始体积、白扛着。
+
+   ⚠️ 两条纪律（之二十一用白屏换来的）：
+   ① **每个 lazy 都必须有 Suspense**，否则切到那个模式时没有 fallback 直接报错。
+   ② 改完**必须同时量渲染健康度**（DOM/文字/默认视频工作台还在不在）——
+      只量字节的话，"页面崩了所以字节降了"会被误当成收益（那次差点就这么上线）。 */
+const EcMode = lazy(() => import('./EcMode'));
+const XhsContentMode = lazy(() => import('./XhsContentMode'));
+const DesignDirection = lazy(() => import('./ec/DesignDirection'));
+
+/** 懒加载时的占位：给高度 + 一句说明，别让那块地方"啪"地缩回去再撑开。 */
+function ModeLoading({ label }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        minHeight: 320,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '48px 16px',
+        fontSize: 13,
+        fontWeight: 600,
+        /* ⚠️ 不许写 '#8a93a0' 这种硬编码回退色 —— design-ratchet 棘轮会判红。
+           这些 --sb-* token 都在设计体系里，缺了也不该退回魔数。 */
+        color: 'var(--sb-ink-4)',
+      }}
+    >
+      {label}…
+    </div>
+  );
+}
 
 /* ═══ 首页每个板块摆几条精选推荐按钮 ═══════════════════════════════════════════════
    2026-09-19 用户批注 #4：「这里的 skill 他们本身只是个按钮。它是像这样子排列成
@@ -301,13 +342,20 @@ export default function HomePage() {
              你这样的话连看都看不到呀」。技能入口现在**常驻在左侧导航**里（AppSidebar），
              首页不再重复一遍，也就不会再出现「按钮压在卡片下面看不见」的问题。 */}
 
-          {/* ═══ 白色表面卡 / 设计方向确认 ═══ */}
+          {/* ═══ 白色表面卡 / 设计方向确认 ═══
+              批 CY-㊴ 之二十二：DesignDirection 与上面两个一样，只在
+              mode==='ecommerce' 且 ecStep===2 时才渲染（深链进电商、或"做同款"恢复链路），
+              首页默认一次都不渲染 —— 1189 行白白进首屏包。
+              改成 lazy 之后**必须**包 Suspense，否则切到这一步时会因为
+              没有 fallback 而报错（之二十一就是踩这个坑白屏的）。 */}
           {!isXHS && !isVideo && !isVisual && ecStep === 2 && (
-            <DesignDirection
-              params={ecParamsRef.current}
-              onBack={() => setEcStep(1)}
-              onGenerated={() => setEcStep(3)}
-            />
+            <Suspense fallback={<ModeLoading label="正在打开设计面板" />}>
+              <DesignDirection
+                params={ecParamsRef.current}
+                onBack={() => setEcStep(1)}
+                onGenerated={() => setEcStep(3)}
+              />
+            </Suspense>
           )}
           <div id="creation-workbench" className="surface-card" style={{
             display: ecStep === 2 ? 'none' : undefined,
@@ -316,11 +364,11 @@ export default function HomePage() {
             boxShadow: isXHS || isVideo || isVisual ? undefined : 'none',
           }}>
             <div className="surface-card-inner">
-              {isVideo ? <VideoStudioPage embedded inlineResult /> : isXHS ? <XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /> : !isVisual ? (
+              {isVideo ? <VideoStudioPage embedded inlineResult /> : isXHS ? <Suspense fallback={<ModeLoading label="正在打开图文工作台" />}><XhsContentMode compactMode xhsSubMode={xhsSubMode} setXhsSubMode={setXhsSubMode} recoveryCheckpoint={recoveryCheckpoint} /></Suspense> : !isVisual ? (<Suspense fallback={<ModeLoading label="正在打开电商套图" />}>
                 <EcMode ecStep={ecStep} setEcStep={setEcStep}
                   onStepChange={(params) => { ecParamsRef.current = params; }}
                   recoveryCheckpoint={recoveryCheckpoint}
-                  initialRecipeId={state.creationLaunch?.recipeId || null} />
+                  initialRecipeId={state.creationLaunch?.recipeId || null} /></Suspense>
               ) : null}
               <div hidden={!isVisual}><VisualCreationMode recoveryCheckpoint={recoveryCheckpoint} initialSkillId={state.creationLaunch?.skillId || null} /></div>
             </div>
