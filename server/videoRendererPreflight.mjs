@@ -3,7 +3,12 @@ import crypto from 'node:crypto';
 import { getVideoProduct } from './videoCatalog.mjs';
 
 const DEFAULT_MAX_TOTAL_DURATION_MS = 30 * 60 * 1000;
-const SUPPORTED_MODERATION_STATES = new Set(['passed', 'approved', 'not_required']);
+/* ═══ 2026-10-02 P2-1：移除 'not_required'。
+   它原本是一条旁路 —— "声明无需审核"即可通过审核门禁。现在审核结论已改为
+   服务端产生（routes 层不再采信 req.body.moderation），但保留这个状态等于
+   给未来留后门：任何代码路径只要塞一个 not_required 就能绕开。
+   'passed'/'approved' 保留 —— 那是阶段2 落审核记录后由服务端写入的终态。 */
+const SUPPORTED_MODERATION_STATES = new Set(['passed', 'approved']);
 const SUPPORTED_STORAGE_TARGETS = new Set(['durable', 'object-storage', 'server']);
 
 function coded(code, message = code) {
