@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Trash2 } from 'lucide-react';
+import { Maximize2, Minimize2, Redo2, RotateCcw, Trash2, Undo2 } from 'lucide-react';
+
+/* 显示框（= 框选坐标系的大小）由视频**固有尺寸**算出，见 videoRegionGeometry.js 的说明：
+   2026-10-03 用户批注「点击擦除为什么是这样的」—— 原先读的是祖先容器的 offsetWidth，
+   而那个容器被 `max-height:280px` 夹过 ⇒ 画面只剩顶部一条横带，字幕框不到。 */
+import { fitRegionBox } from './videoRegionGeometry.js';
 
 import './VideoRegionPicker.css';
 
@@ -38,6 +43,9 @@ export default function VideoRegionPicker({
   onChange = () => {},
   hint = '',
   disabled = false,
+  /* 上限：与交互稿一致（"3/5"）。上限来自调用方（SUBTITLE_ERASE_MODES），
+     不在这里写死 —— 又一份常量就又一处会对不上。 */
+  maxRegions = 8,
 }) {
   const videoRef = useRef(null);
   const surfaceRef = useRef(null);
@@ -45,19 +53,68 @@ export default function VideoRegionPicker({
   const [size, setSize] = useState({ width: 0, height: 0, displayWidth: 0, displayHeight: 0 });
   const [zoomed, setZoomed] = useState(false);
   const [draft, setDraft] = useState(null);
+  /* 框选历史的**指针**落在哪一版上；frames 存已提交的快照。
+     每次 onChange 之前先把当前版本压栈，于是撤销/重做都是真历史。 */
+  const historyRef = useRef({ past: [], present: null, future: [] });
+  const syncHistory = next => {
+    const h = historyRef.current;
+    h.past = [...h.past, h.present];
+    h.present = next;
+    h.future = [];
+    onChange(next);
+  };
+  /* 外部改了 regions（切换节点）⇒ 历史重置，别把别的节点的框带过来 */
+  const lastRegionsKeyRef = useRef(null);
+  const regionsKey = JSON.stringify(regions || []);
+  if (lastRegionsKeyRef.current !== null && lastRegionsKeyRef.current !== regionsKey && !draft) {
+    /* onChange 触发的回填不动历史；只有"外部来的"变化才重置。
+       判据：变化后的值与 history.present 相同 ⇒ 是我们自己的回填。 */
+    if (JSON.stringify(historyRef.current.present) !== regionsKey) {
+      historyRef.current = { past: [], present: regions || [], future: [] };
+    }
+  }
+  lastRegionsKeyRef.current = regionsKey;
+
+  const canUndo = historyRef.current.past.length > 0;
+  const canRedo = historyRef.current.future.length > 0;
+  const undo = () => {
+    const h = historyRef.current;
+    if (!h.past.length) return;
+    h.future = [h.present, ...h.future];
+    h.present = h.past[h.past.length - 1];
+    h.past = h.past.slice(0, -1);
+    onChange(h.present);
+  };
+  const redo = () => {
+    const h = historyRef.current;
+    if (!h.future.length) return;
+    h.past = [...h.past, h.present];
+    h.present = h.future[0];
+    h.future = h.future.slice(1);
+    onChange(h.present);
+  };
+  const reset = () => syncHistory([]);
+  const removeLast = () => syncHistory((regions || []).slice(0, -1));
 
   const readGeometry = useCallback(() => {
     const video = videoRef.current;
-    const surface = surfaceRef.current;
-    if (!video || !surface) return;
-    setSize({
-      width: Number(video.videoWidth) || 0,
-      height: Number(video.videoHeight) || 0,
-      /* offsetWidth/Height 是**未缩放**的布局尺寸（getBoundingClientRect 会被 scale 影响，
-         那是拖拽时用的、要除回来，见 pointerPosition） */
-      displayWidth: surface.offsetWidth || 0,
-      displayHeight: surface.offsetHeight || 0,
-    });
+    if (!video) return;
+    /* ⚠️ 2026-10-03 用户批注：「点击擦除为什么是这样的」——
+       原来这里读的是 `surface.offsetWidth/offsetHeight`，而那个 surface 是
+       `.video-region-canvas` 的 `inset:0` 子元素，**尺寸完全取决于祖先**
+       （曾经祖先是 `max-height:280px` + auto 宽度），也就是说
+       "框选坐标系"建立在**一个我们自己都没约束过的容器**上：
+         · 容器一改（加 letterbox、加祖先 transform、滚动条出现），
+           所有已框的区域立刻整体错位；
+         · `ready` 只判 display>0，而 metadata 未到时 `videoWidth=0`
+           ⇒ scale 变成 0 ⇒ 框全塌成 {0,0,0,0}，再被 MIN_REGION 静默丢掉。
+
+       ⇒ 改成**按视频固有尺寸算框**（纯函数、无 DOM 读），并把这个框
+         写成内联宽高，于是"显示框"与"坐标系"从此是同一个数。 */
+    const intrinsicW = Number(video.videoWidth) || 0;
+    const intrinsicH = Number(video.videoHeight) || 0;
+    const box = fitRegionBox(intrinsicW, intrinsicH);
+    setSize({ width: intrinsicW, height: intrinsicH, displayWidth: box.width, displayHeight: box.height });
     /* 让首帧真的画出来（只 preload=metadata 时很多浏览器是一片黑，用户没法对着框） */
     if (video.readyState >= 1 && video.currentTime === 0) {
       try { video.currentTime = 0.1; } catch { /* 某些浏览器 metadata 阶段还不允许 seek */ }
@@ -72,9 +129,12 @@ export default function VideoRegionPicker({
     return () => window.removeEventListener('resize', onResize);
   }, [readGeometry, videoUrl]);
 
-  const ready = Boolean(videoUrl) && size.displayWidth > 0 && size.displayHeight > 0;
+  const ready = Boolean(videoUrl) && size.width > 0 && size.height > 0
+    && size.displayWidth > 0 && size.displayHeight > 0;
+  /* 显示框就是坐标系：框出来的显示坐标 × scaleX = 源像素。 */
   const scaleX = ready ? size.width / size.displayWidth : 1;
   const scaleY = ready ? size.height / size.displayHeight : 1;
+  const box = { width: size.displayWidth, height: size.displayHeight };
 
   const pointerPosition = event => {
     const node = surfaceRef.current;
@@ -98,9 +158,7 @@ export default function VideoRegionPicker({
   const moveDrag = event => {
     const drag = dragRef.current;
     if (!drag) return;
-    const node = surfaceRef.current;
-    if (!node) return;
-    setDraft(clampRect(drag.start, pointerPosition(event), { width: node.offsetWidth, height: node.offsetHeight }));
+    setDraft(clampRect(drag.start, pointerPosition(event), box));
   };
 
   const endDrag = event => {
@@ -108,11 +166,7 @@ export default function VideoRegionPicker({
     dragRef.current = null;
     surfaceRef.current?.releasePointerCapture?.(event.pointerId);
     if (!drag) return;
-    const node = surfaceRef.current;
-    const rect = clampRect(drag.start, pointerPosition(event), {
-      width: node?.offsetWidth || 0,
-      height: node?.offsetHeight || 0,
-    });
+    const rect = clampRect(drag.start, pointerPosition(event), box);
     setDraft(null);
     const region = {
       type: 'delogo',
@@ -123,7 +177,8 @@ export default function VideoRegionPicker({
     };
     /* 太小的框（误点）不记：服务端也会丢，但"多一条废区域"会让用户以为框上了 */
     if (region.w < MIN_REGION || region.h < MIN_REGION) return;
-    onChange([...regions, region].slice(0, 8));
+    if ((regions || []).length >= maxRegions) return;
+    syncHistory([...(regions || []), region]);
   };
 
   const displayOf = region => ({ x: region.x / scaleX, y: region.y / scaleY, w: region.w / scaleX, h: region.h / scaleY });
@@ -138,7 +193,16 @@ export default function VideoRegionPicker({
       )}
       {videoUrl && (
         <div className={'video-region-stage' + (zoomed ? ' is-zoomed' : '')}>
-          <div className="video-region-canvas" style={zoomed ? { transform: `scale(${ZOOM})` } : undefined}>
+          {/* 显示框的尺寸写成内联 —— 它同时就是框选坐标系的大小，
+              不再让 CSS 与 JS 各自猜一套。 */}
+          <div
+            className="video-region-canvas"
+            style={{
+              width: box.width || undefined,
+              height: box.height || undefined,
+              transform: zoomed ? `scale(${ZOOM})` : undefined,
+            }}
+          >
             {/* 没有 controls：整块被拖拽面盖住，播放控制在这里没有意义（要的是"框住那一行字"） */}
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
@@ -187,12 +251,24 @@ export default function VideoRegionPicker({
             {zoomed ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             {zoomed ? '退出放大' : '放大视频'}
           </button>
-          {regions.length > 0 && (
-            <button type="button" className="video-region-clear" disabled={disabled} onClick={() => onChange([])}>
-              <Trash2 size={13} />清空区域
-            </button>
-          )}
-          {regions.length > 0 && <span className="video-region-count">已框选 {regions.length} 个区域</span>}
+          {/* 2026-10-03 交互稿：框选那一档底部是「撤销 / 重做 / 重置 / 删除」四个，
+              外加 `N/上限` 计数。
+              ⚠️ 撤销/重做必须是**真的历史**：这里保留一个已提交区域的栈，
+                 每次框选/删除都压栈；"撤销"回退一格、"重做"再前进一格。
+                 只做"删除最后一条"那种假撤销，用户第二次就会发现不对。 */}
+          <button type="button" className="video-region-clear" disabled={disabled || !canUndo} onClick={undo} title="撤销上一次框选">
+            <Undo2 size={13} />撤销
+          </button>
+          <button type="button" className="video-region-clear" disabled={disabled || !canRedo} onClick={redo} title="重做">
+            <Redo2 size={13} />重做
+          </button>
+          <button type="button" className="video-region-clear" disabled={disabled || !historyRef.current.length} onClick={reset} title="清空全部">
+            <RotateCcw size={13} />重置
+          </button>
+          <button type="button" className="video-region-clear" disabled={disabled || !regions.length} onClick={removeLast} title="删除最后一个框">
+            <Trash2 size={13} />删除
+          </button>
+          <span className="video-region-count">{regions.length}/{maxRegions}</span>
         </div>
       )}
       {/* 区域按**源像素**列出来（服务端 delogo 用的就是这几个数）：框了什么、下发什么，看得见 */}

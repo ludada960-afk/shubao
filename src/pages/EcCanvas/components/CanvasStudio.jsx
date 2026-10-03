@@ -320,10 +320,14 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
         title={isDisabled ? (action.disabledHint || '暂时不可用') : (alreadyAsset ? '这个素材已在资产库中，再点一次即可移除' : (action.description || action.label))}
         disabled={isDisabled}
         onPointerDown={event => event.stopPropagation()}
-        onClick={() => { if (!isDisabled) onAction?.(action, node); }}
+        onClick={() => { if (!isDisabled) onAction?.(action, node, event); }}
+        aria-haspopup={action.hasModes ? 'menu' : undefined}
       >
         <Icon size={16} />
         {!compact && <span>{label}</span>}
+        {/* 2026-10-03 交互稿：「智能去字幕 ▾」—— 带下拉的按钮长这样，
+            点它展开的是**擦除方式**而不是直接开框选器。 */}
+        {action.hasModes && <ChevronDown size={14} aria-hidden="true" className="ec-canvas-toolbar-caret" />}
       </button>;
     })}
     {delivery && <button type="button" data-video-delivery="true" aria-label="发往视频项目" title={delivery.hint || '把该素材发往视频项目，可绑为镜头首帧'} onPointerDown={event => event.stopPropagation()} onClick={() => delivery.onSend?.(node)}>

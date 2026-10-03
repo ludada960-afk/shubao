@@ -42,6 +42,15 @@ const ACTIONS = Object.freeze({
     paid: true, perSecond: true, unitsPerSecond: 0.04, currency: 'ec_points',
     sku: 'video_desubtitle_local_short', skus: ['video_desubtitle_local_short', 'video_desubtitle_local_long'],
   },
+  /* 2026-10-03：**自动**那一档（智能擦除）。它不是本机 ffmpeg，而是火山 MediaKit，
+     所以单价比框选那档高一档 —— 与服务端 catalog 的两条逐值一致：
+       video_desubtitle_volc_short/long: units 50、perSecond、priceFen 5 ⇒ 0.05 积分/秒
+     ⚠️ 「看着便宜、扣得贵」正是 catalog.mjs 注释里点名的那类事故，
+        所以两档必须**各自显式登记**，而不是让 UI 拿框选那档的数字去显示。 */
+  'video-desubtitle-auto': {
+    paid: true, perSecond: true, unitsPerSecond: 0.05, currency: 'ec_points',
+    sku: 'video_desubtitle_volc_short', skus: ['video_desubtitle_volc_short', 'video_desubtitle_volc_long'],
+  },
   'psd-export': FREE,
 });
 
