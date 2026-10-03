@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
-  Upload, Type, Video, Wand2, WandSparkles, X } from 'lucide-react';
+  ScanText, Upload, Type, Video, Wand2, WandSparkles, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -6709,6 +6709,9 @@ const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
 
    ⇒ 统一成一个纯函数：视口中心。搜索失败时也用它兜底，
      绝不再落回那个 0.35×高度的经验位置。 */
+/* 「擦除方式」下拉的宽度 —— 定位（按触发按钮中线居中）与 CSS 的 min-width 共用这一个数。 */
+const SUBTITLE_ERASE_MENU_W = 248;
+
 function centreOfCanvasStage(bounds, viewport, cardWidth, cardHeight) {
   const scale = Math.max(0.05, Number(viewport?.scale) || 1);
   const width = Number(bounds?.width) || 1200;
@@ -10162,7 +10165,22 @@ const handleCanvasVideoUpload = async event => {
         const rect = subtitleModeAnchor.triggerEl.getBoundingClientRect();
         const target = nodes.find(item => item.id === subtitleModeAnchor.nodeId);
         if (!target) return null;
-        return <div className="ec-canvas-erase-modes" role="menu" aria-label="选择擦除方式" style={{ position: 'fixed', left: rect.left, top: rect.bottom + 6, zIndex: CANVAS_Z.popover }}>
+        /* 2026-10-03 用户批注：「为什么没有跟上面这个本体的按钮居中呢？
+           你应该吸附在这个智能去字幕下面的中间呀。」
+           ⇒ 对齐**触发按钮的中线**，不是左缘；宽度与 CSS 共用同一个常量 ——
+             两边各写一份必然走偏（"整卡高度四份口径"那类坑已经吃过一次）。 */
+        return <div
+          className="ec-canvas-erase-modes"
+          role="menu"
+          aria-label="选择擦除方式"
+          style={{
+            position: 'fixed',
+            left: rect.left + rect.width / 2 - SUBTITLE_ERASE_MENU_W / 2,
+            top: rect.bottom + 6,
+            width: SUBTITLE_ERASE_MENU_W,
+            zIndex: CANVAS_Z.popover,
+          }}
+        >
           {SUBTITLE_ERASE_MODES.map(mode => {
             const disabled = mode.needsRegions
               ? false
@@ -10183,7 +10201,13 @@ const handleCanvasVideoUpload = async event => {
                 if (mode.needsRegions) setSubtitlePickNodeId(target.id);
               }}
             >
-              <WandSparkles size={15} aria-hidden="true" />
+              {/* 2026-10-03 用户批注：「而且这两个按钮为什么图标是一样的呀？」——
+                  两档同图标 = 用户根本分不清哪个是哪一档。
+                  ⇒ 按语义分开：**魔棒** = 自动识别（服务端去做）、
+                     **方框** = 自己框选（用户在画面上圈）。这正是交互稿里的样子。 */}
+              {mode.needsRegions
+                ? <ScanText size={15} aria-hidden="true" />
+                : <WandSparkles size={15} aria-hidden="true" />}
               <span><strong>{mode.label}</strong><small>{disabled && reason ? reason : mode.hint}</small></span>
             </button>;
           })}

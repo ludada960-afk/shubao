@@ -650,7 +650,7 @@
 /* 「擦除方式」下拉（智能擦除 / 框选擦除）
    ⚠️ 色值一律走 --sb-* token（design-token-ratchet 门禁守着：任何文件都不许新增硬编码色值）。 */
 .ec-canvas-erase-modes {
-  display: flex; flex-direction: column; gap: 1px; min-width: 232px; padding: 4px;
+  display: flex; flex-direction: column; gap: 1px; width: 248px; padding: 4px;
   border: 1px solid var(--sb-border-default); border-radius: 10px;
   background: var(--sb-surface-card); box-shadow: var(--ec-shadow-3, 0 14px 34px rgba(15,23,42,.18));
 }

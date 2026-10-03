@@ -353,6 +353,19 @@
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 }
+/* 2026-10-03 用户批注：「你这个时长为什么没有居在最右边呢？」
+   根因在上面的 `grid-template-columns: 64px 1fr 38px` —— 第三列是给
+   「标签 / 滑块 / 数值」三格行准备的（如透明度）；而「视频时长」「位置」这类
+   只有**两格**的行，数值落在第 2 列（1fr），右边那 38px 一直空着
+   ⇒ 文字离面板右缘永远差 38px + gap，看起来就是"没居到最右"。
+
+   ⇒ 只有两格的行，数值**跨到最后一列**（`:nth-child(2)` = 它正好是第 2 个子元素，
+      也就是这一行只有 2 格；三格行不受影响）。
+      2026-09-14 写这行时 JSX 上挂了 `style={{flex:'1 1 auto'}}` —— 在 grid 里
+      `flex` 完全无效，所以那次调样式一直没生效。 */
+.ec-canvas-right-panel__row > .ec-canvas-right-panel__row-value:nth-child(2) {
+  grid-column: 2 / -1;
+}
 .ec-canvas-right-panel__row input[type="range"] {
   -webkit-appearance: none;
   appearance: none;

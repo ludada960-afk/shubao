@@ -300,10 +300,9 @@ export function EcCanvasRightPanel({
                并把语义写清楚。生成时长要去生成框改。 */
           <div className="ec-canvas-right-panel__row">
             <span className="ec-canvas-right-panel__row-label">视频时长</span>
-            <span
-              className="ec-canvas-right-panel__row-value"
-              style={{ flex: '1 1 auto', textAlign: 'right' }}
-            >
+            {/* 不再挂内联 flex —— 父级是 grid，flex 完全无效（2026-09-14 就写了，一直没生效）。
+                右对齐交给 .ec-canvas-right-panel__row-value:nth-child(2) 的 grid-column。 */}
+            <span className="ec-canvas-right-panel__row-value">
               {probedDuration > 0 ? `${probedDuration}s` : '读取中…'}
             </span>
           </div>
