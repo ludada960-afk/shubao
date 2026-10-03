@@ -18326,3 +18326,163 @@ pwsh -File scripts/deploy-production.ps1 -ReleaseBranch gm/release-merge-1001 > 
 合并到起跑之间从"分钟"降到"秒"。
 
 ⚠️ 这只是**缓解**，不是根治。根治靠上面第 2 条：只有一条可部署的线。
+
+## 播二十五：框选擦除搬回画布 + 两个擦除档改按次固定价 + 裁剪按钮归位（2026-10-04，`3d7446cb`）
+
+### ① 框选擦除：**就在画布上框**，不是弹窗
+
+用户原话：「框选擦除为什么会是一个弹窗的情况呀…你没有好好看一下我给你的知鱼的那个截图吗？
+他们是在画布上面进行的操作呀」「而且你这里的按钮为什么是完成宽选呢？完成宽选之后呢是直接就开始处理了吗？」
+
+根因不是"有个弹窗"，是**弹窗是当年为了绕开一个坐标 bug 而长出来的**，后来 bug 没了，弹窗留下了：
+`VideoRegionPicker` 用未缩放的 `offsetWidth` 配 `getBoundingClientRect()` 换算源像素，
+而画布 stage 带 `transform: scale(viewport.scale)` ⇒ 内嵌会让框整体偏一个缩放比，
+所以当年用 `createPortal` 整个弹到 `body` 外面躲开。用户不想为这个 bug 付"跳走"的代价。
+
+⇒ 先去掉 bug（**根因解**），再删弹窗：
+- `pointerPosition` 的比例改成从 DOM 量：`rect.width / box.width`
+  （`rect` 是视觉像素含所有祖先 transform，`box.width` 是布局像素即框选坐标系的大小）。
+  一个数同时吃进框选器自身的放大与画布的缩放 —— **顺带消掉了 CSS 里 `scale(1.8)`
+  与 JS 里 `ZOOM = 1.8` 这对必须手工同步的孪生常量**（不同步就是 10% 偏移）。
+- 覆盖层 `.ec-canvas-erase-overlay` 渲染在 **stage 内部**，位置取自节点矩形，
+  只盖媒体本体（`node.h`），**不盖 footer** —— footer 盖住用户在框选途中就没法换节点了。
+- 「完成框选」那颗按钮删掉。框完直接点提交。
+- 控件按交互稿移到节点下方那条操作条：`✕ 名称 ? 放大 ↺ ↻ ⟳ 🗑 N/上限 · 预计 · 提交`。
+
+**踩到的两个坑（都是"看起来对、实际会坏"的那种）：**
+
+1. **覆盖层必须带 `data-canvas-control="true"`。** 少了它，在视频上按下鼠标 = 画布空白
+   ⇒ `getCanvasPointerIntent`（select + 左键 + 非交互元素）返回 `'marquee'`，
+   于是**框字幕框到一半，底下多出一个蓝色选框**，同时 `dismissAllCanvasSurfaces('blank')`
+   把刚打开的擦除条收掉。
+2. **撤销/重做的历史只能有一份。** 控件搬到了画布那条操作条上，但历史在 picker 内部 ——
+   于是用 `useImperativeHandle` 把 `undo/redo/reset/removeLast` **按命令交出去**，
+   而不是复制一份到画布里。复制一份就会出现"框了一格、底部说 0 格"。
+
+### ② 两个擦除档改**按次固定价**
+
+用户原话：「这里应该固定一个费用呀，就是不管他框选哪里，还是他直接在视频的字幕进行智能去除，
+都应该是一个固定的费用才对吧」
+
+| 档位 | 实现 | 上游成本 | 改前 | 改后 |
+|---|---|---|---|---|
+| 框选擦除 | 本机 ffmpeg `delogo` | **¥0** | 0.04 积分/**秒** | **1 积分/次** |
+| 智能擦除 | 火山 AI MediaKit | ¥0.4/分钟 | 0.05 积分/**秒** | **3 积分/次**（≤60 秒） |
+
+**为什么两档不能一视同仁：**
+- 框选档成本真的是 ¥0（`localEngine: true` 那一类）⇒ 平价只是"不花钱，卖多少都是纯赚"。
+- 智能档成本随秒数线性涨，而目录允许到 **300 秒** ⇒ 无脑平价等于一条 300 秒的单**亏 ¥1.5**。
+  所以它是**平价 + 时长封顶**（`flatUnits: 3000, flatMaxSeconds: 60`）：
+  封顶内一律 3 积分/次，超出落回按秒。
+  封顶 60 秒处：面值 ¥0.7854、成本 ¥0.40 ⇒ 毛利 **46.0%**，过引流带 40% 地板。
+  ⚠️ 3000/60 = 50 units/秒 = 原来那个按秒单价 —— **这次没让用户变贵**，只是不再让那个数随片子浮动。
+
+**两条钱路上真正要守的（都不是"显示"问题）：**
+
+1. **平价档的毛利必须在启动期被断言。** 毛利门禁 `videoMarginGateReport` 原来只看
+   `feature.units`（= 每秒单价）。平价档真正的面值是 `flatUnits`，成本是
+   `providerCostCny × flatMaxSeconds` —— 也就是说**平价档整个绕过了地板检查**：
+   改 flatUnits 或改封顶到跌破 40% 也照样启动成功。
+   ⇒ 报表加 `flatFaceCny / flatMaxSeconds / flatMargin` 三列，跌破地板照样 `below_band_floor`。
+2. **成本必须按真实秒数记，不能跟着平价的 `quantity = 1` 走。**
+   跟着走会把 60 秒那条单记成 `0.4/60 × 1 = ¥0.0067` 而不是 ¥0.40 ——
+   账面凭空多出 98% 的"利润"，**那是做假账不是优化**。
+   ⇒ `billableProviderCost({ sku, quantity, seconds })`：按秒 SKU 一律用
+   `ceil(seconds)`，非平价档逐值不变（那个数本来就等于 `ceil(seconds)`）；
+   `videoGeneration.createJob` 一并传 `duration`。
+
+**顺带删掉的死代码**：`canvasBillingModel` 里那条 `perSecond` / `unitsPerSecond` /
+`isPerSecondAction` 分支。两个擦除档都改按次之后画布上**已经没有按秒动作**，它永远走不到。
+留着它会让人以为"画布计价表也能表达按秒"，而按秒的真身在服务端
+（`billableQuantity` + `localQuoteFor` + `flatMaxSeconds`）—— 这里再留一条就是**第二份真相**。
+
+前端镜像加了 `localQuoteUnits`（平价取 `flatUnits`，其余 `units × 数量`），
+`services` 的 `flatUnits/flatMaxSeconds` 随 `capabilities` 下发，
+页面**不自己写死 60** —— 那是目录之外又一份真相。
+
+### ③ 图片侧裁剪按钮归位（用户反复提）
+
+之前渲染出来是「编辑文字 · 移动缩放 · 图片标注 · **裁剪**」—— 裁剪排第四。
+而这一档自己的注释里写的顺序就是「替换 / 裁剪 / 标注 / 移动缩放 / 编辑文字」：
+**声明的规划与渲染出来的不一致**。
+
+根因不是"裁剪该往前挪"，是**档内根本没有排序** —— `sortByCanvasToolbarIa` 只比档位，
+同档内靠 `CANVAS_ACTIONS` 的数组下标。那不是规划，是巧合。
+
+⇒ 排序位改成 `档:序号`（`CANVAS_ACTION_RANK`，**导出**给门禁读，不再各抄一份），
+裁剪 = `edit:1`。现在图片侧是：
+`裁剪 · 编辑文字 · 图片标注 · 移动缩放 | 智能分层 · 去除背景 · 宫格切分 · 反推提示词 | 导出图片 | 加入资产库`。
+
+⚠️ 第一次写成了**字典序比较** `档:序号` —— 档名按字母排是
+`ai < asset < danger < edit < output`，与 `CANVAS_TOOLBAR_TIERS` 定的顺序完全不是一回事，
+于是「加入资产库」跑到了「编辑」**前面**（被 `canvas-video-toolbar-icons-1002` ⑥
+和 `canvas-user-report-1003` ⑤ 两条门禁当场抓住）。⇒ 拆开比：先档下标，再档内序号。
+
+**门禁顺带修的**：那两条门禁里各自**手抄了一份档位表**做断言 —— 注册表改了档，
+门禁还在按旧表验，验的是一个已经不存在的东西（真出过：档内次序调整后它默默放行）。
+现在它们读**导出的** `CANVAS_ACTION_RANK`。
+
+### 门禁
+
+全量 **4799 项 / pass 4796 / fail 0 / skip 3**。
+
+新增/改写的断言：
+- 平价封顶两侧的数值（`59.9 / 60 / 60.01 / 120`），服务端 `billableQuantity` 与前端
+  `localBillableQuantity` 逐值相等
+- 平价档成本按**真实秒数**记（不是 1 秒）
+- 启动期平价毛利过地板（`flatMargin >= floor`）
+- 画布计价表**不再有** `unitsPerSecond` / `isPerSecondAction`
+- 档内序号不重复 + 裁剪是第一颗
+- 覆盖层在 stage 内、带 `data-canvas-control`、没有「完成框选」、没有 portal 全屏遮罩
+- 比例从 DOM 量（`rect.width / box.width`），不写死 1.8
+
+**"断言某个东西不在了"必须先剥注释** —— 这一批的注释里到处在解释"为什么删掉那颗完成框选"，
+不剥就会把自己的说明当成残留（`stripComments`，这个坑本轮又踩了一次）。
+
+### ④ 顺带修掉：用户那条卡住的记录，**部署本身修不好它**（`ad7b54bd` + `04b2f2e3`）
+
+上线后查生产才发现：`canvas_generation_jobs` 里还留着一行
+
+```
+created_at=2026-10-03T13:23:18  status=queued  provider_job_id=''
+```
+
+那正是用户 240485042@qq.com 报的「image2.5 生成不出来」。
+
+2026-10-03 给 `recordError` 加的「上游没受理 ⇒ 落终态」修复**只能挡住此后新建的活**，
+已经卡住的那一行没有任何代码会去碰：
+`/api/canvas/regenerate/status` 只认 `failed` 才给终态 ⇒ 前端照样把它当「仍在生成」轮询满 15 分钟。
+
+⇒ **一次部署不该修不好一条用户亲眼看着卡住的记录。**
+`createCanvasGenerationStore.sweepOrphaned()`，在 `server/index.mjs` 建表之后立刻跑一次。
+
+判据是**租约**而不是「多久没动」：
+
+- `lease_expires_at` 为空或已过期 ⇒ 持有者进程已经不在了，没有任何代码会去收尾这一行；
+- 一条跑得慢的活图也可能几分钟不更新 `updated_at` —— **按时间扫会误杀正在跑的活**。
+
+只碰 `queued / submitted / processing`，`completed` 与 `failed` 一个字不动。
+落 `failed` 而不是留在 `queued`：只有终态才让前端立刻拿到错误、停止空转。
+两类文案分开（有 `provider_job_id` 的是"开始了没等到结果"，没有的是"没开始"），
+都明写「请重新生成一次」—— 那是**一次新请求**，不是在暗示「等一会儿它自己会好」
+（那正是这次事故里最伤用户的一句提示）。
+
+清算失败 **fail open 且必须留痕**：它是清理动作不是启动前置条件，
+但静默吞掉会让「又有一条卡住」变成查不出来的事。
+
+**线上实测**：重启后 `SELECT COUNT(*) WHERE status NOT IN ('completed','failed')` = **0**。
+
+**踩到的一条门禁（值得记住）**：`test/no-upstream-leakage` 当场把我抓了 ——
+清算文案我写的是「这一次的生成没有提交到**上游**」。
+「上游没受理」是**我们内部**的判据，不能原样写给用户看
+（用户看到只会困惑："上游是什么？我没配上游啊"）。
+⇒ 换成「这一次的生成**没能开始**」。
+**用户可见面的每一句文案都是门禁的检查对象**，不只界面，`error.message` 也算。
+
+**部署脚本的坑**：`pwsh ... | findstr` 这种管道的退出码是 **findstr 的**，不是 pwsh 的 ——
+`Test suite failed` 被过滤掉了，任务却报 exit 0，我差点当成部署成功。
+⇒ 部署一律 `> .tmp/deploy.log 2>&1` 再单独读文件。
+
+**门禁**：全量 **4804 项 / pass 4801 / fail 0 / skip 3**
+（`test/canvas-generation-orphan-sweep-1004` 5 项：租约已死才清算、终态不动、
+租约活着不动、**6 小时没更新但租约有效不许判死**、启动序列真的调了它）。
