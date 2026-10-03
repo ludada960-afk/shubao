@@ -4499,14 +4499,50 @@ const handlePointerUp = useCallback((e) => {
         「只有服务端能把它算成份数（它同时决定建单时冻结多少，两边不一致就是 409「费用确认不一致」）」
      ⇒ 这里只传「{ sku, seconds }」，金额与份数全用服务端返回的 quote；
         界面上显示的价也来自同一个 quote —— **不在前端算第二份**。 */
-  const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
+  /* ═══ 2026-10-03：两种方式的**产品解析**各走各的来源 ═════════════════════════════
+   用户批注：「你这里为什么提交按钮没有办法点击呢？这又是为什么呢？」
+
+   真因：两档的产品**不在同一个列表**里 ——
+     · 框选那档 `desubtitle_local` 是本机引擎，出现在 `capabilities.localProducts`；
+     · 自动那档 `desubtitle_volc` 是云端引擎，**可能还没 public**，
+       于是被 `products.filter(public !== false)` 过滤掉 ⇒ 查不到 ⇒
+       `disabled={!product}` 永远为真 ⇒ 按钮永远是灰的。
+   而且"永远灰"没有任何解释，用户只能看到一只点不动的按钮。
+
+   ⇒ 自动那档直接用**服务端 capabilities ���的那份声明**
+     （`subtitleAuto.productId / quotes.short.sku / available / reason`）——
+     那本来就是服务端为"这一档能不能卖、多少钱"准备的唯一真相。
+   两档拿不到时都要给出**人话原因**，而不是一只不会亮的按钮。 */
+function resolveEraseProduct(mode, { localProducts = [], products = [], autoCapability = null } = {}) {
+  if (!mode) return null;
+  if (mode.id === 'auto') {
+    if (!autoCapability) return null;
+    return {
+      id: mode.productId,
+      sku: autoCapability.quotes?.short?.sku || '',
+      modes: autoCapability.modes || ['auto'],
+    };
+  }
+  return [...localProducts, ...products].find(item => item?.id === mode.productId) || null;
+}
+
+const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
     if (!targetNode?.url) { showToast('这条视频还没有可用的地址', 'error'); return; }
     /* 方式与产品**一起取自那一份声明**（SUBTITLE_ERASE_MODES），
        不在这里写死 productId —— 否则目录改一次，页面就悄悄对不上了。 */
     const mode = SUBTITLE_ERASE_MODES.find(item => item.id === modeId);
     if (!mode) { showToast('擦除方式暂不可用', 'error'); return; }
-    const product = [...videoLocalProducts, ...videoProducts].find(item => item.id === mode.productId);
-    if (!product) { showToast('该擦除方式暂不可用，请稍后再试', 'error'); return; }
+    const product = resolveEraseProduct(mode, {
+      localProducts: videoLocalProducts,
+      products: videoProducts,
+      autoCapability: subtitleAutoCapability,
+    });
+    if (!product?.sku) {
+      showToast(mode.id === 'auto'
+        ? (subtitleAutoCapability?.reason || '自动擦除暂时不可用')
+        : '该擦除方式暂不可用，请稍后再试', 'error');
+      return;
+    }
     const regions = Array.isArray(targetNode.subtitleRegions) ? targetNode.subtitleRegions : [];
     if (mode.needsRegions && !regions.length) {
       showToast('先在视频上框出要擦除的区域', 'info');
@@ -4542,7 +4578,7 @@ const handlePointerUp = useCallback((e) => {
     } catch (error) {
       showToast(error?.message || '擦除提交失败，请重试', 'error');
     }
-  }, [videoLocalProducts, videoProducts, showToast]);
+  }, [videoLocalProducts, videoProducts, subtitleAutoCapability, showToast]);
 
   const handleToolAction = async (action, node, event = null) => {
     if (!node) return;
@@ -10156,7 +10192,11 @@ const handleCanvasVideoUpload = async event => {
         if (!target || !nodeEl) return null;
         const rect = nodeEl.getBoundingClientRect();
         const mode = SUBTITLE_ERASE_MODES.find(item => item.id === subtitleErase.mode);
-        const product = [...videoLocalProducts, ...videoProducts].find(item => item.id === mode?.productId);
+        const product = resolveEraseProduct(mode, {
+          localProducts: videoLocalProducts,
+          products: videoProducts,
+          autoCapability: subtitleAutoCapability,
+        });
         const points = mode?.priceFeature ? formatCanvasActionPrice(mode.priceFeature) : '—';
         /* 交互稿里这条操作条是**贴在视频节点下方**的，不是一条屏幕底栏 ——
            它属于这个节点的操作，不是全局状态。 */
