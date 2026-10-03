@@ -30,11 +30,19 @@ export default function AccountEntitlementControl({
       >
         <Coins size={15} aria-hidden="true" />
         <span className="account-entitlement-copy">
-          {/* 2026-10-02 用户批注：「AI 积分」这几个字是重复的，按钮也太宽了。
-              compact（画布顶栏这种横向空间紧张的地方）只留**图标 + 数字**：
-              语义没有丢 —— aria-label 与 title 里都还写着「AI 积分」，
-              读屏用户和悬停提示拿到的信息一字不少，而视觉上少了一行字、窄了一截。 */}
-          {compact ? null : <small>AI 积分</small>}
+          {/* 2026-10-03 用户批注（第二次说同一件事，这次说清了要什么）：
+              「206.4 上面不是有个 AI 积分吗，这个**保留**；
+                然后 206.4 右边的 AI 积分几个字**去掉**，避免重复；
+                高度跟原来一样，宽度适配紧一点…**首页和各个页面也全局去改**。」
+
+              ⚠️ 上一轮（2026-10-02）我把这个 `<small>` 在 compact 下**藏起来**了 ——
+                **方向反了**：该保留的是这行小字，该去掉的是数字后面那串。
+                而那串的根源不在这个组件，在 `accountEntitlementModel`：
+                原来 `value` 是 `"206.4 AI 积分"` 整串。已在那边改成只给数字。
+              ⇒ 这里恢复成**始终**显示（不分 compact），
+                 高度由 CSS 的 min-height 保持不变，宽度自然收紧。
+                 语义一字不少：aria-label / title 里都写着「AI 积分」。 */}
+          <small>AI 积分</small>
           <strong>{display.value}</strong>
         </span>
         {logged && <ArrowUpRight size={14} aria-hidden="true" className="account-entitlement-arrow" />}
@@ -55,9 +63,10 @@ export default function AccountEntitlementControl({
         .account-entitlement-control { display: inline-flex; align-items: center; min-width: 0; color: var(--sb-neutral-0); }
         .account-entitlement-control button { border: 0; font: inherit; cursor: pointer; }
         .account-entitlement-value { min-width: 0; display: inline-flex; align-items: center; gap: 7; min-height: 40px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 8px; background: #17181c; color: inherit; text-align: left; box-shadow: 0 4px 14px rgba(20,22,28,.15); transition: background .15s, border-color .15s, transform .15s; }
-        /* compact = 横向空间紧张的地方（画布顶栏）：隐藏那行"AI 积分"后收紧内边距与间距，
-           按钮整体窄一截，但可点面积仍保持 36px 高（触控下限）。 */
-        .account-entitlement-control.is-compact .account-entitlement-value { gap: 6; min-height: 36px; padding: 4px 9px; }
+        /* 2026-10-03：compact（画布顶栏那种横向空间紧张的地方）**只**收紧内边距与间距 ——
+           用户原话：「**高度**还是要跟原来这样一样，但是宽度肯定就要适配紧一点了」。
+           ⇒ 这里不再写 min-height（主态的 40px 就是全站高度）。 */
+        .account-entitlement-control.is-compact .account-entitlement-value { gap: 5; padding: 4px 9px; }
         .account-entitlement-value:hover { background: var(--sb-neutral-900); border-color: rgba(255,255,255,.28) !important; transform: translateY(-1px); }
         .account-entitlement-value > svg:first-child { color: #f3c969; }
         .account-entitlement-copy { min-width: 0; display: grid; gap: 1; }

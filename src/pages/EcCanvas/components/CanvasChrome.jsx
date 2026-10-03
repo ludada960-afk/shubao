@@ -118,7 +118,10 @@ export function CanvasTopBar({
         <IconButton label="恢复已保存画布" className="ec-canvas-topbar-surface" disabled={!canRestore || saving} onClick={onRestore}><RotateCcw size={17} /></IconButton>
       </>}
       {/* 9-02 用户反馈: "新建生图"命名不清. 此按钮新建画布会话, 改名"新建画布" */}
-      <button type="button" className="ec-canvas-command ec-canvas-topbar-surface is-dark" onClick={onNew}><Plus size={16} />新建画布</button>
+      {/* 2026-10-03 用户批注：「你这个地方也不该叫新建画布呀，明明点击之后是到**我的画布**
+          那个页面仓库去的呀，这里不该是我的画布吗」—— 它开的是画布库（仓库），
+          不是"新建一个"。文案必须说清它去哪；真正的"新建"是仓库里那张「+ 新建」卡片。 */}
+      <button type="button" className="ec-canvas-command ec-canvas-topbar-surface is-dark" onClick={onNew}>我的画布</button>
     </div>
   </header>;
 }
