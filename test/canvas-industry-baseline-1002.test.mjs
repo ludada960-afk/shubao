@@ -358,6 +358,36 @@ test('⑱ 多选工具栏要六向对齐 + 水平/垂直等距', () => {
 });
 
 /* ───────────────────────── ⑲ 渲染层兑现 ───────────────────────── */
+test('⑳ 导入了就必须真的调用：上一批 auto-pan 只 import 没接线（与假保存同类）', () => {
+  /* `calcCanvasAutoPan` 是按 RF `calcAutoPan` 写好的纯函数，上一批只 import 了、
+     从没调用 —— 和「Ctrl+S 假保存」「undo 没 push」是同一类毛病：
+     造了个能用的东西，然后没接上线，用户只当它不存在。 */
+  const calls = INDEX.match(/calcCanvasAutoPan\(/g) || [];
+  assert.ok(calls.length >= 1, 'calcCanvasAutoPan 必须至少有一个真实调用点');
+  assert.match(INDEX, /autoPanFrameRef/, '必须有一个 rAF 循环持续推进视口');
+  assert.match(INDEX, /stopAutoPan\(\)/, '手势结束必须停掉自动平移，否则松手后画布还在自己走');
+  /* 三种手势都要有：拖节点、框选、拖线 —— 少了任何一种，用户都会撞上"拖不到画布外" */
+  assert.match(INDEX, /'drag', 'layer-extract', 'marquee', 'connect'/);
+});
+
+test('㉑ 网格吸附开关必须真的被读，且网格线跟着缩放走', () => {
+  /* `snapEnabled` 原先全仓只被写、从没被读 ⇒ 右键菜单「网格吸附」点了没反应。
+     拖动喂的也是 `pending.grid || 0`，而 `pending.grid` 从没赋值 ⇒ 实际一直是关的。 */
+  const reads = INDEX.match(/snapEnabled/g) || [];
+  assert.ok(reads.length >= 3, `snapEnabled 只出现 ${reads.length} 次 —— 开关与拖动都得读它`);
+  /* 先剥注释 —— 说明"原来写的是什么"的那句话自己就会把断言炸掉（踩过）。 */
+  assert.doesNotMatch(stripComments(INDEX), /grid: pending\.grid \|\| 0/,
+    '拖动必须喂真实网格步长，而不是一个从没被赋值的 pending.grid');
+  assert.match(INDEX, /canvasSnapGridWorld\(viewport\.scale, snapEnabled\)/);
+
+  /* 网格点必须随缩放走：写死 background-size 的话，缩小 4 倍就糊成一片噪点 */
+  const css = read('src/pages/EcCanvas/EcCanvas.css');
+  assert.match(css, /--canvas-grid-size/, '网格间距要由视口注入，不能写死');
+  assert.match(css, /--canvas-grid-offset-x/);
+  const stage = css.match(/\.ec-canvas-stage \{[\s\S]*?\}/)?.[0] || '';
+  assert.doesNotMatch(stage, /background-size:\s*20px 20px/, 'stage 不许再写死 20px 网格');
+});
+
 test('⑲ 参考线要真的画出来（不画 = 用户不知道有没有吸上）', () => {
   assert.match(INDEX, /data-canvas-alignment-guides/);
   assert.match(INDEX, /setAlignmentGuides\(\[\]\)/, '手势结束必须清掉参考线');

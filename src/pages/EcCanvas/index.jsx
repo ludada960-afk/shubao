@@ -215,7 +215,14 @@ import {
   canvasDragExceeded,
   CANVAS_DRAG_THRESHOLD,
 } from './canvasViewportModel.js';
-import { snapCanvasDrag, calcCanvasAutoPan } from './canvasSnapModel.js';
+import { snapCanvasDrag, calcCanvasAutoPan, canvasSnapGridWorld, CANVAS_GRID_SCREEN } from './canvasSnapModel.js';
+
+/** 网格点在屏幕上的间距；密到看不清就不画（0 ⇒ CSS 退化成无背景图）。 */
+function canvasGridSizePx(scale) {
+  const step = canvasSnapGridWorld(scale, true);
+  /* 8px 以下点会糊成一片噪点；再小就整层关掉 —— 与吸附阈值同一个道理。 */
+  return step >= 8 ? Math.round(step) : 0;
+}
 import {
   copyNodesToClipboard,
   readClipboardNodes,
@@ -2919,7 +2926,42 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     return { x, y, width: 0, height: 0, right: x, bottom: y };
   }, []);
 
-  const flushDragFrame = useCallback(() => {
+  /* ═══ 2026-10-02：边缘自动平移（auto-pan）—— 自己引进来的，得自己接上 ═══════════════
+   `calcCanvasAutoPan` 是上一批按 React Flow `calcAutoPan`（40px 边缘带、逐级加速）
+   写进 canvasSnapModel 的纯函数，结果**只 import 了、从没调用** ——
+   和「Ctrl+S 假保存」「undo 没 push」是同一类毛病：造了个能用的东西，
+   然后没接上线，用户只当它不存在。
+
+   少了它，拖一个节点到画布外面就只能：先松手 → 平移画布 → 回来再拖，
+   非常难用。这是无限画布最容易被忽略、却最影响手感的一条。
+
+   接法（RF 的形状）：手势期间每帧把指针位置换算成**视口像素**，
+   进入边缘带就让视口按 `dx/dy` 推一把；指针离开边缘带或手势结束就停。 */
+const autoPanRef = useRef({ dx: 0, dy: 0 });
+const autoPanFrameRef = useRef(null);
+
+const stopAutoPan = useCallback(() => {
+  autoPanRef.current = { dx: 0, dy: 0 };
+  if (autoPanFrameRef.current) {
+    cancelAnimationFrame(autoPanFrameRef.current);
+    autoPanFrameRef.current = null;
+  }
+}, []);
+
+const runAutoPanFrame = useCallback(() => {
+  autoPanFrameRef.current = null;
+  const { dx, dy } = autoPanRef.current;
+  if (!dx && !dy) return;
+  setViewport(current => ({ ...current, x: current.x + dx, y: current.y + dy }));
+  /* 手势还在就继续下一帧；手势已结束（autoPanRef 被清零）就自然停在这里 */
+  autoPanFrameRef.current = requestAnimationFrame(runAutoPanFrame);
+}, []);
+
+useEffect(() => () => {
+  if (autoPanFrameRef.current) cancelAnimationFrame(autoPanFrameRef.current);
+}, []);
+
+const flushDragFrame = useCallback(() => {
     dragFrameRef.current = null;
     const pending = pendingDragRef.current;
     pendingDragRef.current = null;
@@ -2934,7 +2976,14 @@ const [minimapOpen, setMinimapOpen] = useState(true);
     const thresholdWorld = CANVAS_DRAG_THRESHOLD / Math.max(0.05, viewport.scale || 1);
     if (Math.abs(rawDx) <= thresholdWorld && Math.abs(rawDy) <= thresholdWorld && !pending.exceeded) return;
     /* 吸附（对齐参考线优先，没有才退网格）—— 口径见 canvasSnapModel.js 顶部调研。
-       阈值用屏幕像素除以缩放，所以任何缩放下"吸得住"的力度一样。 */
+       阈值用屏幕像素除以缩放，所以任何缩放下"吸得住"的力度一样。
+
+       ⚠️ 2026-10-02 自我更正：`grid: pending.grid || 0` —— `pending.grid` **从来没有被赋值过**，
+       于是网格吸附这一路实际一直是关的（只有对齐参考线在起作用）。
+       而 `snapEnabled` 这个开关**被右键菜单「网格吸附」读写，却从没有任何地方读它** ——
+       用户点了没有任何反应，是一个"看起来有、其实没有"的开关（同 Ctrl+S 那类）。
+       ⇒ 现在真正接上：网格步长按**屏幕像素**表达（Excalidraw 的 `50/zoom` 同一思路），
+         除以缩放后喂给纯函数，所以任何缩放下格子看起来一样大。 */
     const ids = pending.ids;
     let dx = rawDx;
     let dy = rawDy;
@@ -2947,7 +2996,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
         dx: rawDx,
         dy: rawDy,
         scale: viewport.scale,
-        grid: pending.grid || 0,
+        grid: canvasSnapGridWorld(viewport.scale, snapEnabled),
         snapToNodes: pending.snapToNodes !== false,
       });
       dx = snapped.dx;
@@ -3017,6 +3066,22 @@ const [minimapOpen, setMinimapOpen] = useState(true);
 
   const handlePointerMove = useCallback((e) => {
     if (!pointerMode) return;
+    /* 2026-10-02 边缘自动平移：三种手势（拖节点 / 框选 / 拖线）都适用。
+       坐标必须是**视口像素**（相对舞台），纯函数吃的就是这个。 */
+    if (['drag', 'layer-extract', 'marquee', 'connect'].includes(pointerMode.kind)) {
+      const stageRect = containerRef.current?.getBoundingClientRect();
+      const stage = canvasStageRect || (stageRect ? { width: stageRect.width, height: stageRect.height } : null);
+      if (stage?.width && stage?.height) {
+        const pan = calcCanvasAutoPan(
+          { x: e.clientX - (stageRect?.left || 0), y: e.clientY - (stageRect?.top || 0) },
+          stage,
+        );
+        autoPanRef.current = pan;
+        if ((pan.dx || pan.dy) && !autoPanFrameRef.current) {
+          autoPanFrameRef.current = requestAnimationFrame(runAutoPanFrame);
+        }
+      }
+    }
     if (e.pointerType === 'touch' && touchPointsRef.current.has(e.pointerId)) {
       touchPointsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
@@ -3111,7 +3176,7 @@ const [minimapOpen, setMinimapOpen] = useState(true);
       };
       if (!dragFrameRef.current) dragFrameRef.current = requestAnimationFrame(flushDragFrame);
     }
-  }, [flushDragFrame, pointerMode, toWorldPoint, viewport.scale]);
+  }, [flushDragFrame, pointerMode, runAutoPanFrame, toWorldPoint, viewport.scale, canvasStageRect]);
 
   const openConnectionPickerForNode = useCallback((node, triggerEl = null) => {
     if (!canDeriveFromCanvasSource(node)) return;
@@ -3159,6 +3224,7 @@ const handlePointerUp = useCallback((e) => {
       cancelAnimationFrame(dragFrameRef.current);
       flushDragFrame();
     }
+    stopAutoPan();
     /* 2026-10-02：拖动/缩放**手势结束**才记一次历史。
        在 pointermove 里记的话，一次拖动会 push 上百次历史，
        用户按一次 Ctrl+Z 只退回 1px —— 那不叫撤销，那叫抖动。 */
@@ -8313,7 +8379,16 @@ const handlePointerUp = useCallback((e) => {
              —— 右侧面板不再浮在画布上盖住内容：面板打开时画布区**让出右侧空间**（.has-right-panel），
              节点不会被面板压住，画布中心与底部工具栏也跟着这条边界走。 */
           className={`ec-canvas-stage${selectionPanelsVisible ? ' has-right-panel' : ''}${canvasDropActive ? ' is-drop-active' : ''}`}
-          style={{ cursor: canvasCursorForState({ tool: activeTool, pointerKind: pointerMode?.kind, spaceKey: spacePressed }) }}
+          style={{
+            cursor: canvasCursorForState({ tool: activeTool, pointerKind: pointerMode?.kind, spaceKey: spacePressed }),
+            /* 2026-10-02：网格点跟着视口走（世界坐标里的东西必须随缩放缩放）。
+               格子太密时不画（size=0）—— 否则那不是网格，是噪点（tldraw 同一处理）。
+               `snapEnabled` 也写在这里：开了网格吸附就把格子显示出来，
+               用户才看得见自己吸附到了哪一格；开关不再是"点了没反应"。 */
+            '--canvas-grid-size': `${canvasGridSizePx(viewport.scale)}px`,
+            '--canvas-grid-offset-x': `${viewport.x % Math.max(1, canvasGridSizePx(viewport.scale))}px`,
+            '--canvas-grid-offset-y': `${viewport.y % Math.max(1, canvasGridSizePx(viewport.scale))}px`,
+          }}
           /* 批 CY-㊴：从桌面 / 外部直接拖素材进来（用户 9-30：「为什么是拖不了的呢？视频也是呀」） */
           onDragOver={handleCanvasDragOver}
           onDragLeave={handleCanvasDragLeave}
@@ -9510,7 +9585,19 @@ const handlePointerUp = useCallback((e) => {
               case 'auto-arrange':
                 setNodes(prev => autoArrangeCanvasNodes(prev, connections || []));
                 break;
-              case 'toggle-snap': setSnapEnabled(v => !v); break;
+              /* 2026-10-02：这个开关以前是**死的** —— `snapEnabled` 全仓只在这里被写，
+                 从来没有任何地方读它，拖动时喂给吸附的也是 `pending.grid || 0`
+                 （而 `pending.grid` 从没被赋值）。用户点了「网格吸附」没有任何反应。
+                 现在：① 拖动真正按网格吸附；② 网格点跟着缩放显示出来；
+                 ③ 给一句回执，让用户知道它真的生效了。 */
+              case 'toggle-snap': {
+                setSnapEnabled(v => {
+                  const next = !v;
+                  showToast(next ? '已开启网格吸附：节点会贴到网格线上' : '已关闭网格吸附', 'info');
+                  return next;
+                });
+                break;
+              }
               case 'toggle-theme': {
                 const next = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark';
                 setThemeMode(next);

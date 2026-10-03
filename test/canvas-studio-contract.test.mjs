@@ -787,15 +787,26 @@ test('Canvas density uses content-sized toolbars and readable metadata', () => {
   assert.match(css, /--ec-canvas-action-font:\s*12px/);
   assert.match(css, /--ec-canvas-meta-font:\s*10px/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*font-size:\s*var\(--ec-canvas-action-font\)/s);
-  assert.match(source, /const estimatedWidth = 76 \+ actions\.reduce/);
+  /* 2026-10-02：多选工具栏改成「高频露出 + 其余进溢出菜单」，
+     宽度估算因此只按**露出**的那几颗算（14 颗平铺会超出 max-width 被裁掉）。
+     这条门禁原来钉的是 `76 + actions.reduce`（按全部动作算）——
+     它守的是"宽度按内容估算、不要写死"，那个意图现在由 inline 分支继续承担。 */
+  assert.match(source, /const \{ inline, overflow \} = splitCanvasMultiActions\(actions\)/);
+  assert.match(source, /const estimatedWidth = 76\s*\n?\s*\+ inline\.reduce/);
+  assert.match(source, /overflow\.length \? 44 : 0/);
   /* 9-12: 按钮支持「已加入资产库」高亮态 —— title/label 按状态取值 */
   assert.match(source, /const alreadyAsset = action\.id === 'save-to-assets'/);
   assert.match(source, /alreadyAsset \? '这个素材已在资产库中，再点一次即可移除'/);
   /* 9-16 用户批注（图15~19）：已打组/已绑定时按钮要**高亮**，再点一次解除。
-     所以按钮标签由 action.label 改成按状态派生的 label（未生效 = 动作名，已生效 = 解除…）。 */
-  assert.match(source, /const label = applied \? \(action\.id === 'group-elements' \? '解除打组' : '解除绑定'\) : action\.label/);
+     所以按钮标签由 action.label 改成按状态派生的 label（未生效 = 动作名，已生效 = 解除…）。
+     2026-10-02：这段派生被抽成了 `describe(action)` —— 因为溢出菜单里
+     同一批按钮要再渲染一遍，复制两遍派生逻辑迟早会走样。 */
+  assert.match(source, /const describe = action => \{/);
+  assert.match(source, /label: applied \? \(action\.id === 'group-elements' \? '解除打组' : '解除绑定'\) : action\.label/);
   assert.match(source, /<span>\{label\}<\/span>/);
   assert.match(source, /<Icon size=\{15\} \/><span>\{label\}<\/span>/);
+  /* 溢出菜单里的按钮也必须带同一个 label（两处渲染，别只改一处） */
+  assert.match(source, /role="menuitem"/);
   assert.match(css, /\.ec-canvas-multi-toolbar button\s*\{[^}]*min-width:\s*var\(--ec-canvas-control-height\);[^}]*width:\s*auto;[^}]*padding:\s*0 8px;/s);
 });
 

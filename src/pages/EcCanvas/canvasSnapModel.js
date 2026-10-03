@@ -31,6 +31,25 @@ export const CANVAS_SNAP_SCREEN = 8;
 /** 网格边长（世界坐标）。0 = 不吸网格。 */
 export const CANVAS_SNAP_GRID = 0;
 
+/**
+ * 网格步长按**屏幕像素**表达，除以缩放后才是世界坐标。
+ *
+ * 口径同 `CANVAS_SNAP_SCREEN`：网格线在屏幕上必须始终一样大，
+ * 否则缩小 4 倍之后格子只剩 1px（等于没有网格），放大之后又一大片空白。
+ * Excalidraw 落位间隙用的是同一个思路（`50 / zoom`）。
+ *
+ * @param {number} scale  当前缩放
+ * @param {boolean} enabled 开关（右键菜单「网格吸附」）
+ * @returns {number} 世界坐标下的步长；关闭时返回 0（纯函数据此不吸网格）
+ */
+export const CANVAS_GRID_SCREEN = 20;
+
+export function canvasSnapGridWorld(scale = 1, enabled = false) {
+  if (!enabled) return 0;
+  const s = Math.max(0.05, Number(scale) || 1);
+  return CANVAS_GRID_SCREEN / s;
+}
+
 const finite = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
 
 /** 屏幕像素阈值 → 世界坐标阈值。 */
