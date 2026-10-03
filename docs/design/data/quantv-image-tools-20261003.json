@@ -1,0 +1,278 @@
+{
+ "fetchedAt": "2026-10-03T14:24:23.891Z",
+ "source": "https://laoyu.quantv.com/image-creation?tool=<tool>（需登录态，本地会话 .qa/quantv-session.json）",
+ "method": "逐页：滚**内部滚动容器**到底（window 滚动无效）+ 按屏幕文字点开每个折叠面板 + 读所有原生 select 的选项",
+ "note": "⚠️ 与 docs/design/data/quantv-image-apps.json（2026-09-19，市场 104 条）对不上：图片类已从市场撤走、转为需登录的内建 `?tool=` 页，且**字段集合已变**。",
+ "shared": {
+  "frame": "左导航 248px + 顶栏（返回/居中标题/积分/积分商城/会员/设置）+ 内容左右双栏（左 ≈470px 白卡内部滚动，右 ≈660px 白卡带 历史/示例 两 Tab）",
+  "radius": "卡片 ≈12–16px 圆角，**全部无阴影**，靠 1px 极浅描边 + 极浅灰底分层",
+  "separators": "族A 单卡靠留白；族B/C 卡片套卡片、卡头与卡身之间一道发丝线",
+  "cta": "通栏（仅左栏宽）；价格**写在按钮文字内**「消耗 X 积分」；上方一道发丝线；下方居中灰字提示（必填项缺失清单）；禁用态纯灰底灰字",
+  "accordionChevron": "收起=向下 ⌄，展开=向上 ⌃（矢量图标）"
+ },
+ "pages": {
+  "image.product_suite": {
+   "tool": "product-listing-set",
+   "title": "商品套图",
+   "family": "A·单卡平铺",
+   "blocks": [
+    {
+     "name": "上传图片 0/6",
+     "control": "dropzone",
+     "note": "小虚线框（无大云图标）；文案「最多 6 张」"
+    },
+    {
+     "name": "目标市场",
+     "control": "select",
+     "options": "中国 美国 欧洲 东南亚 日本 韩国 南非 新加坡 俄罗斯",
+     "count": 8
+    },
+    {
+     "name": "目标平台 / 文案语言",
+     "control": "select ×2",
+     "options": "平台6项 / 语言14项",
+     "layout": "两列并排"
+    },
+    {
+     "name": "产品卖点与设计风格",
+     "control": "group-title",
+     "note": "右侧「一键解析 · 0.20 积分」"
+    },
+    {
+     "name": "产品卖点",
+     "control": "textarea",
+     "note": "右侧「放大」+「AI生成 · 0.10 积分/张」；placeholder 5 行"
+    },
+    {
+     "name": "设计风格",
+     "control": "pills ×3",
+     "options": "AI推荐 / 参考排版 / 自定义要求"
+    },
+    {
+     "name": "套图结构配置",
+     "control": "checkbox cards ×2",
+     "options": "智能匹配(已勾) / 自定义配置",
+     "note": "右侧「智能匹配」文字链接"
+    }
+   ],
+   "cta": {
+    "label": "生成预览",
+    "price": "0.10 积分",
+    "help": false,
+    "hint": "请先上传至少一张产品图片"
+   },
+   "NOT_HAS": [
+    "模型选择",
+    "分辨率",
+    "比例",
+    "生成张数"
+   ]
+  },
+  "image.aplus": {
+   "tool": "aplus-content",
+   "title": "A+内容",
+   "family": "A·单卡平铺",
+   "blocks": [
+    {
+     "name": "上传图片 0/6",
+     "control": "dropzone"
+    },
+    {
+     "name": "目标市场",
+     "control": "select",
+     "count": 13,
+     "options": "中国 欧洲 东南亚 美国 日本 韩国 南非 新加坡 巴西 阿根廷 智利 墨西哥 俄罗斯"
+    },
+    {
+     "name": "目标平台 / 输出语言",
+     "control": "select ×2",
+     "options": "平台6项 / 语言13项",
+     "layout": "两列并排"
+    },
+    {
+     "name": "核心卖点",
+     "control": "textarea"
+    },
+    {
+     "name": "爆款风格 / 参考-自定义风格",
+     "control": "pills ×2"
+    },
+    {
+     "name": "AI推荐风格分析",
+     "control": "paid button",
+     "note": "被视口裁切，只露上半截"
+    }
+   ],
+   "cta": {
+    "label": "生成预览",
+    "price": "0.10 积分",
+    "help": false,
+    "hint": "请先上传商品图，并填写平台、市场、语言和商品信息"
+   },
+   "NOT_HAS": [
+    "模型选择",
+    "分辨率",
+    "比例"
+   ]
+  },
+  "image.detail_page": {
+   "tool": "detail-image",
+   "title": "详情图",
+   "family": "A·单卡平铺",
+   "note": "与 A+内容 **左栏是同一个组件**，只差两处文案：末项「AI推荐风格分析」→「AI推荐」；CTA 提示短一截。",
+   "cta": {
+    "label": "生成预览",
+    "price": "0.10 积分",
+    "help": false,
+    "hint": "请先上传至少一张产品图片"
+   },
+   "NOT_HAS": [
+    "模型选择",
+    "分辨率",
+    "比例"
+   ]
+  },
+  "image.try_on": {
+   "tool": "ai-outfit",
+   "title": "AI换装",
+   "family": "B·手风琴卡片",
+   "blocks": [
+    {
+     "name": "模特选择",
+     "control": "accordion",
+     "default": "展开",
+     "inner": "上传模特图 0/1 → 大云图标虚线框（支持 JPG/JPEG/PNG/WEBP，10 MB）"
+    },
+    {
+     "name": "服装选择",
+     "control": "accordion",
+     "default": "展开",
+     "inner": "顶部 套装/多件 分段 → 上传衣服图 0/1 → 同款虚线框"
+    },
+    {
+     "name": "Pose 参考（可选）",
+     "control": "accordion",
+     "default": "展开",
+     "inner": "上传姿势参考图 0/1，副文案「可选素材，不上传也可生成」"
+    },
+    {
+     "name": "背景参考（可选）",
+     "control": "accordion",
+     "default": "展开",
+     "inner": "上传背景参考图 0/1"
+    },
+    {
+     "name": "模型选择",
+     "control": "select",
+     "value": "智能图片image",
+     "note": "折线以下，**单选下拉**"
+    },
+    {
+     "name": "分辨率",
+     "control": "select",
+     "value": "1K",
+     "options": "1K 2K 4K"
+    },
+    {
+     "name": "比例",
+     "control": "pills",
+     "selected": "自适应",
+     "options": "自适应 1:1 3:2 2:3 16:9 9:16",
+     "count": 6
+    },
+    {
+     "name": "生成张数",
+     "control": "select",
+     "value": "1",
+     "options": "1 2 3 4"
+    }
+   ],
+   "cta": {
+    "label": "生成图片",
+    "price": "0.60 积分",
+    "help": true,
+    "hint": "请先上传模特图和衣服图"
+   },
+   "note": "标签是「分辨率」不是「清晰度」。底栏 `?` 弹三档会员价：0.60 / 0.38 / 0.30 积分/次。"
+  },
+  "image.copy": {
+   "tool": "image-clone",
+   "title": "图片复刻",
+   "family": "C·计数入卡头",
+   "blocks": [
+    {
+     "name": "商品信息 0/4",
+     "control": "card",
+     "inner": "上传商品图 0/4 → 文本框（核心卖点*）",
+     "note": "副文案是业务说明「商品图会作为一组打包参考，最多 4 张」"
+    },
+    {
+     "name": "上传参考图 0/20",
+     "control": "card",
+     "inner": "Tab 药丸 上传/链接导入 → 虚线框"
+    },
+    {
+     "name": "复刻程度",
+     "control": "card selector ×2",
+     "options": "参考排版 / 高度复刻",
+     "note": "卡片选择器，每张带说明文案"
+    },
+    {
+     "name": "统一复刻要求（选填）",
+     "control": "textarea"
+    },
+    {
+     "name": "目标市场",
+     "control": "select",
+     "count": 6,
+     "options": "中国 美国 欧洲 东南亚 日本 韩国"
+    },
+    {
+     "name": "目标平台 / 文案语言",
+     "control": "select ×2",
+     "options": "平台5项 / 语言11项",
+     "layout": "两列并排"
+    },
+    {
+     "name": "模型选择 / 分辨率",
+     "control": "select ×2",
+     "options": "智能图片image / 1K 2K 4K",
+     "layout": "两列并排"
+    },
+    {
+     "name": "比例",
+     "control": "pills",
+     "selected": "自适应",
+     "count": 14,
+     "options": "自适应 1:1 3:2 2:3 16:9 9:16 5:4 4:5 4:3 3:4 21:9 9:21 2:1 1:2"
+    }
+   ],
+   "cta": {
+    "label": "生成图片",
+    "price": "0.60 积分",
+    "help": true,
+    "hint": "请先上传商品图，并填写核心卖点、市场和语言"
+   },
+   "note": "6 页里唯一有「链接导入」的。"
+  },
+  "image.remove_bg": {
+   "tool": "remove-background",
+   "title": "去除背景",
+   "family": "D·极简",
+   "blocks": [
+    {
+     "name": "最多上传 5 张图片 0/5",
+     "control": "tiles ×2",
+     "note": "`+` 号 tile + 文件夹 tile，**纯图标无文字**，约 66×72，2 列靠左"
+    }
+   ],
+   "cta": {
+    "label": "去除背景",
+    "price": "0.40 积分",
+    "help": false,
+    "hint": "请先上传需要去背景的图片"
+   },
+   "note": "全页只有 1 个字段，无标题栏、无文本框、无下拉；卡片被拉满整栏、留白巨量。按钮文案换成功能名，不是「生成」。"
+  }
+ }
+}
