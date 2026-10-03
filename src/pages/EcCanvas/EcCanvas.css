@@ -184,7 +184,24 @@
    stage 一裁，窄屏（实测 1024px + 右侧面板打开）就会把 HUD 切掉一块；
    而把 HUD 回夹进 stage 又造成 −84px 的居中偏移（用户投诉 4 次的那个）。
    裁剪改由**内容层**自己承担（见 index.jsx 的内容层 inline style: overflow: clip）。 */
-.ec-canvas-stage { flex: 1; position: relative; overflow: visible; background-color: var(--canvas-bg); background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px); background-size: 20px 20px; user-select: none; touch-action: none; }
+/* 2026-10-02：网格点**跟着缩放走**了（原先写死 `background-size: 20px 20px`）。
+   写死的后果：缩小 4 倍之后点距只剩视觉上的 1/4（糊成一片、失去空间参照），
+   放大之后又变成一大片稀疏 —— 而"网格吸附"这个开关要吸附的正是这个网格，
+   两者对不上，用户开了开关也看不出吸附到哪儿去了。
+
+   口径同 Excalidraw / tldraw：网格是**世界坐标**里的东西，必须随缩放缩放。
+   `--canvas-grid-size`（格距，屏幕像素）与 `--canvas-grid-offset`（左上角偏移，
+   由视口平移量决定）由 index.jsx 按 viewport inline 注入。
+   低于阈值时把 size 设为 0 —— 格子太密时**不画**（tldraw `backgroundSize → 0` 的同一处理），
+   否则那不是网格，那是噪点。 */
+.ec-canvas-stage {
+  flex: 1; position: relative; overflow: visible;
+  background-color: var(--canvas-bg);
+  background-image: radial-gradient(rgba(83, 91, 104, .2) .8px, transparent .8px);
+  background-size: var(--canvas-grid-size, 20px) var(--canvas-grid-size, 20px);
+  background-position: var(--canvas-grid-offset-x, 0px) var(--canvas-grid-offset-y, 0px);
+  user-select: none; touch-action: none;
+}
 /* 9-13 用户批注：右侧功能栏打开时，画布区要让出位置（面板贴着右边、画布内容不被盖住）。
    让位宽度 = 面板宽 + 两侧边距，统一由 --canvas-right-panel-width 一个变量决定（面板与画布同步）。 */
 /* 2026-09-17 统一视觉语言：面板宽度不再写死 360 —— 与首页同一套口径
@@ -693,6 +710,20 @@
 .ec-canvas-multi-toolbar button:hover { color: #20242a; background: #eef2f6; }
 .ec-canvas-multi-toolbar button.is-accent { color: #087f5b; }
 .ec-canvas-multi-toolbar button.is-danger { color: #d43d35; }
+/* 2026-10-02：溢出菜单（14 颗平铺放不下 ⇒ 高频露出、其余收起）。
+   定位用 absolute 挂在按钮下方 —— 不依赖 canvas 的缩放层，
+   工具栏本身已经做了 `scale(1/zoom)` 抵消，这里跟着它走正好。 */
+.ec-canvas-multi-overflow { position: relative; display: inline-flex; flex: 0 0 auto; }
+.ec-canvas-multi-overflow-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 3;
+  display: flex; flex-direction: column; gap: 1px; min-width: 128px;
+  padding: 4px; border: 1px solid rgba(21, 23, 26, .08); border-radius: 8px;
+  background: #fff; box-shadow: var(--ec-shadow-3, 0 10px 28px rgba(15, 23, 42, .16));
+}
+.ec-canvas-multi-overflow-menu button {
+  justify-content: flex-start; width: 100%; height: 32px; gap: 7px;
+  border-radius: 6px; text-align: left;
+}
 .ec-canvas-multi-selection-box { position: absolute; z-index: 11; box-sizing: border-box; pointer-events: none; border: 1px solid rgba(37, 99, 235, .74); background: rgba(37, 99, 235, .025); }
 
 .ec-canvas-node-composer {

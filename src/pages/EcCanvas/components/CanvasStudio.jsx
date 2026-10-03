@@ -6,7 +6,9 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   BookmarkPlus,
   Bold,
   Captions,
@@ -37,6 +39,11 @@ import {
   Maximize2,
   MessageSquareText,
   Mic,
+  /* 2026-10-02：溢出菜单入口（14 颗平铺放不下，收起 6 颗）*/
+  MoreHorizontal,
+  /* 2026-10-02：等距分布两个图标（另外四个对齐用 AlignCenter / ArrowUp / ArrowDown）*/
+  MoveHorizontal,
+  MoveVertical,
   Move,
   Pencil,
   Plus,
@@ -470,6 +477,15 @@ const MULTI_ICONS = {
   'align-left': AlignLeft,
   'align-center': AlignCenter,
   'align-right': AlignRight,
+  /* ⚠️ 2026-10-02：下面这五个是本批新加的六向对齐/等距，原先**没有图标条目**，
+     于是又全部落到了兜底的 `WandSparkles` —— 与视频工具栏那三个一模一样的毛病。
+     同一个错我一天犯了两次（两份图标表 + 漏配就静默兜底），
+     所以门禁要钉的是"每个动作都必须有自己的图标"这个性质，而不是逐个补条目。 */
+  'align-top': ArrowUp,
+  'align-middle': AlignCenter,
+  'align-bottom': ArrowDown,
+  'distribute-h': MoveHorizontal,
+  'distribute-v': MoveVertical,
   'auto-layout': Grid2X2,
   'bind-elements': Link2,
   'group-elements': Ungroup,
@@ -478,25 +494,104 @@ const MULTI_ICONS = {
   'delete-selection': Trash2,
 };
 
+/* 多选工具栏平铺不下时的分组（业界口径：Figma / Excalidraw 都是
+   「少数高频按钮直接露出 + 其余进溢出菜单」，不是把 14 颗排成一条）。
+   分组顺序即用户看到的位置：排版 → 组织 → 输出 → 危险。 */
+const MULTI_OVERFLOW_IDS = Object.freeze(new Set([
+  'align-center',
+  'align-middle',
+  'align-bottom',
+  'distribute-h',
+  'distribute-v',
+  'auto-layout',
+  'stitch-details',
+]));
+
+export function splitCanvasMultiActions(actions = []) {
+  const list = Array.isArray(actions) ? actions : [];
+  return {
+    inline: list.filter(action => !MULTI_OVERFLOW_IDS.has(action.id)),
+    overflow: list.filter(action => MULTI_OVERFLOW_IDS.has(action.id)),
+  };
+}
+
 export function CanvasMultiSelectionToolbar({ nodes = [], selectedIds = new Set(), viewport, bounds: containerBounds, onAction }) {
   const introGateRef = usePanelIntroGate('multi-toolbar');
   const bounds = selectedCanvasBounds(nodes, selectedIds);
   const count = selectedIds instanceof Set ? selectedIds.size : (selectedIds || []).length;
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowRef = useRef(null);
+  /* 点外面 / 按 Esc 收起。挂在 document 上而不是逐个按钮，
+     否则"点按钮"和"点空白"两种收起的范围会不一致。 */
+  useEffect(() => {
+    if (!overflowOpen) return undefined;
+    const onDocPointerDown = event => {
+      if (overflowRef.current?.contains(event.target)) return;
+      setOverflowOpen(false);
+    };
+    const onDocKeyDown = event => { if (event.key === 'Escape') setOverflowOpen(false); };
+    document.addEventListener('pointerdown', onDocPointerDown);
+    document.addEventListener('keydown', onDocKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onDocPointerDown);
+      document.removeEventListener('keydown', onDocKeyDown);
+    };
+  }, [overflowOpen]);
   if (!bounds || count < 2) return null;
   const actions = multiSelectionActionsForNodes(nodes, selectedIds);
   /* 9-16 用户批注（图15~19）：「按钮不高亮」—— 已打组/已绑定时对应按钮要高亮，
      并且按钮文字/aria 变成「解除…」，再点一次就是解除（同一个按钮，不额外加一个入口）。 */
   const groupState = canvasSelectionGroupState(nodes, selectedIds);
-  const estimatedWidth = 76 + actions.reduce((total, action) => total + Math.max(56, action.label.length * 12 + 34), 0);
+  /* 2026-10-02：14 颗平铺会超出 `max-width: min(900px, 86vw)` 被横向裁掉，
+     而其中 6 颗正是本批刚加的六向对齐/等距。改成
+     「高频直接露出 + 其余进溢出菜单」（Figma / Excalidraw 的通行做法），
+     宽度估算也只按露出的那几颗算。 */
+  const { inline, overflow } = splitCanvasMultiActions(actions);
+  const estimatedWidth = 76
+    + inline.reduce((total, action) => total + Math.max(56, action.label.length * 12 + 34), 0)
+    + (overflow.length ? 44 : 0);
+  const describe = action => {
+    const applied = (action.id === 'group-elements' && groupState.kind === 'group')
+      || (action.id === 'bind-elements' && groupState.kind === 'bind');
+    return {
+      applied,
+      label: applied ? (action.id === 'group-elements' ? '解除打组' : '解除绑定') : action.label,
+    };
+  };
   return <div ref={introGateRef} className="ec-canvas-multi-toolbar" role="toolbar" aria-label={`${count} 个对象操作`} style={getCanvasToolbarPosition({ node: bounds, viewport, bounds: containerBounds, width: estimatedWidth, height: 42 })}>
     <strong>{count} 个已选中</strong>
-    {actions.map(action => {
+    {inline.map(action => {
       const Icon = MULTI_ICONS[action.id] || WandSparkles;
-      const applied = (action.id === 'group-elements' && groupState.kind === 'group')
-        || (action.id === 'bind-elements' && groupState.kind === 'bind');
-      const label = applied ? (action.id === 'group-elements' ? '解除打组' : '解除绑定') : action.label;
+      const { applied, label } = describe(action);
       return <button key={action.id} type="button" className={`is-compact ${applied ? 'is-applied' : ''} ${action.id === 'delete-selection' ? 'is-danger' : ''}`} aria-label={label} aria-pressed={applied || undefined} title={label} onPointerDown={event => event.stopPropagation()} onClick={() => onAction?.(action.id)}><Icon size={15} /><span>{label}</span></button>;
     })}
+    {overflow.length > 0 && <span className="ec-canvas-multi-overflow" ref={overflowRef}>
+      <button
+        type="button"
+        className="is-compact"
+        aria-label={`更多操作（${overflow.length} 项）`}
+        aria-expanded={overflowOpen}
+        aria-haspopup="menu"
+        title="更多操作"
+        onPointerDown={event => event.stopPropagation()}
+        onClick={() => setOverflowOpen(v => !v)}
+      ><MoreHorizontal size={15} /><span>更多</span></button>
+      {overflowOpen && <span className="ec-canvas-multi-overflow-menu" role="menu">
+        {overflow.map(action => {
+          const Icon = MULTI_ICONS[action.id] || WandSparkles;
+          const { label } = describe(action);
+          return <button
+            key={action.id}
+            type="button"
+            role="menuitem"
+            aria-label={label}
+            title={label}
+            onPointerDown={event => event.stopPropagation()}
+            onClick={() => { setOverflowOpen(false); onAction?.(action.id); }}
+          ><Icon size={15} /><span>{label}</span></button>;
+        })}
+      </span>}
+    </span>}
   </div>;
 }
 
