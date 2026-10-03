@@ -701,6 +701,18 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* ═══ 2026-10-03 批 DE：**这一格是滚动容器，选中环的左半边会被它切掉** ═══════════════════════
+     实机量（1440×900，video-creation?id=video.drama_feud）：
+       选中药丸的环是 `--sb-shadow-ring` = `0 0 0 3px`（外扩 3px、不模糊），
+       而这排药丸（.video-wb-chips）紧贴这个滚动容器的左内边缘（实测左边距 0.0px）
+       ⇒ 环的左边那 3px 正好压在裁切线上，被削掉一半 —— 选中的那颗看上去**左边没有光圈**。
+       `.video-content-composer` 有 `overflow-y:auto`（要滚），而 `overflow-x:auto` + `overflow-y:visible`
+       在 CSS 里不可能同时成立（横轴一旦可滚，纵轴的 visible 会被算成 auto），
+       所以"让环跑到容器外面去"这条路不存在。
+     ⇒ 给容器补 4px 左右内边距给环留位，再用等量负外边距把内容盒拉回原位 ——
+       **一个像素都不动**（padding 造空间、margin 抵消位移），44 个视频子页面一起受益。 */
+  padding-inline: 4px;
+  margin-inline: -4px;
 }
 /* 批 BG：与首页那一档、与图片侧同一条语言 —— 底栏不再画分界线（用户："你要把它去掉呀"） */
 .video-composer.is-workbench > .video-toolbar {
@@ -717,7 +729,11 @@ html:not([data-scrolling]) .video-submit-row button:hover:not(:disabled) {
    CTA 通栏。
    ⚠️ 颜色**不跟着抄**：他们那条是近黑实底，我们的主 CTA 是品牌紫（全站唯一那颗主 CTA 的色，
       是站内既有的色彩规范）—— 用户要的是"布局/规格一致"，不是把品牌色换掉。 */
-.video-composer.is-workbench .video-toolbar-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+/* ⚠️ 批 DE（2026-10-03）：列数**不再写死 2** —— 左栏已经声明过的格子不在这里画第二份之后，
+   很多子页面的底栏只剩一颗（甚至一颗都不剩，页面连这一块都不渲染）。写死两列会让那颗
+   孤零零占掉半行、右边空一格。列数由页面给的 `--video-toolbar-columns` 决定，
+   缺省仍是 2（首页 / 独立创作台那一档，两颗都在）。 */
+.video-composer.is-workbench .video-toolbar-controls { display: grid; grid-template-columns: repeat(var(--video-toolbar-columns, 2), minmax(0, 1fr)); gap: 8px; align-items: stretch; }
 /* ⚠️ 四颗控件在 DOM 里是**嵌套两层**的（.video-quick-tools 里装模型、.video-toolbar-buttons 里装另外三颗）。
    要让它们成为**同一个网格里的等宽卡**（照知渔那两张并排卡的样子），中间那两层必须
    `display: contents` —— 否则第一层网格只看到两个"大块"，模型那张被压窄、标签全被截断（实测踩到）。 */

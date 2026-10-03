@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom';
 /* ⚠️ 批 Y：这一行是必须的 —— 组件原来一个 lucide 图标都没用（全是内联 SVG），
    加「怎么用这条技能」的图标入口时**差点漏掉 import**（漏了就是渲染期 ReferenceError → 整页白屏，
    正是本项目出过的 P0 那一类）。esbuild 只查语法、查不出这个，所以改完必跑渲染冒烟。 */
-import { HelpCircle } from 'lucide-react';
+import { ChevronDown, HelpCircle } from 'lucide-react';
+
+/** 手风琴组的 aria-controls / id：组名里有中文与括号，直接当 id 不合法也不稳 ⇒ 取一个稳定 slug。 */
+const slugOf = name => String(name || 'group').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'group';
+
 
 /* ═══ WorkbenchShell：Skill 工作台骨架（图片/视频两板块共用）═══════════════════════
    来源：docs/design/43-media-architecture.md §3.1 与 §10.2（知渔实测结构）。
@@ -189,6 +193,10 @@ export default function WorkbenchShell({
   tutorial = null,
 }) {
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  /* ═══ 2026-10-03 批 DE：**手风琴组收起来的是哪几个**（声明 `groupLayouts[name] === 'accordion'`）══
+     记的是**组名**而不是索引 —— 换技能时组名对不上，索引会串到别的组上。
+     初值是空数组 = 全部展开，与知渔实测的 `default: "展开"` 一致。 */
+  const [collapsedGroups, setCollapsedGroups] = useState([]);
   const tabList = tabs || [{ key: 'cases', label: '示例' }, { key: 'history', label: '历史' }];
   const embedded = Boolean(panel);
   /* 分组与「档内容块末尾那颗整颗按钮」都先算好（原来 groupFields 是在 JSX 里现算的）。 */
@@ -496,9 +504,27 @@ export default function WorkbenchShell({
               )))}
             </div>
           )}
-            {groups.map((group, index) => (
+            {groups.map((group, index) => {
+              /* ═══ 2026-10-03 批 DE：**手风琴组**（`groupLayouts[name] === 'accordion'`）════════════
+                 实测来源：docs/design/data/quantv-image-tools-20261003.json 的 image.try_on —
+                 模特选择 / 服装选择 / Pose 参考 / 背景参考 四组都是 `control: "accordion"`、
+                 `default: "展开"`，共享段还记着 `accordionChevron = 收起=向下 ⌄，展开=向上 ⌃`。
+                 我们原来是四个平铺的组（组头 + 内容直接铺开），所以这一页比知渔"少了一层收放"。
+                 ⇒ 只改**声明了 accordion 的那几组**，其余页面一个字不动（判据在 `workbench.groupLayouts`，
+                    与 groupNotes 同一层机制）。默认**展开** —— 收起与否是用户的事，不是我们的。
+                 ⚠️ 为什么用 `useState` 记而不是 CSS :has()：折叠必须真的把内容从 DOM 里拿掉，
+                    否则读屏与门禁还会数到那些字段（"藏起来用户就找不到了"是本仓老教训）。 */
+              const collapsible = group.layout === 'accordion';
+              const open = !collapsible || !collapsedGroups.includes(group.name);
+              /* 组头右端已经有别的按钮（一键解析）时，组头不能同时是收放按钮 —— 见下面那段注释。 */
+              const parseHere = Boolean(parseAction && (parseAction.group ? group.name === parseAction.group : index === 0));
+              const headOwnsToggle = collapsible && group.name && !parseHere;
+              return (
             <React.Fragment key={group.name || 'default'}>
-            <section className="media-workbench-group">
+            <section
+              className={'media-workbench-group' + (collapsible ? ' is-accordion' : '')}
+              data-accordion={collapsible ? (open ? 'open' : 'closed') : undefined}
+            >
               {/* 2026-10-03 批 1003：**组说明**（`workbench.groupNotes`）——
                   以前 group 只是个字符串，所以「这一组是干什么的」无处可写，
                   299 个字段里 `hint` 只用了 20 次。组说明与字段 hint 是两件事：
@@ -510,6 +536,30 @@ export default function WorkbenchShell({
                   实测踩到：按钮从 DOM 里彻底消失，skill-tutorial-0919 门禁当场报红。 */}
               {(group.name || index === 0) && (
                 <h3 className="media-workbench-group-title">
+                  {/* ═══ 批 DE：手风琴组的**组头就是收放按钮**（知渔那张卡的形态）══════════════════════════
+                     实采 `accordionChevron` 写的是"组头右端一颗 chevron" —— 也就是说收放入口长在**组头那一行**，
+                     不是另起一行。我们第一版画成了"组头 + 下面一行『展开/收起』"，那一行既重复组名、
+                     又把 chevron 挤到卡片中间去 —— 与实采不符。
+                     ⇒ 组头整行可点，chevron 在行末；组名仍然只出现一次。
+                     ⚠️ 组头右端已经有别的按钮（一键解析）时**不合并** —— 按钮套按钮不可点，
+                        那种组退回下面那条独立的收放行（判据写在 `headOwnsToggle`）。 */}
+                  {collapsible && headOwnsToggle ? (
+                    <button
+                      type="button"
+                      className="media-workbench-accordion-head"
+                      aria-expanded={open}
+                      aria-controls={`media-accordion-${slugOf(group.name)}`}
+                      onClick={() => setCollapsedGroups(current => (
+                        current.includes(group.name)
+                          ? current.filter(name => name !== group.name)
+                          : [...current, group.name]
+                      ))}
+                    >
+                      <span>{group.name}</span>
+                      <ChevronDown size={15} aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <>
                   {group.name && <span>{group.name}</span>}
                   {/* ═══ 批 O-⑫：**第一组的标题行右端**放两颗动作 ═══════════════════════════════════
                       · 教学示例入口（从左栏顶部搬来 —— 它原来占一整行，实测全站统一多出 54px 空白：
@@ -527,7 +577,7 @@ export default function WorkbenchShell({
                         门禁 test/skill-tutorial-0919 只要求入口存在）；
                         一键解析落到**它声明的那个分组**（parseAction.group），不再一律挤在第一组。 */}
                   {tutorial && index === 0 && null}
-                  {parseAction && (parseAction.group ? group.name === parseAction.group : index === 0) && (
+                  {parseHere && (
                     <button
                       type="button"
                       className={`media-workbench-parse${parseAction.busy ? ' is-busy' : ''}`}
@@ -538,9 +588,32 @@ export default function WorkbenchShell({
                       {parseAction.points != null && <em>{parseAction.points} 积分</em>}
                     </button>
                   )}
+                    </>
+                  )}
                 </h3>
               )}
-              <div className="media-workbench-fields" data-layout={group.layout === 'stack' ? undefined : group.layout}>
+              {/* 组头右端已经有别的按钮时，收放另起一行（见上面 headOwnsToggle 那段的理由）。 */}
+              {collapsible && group.name && !headOwnsToggle && (
+                <button
+                  type="button"
+                  className="media-workbench-accordion-toggle"
+                  aria-expanded={open}
+                  aria-controls={`media-accordion-${slugOf(group.name)}`}
+                  onClick={() => setCollapsedGroups(current => (
+                    current.includes(group.name)
+                      ? current.filter(name => name !== group.name)
+                      : [...current, group.name]
+                  ))}
+                >
+                  <span>{open ? '收起' : '展开'}</span>
+                  <ChevronDown size={14} aria-hidden="true" />
+                </button>
+              )}
+              {open && <div
+                id={collapsible && group.name ? `media-accordion-${slugOf(group.name)}` : undefined}
+                className="media-workbench-fields"
+                data-layout={group.layout === 'stack' ? undefined : group.layout}
+              >
                 {group.fields.map(field => {
                   /* ═══ 2026-09-19 批 O-⑪：付费动作**贴着字段标签右端**（照知渔的形态）═══════════
                      用户第 19 轮批注（对着我们的商品套图页）原话：
@@ -625,7 +698,7 @@ export default function WorkbenchShell({
                     </React.Fragment>
                   );
                 })}
-              </div>
+              </div>}
               {/* 带 anchor 的动作已经渲染进字段行（见上面的 media-field-inline-actions） */}
             </section>
             {/* ═══ 2026-09-29 批 DC 续-16：清单可以**插在指定分组之后**（`section.afterGroup`）══════════
@@ -639,7 +712,8 @@ export default function WorkbenchShell({
                   不用另写（清单 section 本来就带那个类名）。 */}
             {anchored.get(group.name) || null}
             </React.Fragment>
-          ))}
+              );
+            })}
           {orphanSections.map(renderSection)}
           {/* ═══ 2026-09-19 批 K-E：主按钮**整栏宽 + 价格写在按钮里面**（照竞品形态）═══════════
               60 号文档实测：竞品主按钮 510.1×54.5（= 整栏宽），文案两行「立即生成视频 / 预计 12.00 积分」。

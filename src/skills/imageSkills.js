@@ -18,6 +18,8 @@
 
 import { SELECTABLE_IMAGE_MODELS, imageModelResolutions, DEFAULT_IMAGE_MODEL as CATALOG_DEFAULT_IMAGE_MODEL } from '../services/imageModelCatalog.js';
 import { ADAPTIVE_RATIO, LAYOUT_FAMILY_NONE } from './skillRun.js';
+/* 2026-10-03 批 DE：规格「露不露」由知渔实采派生（见该文件头的理由：图片侧 fallback 是**全露**） */
+import { imageFieldExposed } from './imageSpecExposure.js';
 
 export const SKILL_COMPLEXITIES = ['simple', 'standard', 'heavy'];
 /* counts：一组「类型 × 张数」的步进器（2026-09-19 用户批注 #13）。
@@ -283,8 +285,8 @@ const platformField = (options = PLATFORM_SUITE) => ({ key: 'platform', label: '
 /* optionsFrom：这一格的档位**跟着模型变**（批 R）——
    模型目录里写着哪些模型不支持 4K（目前只有 Midjourney），选了它这一格就只剩 1K/2K。
    没有这一条的话，界面会给出一个做不到的档：显示 4K、请求按 2K 跑（看着是 A、跑的是 B）。 */
-const clarityField = ({ options = CLARITY_3, label = '分辨率' } = {}) => ({
-  key: 'clarity', label, kind: 'segmented', group: '生成设置', options, required: true, default: '2K',
+const clarityField = ({ options = CLARITY_3, label = '分辨率', kind = 'segmented' } = {}) => ({
+  key: 'clarity', label, kind, group: '生成设置', options, required: true, default: '2K',
   optionsFrom: { key: 'imageModel', map: MODEL_RESOLUTION_LIMITS },
 });
 const countField = (max = 6) => ({ key: 'count', label: '生成数量', kind: 'stepper', group: '生成设置', min: 1, max });
@@ -1273,11 +1275,37 @@ export const IMAGE_SKILLS = [
          ⇒ 批 R 补齐了最后两处差异：「模型选择」与比例里的「自适应」（原来不敢加的理由都已解决：
             模型现在真进请求、真参与计费；自适应按主图宽高就近取档，不是假档位）。 */
       modelField(),
-      /* 裸档位同图片复刻页（他们 AI换装页的分辨率也是 1K / 2K / 4K） */
-      clarityField({ options: CLARITY_3_PLAIN }),
+      /* 裸档位同图片复刻页（他们 AI换装页的分辨率也是 1K / 2K / 4K）。
+         ⚠️ 2026-10-03 批 DE：**这一格是下拉，不是药丸**（kind 由调用方给，默认仍是 segmented）。
+            实测 docs/design/data/quantv-image-tools-20261003.json 的 image.try_on：
+            `{"name":"分辨率","control":"select","value":"1K","options":"1K 2K 4K"}` ——
+            知渔这一页的分辨率是**原生下拉**，我们画成了三颗药丸。
+            为什么只改这一条：clarityField 是 20 多条技能共用的，改默认值得等于凭**一页**的实测
+            去动另外 20 页（"名单写两处必然漂移"的反面：证据只覆盖一页就只改一页）。 */
+      clarityField({ options: CLARITY_3_PLAIN, kind: 'select' }),
       ratioField(RATIO_TRYON),
-      { key: 'count', label: '生成张数', kind: 'stepper', group: '生成设置', min: 1, max: 4 },
+      /* 生成张数同理：实采写的是 `{"name":"生成张数","control":"select","value":"1","options":"1 2 3 4"}`，
+         我们画的是步进器。`max: 4` 保留 —— 报价与"出几张"的上限都读它
+         （test/quantv-image-parity-machine-0920 ④ 就是拿这一条对齐知渔的 select 档数）。 */
+      { key: 'count', label: '生成张数', kind: 'select', group: '生成设置', min: 1, max: 4, default: '1',
+        options: [1, 2, 3, 4].map(value => ({ value: String(value), label: String(value) })) },
     ],
+    /* ═══ 2026-10-03 批 DE：这四组是**手风琴卡**（照知渔 ?tool=ai-outfit 实测）═════════════════════════
+       实测（docs/design/data/quantv-image-tools-20261003.json 的 image.try_on）：
+         模特选择 / 服装选择 / Pose 参考（可选）/ 背景参考（可选）
+         四组的 `control` 全是 `accordion`，`default` 全是 `展开`；
+         共享段还记着 `accordionChevron = 收起=向下 ⌄，展开=向上 ⌃`。
+       我们原来是四个平铺组 —— 字段与文案已经逐条对齐，唯独**少了这一层收放**。
+       ⇒ 用既有的 `groupLayouts` 机制声明（与 groupNotes 同一层），只改这一页那四组。
+          「生成设置」那一组**不声明** ⇒ 仍是平铺（知渔那一组本来就是折线以下的普通配置区）。 */
+    workbench: {
+      groupLayouts: {
+        模特选择: 'accordion',
+        服装选择: 'accordion',
+        'Pose 参考（可选）': 'accordion',
+        '背景参考（可选）': 'accordion',
+      },
+    },
     cases: [
       { id: 'source', title: '商品与模特原图', cover: '/images/home/ability-tryon-example-input.png' },
       { id: 'result', title: 'AI 试穿成品', cover: '/images/home/ability-tryon-example-output.png' },
@@ -1607,10 +1635,16 @@ export const IMAGE_SKILLS = [
         placeholder: '建议包含以下信息生成更精准：\n1.产品名称\n2.核心卖点\n3.适用人群\n4.期望场景\n5.产品尺寸' },
       { key: 'source', label: '上传参考图', kind: 'upload', maxImages: 20, group: '参考图', role: 'reference',
         slotLabel: '点击或拖拽上传图片', hint: '风格参考，最多 20 张' },
-      /* 复刻程度照竞品二选一（各带一句说明）；差别体现在提示词的严格程度（同一条图生图链路，不是换引擎） */
-      { key: 'degree', label: '复刻程度', kind: 'segmented', group: '复刻设置', required: true, default: '参考排版', options: [
-        { value: '参考排版', label: '参考排版' },
-        { value: '高度复刻', label: '高度复刻' },
+      /* 复刻程度照竞品二选一（各带一句说明）；差别体现在提示词的严格程度（同一条图生图链路，不是换引擎）
+         ⚠️ 2026-10-03 批 DE：**卡片选择器**，不是药丸（`kind: 'cards'`）。
+            实测 docs/design/data/quantv-image-tools-20261003.json 的 image.copy：
+            `{"name":"复刻程度","control":"card selector ×2","options":"参考排版 / 高度复刻",
+              "note":"卡片选择器，每张带说明文案"}` —— "每张带说明文案"正是 cards 与 segmented 的分界
+            （cards：说明写在卡里、整幅宽度；segmented：只有一排药丸）。这句说明原来挂在字段 hint 上，
+            药丸形态下它浮在控件下面读起来像脚注；换成卡片之后它进到每张卡里，才是知渔那一页的样子。 */
+      { key: 'degree', label: '复刻程度', kind: 'cards', group: '复刻设置', required: true, default: '参考排版', options: [
+        { value: '参考排版', label: '参考排版', note: '参考排版、背景结构与人物关系，配色按商品本身设计。' },
+        { value: '高度复刻', label: '高度复刻', note: '复刻参考图构图、版式、配色与细节，替换商品和卖点。' },
       ], hint: '参考排版：参考排版、背景结构与人物关系，配色按商品本身设计。高度复刻：复刻参考图构图、版式、配色与细节，替换商品和卖点。' },
       { key: 'rules', label: '统一复刻要求（选填）', longLabelReason: '照竞品原文逐字（他们 ?tool=image-clone 的字段名就是「统一复刻要求（选填）」）', kind: 'textarea', rows: 3, group: '复刻设置',
         placeholder: '例如：文案统一用英文、模特姿势保持不变、参考图不要替换商品色。' },
@@ -2442,6 +2476,17 @@ function configTriggersFor(skill) {
         与这里的 imageModel/ratio/clarity 零重叠；它们本来就有自己的触发器机制
         （videoSpecExposure.js 逐页控制露不露）。 */
   const hasModel = keys.includes('imageModel');
+  /* ═══ 2026-10-03 批 DE：`covers` 与「面板里画哪几格」**分开**（知渔那一页没有的，就别给）══════
+     实采（docs/design/data/quantv-image-tools-20261003.json 的 NOT_HAS）显示：详情图 / A+内容 /
+     商品套图 / 去除背景 那一页**根本没有**模型、分辨率、比例几格 —— 批 1003 把触发器全局注入之后，
+     详情图上凭空多了一颗「画面规格」，那正是用户截图里"我们做过头了"的那一处。
+     ⇒ 两件事分开：
+       · `covers` **仍然是全部三格**（字段要留在声明里当取值与报价的真源，但**不许**在网格里露出来）；
+       · `modelKey` / `specKeys` **只给知渔那一页真有的那几格** —— 一格都没有时 ConfigTriggers
+         收到空 `triggers` 就不渲染任何按钮（FieldRenderer 的 config 分支按 modelDecl/specDecls 推 triggers）。
+     ⚠️ 为什么不用「把不露的字段从 fields 里删掉」：删了 `skillGenerationSettings` 就取不到默认值，
+        请求里的 ratio / resolution 会变空 —— 那是"少给了还不说"。声明留着、界面不画，两边才对。 */
+  const shown = keys.filter(key => imageFieldExposed(skill.id, key));
   return {
     key: 'genConfig', label: '生成配置', kind: 'config', group,
     hideLabel: true,
@@ -2449,8 +2494,8 @@ function configTriggersFor(skill) {
     /* 只给 key，不嵌整份字段对象：被收起的仍然是**字段**，
        面板里渲染的也是 fields 里那几条（FieldRenderer 的 config 分支按 key 取回）。
        嵌一份会出现「同一 key 在这条技能里出现两次」，且改选项会漏改一处。 */
-    ...(hasModel ? { modelKey: 'imageModel' } : null),
-    specKeys: keys.filter(key => key !== 'imageModel'),
+    ...(shown.includes('imageModel') ? { modelKey: 'imageModel' } : null),
+    specKeys: shown.filter(key => key !== 'imageModel'),
   };
 }
 
