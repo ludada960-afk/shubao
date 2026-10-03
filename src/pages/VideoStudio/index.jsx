@@ -84,6 +84,7 @@ import {
 import {
   DEFAULT_VIDEO_MODE,
   VIDEO_CREATION_MODES,
+  durationOptionOverrides,
   hasRequiredVideoInputs,
   localJobPoints,
   localQuoteFor,
@@ -749,6 +750,34 @@ export default function VideoStudioPage({
     key => (workbench?.blocks || []).some(block => block.bind === key),
     [workbench],
   );
+  /* ═══ 2026-10-03 批 DE：**同一个设置不许在左栏和底栏各画一次**（先查清过，不许猜）════════════
+     用户 2026-10-03 截图（服装街拍带货那一页）：左栏「比例 / 时长」已经铺成一排药丸，
+     下面却又顶着一颗收起的「生成设置 720P · 9:16 · 10s」—— 同一件事给了两个入口。
+
+     先回答交接单上那个问题（**结论：不存在"谁说了算"**）：
+       · 左栏药丸（VideoWorkbench 的 onValueChange）与底栏面板（setRatio / setDuration /
+         selectClarity）写的是**同一份 state**：ratio / duration / resolution；
+       · 底栏那颗按钮上的摘要、方案签名 planSignature、报价、请求体
+         （createVideoJob 的 aspectRatio / duration / resolution）读的也全是这一份；
+       ⇒ 两处永远同步，谁后点谁生效。**没有"选了 A 却跑出 B"这条路径。**
+     真正的毛病有两条，都是"画两遍"引出来的：
+       ① 同一格被画两遍 —— **44 页**的比例、**5 页**的时长（左侧声明了 chips，底栏又画一组）；
+       ② 左栏那一处**不过 snapVideoDuration**：产品只认 5/10/15 时点「15 秒」能设出一个
+          报不出价的秒数（quoteForVideoProduct 直接抛 ⇒ sku 为空 ⇒ 生成按钮永久变灰，
+          且**一句提示都没有**）。底栏滑块的 max 来自同一份产品契约，物理上点不出来 ——
+          也就是说这一格在两处的**行为并不一致**，那才是真正会坑到人的地方。
+
+     ⇒ 与批 AM 对清晰度的处理**同一条纪律**：工作台声明里 bind 过 ratio / duration ⇒
+       底栏不再画那一格；一组都不剩时那颗触发器也不画（空面板比重复更糟）。
+       判据只有"页面声明里有没有那个 bind"（pageOwnsField），**不按技能名开名单**
+       —— 名单写两处必然漂移（本仓老教训）。 */
+  const settingsGroups = useMemo(() => {
+    const groups = [];
+    if (specExposure.clarity && !pageOwnsField('resolution')) groups.push('clarity');
+    if (!pageOwnsField('ratio')) groups.push('ratio');
+    if (specExposure.duration && !pageOwnsField('duration')) groups.push('duration');
+    return groups;
+  }, [specExposure.clarity, specExposure.duration, pageOwnsField]);
   /* process 方案的槽位：**从声明源派生**（哪个上传块的 accept 收视频 / 收音频），不在页面里写死 key。
      视频槽位：本地那两条与数字人都有（源视频 / 人物视频）；
      音频槽位：只有要驱动音频的那一档有（数字人，见 processAudioSlot）。 */
@@ -764,12 +793,37 @@ export default function VideoStudioPage({
   }, [processPlan, processAudioSlot, workbench]);
   /* 槽位素材的种类**由声明决定**：原来一律按 image 上传 —— 视频槽位会被当成图片传上去
      （服务端 415）。这类方案的上传位按块声明走（视频传视频、音频传音频）。 */
+  /* ═══ 2026-10-03 批 DE：左栏「时长」药丸也要被**产品契约**夹住（原来只有底栏夹）══════════
+     移走底栏那一组之后，左栏这排药丸成了这一格**唯一**的入口 —— 它就必须自己守住契约。
+     事实（catalog 实测）：20 条产品里 11 条**没有** durationOptions，只靠 durations.min/max
+     （Veo 3.1 快 max=8 / Wan 1080P max=9 / Kling、Grok max=10），另有 live_photo 只认 5 秒；
+     而 19 页工作台声明的时长档是 [10, 15]。底栏滑块的 max 来自同一份契约，**物理上点不出**
+     越界的秒数，左栏药丸却能 —— 于是点下去 quoteForVideoProduct 抛异常、sku 为空、
+     「开始生成」永久变灰且一句提示都没有。
+     ⇒ 逐档夹住在 videoStudioModel.durationOptionOverrides（纯函数，门禁逐条断言）：
+       当前型号根本给不了的档做成不可点并写明原因（批 AM：不做点了没反应的选项）。 */
+  const workbenchDurationOverrides = useMemo(
+    () => durationOptionOverrides(workbench?.blocks || [], selectedProduct),
+    [workbench, selectedProduct],
+  );
   /* 去字幕页的「自动标记」：服务端说可用才放开（否则保持声明源里的 disabled + 原因） */
-  const workbenchOptionOverrides = useMemo(() => (
-    localEngine && subtitleAutoReady
-      ? { 'markMode:auto': { disabled: false } }
-      : {}
-  ), [localEngine, subtitleAutoReady]);
+  const workbenchOptionOverrides = useMemo(() => ({
+    ...(localEngine && subtitleAutoReady ? { 'markMode:auto': { disabled: false } } : {}),
+    ...(workbenchDurationOverrides || {}),
+  }), [localEngine, subtitleAutoReady, workbenchDurationOverrides]);
+  /* ═══ 批 DE：底栏两颗触发器**露不露**的统一判据，也是那一行网格的列数 ════════════════════════
+     · 模型 = 暴露表说这一页有 + 本地方案不是 hideModel（这两条与从前一字未动）；
+     · 生成设置 = 面板里还剩至少一组（页面自己声明过的格子不在这里再画第二遍，见 settingsGroups）。
+     ⚠️ 列数要跟着**实际颗数**走：那一行原本写死 `repeat(2, …)`（知渔那两颗卡的形状）。
+        只剩一颗时它会占掉半行、右边空一格 —— 那是新引入的错位，所以列数由这里给，
+        CSS 只读一个自定义属性（`.video-toolbar-controls` 的 grid 定义见 VideoStudio.css）。 */
+  const showsModelTrigger = Boolean(specExposure.model && !localPlan?.hideModel);
+  const toolbarItems = useMemo(() => TOOLBAR_ITEMS.filter(item => (
+    item.key !== 'skills' && item.key !== 'shot'
+    && !(processPlan && item.key === 'settings')
+    && !(item.key === 'settings' && !settingsGroups.length)
+  )), [processPlan, settingsGroups]);
+  const toolbarTriggerCount = (showsModelTrigger ? 1 : 0) + toolbarItems.length;
   const processSourceFile = processSourceKey ? (slotFiles[processSourceKey] || [])[0] || null : null;
   const processAudioFile = processAudioKey ? (slotFiles[processAudioKey] || [])[0] || null : null;
   const processSourceSeconds = Number(sourceSeconds) || 0;
@@ -2065,8 +2119,11 @@ export default function VideoStudioPage({
       {/* ⚠️ 批 AM：本地方案的「输出分辨率」长在**它自己的字段块**里（照知渔把这一格放在
           「视频设置」下那一页的左栏，而不是通用创作台的生成设置里）。
           判据：工作台已经声明了 bind='resolution' 的块 ⇒ 这里不再画第二份（同一格两处渲染，
-          改了这处那处还显示旧值）。 */}
-      {specExposure.clarity && !pageOwnsField('resolution') && (
+          改了这处那处还显示旧值）。
+          ⚠️ 批 DE（2026-10-03）：下面三组**统一**走 settingsGroups 判据 —— 它把这三条
+          （clarity 看暴露表 + 有没有自声明块；ratio / duration 只看有没有自声明块）收成一份，
+          顺带回答"那颗触发器该不该存在"：一组都不剩时连触发器一起不画。 */}
+      {settingsGroups.includes('clarity') && (
       <div className="video-panel-section"><GroupTitle icon={MonitorPlay}>清晰度</GroupTitle>
         <div className="video-resolution-pills">
           {clarityOptions.map(option => <button key={option.value} type="button" className={resolution === option.value ? 'is-selected' : ''} title={option.hint} onClick={() => selectClarity(option.value)}>{option.value.toUpperCase()}</button>)}
@@ -2076,12 +2133,14 @@ export default function VideoStudioPage({
       {/* ═══ 批 Y：「镜头规格」那颗按钮已下线 ⇒ 画幅与时长**并进这一面板**（照知渔的「视频设置」）═══
           知渔的「视频设置」就是 分辨率 / 画面比例 / 视频时长 三组，我们原来把后两组拆在另一颗按钮里。 */}
       <>
+        {settingsGroups.includes('ratio') && (
         <div className="video-panel-section"><GroupTitle icon={Crop}>画面比例</GroupTitle>
           <div className="video-ratio-cards">
             {RATIOS.map(value => <button key={value} type="button" className={ratio === value ? 'is-selected' : ''} onClick={() => { setPlanReviewed(false); setRatio(value); }}><i style={{ aspectRatio: value.replace(':', ' / ') }} aria-hidden="true" /><span>{value}</span></button>)}
           </div>
         </div>
-        {specExposure.duration && (
+        )}
+        {settingsGroups.includes('duration') && (
         <div className="video-panel-section"><GroupTitle icon={Timer}>视频时长</GroupTitle>
           <div className="video-duration-inline">
             <input className="video-duration-range" type="range" min={durationRange.min} max={durationRange.max} step={durationRange.step} value={duration} onChange={event => { setPlanReviewed(false); setDuration(snapVideoDuration(selectedProduct, Number(event.target.value))); }} />
@@ -2111,6 +2170,9 @@ export default function VideoStudioPage({
 
   const renderFloatingPanel = () => {
     if (!activePanel) return null;
+    /* 批 DE：触发器已经按 settingsGroups 藏了，这里再挡一道 —— 别让"面板空了"变成一个
+       看得见但点不出东西的浮层（例如切页之后残留的 activePanel）。 */
+    if (activePanel === 'settings' && !settingsGroups.length) return null;
     const meta = TOOLBAR_ITEMS.find(item => item.key === activePanel);
     const Icon = meta?.icon || Settings2;
     /* ⚠️ 2026-09-23 批 Z-③：**全屏时这个浮层的挂载点必须是全屏元素自己**。
@@ -2311,7 +2373,9 @@ export default function VideoStudioPage({
           onValueChange={(bind, value) => {
             setPlanReviewed(false);
             if (bind === 'ratio') setRatio(String(value));
-            else if (bind === 'duration') setDuration(Number(value) || 5);
+            /* ⚠️ 批 DE：时长**必须**与底栏走同一个 snap —— 药丸是声明源写死的档，
+               声明源不知道当前型号只认到几秒；不夹就会设出一个报不出价的秒数（见上面那段）。 */
+            else if (bind === 'duration') setDuration(snapVideoDuration(selectedProduct, Number(value) || 5));
             else if (bind === 'swapMode') setSwapTarget(String(value));
             /* 本地方案的两格（知渔「视频设置」下的输出分辨率与 FPS）：直接进请求 */
             else if (bind === 'resolution') setResolution(String(value));
@@ -2483,7 +2547,12 @@ export default function VideoStudioPage({
       </ComposerSurface>
 
         <footer className="video-toolbar" ref={toolbarRef}>
-          <div className="video-toolbar-controls">
+          {/* 批 DE：一颗都不露时整块不渲染（原来那颗「生成设置」正是这么变成一个点开空白的按钮的）。
+             列数由页面给：`.video-toolbar-controls` 在 workbench 形态下是等宽网格。 */}
+          {toolbarTriggerCount > 0 && <div
+            className="video-toolbar-controls"
+            style={toolbarTriggerCount > 0 ? { '--video-toolbar-columns': String(toolbarTriggerCount) } : undefined}
+          >
             <div className="video-quick-tools" ref={quickToolsRef}>
               {/* 2026-09-16：这里原来还有一个重复的 @（底栏版）。两套 @ 两套菜单正是
                  用户说的「为什么跟其他板块的艾特键不一样」—— 现在只剩输入框下方那一个共用组件。 */}
@@ -2541,13 +2610,10 @@ export default function VideoStudioPage({
                   · **技能库**在子页面上是冗余的（这一页的"技能"就是它自己；再挂一个别的技能正文进脚本 =
                     两个技能混在一份提示词里）—— 首页那一档本来就不显示它，现在子页面也不显示。
                 ⇒ 两处都过滤掉，所有形态统一成「模型 + 生成设置」两颗卡 + CTA（与知渔同形）。 */}
-            {TOOLBAR_ITEMS
-              /* ⚠️ 批 AM：本地方案的子页面**不给「生成设置」**（清晰度 / 比例 / 时长 / Seed）——
-                 那几样对"处理一条已有片子"没有意义：分辨率与帧率是这一页自己的字段，
-                 比例不裁、时长由源片决定、Seed 也没有模型可播种；知渔那两页同样没有这一栏
-                 （他们有「视频设置」，即本页那两组字段）。上游页面一字未动。 */
-              .filter(item => item.key !== 'skills' && item.key !== 'shot'
-                && !(processPlan && item.key === 'settings'))
+            {/* 批 Y 那次过滤的四颗里，「技能库 / 镜头规格」两处删除、「生成设置」按 processPlan 过滤，
+                批 DE 又给它加了一条"面板空了就不画"—— 三条判据都收在 toolbarItems 这一个 useMemo 里
+                （本仓纪律：过滤规则只留一份，别在 JSX 里再抄一遍）。 */}
+            {toolbarItems
               .map(item => {
               const Icon = item.icon;
               const isOpen = activePanel === item.key;
@@ -2562,7 +2628,7 @@ export default function VideoStudioPage({
               ><Icon size={17} /><span><small>{item.label}</small><strong>{toolbarSummary[item.key]}</strong></span><ChevronDown size={14} /></button>;
             })}
             </div>
-          </div>
+          </div>}
           {/* 9-11 二轮用户批注: 与电商生图统一为「一个主 CTA + 一个次按钮」—
               未确认方案时只有主按钮 (分析并生成方案, 1 积分); 方案确认后才出现「开始生成」主按钮 + 「查看方案」次按钮。 */}
                     {/* 9-12 用户批注：

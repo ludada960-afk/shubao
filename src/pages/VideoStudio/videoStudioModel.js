@@ -59,6 +59,26 @@ export function isVideoDurationSupported(product, seconds) {
   return declared ? options.includes(value) : value >= options[0] && value <= options[options.length - 1];
 }
 
+/* ═══ 2026-10-03 批 DE：左栏「时长」药丸按**产品契约**逐档夹住 ════════════════════════════════════
+   为什么要有它：同一个「视频时长」在页面里有两处入口 —— 底栏生成设置面板是**滑块 + 数字框**
+   （min/max 直接来自产品契约，物理上点不出越界的秒数），左栏工作台是**声明源写死的药丸**
+   （19 页声明 [10,15]、2 页声明 [5,10,15]，而声明源不知道当前型号只认到几秒）。
+   药丸那一路原来直接 setDuration(value) 不夹，于是：产品只认 5/10/15 时点「15 秒」
+   ⇒ quoteForVideoProduct 抛异常 ⇒ sku 为空 ⇒ 「开始生成」永久变灰且**一句提示都没有**。
+   ⇒ 把当前型号给不了的档**做成不可点**并写明原因（批 AM 的老规矩：不做点了没反应的选项）。
+      纯函数、只吃 (blocks, product)，页面只调它一次、门禁可逐条断言。 */
+export function durationOptionOverrides(blocks, product) {
+  const block = (Array.isArray(blocks) ? blocks : []).find(item => item && item.bind === 'duration');
+  if (!block || !Array.isArray(block.options) || !block.options.length) return null;
+  const allowed = videoDurationChoices(product);
+  const result = {};
+  for (const option of block.options) {
+    if (allowed.includes(Number(option.value))) continue;
+    result[`${block.key}:${option.value}`] = { disabled: true, reason: `当前模型只支持 ${allowed.join('/')} 秒` };
+  }
+  return Object.keys(result).length ? result : null;
+}
+
 export function quoteForVideoProduct(product, duration) {
   if (!product || typeof product !== 'object') throw new TypeError('视频产品报价需要产品契约');
   const seconds = Number(duration);

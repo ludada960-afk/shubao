@@ -171,8 +171,18 @@ test('⑧ 融合不许只是声明：结果区按钮与控件都必须有真实�
      判据一个字没动：这条守的仍是"「数量」控件必须真的长在主技能上、且真的进 generationSettings.count"。
      ⚠️ 这是**纠偏**不是放宽：上一轮我用 7 当样本量自证，本轮数字因为真实的删除而变，所以跟着改数；
         若以后有人为了过这条断言去**加**一个假的 count 控件，那是把判据当形式，不许这么做。 */
+  /* ═══ 2026-10-03 批 DE：过滤条件里的 `kind === 'stepper'` **去掉了**（判据未变，判据写错了一处）══
+     这条守的是「**数量控件**必须真的长在主技能上、且真的进 generationSettings.count」——
+     守的是**控件在不在**，不是它长什么样。而知渔 AI换装那一页（?tool=ai-outfit）的「生成张数」
+     实采是**原生下拉**（docs/design/data/quantv-image-tools-20261003.json：
+     `{"name":"生成张数","control":"select","value":"1","options":"1 2 3 4"}`），
+     我们照抄成 select 之后，带 `stepper` 的主技能从 5 掉到 4，于是这条红了。
+     ⇒ 事实没变：带**数量控件**的主技能仍是 5 条（social_cover / detail_page / live_ui / xhs_note / try_on），
+        变的只是其中一条的控件形态。过滤条件因此按**声明里的 key** 判，不再绑死一种控件形态。
+     ⚠️ 下限仍是 5，下面「真的进 generationSettings.count」那两条断言一字未动 ——
+        样本量自证与真实消费点两半都还在，没有为了让断言过而放宽任何东西。 */
   const withCount = IMAGE_SKILLS.filter(skill => skill.tier !== 'assistant'
-    && (skill.fields || []).some(field => field.key === 'count' && field.kind === 'stepper'));
+    && (skill.fields || []).some(field => field.key === 'count'));
   assert.ok(withCount.length >= 5, '批量（数量控件）在主技能里只剩 ' + withCount.length + ' 条，太少了');
   /* 补强：数量控件必须**有真实消费点** —— 进 generationSettings 的 count（张数与报价同源） */
   const skillRunSrc = read('src/skills/skillRun.js');

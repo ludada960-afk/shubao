@@ -190,6 +190,65 @@
    实测滚到底时最后一张卡 bottom 855 vs CTA top 849 ⇒ 卡片被压住 6px；给最后一段补 12px 余量即可。 */
 .media-workbench-group:last-of-type { padding-bottom: 12px; }
 .media-workbench-group + .media-workbench-group { padding-top: 40px; border-top: 1px solid var(--sb-border-subtle); }
+/* ═══ 2026-10-03 批 DE：**手风琴组**（知渔 ?tool=ai-outfit 的四张卡）═════════════════════════════════
+   实测（docs/design/data/quantv-image-tools-20261003.json）：模特选择 / 服装选择 / Pose 参考 /
+   背景参考 四组都是 accordion、默认展开，组头右端一颗 chevron（收起=向下 ⌄，展开=向上 ⌃）。
+   ⇒ 卡本身给一层极浅底 + 发丝描边 + 圆角（知渔那一族的"卡片套卡片"），组头可点，
+     展开时 chevron 朝上、收起时朝下 —— 这条方向是实采写死的（`accordionChevron`），不是审美选择。
+   ⚠️ 收敛态**不留白**：`.media-workbench-fields` 整个不渲染（见 WorkbenchShell 的 map），
+      所以这里不需要 max-height 动画；给 height 过渡会做出"内容还在里面"的错觉。 */
+.media-workbench-group.is-accordion {
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--sb-border-subtle);
+  border-radius: 10px;
+  background: var(--sb-neutral-25);
+}
+.media-workbench-group.is-accordion .media-workbench-group-title { cursor: default; padding: 0; }
+/* 组头本身就是收放按钮（知渔那张卡的形态：组头右端一颗 chevron，组名只出现一次） */
+.media-workbench-accordion-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13.624px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.media-workbench-accordion-head:hover { color: var(--sb-ink-1); }
+.media-workbench-accordion-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: -4px;
+  padding: 2px 0 0;
+  border: 0;
+  background: none;
+  color: var(--sb-ink-3);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.media-workbench-accordion-toggle:hover { color: var(--sb-ink-1); }
+/* chevron 方向跟着状态反向（实采：收起=向下 ⌄ / 展开=向上 ⌃） */
+.media-workbench-accordion-head svg,
+.media-workbench-accordion-toggle svg { transition: transform var(--sb-dur-normal) var(--sb-ease-out); }
+.media-workbench-group.is-accordion[data-accordion="open"] .media-workbench-accordion-head svg,
+.media-workbench-group.is-accordion[data-accordion="open"] .media-workbench-accordion-toggle svg { transform: rotate(180deg); }
+.media-workbench-group.is-accordion[data-accordion="closed"] .media-workbench-accordion-head svg,
+.media-workbench-group.is-accordion[data-accordion="closed"] .media-workbench-accordion-toggle svg { transform: none; }
+
 /* ═══ 2026-09-29 批 DC 续-17：**紧挨 CTA 的那一组不再另起一个"区块"** ═════════════════════════════
    用户 2026-09-30 原话：「而且你确定这个生成设置放在最下面是合适的吗？……怎么我感觉你在最底部
    单独的放这个东西很奇怪啊。」

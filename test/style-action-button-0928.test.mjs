@@ -57,7 +57,14 @@ test('② 复用已有的整颗按钮样式与同一份 action（不新造一套
     '价钱必须写在按钮上（本仓铁律），且用的是声明里的那个数（不许在渲染层另算）');
   assert.match(jsx, /const bigActions = bigActionAfter\(groups, paidActions\);/,
     '动作来源就是同一份 paidActions（没有第二份真相）');
-  assert.match(jsx, /\{groups\.map\(\(group, index\) => \(/, '分组只算一次（原来在 JSX 里现算 groupFields）');
+  /* ⚠️ 2026-10-03 批 DE：原来这条写的是字面量 `{groups.map((group, index) => (` ——
+     手风琴组（`groupLayouts[name] === 'accordion'`）需要在 map 里算 `open` 并 return，
+     箭头函数于是从「隐式 return」变成「显式 return」。**守的东西一个字没动**：
+     仍然是"分组只在 JSX 之外算一次"，所以这里改成守那一层的真实声明。 */
+  assert.match(jsx, /const groups = groupFields\(fields, groupTitle, workbench\);/,
+    '分组在 JSX 之外算一次（原来在 JSX 里现算 groupFields）');
+  const mapBody = jsx.slice(jsx.indexOf('groups.map((group, index)'), jsx.indexOf('orphanSections.map(renderSection)'));
+  assert.doesNotMatch(mapBody, /groupFields\(/, 'map 体内不许再算一次分组（那是"每次渲染重算一遍"）');
 });
 
 test('③ 那一行的几何：跨两列 + 居中（知渔那颗父层就是 justify-content: center）', () => {
