@@ -1191,8 +1191,15 @@ export function localVideoProducts({ includeHidden = false } = {}) {
       const shortQuote = quoteFeature(skuShort, 1);
       const longQuote = quoteFeature(skuLong, 1);
       /* 计费数量规则由 SKU 的 perSecond 标记派生（billing/catalog 的 billableQuantity 是它的执行者）：
-         'seconds' ⇒ 页面按"秒数 × 单价"报价；'clip' ⇒ 一条一次。 */
+         'seconds' ⇒ 页面按"秒数 × 单价"报价；'clip' ⇒ 一条一次。
+         ⚠️ 2026-10-04：**平价规则也必须发下去**（`flatUnits` / `flatMaxSeconds`）。
+            去字幕「智能擦除」是"≤60 秒一律 3 积分/次，超了才按秒"，页面要显示固定价就得知道封顶在哪 ——
+            页面上自己写一个 60 就是"目录之外还有第二份真相"，而扣费在服务端，两边漂移就是看���便宜、扣得贵。 */
       const quantityOf = sku => (FEATURE_SKUS[sku]?.perSecond === true ? 'seconds' : 'clip');
+      const flatOf = sku => ({
+        flatUnits: Number.isSafeInteger(FEATURE_SKUS[sku]?.flatUnits) ? FEATURE_SKUS[sku].flatUnits : null,
+        flatMaxSeconds: Number.isFinite(FEATURE_SKUS[sku]?.flatMaxSeconds) ? FEATURE_SKUS[sku].flatMaxSeconds : null,
+      });
       return {
         id: product.id,
         label: product.label,
@@ -1204,9 +1211,10 @@ export function localVideoProducts({ includeHidden = false } = {}) {
         modes: [...product.modes],
         localSpec: { ...product.localSpec },
         billingQuantity: quantityOf(skuShort),
+        flatMaxSeconds: flatOf(skuShort).flatMaxSeconds,
         quotes: {
-          short: { sku: skuShort, units: shortQuote.units, points: Math.ceil(shortQuote.units / 1000), perSecond: quantityOf(skuShort) === 'seconds' },
-          long: { sku: skuLong, units: longQuote.units, points: Math.ceil(longQuote.units / 1000), perSecond: quantityOf(skuLong) === 'seconds' },
+          short: { sku: skuShort, units: shortQuote.units, points: Math.ceil(shortQuote.units / 1000), perSecond: quantityOf(skuShort) === 'seconds', ...flatOf(skuShort) },
+          long: { sku: skuLong, units: longQuote.units, points: Math.ceil(longQuote.units / 1000), perSecond: quantityOf(skuLong) === 'seconds', ...flatOf(skuLong) },
         },
       };
     });

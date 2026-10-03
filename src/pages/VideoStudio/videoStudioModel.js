@@ -105,22 +105,43 @@ export function hasRequiredVideoInputs(mode, files = {}) {
   return true;
 }
 
-/* ═══ 本地方案的计费数量与报价（2026-09-25 批 AM）══════════════════════════════════════════════
+/* ═══ 本地方案的计费数量与报价（2026-09-25 批 AM；2026-10-04 加平价）══════════════════════
    两条本地方案的计价口径**不一样**（都是用户批准过的价）：
      · 视频高清   0.50 积分/条  —— 数量恒为 1，与时长无关；
-     · 视频字幕去除 0.04 积分/秒 —— 数量 = 源视频整秒数（不足一秒按一秒算）。
+     · 视频字幕去除 **1 积分/次**（2026-10-04 从 0.04 积分/秒改来，见下）。
    服务端那份规则在 server/billing/catalog.mjs 的 billableQuantity（唯一事实源：建 hold 用的就是它），
    这里这一份是**报价用**的镜像：数量必须与它逐值相等，否则 quoteService.verify 会 409
    「费用确认不一致」。镜像不许漂移 —— test/video-local-dispatch-0925 用同一批样本
    同时断言两边（含 12.4 秒 → 13 这种边界）。
 
-   ⚠️ 数量规则来自**服务端**（capabilities 里每个本地产品的 billingQuantity），页面不自己判断
-      "哪个产品按秒"：产品目录改一条，页面不用跟着改。 */
+   ⚠️ 数量规则来自**服务端**（capabilities 里每个本地产品的 billingQuantity / flatMaxSeconds），
+      页面不自己判断"哪个产品按秒"、也不自己写死封顶秒数：产品目录改一条，页面不用跟着改。
+
+   ⚠️ 2026-10-04 **平价档**（用户原话：「这里应该固定一个费用呀…都应该是一个固定的费用才对吧」）：
+     · 框选擦除（本机 ffmpeg，成本 0）—— 服务端摘掉了 perSecond，`billingQuantity` 变 'clip'，
+       数量恒为 1 ⇒ 界面上就是一个固定的「1 积分」，不再随片子长短浮动。
+     · 智能擦除（火山，成本随秒数涨）—— 服务端给 `flatUnits` + `flatMaxSeconds`：
+       **≤ 封顶**一律平价（一次调用 = 一次上游），超过才落回按秒。
+       没有封顶就平价 = 长片子每卖一单亏一单，所以封顶这个数只由目录给，页面只读。 */
 export function localBillableQuantity(product, seconds) {
   if (product?.billingQuantity !== 'seconds') return 1;
   const value = Number(seconds);
   if (!Number.isFinite(value) || value <= 0) return 0;
+  if (Number.isFinite(product?.flatMaxSeconds) && value <= product.flatMaxSeconds) return 1;
   return Math.max(1, Math.ceil(value));
+}
+
+/** 这一单要花多少 units（不是积分）。平价档走 `flatUnits`，其余走每单位单价 × 数量。 */
+export function localQuoteUnits(product, seconds) {
+  const quantity = localBillableQuantity(product, seconds);
+  if (!quantity) return 0;
+  const tier = Number(seconds) <= 8 ? 'short' : 'long';
+  const quote = product?.quotes?.[tier];
+  if (!quote) return 0;
+  const unit = quantity === 1 && Number.isSafeInteger(quote.flatUnits) && quote.flatUnits > 0
+    ? quote.flatUnits
+    : quote.units;
+  return unit * quantity;
 }
 
 /* 本地产品在这一档时长下的报价（sku + units + 积分）：
@@ -132,9 +153,9 @@ export function localQuoteFor(product, seconds) {
   const tier = value <= 8 ? 'short' : 'long';
   const quote = product.quotes?.[tier];
   if (!quote) return null;
-  const quantity = localBillableQuantity(product, value);
-  if (!quantity) return null;
-  return { ...quote, quantity, totalUnits: quote.units * quantity };
+  const totalUnits = localQuoteUnits(product, value);
+  if (!totalUnits) return null;
+  return { ...quote, quantity: localBillableQuantity(product, value), totalUnits };
 }
 
 /* 本地产品在这档时长下要花多少积分（按钮上那个数字）：

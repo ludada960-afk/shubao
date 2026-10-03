@@ -16,7 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import fs, { readFileSync } from 'node:fs';
 
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, '');
@@ -37,14 +37,20 @@ test('① 记账：只报 seconds，金额与份数一律来自服务端 quote',
     '前端不许自己算总价（那是 localQuoteFor / 服务端的活，算第二份就是扣费漂移）');
 });
 
-test('② 框选面板必须 portal 出画布（否则 stage 的 scale 会让区域偏移）', () => {
-  assert.match(code, /data-video-subtitle-picker/, '框选面板要有标记');
-  const at = code.indexOf('data-video-subtitle-picker');
-  const around = code.slice(Math.max(0, at - 400), at + 100);
-  assert.match(around, /createPortal\(/,
-    '框选面板必须用 createPortal 挂到画布外（VideoRegionPicker 用未缩放尺寸换算源像素）');
+test('② 框选面板必须**在画布上**，且坐标换算不能写死缩放（2026-10-04 改口径）', () => {
+  /* 这条门禁原来钉的是"必须 createPortal 出画布"，那是因为坐标换算读的是**未缩放**的布局尺寸，
+     而画布 stage 带 `transform: scale(viewport.scale)`，内嵌会让框整体偏一个缩放比。
+     ⇒ 2026-10-04 换了个更根本的解法：换算改成从 DOM **量**出视觉/布局之比
+        （rect.width ÷ 布局宽），框选器自身的放大与画布的缩放一并进去。
+        既然偏不了的成因被去掉了，就不必再为一个弹窗把用户从画布上带走
+        （用户原话：「框选擦除为什么会是一个弹窗的情况呀…他们是在画布上面进行的操作呀」）。 */
+  assert.match(code, /data-video-subtitle-picker/, '框选覆盖层要有标记');
   assert.match(code, /import VideoRegionPicker from '\.\.\/\.\.\/components\/media\/VideoRegionPicker\.jsx'/,
     '必须复用 VideoStudio 那一页**同一个**组件，不要另写一份坐标换算');
+  /* 比例必须量出来，不许写死 1.8 */
+  const picker = fs.readFileSync(new URL('../src/components/media/VideoRegionPicker.jsx', import.meta.url), 'utf8');
+  assert.match(picker, /rect\.width \/ box\.width/,
+    '显示像素 → 布局像素的比例从 DOM 量，否则内嵌进画布会整体偏一个 viewport.scale');
   /* 区域落在节点上，刷新不丢、框错能改 */
   assert.match(code, /subtitleRegions/, '框出来的区域存在节点上');
 });

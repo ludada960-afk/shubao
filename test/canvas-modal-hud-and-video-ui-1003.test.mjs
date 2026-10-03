@@ -56,7 +56,9 @@ test('② 框选坐标系不得来自"没约束过的祖先容器"—— 那是�
   /* 纯函数住在独立模块里（.jsx 没法被 node --test 直接 import） */
   const geometry = read('src/components/media/videoRegionGeometry.js');
   assert.match(geometry, /export function fitRegionBox/);
-  assert.match(PICKER, /import \{ fitRegionBox \} from '\.\/videoRegionGeometry\.js'/,
+  /* 2026-10-04：导入里多了两个常量（画布内嵌那一格要按节点尺寸 fit，得能取到默认上限），
+     所以这里只认「确实从那个模块引入了 fitRegionBox」，不认整条 import 语句的原文。 */
+  assert.match(PICKER, /import \{[^}]*\bfitRegionBox\b[^}]*\} from '\.\/videoRegionGeometry\.js'/,
     '组件必须真的用那个纯函数算框');
   /* 1080×1920 必须 fit 出**保持原始比例的竖框**，而不是被夹成横带。
      真正的判据是「框的比例 == 视频的比例」—— 只要比例对了，

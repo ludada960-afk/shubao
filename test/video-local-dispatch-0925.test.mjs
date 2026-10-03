@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { billableQuantity, FEATURE_SKUS, quoteFeature } from '../server/billing/catalog.mjs';
+import { billableProviderCost, billableQuantity, FEATURE_SKUS, quoteFeature, videoMarginGateReport } from '../server/billing/catalog.mjs';
 import { localVideoProducts, publicVideoProducts, getVideoProduct } from '../server/videoCatalog.mjs';
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
 import { ffmpegAvailable, resetFfmpegProbe } from '../server/videoLocalAdapter.mjs';
@@ -119,7 +119,11 @@ test('① 本地方案的产品都声明了 localEngine，且**不进**模型清
   const upscale = locals.find(product => product.id === UPSCALE);
   const desub = locals.find(product => product.id === DESUBTITLE);
   assert.equal(upscale.billingQuantity, 'clip', '视频高清按条：0.50 积分/条');
-  assert.equal(desub.billingQuantity, 'seconds', '去字幕按秒：0.04 积分/秒');
+  /* 2026-10-04：去字幕从「按秒」改成「**按次**」（用户原话「这里应该固定一个费用呀…」）。
+     本机 ffmpeg delogo 的成本是 ¥0，所以固定价不花钱；改成按次之后
+     `billingQuantity` 必然是 'clip' —— 留着 'seconds' 就等于"数量还按秒算"，
+     那正是"界面写 1 积分、实际按 12 秒扣"那类事故。 */
+  assert.equal(desub.billingQuantity, 'clip', '去字幕按次：1 积分/次（成本 0，无随时长浮动）');
   assert.deepEqual(upscale.resolutions, ['720p', '1080p', '2k'], '照知渔那一页的三档输出分辨率');
   assert.deepEqual(desub.resolutions, [], '去字幕不改分辨率 ⇒ 没有这一格');
   assert.equal(upscale.localSpec.regions, false);
@@ -128,18 +132,57 @@ test('① 本地方案的产品都声明了 localEngine，且**不进**模型清
 
 test('② 计费数量唯一事实源：按条恒为 1，按秒 = 秒数（向上取整）', () => {
   assert.equal(billableQuantity({ sku: 'video_upscale_local_short', seconds: 12 }), 1);
-  assert.equal(billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 12 }), 12);
-  assert.equal(billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 12.4 }), 13, '不足一秒按一秒算');
-  assert.equal(billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 0.4 }), 1);
+  /* 2026-10-04：去字幕摘掉了 perSecond（成本 ¥0 ⇒ 敢平价），所以数量恒为 1，与时长无关。
+     ⚠️ 这正是用户要的「固定的费用」：10 秒与 300 秒都是 1 积分/次。 */
+  assert.equal(billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 12 }), 1,
+    '按次：数量与时长无关');
+  assert.equal(billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 300 }), 1,
+    '300 秒的片子也是 1 积分/次');
+  /* 2026-10-04：去字幕摘掉 perSecond 之后，`seconds: 0` **不再**是错误 —— 按次的档根本不看时长
+     （数量恒为 1）。时长校验在建单那一步（localVideoPlan）做，不是计费函数的事。
+     仍然要求"正数时长"的只剩**按秒**的那些 SKU。 */
+  assert.equal(billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 0 }), 1);
+  assert.throws(() => billableQuantity({ sku: 'video_lipsync_volc_short', seconds: 0 }), /positive duration/);
+  assert.throws(() => billableQuantity({ sku: 'nope', seconds: 5 }), /Unknown feature SKU/);
+  assert.equal(quoteFeature('video_desubtitle_local_short', 1).totalUnits, 1000, '1 积分/次');
   /* 既有的上游 SKU 行为逐值不变（数量恒为 1） */
   for (const sku of ['video_seedance_standard_short', 'video_seedance_fast_long', 'video_minimax_h3_2k_short']) {
     assert.equal(billableQuantity({ sku, seconds: 15 }), 1, sku + ' 是按条 SKU');
   }
-  assert.throws(() => billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 0 }), /positive duration/);
-  assert.throws(() => billableQuantity({ sku: 'nope', seconds: 5 }), /Unknown feature SKU/);
-  /* 10 秒的片子 = 400 units = 0.4 积分（用户批准的 0.04 积分/秒，见 catalog 批注） */
-  const ten = quoteFeature('video_desubtitle_local_short', billableQuantity({ sku: 'video_desubtitle_local_short', seconds: 10 }));
-  assert.equal(ten.totalUnits, 400);
+  /* ⚠️ **按秒档**（数字人 0.12 积分/秒）逐值不变 —— 那一档成本真的随秒数涨，不许跟着改 */
+  assert.equal(billableQuantity({ sku: 'video_lipsync_volc_short', seconds: 12 }), 12);
+  assert.equal(billableQuantity({ sku: 'video_lipsync_volc_short', seconds: 12.4 }), 13, '不足一秒按一秒算');
+});
+
+/* ═══ 2026-10-04：智能擦除（火山）是「**平价 + 时长封顶**」，不是无脑平价 ═══════════════════════
+   用户要的是「不管框哪里、不管是不是自动，都应该是��个固定的费用」；
+   但火山的成本是 ¥0.4/分钟、目录允许到 300 秒 —— 无脑平价 = 每卖一条 300 秒的单亏 ¥1.5。
+   ⇒ 封顶之内一个固定价，超出按秒。这一条守的就是那个封顶，以及它两侧的数值。 */
+test('② 之二 智能擦除：封顶内固定价，超出按秒；成本永远按真实秒数记账', () => {
+  const sku = 'video_desubtitle_volc_short';
+  const cap = FEATURE_SKUS[sku].flatMaxSeconds;
+  assert.ok(cap > 0, '平价档必须声明 flatMaxSeconds');
+  assert.equal(billableQuantity({ sku, seconds: cap }), 1, '封顶之内：一次调用 = 数量 1');
+  assert.equal(quoteFeature(sku, 1).totalUnits, FEATURE_SKUS[sku].flatUnits, '封顶之内显示固定价');
+  assert.equal(billableQuantity({ sku, seconds: cap + 1 }), cap + 1, '超出封顶：落回按秒');
+  assert.equal(quoteFeature(sku, cap + 1).units, FEATURE_SKUS[sku].units, '超出封顶：按每��单价');
+
+  /* ⚠️ 最要紧的一条：**卖多少**与**花多少**是两个数。平价档（数量=1）也必须按真实秒数记成本，
+     否则一条 60 秒的单会只记 ¥0.0067 而不是 ¥0.40 —— 账面凭空多出 98% 的利润。 */
+  assert.equal(billableProviderCost({ sku, quantity: 1, seconds: cap }), 0.4,
+    '平价档的成本按真实秒数记（火山 0.4 元/分钟 × 1 分钟）');
+  assert.equal(billableProviderCost({ sku, quantity: 1, seconds: cap }), quoteFeature(sku, 1).providerCostCny * cap);
+  /* 本机那档成本是 0，任何时长都是 0 */
+  assert.equal(billableProviderCost({ sku: 'video_desubtitle_local_short', quantity: 1, seconds: 300 }), 0);
+});
+
+test('② 之三 封顶之内的那一单，毛利仍过得了地板（启动期门禁看得见的同一列）', () => {
+  const row = videoMarginGateReport().find(item => item.sku === 'video_desubtitle_volc_short');
+  assert.ok(row, '这一档必须在门禁报表里');
+  assert.equal(row.flatMaxSeconds, FEATURE_SKUS.video_desubtitle_volc_short.flatMaxSeconds);
+  assert.ok(row.flatMargin >= row.floor,
+    `封顶档毛利 ${(row.flatMargin * 100).toFixed(1)}% 跌破 ${row.bandLabel} 地板 ${(row.floor * 100).toFixed(0)}%`);
+  assert.equal(row.status, 'ok');
 });
 
 test('③ 建单校验：缺时长 / 缺分辨率 / 缺区域一律 400，且一条 job 都不落库', async t => {
@@ -205,7 +248,7 @@ test('④ 本地方案**不需要**提示词与拍摄方案（那是上游生成
   assert.equal(created.job.aspectRatio, '', '本地方案不改比例：不冒充一个它没用过的比例');
 });
 
-test('⑤ 按秒计费的 hold 数量 = 秒数（0.04 积分/秒 × 12 秒 = 480 units）', async t => {
+test('⑤ 冻结额 = 目录里那条 SKU 的面值（2026-10-04：去字幕已改**按次** 1 积分）', async t => {
   const { service, holds } = harness(t);
   const ownerEmail = 'owner@example.com';
   const video = await service.uploadAsset({ ownerEmail, kind: 'video', contentType: 'video/mp4', buffer: Buffer.from('video-bytes') });
@@ -222,7 +265,11 @@ test('⑤ 按秒计费的 hold 数量 = 秒数（0.04 积分/秒 × 12 秒 = 480
   });
   assert.equal(holds.length, 1);
   assert.equal(holds[0].items[0].sku, 'video_desubtitle_local_long');
-  assert.equal(holds[0].items[0].units, 480, '12 秒 × 40 units/秒');
+  /* ⚠️ 用户要的是「固定的费用」：12 秒和 300 秒都是 1000 units。
+     原来这里是 480（12 秒 × 40 units/秒）—— 界面上那个"预计"会随片子长短变，
+     用户点之前不知道要花多少。 */
+  assert.equal(holds[0].items[0].units, 1000, '按次：与时长无关，1 积分');
+  assert.equal(holds[0].items[0].units, FEATURE_SKUS.video_desubtitle_local_long.units);
   /* 按条那一档：数量恒为 1（0.50 积分/条，与时长无关） */
   await service.createJob({
     ownerEmail,
@@ -306,8 +353,21 @@ test('⑧ 前端/服务端的计费数量规则**逐值一致**（漂移了就�
      两份必须同源同值 —— 这个门禁就是它们的"同源"证明（跨层，单看一边看不出来）。 */
   const { localBillableQuantity, localQuoteFor, localJobPoints } = await import('../src/pages/VideoStudio/videoStudioModel.js');
   const clip = { billingQuantity: 'clip', quotes: { short: { sku: 'video_upscale_local_short', units: 500 }, long: { sku: 'video_upscale_local_long', units: 500 } } };
-  const perSecond = { billingQuantity: 'seconds', quotes: { short: { sku: 'video_desubtitle_local_short', units: 40 }, long: { sku: 'video_desubtitle_local_long', units: 40 } } };
-  for (const seconds of [1, 5, 8, 9, 12, 12.4, 30, 60.01]) {
+  /* ⚠️ 2026-10-04：「按秒」这一档的样本换成**数字人**（video_lipsync_volc_*，0.12 积分/秒）。
+     原来拿去字幕当样本，是因为它是当时唯一的按秒档；它已经改成按次了 ——
+     继续拿它当按秒样本，这条门禁就会变成"验一条已经不存在的产品"。 */
+  const perSecond = { billingQuantity: 'seconds', quotes: { short: { sku: 'video_lipsync_volc_short', units: 120 }, long: { sku: 'video_lipsync_volc_long', units: 120 } } };
+  /* 平价 + 封顶那一档（智能去字幕）也要一样逐值对齐 */
+  const flat = {
+    billingQuantity: 'seconds',
+    flatMaxSeconds: FEATURE_SKUS.video_desubtitle_volc_short.flatMaxSeconds,
+    quotes: {
+      short: { sku: 'video_desubtitle_volc_short', units: FEATURE_SKUS.video_desubtitle_volc_short.units, flatUnits: FEATURE_SKUS.video_desubtitle_volc_short.flatUnits, flatMaxSeconds: FEATURE_SKUS.video_desubtitle_volc_short.flatMaxSeconds },
+      long: { sku: 'video_desubtitle_volc_long', units: FEATURE_SKUS.video_desubtitle_volc_long.units, flatUnits: FEATURE_SKUS.video_desubtitle_volc_long.flatUnits, flatMaxSeconds: FEATURE_SKUS.video_desubtitle_volc_long.flatMaxSeconds },
+    },
+  };
+  const secondsSamples = [1, 5, 8, 9, 12, 12.4, 30, 59.9, 60, 60.01, 120, 300];
+  for (const seconds of secondsSamples) {
     assert.equal(
       localBillableQuantity(clip, seconds),
       billableQuantity({ sku: 'video_upscale_local_short', seconds }),
@@ -315,19 +375,34 @@ test('⑧ 前端/服务端的计费数量规则**逐值一致**（漂移了就�
     );
     assert.equal(
       localBillableQuantity(perSecond, seconds),
-      billableQuantity({ sku: 'video_desubtitle_local_short', seconds }),
+      billableQuantity({ sku: 'video_lipsync_volc_short', seconds }),
       '按秒那一档的数量必须与 billableQuantity 一致（seconds=' + seconds + '）',
+    );
+    assert.equal(
+      localBillableQuantity(flat, seconds),
+      billableQuantity({ sku: 'video_desubtitle_volc_short', seconds }),
+      '平价档的数量必须与 billableQuantity 一致（seconds=' + seconds + '）',
     );
   }
   /* 报价合同也对着目录比：units × 数量 = totalUnits，且积分算法与界面一致（向上取整到整数积分） */
   const ten = localQuoteFor(perSecond, 10);
-  const tenServer = quoteFeature('video_desubtitle_local_long', billableQuantity({ sku: 'video_desubtitle_local_long', seconds: 10 }));
+  const tenServer = quoteFeature('video_lipsync_volc_long', billableQuantity({ sku: 'video_lipsync_volc_long', seconds: 10 }));
   assert.equal(ten.sku, tenServer.sku);
-  assert.equal(ten.totalUnits, tenServer.totalUnits, '10 秒 = 400 units（0.4 积分）');
-  assert.equal(localJobPoints(perSecond, 10), 1, '界面按整数积分显示：0.4 → 1（与 estimatedPoints 同一口径）');
+  assert.equal(ten.totalUnits, tenServer.totalUnits, '10 秒 = 1200 units（1.2 积分）');
+  assert.equal(localJobPoints(perSecond, 10), 2, '界面按整数积分显示：1.2 → 2（与 estimatedPoints 同一口径）');
   const clipQuote = localQuoteFor(clip, 30);
   assert.equal(clipQuote.totalUnits, 500, '按条那一档与时长无关');
   assert.equal(localJobPoints(clip, 30), 1, '0.50 积分 → 1');
+  /* 平价档：封顶之内是**同一个数**，与时长无关（用户要的就是这个） */
+  const flatInside = localQuoteFor(flat, 45);
+  const flatInsideServer = quoteFeature('video_desubtitle_volc_long', billableQuantity({ sku: 'video_desubtitle_volc_long', seconds: 45 }));
+  assert.equal(flatInside.totalUnits, flatInsideServer.totalUnits);
+  assert.equal(localQuoteFor(flat, 12).totalUnits, flatInside.totalUnits, '12 秒与 45 秒同一个价');
+  assert.equal(localJobPoints(flat, 12), localJobPoints(flat, 45));
+  /* 超出封顶：落回按秒，两边仍逐值相等 */
+  const flatOutside = localQuoteFor(flat, 90);
+  const flatOutsideServer = quoteFeature('video_desubtitle_volc_long', billableQuantity({ sku: 'video_desubtitle_volc_long', seconds: 90 }));
+  assert.equal(flatOutside.totalUnits, flatOutsideServer.totalUnits, '超出封顶：按秒，两边仍一致');
   /* 时长读不出来（0 / 负数 / 非数）时不许报出一个假的价：宁可返回 0，让按钮保持禁用 */
   for (const bad of [0, -3, Number.NaN, undefined, 'abc']) {
     assert.equal(localQuoteFor(perSecond, bad), null, '读不到时长就不报价：' + String(bad));

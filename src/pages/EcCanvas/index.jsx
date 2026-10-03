@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
-  ScanText, Upload, Type, Video, Wand2, WandSparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Minimize2, Music, Pencil, Pin, Play, Plus, Ratio, Redo2, RefreshCw, RotateCcw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
+  ScanText, Undo2, Upload, Type, Video, Wand2, WandSparkles, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -157,7 +157,7 @@ import { analyzeVideoPlan, createVideoJob, fetchVideoCapabilities, getVideoJob, 
 import { inspectVideoPlanningFiles } from '../VideoStudio/videoAssetAnalysis.js';
 /* 2026-10-02：视频「智能去字幕」的框选控件 —— 复用 VideoStudio 那一页**同一个**组件，算法一行没改。 */
 import VideoRegionPicker from '../../components/media/VideoRegionPicker.jsx';
-import { resolveVideoApiMode, hasRequiredVideoInputs, snapVideoDuration } from '../VideoStudio/videoStudioModel.js';
+import { resolveVideoApiMode, hasRequiredVideoInputs, snapVideoDuration, localQuoteFor } from '../VideoStudio/videoStudioModel.js';
 import VideoProjectDeliveryDialog from '../VideoStudio/VideoProjectDeliveryDialog.jsx';
 import { DELIVERY_SOURCE_SURFACES, deliverableRefsFromNodes } from '../VideoStudio/videoDeliveryModel.js';
 /* 4c183cd4 续命 P-G 画布 1-click chain 客户端 (用户 8-29 硬性反馈 3): 下面 3 智能按钮走 chainService
@@ -841,8 +841,17 @@ export default function EcCanvas() {
      激活时节点下方出现那条操作条（交互稿里的 ✕ / 价格 / 提交）。 */
   const [subtitleErase, setSubtitleErase] = useState(null);
   const [subtitleModeAnchor, setSubtitleModeAnchor] = useState(null);
-  /* 正在框选字幕区域的目标视频节点（null = 未进入框选）。**必须 portal 出画布渲染**。 */
+  /* ═══ 2026-10-04：框选**就在画布上做**（用户原话：「框选擦除为什么会是一个弹窗的情况呀…
+       …他们是在画布上面进行的操作呀」）。原���这里是一个 portal 到 body 的全屏遮罩弹窗。
+     ⇒ 现在它是一个**贴在视频节点上的覆盖层**：节点在哪儿就在哪儿框，不用跳到另一个界面。
+     ⚠️ 因此 VideoRegionPicker 的坐标换算改成了「量 DOM」（见该组件 pointerPosition 注释）：
+        画布 stage 带 transform: scale(viewport.scale)，写死 1.8 那个比例会整体偏一个缩放比。
+     ⚠️ 「完成框选」那颗按钮**删掉**了（用户：「完成宽选之后呢是直接就开始处理了吗？」——
+        不会）。框完直接在下面那条操作条点「提交」，中间不留一个含义不明的按钮。 */
   const [subtitlePickNodeId, setSubtitlePickNodeId] = useState(null);
+  /* 覆盖层要驱动框选器内部的控件（撤销/重做/重置/删除/放大）—— 拿的是**同一份历史**，
+     所以底部操作条和画面上的框永远一致（见 VideoRegionPicker 的 useImperativeHandle）。 */
+  const subtitlePickerRef = useRef(null);
   useEffect(() => {
     let cancelled = false;
     fetchVideoCapabilities().then(data => {
@@ -4529,15 +4538,21 @@ const handlePointerUp = useCallback((e) => {
    两档拿不到时都要给出**人话原因**，而不是一只不会亮的按钮。 */
 function resolveEraseProduct(mode, { localProducts = [], products = [], autoCapability = null } = {}) {
   if (!mode) return null;
+  /* `quote` 是这一档在服务端 capabilities 里的**报价对象**（`billingQuantity` +
+     `quotes.short/long` + 平价档的 `flatUnits/flatMaxSeconds`）。
+     界面上的「预计 N 积分」必须由它算（`localQuoteFor`），不许另写一份单价 ——
+     那正是 catalog.mjs 注释里点名的"看着 0.5、扣的是 0.04"那类事故。 */
   if (mode.id === 'auto') {
     if (!autoCapability) return null;
     return {
       id: mode.productId,
       sku: autoCapability.quotes?.short?.sku || '',
       modes: autoCapability.modes || ['auto'],
+      quote: autoCapability,
     };
   }
-  return [...localProducts, ...products].find(item => item?.id === mode.productId) || null;
+  const found = [...localProducts, ...products].find(item => item?.id === mode.productId);
+  return found ? { ...found, sku: found.quotes?.short?.sku || found.sku || '', quote: found } : null;
 }
 
 const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
@@ -9274,6 +9289,55 @@ const handleCanvasVideoUpload = async event => {
                 />
               </div>;
             })}
+            {/* ═══ 2026-10-04 框选擦除：**直接在画布上框**（用户原话：「框选擦除为什么会是一个
+                弹窗的情况呀…他们是在画布上面进行的操作呀」）══════════════════════════════════════
+                原先是 createPortal 到 body 的全屏遮罩弹窗 + 一对「取消 / 完成框选」按钮。
+                用户点了框选之后画面整个跳走，框完还要再点一次那个语义不明的「完成框选」。
+                ⇒ 现在这一层**就贴在那个视频节点上**：节点在哪儿就在哪儿框。
+
+                为什么**必须**渲染在 stage 里面而不是继续 portal 出去：
+                框选要的是「视频上那一块矩形」，矩形属于这条素材；弹到 body 上就变成
+                "另一个界面里的另一条片子"，用户得重新对位（用户报的就是这个）。
+                代价是坐标换算要吃进 stage 的 scale —— VideoRegionPicker 现在从 DOM 量出
+                这个比例（rect.width ÷ 布局宽），不再写死 1.8。
+
+                高度只盖**媒体本体**（node.h），不盖 footer：footer 上有模型名和操作，
+                盖住它用户在框选途中就没法换节点了。 */}
+            {/* ⚠️ 目标节点从 `nodeById` 取，**不许** `nodes.find(...)` ——
+               这个 IIFE 就写在节点渲染循环的源码区间里，而那条门禁
+               （canvas-viewport-culling）守的是"渲染循环里一次 O(n) 查找都不许有"：
+               2000 个节点时每帧 8.2ms，肉眼可见地卡。`nodeById` 是已经建好的 Map，O(1)。 */}
+            {!focusedEditor && subtitlePickNodeId && (() => {
+              const target = nodeById.get(subtitlePickNodeId);
+              if (!target?.url) return null;
+              const boxMode = SUBTITLE_ERASE_MODES.find(mode => mode.id === 'box');
+              return <div
+                className="ec-canvas-erase-overlay"
+                data-video-subtitle-picker="true"
+                /* `data-canvas-control` = 画布总 handler 的「这块是我的，别抢」通行牌。
+                   少了它：在视频上按下鼠标 = 画布空白 ⇒ 同时触发 marquee 框选
+                   （`getCanvasPointerIntent` 对 select + 左键 + 非交互元素返回 'marquee'）
+                   和「点空白收起浮层」，于是用户框字幕框到一半，底下多出一个蓝色选框、
+                   刚打开的擦除条还被收起。 */
+                data-canvas-control="true"
+                role="group"
+                aria-label="在视频上框选要擦除的区域"
+                style={{ left: target.x, top: target.y, width: target.w, height: Math.max(1, target.h) }}
+              >
+                <VideoRegionPicker
+                  ref={subtitlePickerRef}
+                  chrome={false}
+                  videoUrl={target.url}
+                  regions={target.subtitleRegions || []}
+                  maxRegions={boxMode?.maxRegions || 5}
+                  /* 显示框上限 = 节点媒体盒：框选坐标系有多大，仍由 fitRegionBox 一处决定。 */
+                  maxBoxWidth={Math.max(1, target.w)}
+                  maxBoxHeight={Math.max(1, target.h)}
+                  onChange={(next) => setNodes(previous => previous.map(node => (
+                    node.id === target.id ? { ...node, subtitleRegions: next } : node)))}
+                />
+              </div>;
+            })()}
             {/* 9-16 用户批注（图15~19）：打组 = 一个**组容器**（虚线 + 四角留白 + 四周呼吸感，
                 组框样式与普通选中明确不同）；绑定元素 = 只是「一起移动」的关联（另一种细框）。
                 组内节点不再显示左右加号（见 CanvasGenerationNode / CanvasMediaNode 的 canDerive）。 */}
@@ -10160,43 +10224,8 @@ const handleCanvasVideoUpload = async event => {
         </div>
       )}
 
-      {/* ═══ 2026-10-02 视频「智能去字幕」：框选字幕区域 ═══════════════════════════════
-          ⚠️ **必须 portal 到 body** —— 见 handleToolAction 里 'smart-subtitle-erase' 那段：
-          VideoRegionPicker 用未缩放的 offsetWidth 配 rect/自身放大 换算源视频像素，
-          画布 stage 的 transform: scale 会插进来导致框选区域整体偏移。 */}
-      {subtitlePickNodeId && typeof document !== 'undefined' && createPortal((() => {
-        const target = nodes.find(item => item.id === subtitlePickNodeId);
-        if (!target?.url) return null;
-        return <div
-          data-video-subtitle-picker="true"
-          /* 点空白关闭属于**容器级辅助行为**：真控件是下面「取消 / 开始擦除」两个 button，
-             这个 backdrop 自己不该可聚焦。role="presentation" 同时满足语义与
-             no-clickable-div 门禁（它明确放行显式非交互容器角色）。 */
-          role="presentation"
-          style={{ position: 'fixed', inset: 0, zIndex: CANVAS_Z.modal, display: 'grid', placeItems: 'center',
-                   background: 'rgba(12,10,9,0.72)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setSubtitlePickNodeId(null)}
-        >
-          <div onClick={event => event.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '92vh', overflow: 'auto' }}>
-            <VideoRegionPicker
-              videoUrl={target.url}
-              regions={target.subtitleRegions || []}
-              maxRegions={SUBTITLE_ERASE_MODES.find(m => m.id === 'box')?.maxRegions || 5}
-              hint={target.name || ''}
-              onChange={(next) => setNodes(previous => previous.map(node => (
-                node.id === target.id ? { ...node, subtitleRegions: next } : node)))}
-            />
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '10px 12px 0' }}>
-              <button type="button" onClick={() => { setSubtitlePickNodeId(null); setSubtitleErase(null); }}>取消</button>
-              <button
-                type="button"
-                disabled={!(target.subtitleRegions || []).length}
-                onClick={() => { setSubtitlePickNodeId(null); void runVideoDesubtitle(target, 'box'); }}
-              >完成框选</button>
-            </div>
-          </div>
-        </div>;
-      })(), document.body)}
+      {/* 框选覆盖层在**画布 stage 内**渲染（见 stage 里 `.ec-canvas-erase-overlay` 那一处），
+          旧的全屏 portal 弹窗整块删掉了 —— 用户要的是"在画布上框"，不是跳到另一个界面。 */}
 
       {typeof document !== 'undefined' && createPortal((() => {
         if (!subtitleModeAnchor?.triggerEl) return null;
@@ -10252,7 +10281,7 @@ const handleCanvasVideoUpload = async event => {
         </div>;
       })(), document.body)}
 
-      {subtitleErase && !subtitlePickNodeId && typeof document !== 'undefined' && createPortal((() => {
+      {subtitleErase && typeof document !== 'undefined' && createPortal((() => {
         const target = nodes.find(item => item.id === subtitleErase.nodeId);
         const nodeEl = containerRef.current?.querySelector(`[data-canvas-node-id="${subtitleErase.nodeId}"]`);
         if (!target || !nodeEl) return null;
@@ -10263,9 +10292,22 @@ const handleCanvasVideoUpload = async event => {
           products: videoProducts,
           autoCapability: subtitleAutoCapability,
         });
-        const points = mode?.priceFeature ? formatCanvasActionPrice(mode.priceFeature) : '—';
-        /* 交互稿里这条操作条是**贴在视频节点下方**的，不是一条屏幕底栏 ——
-           它属于这个节点的操作，不是全局状态。 */
+        /* ═══ 价格（2026-10-04）═══ 用户要的是「**固定**的一个费用」，不是随片子长短的浮动数。
+           目录里那一档的报价对象（localProducts / subtitleAutoCapability）带着
+           `quotes.short|units` 与 `quotes.*.flatUnits + flatMaxSeconds`，
+           `localQuoteFor` 按它算出**这一条视频**真正要付多少 —— 与建 hold 用的是同一套规则
+           （billableQuantity），两边不一致就是 409「费用确认不一致」，所以这里**必须**用同一份。
+           拿不到报价时退回注册表里的静态文案（那也是目录的镜像），绝不自己编一个数。 */
+        const seconds = Math.max(1, Math.ceil(Number(target.duration) || 0));
+        const liveQuote = product?.quote ? localQuoteFor(product.quote, seconds) : null;
+        const points = liveQuote
+          ? `${liveQuote.points ?? Math.ceil(liveQuote.totalUnits / 1000)} 积分`
+          : (mode?.priceFeature ? formatCanvasActionPrice(mode.priceFeature) : '—');
+        /* 框选档是在画布上直接框的 ⇒ 操作条全程都在（原来框选时它被 `!subtitlePickNodeId`
+           挡掉了，用户框完要另外点一次「完成框选」才看得到价格）。
+           交互稿那一行：✕ 名称 ? 放大 ↺ ↻ ⟳ 🗑 N/上限 · 预计 · 提交 */
+        const regionCount = (target.subtitleRegions || []).length;
+        const picker = subtitlePickerRef.current;
         return <div
           className="ec-canvas-erase-bar"
           role="group"
@@ -10281,18 +10323,49 @@ const handleCanvasVideoUpload = async event => {
             background: '#fff', boxShadow: '0 10px 30px rgba(15,23,42,.18)',
           }}
         >
-          <button type="button" aria-label="取消擦除" title="取消" onClick={() => setSubtitleErase(null)}><X size={15} /></button>
+          <button type="button" aria-label="取消擦除" title="取消" onClick={() => { setSubtitlePickNodeId(null); setSubtitleErase(null); }}><X size={15} /></button>
           <strong>{mode?.label}</strong>
-          {mode?.needsRegions && (
-            <span className="ec-canvas-erase-bar-count">
-              {(target.subtitleRegions || []).length}/{mode.maxRegions}
-            </span>
-          )}
+          {mode?.needsRegions && (<>
+            <button
+              type="button"
+              className="ec-canvas-erase-bar-help"
+              aria-label="怎么框"
+              title={mode.hint}
+              onClick={() => showToast(mode.hint, 'info')}
+            >?</button>
+            {/* 控件调的是框选器**内部那一份历史**（undo/redo/reset/removeLast），
+                不是另抄一份 —— 见 VideoRegionPicker 的 useImperativeHandle。 */}
+            <button
+              type="button"
+              className="ec-canvas-erase-bar-icon"
+              aria-label="放大视频"
+              title={picker?.zoomed ? '退出放大' : '放大视频'}
+              aria-pressed={picker?.zoomed ? 'true' : 'false'}
+              onClick={() => picker?.toggleZoom?.()}
+            >{picker?.zoomed ? <Minimize2 size={15} /> : <Maximize2 size={15} />}</button>
+            <button
+              type="button" className="ec-canvas-erase-bar-icon" aria-label="撤销上一次框选" title="撤销"
+              disabled={!picker?.canUndo} onClick={() => picker?.undo?.()}
+            ><Undo2 size={15} /></button>
+            <button
+              type="button" className="ec-canvas-erase-bar-icon" aria-label="重做" title="重做"
+              disabled={!picker?.canRedo} onClick={() => picker?.redo?.()}
+            ><Redo2 size={15} /></button>
+            <button
+              type="button" className="ec-canvas-erase-bar-icon" aria-label="清空全部框选" title="重置"
+              disabled={!regionCount} onClick={() => picker?.reset?.()}
+            ><RotateCcw size={15} /></button>
+            <button
+              type="button" className="ec-canvas-erase-bar-icon" aria-label="删除最后一个框" title="删除"
+              disabled={!regionCount} onClick={() => picker?.removeLast?.()}
+            ><Trash2 size={15} /></button>
+            <span className="ec-canvas-erase-bar-count">{regionCount}/{mode.maxRegions}</span>
+          </>)}
           <span className="ec-canvas-erase-bar-price">预计 {points}</span>
           <button
             type="button"
             className="ec-canvas-erase-bar-submit"
-            disabled={!product || (mode?.needsRegions && !(target.subtitleRegions || []).length)}
+            disabled={!product || (mode?.needsRegions && !regionCount)}
             onClick={() => void runVideoDesubtitle(target, subtitleErase.mode)}
           >提交</button>
         </div>;

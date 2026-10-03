@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { FEATURE_SKUS, billableProviderCost } from '../server/billing/catalog.mjs';
+import { FEATURE_SKUS, billableProviderCost, billableQuantity } from '../server/billing/catalog.mjs';
 import { getVideoProduct, routeReachability } from '../server/videoCatalog.mjs';
 import { createVideoGeneration } from '../server/videoGeneration.mjs';
 
@@ -177,7 +177,17 @@ test('② 建单契约：源视频 + 时长（无提示词/比例/方案闸门�
   assert.equal(created.job.duration, 6);
   assert.equal(created.job.aspectRatio, '', '不改比例 ⇒ 不冒充一个没用过的比例');
   assert.equal(holds.length, 1);
-  assert.equal(holds[0].items[0].units, 300, '按秒计费：6 秒 × 50 units = 300 units（0.3 积分）');
+  /* ⚠️ 2026-10-04：这一档改成「**≤60 秒一律平价**」（用户原话「这里应该固定一个费用呀…」）。
+     6 秒落平价 ⇒ 冻结 3000 units（3 积分），而不是 6 × 50 = 300 units。
+     ⇒ 这条断言顺带钉住"用户点之前看到的那个数"：界面上的「预计 3 积分」
+     必须与 hold 冻结的 3000 units 是同一个数。 */
+  assert.equal(holds[0].items[0].units, FEATURE_SKUS.video_desubtitle_volc_short.flatUnits,
+    '6 秒在平价封顶之内 ⇒ 一次调用 = 平价（3 积分）');
+  assert.equal(billableQuantity({ sku: 'video_desubtitle_volc_short', seconds: 6 }), 1,
+    '封顶之内数量恒为 1');
+  /* 而成本必须仍按**真实秒数**记 —— 卖 3 积分不等于只花了 1 秒的钱 */
+  assert.equal(created.job.providerCostCny, FEATURE_SKUS.video_desubtitle_volc_short.providerCostCny * 6,
+    '成本按真实 6 秒记（¥0.4/分钟 × 0.1 分钟），平价只改卖价不改成本');
 });
 
 test('③④⑤ 端到端（假 MediaKit）：上传换 mediakit:// → 提交 → 轮询 → 下载落库 → 结算成本按秒乘', async t => {

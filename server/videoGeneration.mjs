@@ -1735,8 +1735,11 @@ export function createVideoGeneration({
     const expectedQuote = quoteFeature(sku, quantity);
     /* ⚠️ 这一单的**真实上游成本**（批 AR）：按秒的 SKU 的 providerCostCny 记的是"每秒成本"
        （与 units 一样按秒归一，否则启动期的单位毛利门禁会误判），所以入账要乘上份数。
-       按条档 quantity=1 ⇒ 与从前逐值相同（既有档位一个字节没变）。 */
-    const jobProviderCostCny = billableProviderCost({ sku, quantity });
+       按条档 quantity=1 ⇒ 与从前逐值相同（既有档位一个字节没变）。
+       ⚠️ 2026-10-04：**必须把 duration 一起传进去**。平价档（火山自动去字幕 ≤60 秒）
+          的 quantity 是 1，只按 quantity 记会把 60 秒那条单记成 ¥0.0067 而不是 ¥0.40 ——
+          账面凭空多出 98% 的利润。成本按**真实秒数**记，售价按平价，两者本就是两个数。 */
+    const jobProviderCostCny = billableProviderCost({ sku, quantity, seconds: duration });
     const verified = quoteService.verify({ quoteId: clean(billingQuoteId, 5000), ownerEmail, expectedQuote });
     const id = crypto.randomUUID();
     const admission = admitProduct(product.id);
@@ -2059,6 +2062,18 @@ export function createVideoGeneration({
       const autoSkuShort = videoFeatureSku({ productId: subtitleAutoProduct.id, duration: subtitleAutoProduct.durations.min });
       const autoSkuLong = videoFeatureSku({ productId: subtitleAutoProduct.id, duration: Math.max(subtitleAutoProduct.durations.min, Math.min(9, subtitleAutoProduct.durations.max)) });
       const autoQuantityOf = sku => (FEATURE_SKUS[sku]?.perSecond === true ? 'seconds' : 'clip');
+      /* ⚠️ 2026-10-04：与 localVideoProducts 同一件事 —— 平价档（自动去字幕）的封顶
+         必须从目录发下去，页面才敢显示那个"固定的费用"。这里不发，页面就只能写死 60。 */
+      const autoFlatOf = sku => ({
+        flatUnits: Number.isSafeInteger(FEATURE_SKUS[sku]?.flatUnits) ? FEATURE_SKUS[sku].flatUnits : null,
+        flatMaxSeconds: Number.isFinite(FEATURE_SKUS[sku]?.flatMaxSeconds) ? FEATURE_SKUS[sku].flatMaxSeconds : null,
+      });
+      const autoQuoteOf = sku => ({
+        sku,
+        units: quoteFeature(sku, 1).units,
+        points: Math.ceil(quoteFeature(sku, 1).units / 1000),
+        ...autoFlatOf(sku),
+      });
       const subtitleAuto = {
         productId: subtitleAutoProduct.id,
         available: subtitleAutoReady,
@@ -2073,9 +2088,10 @@ export function createVideoGeneration({
         durations: { ...subtitleAutoProduct.durations },
         label: subtitleAutoProduct.label,
         quotes: {
-          short: { sku: autoSkuShort, units: quoteFeature(autoSkuShort, 1).units, points: Math.ceil(quoteFeature(autoSkuShort, 1).units / 1000) },
-          long: { sku: autoSkuLong, units: quoteFeature(autoSkuLong, 1).units, points: Math.ceil(quoteFeature(autoSkuLong, 1).units / 1000) },
+          short: autoQuoteOf(autoSkuShort),
+          long: autoQuoteOf(autoSkuLong),
         },
+        flatMaxSeconds: autoFlatOf(autoSkuShort).flatMaxSeconds,
         reason: subtitleAutoReady
           ? ''
           : (!volcAdapter.enabled

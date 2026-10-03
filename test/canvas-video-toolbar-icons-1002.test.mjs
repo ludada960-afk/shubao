@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { stableActionsForSurface, CANVAS_TOOLBAR_TIERS } from '../src/pages/EcCanvas/canvasActionRegistry.js';
+import { stableActionsForSurface, CANVAS_ACTION_RANK, CANVAS_TOOLBAR_TIERS } from '../src/pages/EcCanvas/canvasActionRegistry.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STUDIO = fs.readFileSync(path.join(ROOT, 'src/pages/EcCanvas/components/CanvasStudio.jsx'), 'utf8');
@@ -66,15 +66,15 @@ test('⑥ 工具栏排序必须有规划：收纳类动作不许占第一位（2
   assert.equal(video.at(-1), 'save-to-assets', '它属于收纳档，应当在产出档之后');
   assert.equal(image.at(-1), 'save-to-assets', '图片侧也必须落在同一档（两侧统一规划）');
 
-  /* 分档必须单调递增：前面的档位序号不许大于后面的 */
-  const rankOf = id => CANVAS_TOOLBAR_TIERS.indexOf(
-    { 'replace-media': 'edit', crop: 'edit', annotation: 'edit', 'move-scale': 'edit', 'edit-text': 'edit' }[id]
-    ?? { 'smart-subtitle-erase': 'ai', 'layer-edit': 'ai', 'remove-background': 'ai', 'reverse-prompt': 'ai', 'grid-split': 'ai' }[id]
-    ?? { 'export-video': 'output', download: 'output', 'preview-media': 'output', 'export-object': 'output' }[id]
-    ?? { 'save-to-assets': 'asset' }[id]
-    ?? { delete: 'danger' }[id]
-    ?? CANVAS_TOOLBAR_TIERS.length,
-  );
+  /* ⚠️ 档位从**注册表**读，不许在本文件里再抄一份：早先这里手写了一张档位映射表，
+     那正是"目录之外还有第二份真相"——注册表改了档，这条门禁还在按旧表验，
+     验的是一个**已经不存在**的东西（真出过：档内次序调整后它默默放行）。 */
+  const rankOf = id => {
+    const tier = String(CANVAS_ACTION_RANK[id] || '').split(':');
+    if (tier.length !== 2) return CANVAS_TOOLBAR_TIERS.length;
+    const index = CANVAS_TOOLBAR_TIERS.indexOf(tier[0]);
+    return index < 0 ? CANVAS_TOOLBAR_TIERS.length : index;
+  };
   for (const ids of [video, image]) {
     const ranks = ids.map(rankOf);
     ranks.forEach((rank, i) => {
@@ -82,6 +82,20 @@ test('⑥ 工具栏排序必须有规划：收纳类动作不许占第一位（2
     });
   }
   assert.ok(CANVAS_TOOLBAR_TIERS.length === 5, '五档（编辑/智能处理/产出/收纳/危险）是这套规划本身');
+
+  /* 2026-10-04：档**内**也必须有规划（用户反复提「图片侧裁剪按钮归位」）。
+     之前只有档位、档内靠数组下标 ⇒ 渲染出来是「编辑文字·移动缩放·图片标注·裁剪」，
+     裁剪排第四 —— 而这条档位自己的注释里写的就是「替换 / 裁剪 / 标注 / 移动缩放 / 编辑文字」。
+     **声明的规划与渲染出来的不一致**：根因是档内根本没有排序，全靠数组下标。 */
+  assert.equal(image[0], 'crop',
+    '图片侧第一颗必须是裁剪（用户原话：图片侧裁剪按钮归位）');
+  assert.equal(CANVAS_ACTION_RANK.crop, 'edit:1', '裁剪在就地编辑档里排第一');
+  /* 档内序号不许重复 —— 重复就等于"没规划"，下次改声明时会把次序悄悄打乱 */
+  const seen = new Map();
+  for (const [id, rank] of Object.entries(CANVAS_ACTION_RANK)) {
+    assert.ok(seen.has(rank) === false, `${id} 与 ${seen.get(rank)} 用了同一个排序位 ${rank}`);
+    seen.set(rank, id);
+  }
 });
 
 test('② 同屏任意两颗按钮不得用同一个图标（三个魔棒就是这么来的）', () => {

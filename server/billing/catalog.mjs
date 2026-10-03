@@ -263,8 +263,19 @@ export const FEATURE_SKUS = freezeCatalog({
        ⇒ 现在这两条是"点得出片子"的档位，可以开卖。价格**一分未动**（0.50 积分/条、0.04 积分/秒）。 */
   video_upscale_local_short: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: true },
   video_upscale_local_long: { units: 500, providerCostCny: 0, localEngine: true, priceFen: 50, marginBand: 'traffic', freeReruns: 0, public: true },
-  video_desubtitle_local_short: { units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: true },
-  video_desubtitle_local_long: { units: 40, providerCostCny: 0, localEngine: true, perSecond: true, priceFen: 4, marginBand: 'traffic', freeReruns: 0, public: true },
+  /* ═══ 2026-10-04：**框选擦除改按次固定价**（用户原话：「这里应该固定一个费用呀，
+     不管他框选哪里…都应该是一个固定的费用才对吧」）════════════════════════════════════════
+     原来这两条是 0.04 积分/**秒**，于是同一件事（把画面里那一行字擦掉）会因为片子长短
+     显示成 0.04 / 1.12 / 12 积分 —— 用户点之前不知道要花多少，界面上那个"预计"还是浮动的。
+
+     ⇒ 改成 **1 积分/次**（1000 units），`perSecond` 摘掉 ⇒ `billableQuantity` 恒为 1。
+     ⚠️ 为什么这一档**敢**直接平价、而下面自动那一档不敢：本机 ffmpeg delogo
+        `providerCostCny` 就是 **0**（没有上游账单），平价不花钱，卖多少都是纯赚。
+        成本随秒数增长的那一档平价就是**每卖一单亏一单** —— 所以那边是"平价 + 时长封顶"，
+        不是无脑平价（见下面那两条的 flatMaxSeconds）。
+     ⚠️ 摘掉 perSecond 是**计价口径变更**：老账单按历史记录里的 units 结算，不回溯重算。 */
+  video_desubtitle_local_short: { units: 1000, providerCostCny: 0, localEngine: true, priceFen: 10, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_desubtitle_local_long: { units: 1000, providerCostCny: 0, localEngine: true, priceFen: 10, marginBand: 'traffic', freeReruns: 0, public: true },
   /* ═══ 2026-09-26 批 AR：**自动标记**（用户批准的价：0.05 积分/秒）══════════════════════════════════
      用户原话：「**自动标记卖多少就按你说的来吧**」（指我算出来的建议档）。
      实现走**火山 AI MediaKit 字幕擦除**（用户拍板「不如就直接接火山API」），上游单价（原文）：
@@ -275,12 +286,20 @@ export const FEATURE_SKUS = freezeCatalog({
         为什么这样归一：启动期的毛利门禁（assertCatalogMarginGates）是**按单位面值**算的，
         若这里记整单成本，按秒的档会被算成巨亏而拒绝启动（而实际并不亏）。
      ⚠️ 与手动档的对比（同一件事的两条路）：
-        手动（本机 delogo）0.04 积分/秒、成本 0；自动（火山标准版）0.05 积分/秒、成本 ¥0.006667/秒
-        ⇒ 毛利 97% vs 46.1%，**自动档不能与手动档同价**（同价只有 33.3%，跌破 40% 地板）。
-        推导与验算在 docs/design/71，门禁 test/media-kit-cost-model-0925 逐值守着。
+        手动（本机 delogo）**1 积分/次**、成本 0；自动（火山标准版）**3 积分/次（≤60 秒）**、
+        成本 ¥0.4/分钟。
+     ⚠️ **自动档是"平价 + 时长封顶"，不是无脑平价**（2026-10-04 用户要求「固定的费用」时加的）：
+        火山按**累计擦除时长**计费，成本随秒数线性涨（¥0.006667/秒），而目录允许到 300 秒
+        —— 无脑平价等于 300 秒那条单要亏 ¥1.5。
+        ⇒ `flatUnits`/`flatMaxSeconds` 是**这一档自己的**平价规则：
+          · ≤ flatMaxSeconds 秒 ⇒ 一律 flatUnits（用户只看到一个数，符合「固定费用」）
+          · 超过 ⇒ 落回按秒（feature.units × 秒数），界面与扣费都按这一口径走。
+        平价档毛利（60 秒面值 ¥0.7854、扣 3% 支付费后 ¥0.7619、成本 ¥0.40）= **46.0%**，
+        过得了引流带 40% 地板 —— 这个数由 `videoMarginGateReport` 的 flatMargin 一列在**启动期**断言，
+        改价或改封顶而跌破地板就会拒绝启动（fail closed）。
      ✅ **2026-09-26 已翻 public**：用户充值 ¥5 后跑通一次真机实测（6 秒片 → completed、扣费约 0.04 元）。 */
-  video_desubtitle_volc_short: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
-  video_desubtitle_volc_long: { units: 50, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_desubtitle_volc_short: { units: 50, flatUnits: 3000, flatMaxSeconds: 60, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
+  video_desubtitle_volc_long: { units: 50, flatUnits: 3000, flatMaxSeconds: 60, providerCostCny: 0.4 / 60, perSecond: true, priceFen: 5, marginBand: 'traffic', freeReruns: 0, public: true },
   /* ═══ 2026-09-26 批 AU：**数字人（火山口型对齐）**的收费项 ═══════════════════════════════════
      上游单价（官方文档原文）：**视频口型对齐 1 元/分钟** ⇒ ¥0.016667/秒（比阿里云 IMS 数字人的
      9.9 元/分钟便宜 10 倍 —— 那条是我们评估后放弃的方案，理由见 docs/design/72）。
@@ -390,7 +409,16 @@ export function quoteFeature(sku, quantity) {
     throw new Error(`Feature ${sku} is not enabled`);
   }
 
-  const totalUnits = feature.units * quantity;
+  /* ⚠️ 2026-10-04：**平价档**（`flatUnits`）在这一处生效，判据只有一条 ——
+     「这一单只调用了一次上游」。按次的东西（图片分档、框选擦除）本来就 quantity=1，
+     没挂 flatUnits 的档（数字人、口型对齐）也 quantity=秒数，`flatUnits` 不存在就按原价走，
+     **既有档位一个字节没变**。
+     为什么不把 flatUnits 塞进 units：那会让 `providerCostCny` 的"每秒单价"被平价面值顶掉，
+     而成本与售价本来就是**两个数**（火山那条 60 秒一单成本 ¥0.40、面值 ¥0.7854）。 */
+  const flatApplies = quantity === 1 && Number.isSafeInteger(feature.flatUnits) && feature.flatUnits > 0;
+  const units = flatApplies ? feature.flatUnits : feature.units;
+
+  const totalUnits = units * quantity;
   if (!Number.isSafeInteger(totalUnits)) {
     throw new RangeError('totalUnits must be a safe integer');
   }
@@ -398,7 +426,7 @@ export function quoteFeature(sku, quantity) {
   return {
     sku,
     quantity,
-    units: feature.units,
+    units,
     totalUnits,
     currency: feature.currency ?? 'ec_points',
     providerCostCny: feature.providerCostCny,
@@ -425,6 +453,11 @@ export function billableQuantity({ sku, seconds } = {}) {
   if (!Number.isFinite(value) || value <= 0) {
     throw new TypeError('per-second SKU requires a positive duration');
   }
+  /* 2026-10-04：平价档（`flatUnits` + `flatMaxSeconds`）。
+     在封顶之内 ⇒ 只调用上游一次 ⇒ 数量 1，与框选那一档的"按次"完全同形
+     （界面于是显示一个固定的数，而不是"单价×秒数"算出来的浮动数）。
+     超过封顶 ⇒ 落回按秒，用户看到界面把封顶写出来，不会出现"看着便宜、扣得贵"。 */
+  if (Number.isFinite(feature.flatMaxSeconds) && value <= feature.flatMaxSeconds) return 1;
   return Math.max(1, Math.ceil(value));
 }
 
@@ -435,12 +468,20 @@ export function billableQuantity({ sku, seconds } = {}) {
    否则按秒档会把"一秒的成本"当成整单成本记，账面上少记成本（而这是钱路，不能少记）。
    ⚠️ 按条档 quantity=1 ⇒ 结果与从前逐值相同（既有档位一个字节没变）。 */
 export function billableProviderCost({ sku, quantity = 1, seconds } = {}) {
-  const count = Number.isSafeInteger(Number(quantity)) && Number(quantity) > 0
-    ? Number(quantity)
-    : billableQuantity({ sku, seconds });
   const feature = FEATURE_SKUS[sku];
   if (!feature) throw new Error(`Unknown feature SKU: ${sku}`);
-  return Number(feature.providerCostCny) * count;
+  const given = Number(quantity);
+  const fallback = () => (Number.isSafeInteger(given) && given > 0 ? given : billableQuantity({ sku, seconds }));
+  /* ⚠️ 2026-10-04：**按秒的 SKU 一律按真实秒数记账**，哪怕这一单走的是 `flatUnits` 平价。
+     上游（火山）照旧按累计擦除时长收我们钱 —— 平价改的只是**卖给用户多少**，
+     不是**上游花了多少**。这里若跟着 quantity(=1) 走，60 秒那条单会只记 ¥0.0067 而不是 ¥0.40，
+     账面上凭空多出 98% 的"利润"，那是**做假账**，不是优化。
+     非平价的按秒档 quantity 本来就等于 ceil(seconds) ⇒ 逐值不变；按条档 quantity=1 ⇒ 也不变。 */
+  if (feature.perSecond === true) {
+    const secondsValue = Number(seconds);
+    if (Number.isFinite(secondsValue) && secondsValue > 0) return Number(feature.providerCostCny) * Math.max(1, Math.ceil(secondsValue));
+  }
+  return Number(feature.providerCostCny) * fallback();
 }
 
 export function assertContributionMargin(item, unitPriceCny) {
@@ -510,9 +551,25 @@ export function videoMarginGateReport() {
       const faceCny = feature.units * anchor;
       const margin = contributionMarginOf(feature, faceCny);
       const band = MARGIN_BANDS[feature.marginBand];
+      /* ═══ 2026-10-04：**平价档另算一列毛利** ═══════════════════════════════════════════════
+         按秒那一列（`units` = 每秒单价）对平价毫无意义 —— 真正会发生的是「一次调用、
+         封顶那么长的片子」。那一单的面值是 `flatUnits × 锚`，成本是
+         `providerCostCny × flatMaxSeconds`，两者的比才是这一档真实的毛利。
+         ⚠️ 以前门禁只看 `units`，于是平价档（自动去字幕）**绕过**了地板检查：
+            改 flatUnits 或改封顶到跌破 40% 也照样启动成功。这一列就是那道补上的门。 */
+      const hasFlat = Number.isSafeInteger(feature.flatUnits) && feature.flatUnits > 0
+        && Number.isFinite(feature.flatMaxSeconds) && feature.flatMaxSeconds > 0;
+      const flatFaceCny = hasFlat ? feature.flatUnits * anchor : null;
+      const flatMargin = hasFlat
+        ? contributionMarginOf(
+          { providerCostCny: feature.providerCostCny * feature.flatMaxSeconds },
+          flatFaceCny,
+        )
+        : null;
       let status = 'ok';
       if (feature.subsidizedTeaser === true) status = 'teaser_subsidy';
       else if (margin < band.floor) status = 'below_band_floor';
+      else if (flatMargin !== null && flatMargin < band.floor) status = 'below_band_floor';
       const freeReruns = feature.freeReruns ?? 0;
       const rerunAdjustedMargin = freeReruns > 0
         ? contributionMarginOf({ providerCostCny: feature.providerCostCny * (freeReruns + 1) }, faceCny)
@@ -525,6 +582,9 @@ export function videoMarginGateReport() {
         plannedCeiling: band.key === 'traffic' ? TRAFFIC_PLANNED_CEILING : null,
         priceFen: Number.isSafeInteger(feature.priceFen) ? feature.priceFen : null,
         faceCny: round(faceCny, 6),
+        flatFaceCny: flatFaceCny === null ? null : round(flatFaceCny, 6),
+        flatMaxSeconds: hasFlat ? feature.flatMaxSeconds : null,
+        flatMargin: flatMargin === null ? null : round(flatMargin, 6),
         providerCostCny: feature.providerCostCny,
         margin: round(margin, 6),
         freeReruns,
@@ -573,9 +633,12 @@ export function assertCatalogMarginGates() {
   const anchor = pointsFaceAnchorCny();
   for (const row of videoMarginGateReport()) {
     if (row.status === 'below_band_floor') {
+      /* 平价档要说清是哪一列跌破 —— 报「按秒单价毛利」会把人引到错的数上。 */
+      const which = row.flatMargin !== null && row.flatMargin < row.floor && row.margin >= row.floor
+        ? `平价档（${row.flatMaxSeconds}s 封顶、面值 ¥${row.flatFaceCny}）毛利 ${(row.flatMargin * 100).toFixed(1)}%`
+        : `毛利 ${(row.margin * 100).toFixed(1)}%`;
       throw new Error(
-        `Contribution margin gate violated for ${row.sku}: ${(row.margin * 100).toFixed(1)}%` +
-        ` is below the ${row.bandLabel} floor of ${(row.floor * 100).toFixed(0)}%`,
+        `Contribution margin gate violated for ${row.sku}: ${which} is below the ${row.bandLabel} floor of ${(row.floor * 100).toFixed(0)}%`,
       );
     }
     if (row.status === 'teaser_subsidy') {

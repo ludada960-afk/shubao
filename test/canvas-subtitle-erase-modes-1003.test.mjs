@@ -49,18 +49,42 @@ test('① 两种擦除方式必须各自声明，且指向两个**不同**的服
 test('② 两档的价格必须**各自登记**，不许共用一条（共用 = 看着便宜、扣得贵）', () => {
   const [auto, box] = SUBTITLE_ERASE_MODES;
   assert.notEqual(auto.priceFeature, box.priceFeature,
-    '自动（0.05/秒，火山）与框选（0.04/秒，本机）不是同一个价');
+    '自动（火山，成本 ¥0.4/分钟）与框选（本机 ffmpeg，成本 0）不是同一个价');
   assert.ok(CANVAS_BILLING_KEYS.includes(auto.priceFeature), '自动那一档必须已登记：' + auto.priceFeature);
   assert.ok(CANVAS_BILLING_KEYS.includes(box.priceFeature), '框选那一档必须已登记：' + box.priceFeature);
-  /* 与服务端 catalog 逐值一致：units 50 / 1000 = 0.05；units 40 / 1000 = 0.04 */
+  /* 2026-10-04：两档都改成**按次固定价**（用户原话「这里应该固定一个费用呀…都应该是一个固定的
+     费用才对吧」）。所以判据从"每��单价"变成"固定价 + 逐值对上服务端目录" ——
+     守的还是同一件事：**界面上的那个数必须与目录里那条 SKU 逐值相同**。 */
   const autoBilling = getCanvasActionBilling(auto.priceFeature);
   const boxBilling = getCanvasActionBilling(box.priceFeature);
-  assert.equal(autoBilling.perSecond, true);
-  assert.equal(boxBilling.perSecond, true);
-  assert.equal(autoBilling.unitsPerSecond, 0.05, '火山档 0.05 积分/秒（catalog units 50）');
-  assert.equal(boxBilling.unitsPerSecond, 0.04, '本机档 0.04 积分/秒（catalog units 40）');
+  assert.notEqual(autoBilling.perSecond, true, '自动档已改按次：界面不该再显示"0.05 积分/秒"');
+  assert.notEqual(boxBilling.perSecond, true, '框选档已改按次：界面不该再显示"0.04 积分/秒"');
+  assert.equal(boxBilling.units, 1, '框选 1 积分/次（catalog video_desubtitle_local_* units 1000）');
+  assert.equal(autoBilling.units, 3, '自动 3 积分/次（catalog video_desubtitle_volc_* flatUnits 3000）');
   assert.ok(autoBilling.skus.some(s => s.includes('volc')), '自动档的 sku 必须是 volc 那一族');
   assert.ok(boxBilling.skus.some(s => s.includes('local')), '框选档的 sku 必须是 local 那一族');
+});
+
+/* ⚠️ 这一条是 2026-10-04 那一改的**根因门禁**：固定价如果两边对不上，用户就会看到
+   「界面写 1 积分、实际扣 3」。前端表是目录的镜像，所以这里逐值比对。 */
+test('② 之二 固定价必须与 server/billing/catalog 的 SKU 逐值相同（镜像不许漂）', () => {
+  const catalog = read('server/billing/catalog.mjs');
+  const pointsOf = sku => Number(new RegExp(`${sku}:\\s*\\{[^}]*?units:\\s*(\\d+)`).exec(catalog)?.[1]) / 1000;
+  const flatOf = sku => Number(new RegExp(`${sku}:\\s*\\{[^}]*?flatUnits:\\s*(\\d+)`).exec(catalog)?.[1]) / 1000;
+  const [auto, box] = SUBTITLE_ERASE_MODES;
+
+  /* 框选：SKU 是纯按条（perSecond 已摘掉），固定价 = units/1000 */
+  assert.equal(getCanvasActionBilling(box.priceFeature).units, pointsOf('video_desubtitle_local_short'));
+  assert.equal(getCanvasActionBilling(box.priceFeature).units, pointsOf('video_desubtitle_local_long'));
+  assert.doesNotMatch(catalog, /video_desubtitle_local_short: \{[^}]*perSecond/,
+    '框选档的成本是 ¥0，摘掉 perSecond 之后才是真正的"按次"');
+
+  /* 自动：SKU 仍是按秒（成本真的随秒数涨），但封顶内走 flatUnits */
+  assert.equal(getCanvasActionBilling(auto.priceFeature).units, flatOf('video_desubtitle_volc_short'));
+  assert.equal(getCanvasActionBilling(auto.priceFeature).units, flatOf('video_desubtitle_volc_long'));
+  /* 平价不是无脑平价：必须有封顶，否则 300 秒那条单要亏钱 */
+  const cap = Number(/video_desubtitle_volc_short: \{[^}]*flatMaxSeconds:\s*(\d+)/.exec(catalog)?.[1]);
+  assert.ok(cap > 0, '平价档必须声明 flatMaxSeconds —— 没有封顶的平价就是每卖一单亏一单');
 });
 
 test('③ 「智能去字幕」是带下拉的入口，点了展开方式而不是直接开框选器', () => {
@@ -123,7 +147,38 @@ test('⑥ 框选那一档要有真撤销/重做 + 上限计数（交互稿那排
   assert.doesNotMatch(PICKER, /slice\(0, 8\)/, '框选上限来自 maxRegions prop，不许再写死');
   assert.match(PICKER, /\{regions\.length\}\/\{maxRegions\}/, '计数要显示 N/上限');
   /* 上限由画布从那一份声明传入 */
-  assert.match(INDEX, /maxRegions=\{SUBTITLE_ERASE_MODES\.find\(m => m\.id === 'box'\)\?\.maxRegions/);
+  assert.match(INDEX, /const boxMode = SUBTITLE_ERASE_MODES\.find\(mode => mode\.id === 'box'\)/);
+  assert.match(INDEX, /maxRegions=\{boxMode\?\.maxRegions/,
+    '上限只能来自 SUBTITLE_ERASE_MODES 那一处声明');
+  /* 2026-10-04：控件**归画布那条操作条**了（用户要的是"在画布上框"），
+     所以历史要通过 ref 交出去 —— 不许复制一份到画布里，
+     否则会出现"框了一格、底下说 0 格"。 */
+  assert.match(PICKER, /useImperativeHandle\(ref/, '历史必须按命令交出去，不能另抄一份');
+  ['undo', 'redo', 'reset', 'removeLast'].forEach(command => {
+    assert.match(PICKER, new RegExp(`${command}[,\\s]`), 'ref 上要有 ' + command);
+  });
+  assert.match(INDEX, /subtitlePickerRef\.current/, '画布那条操作条要拿同一个 ref');
+});
+
+/* ═══ 2026-10-04：框选必须**在画布上**做，不是弹窗 ══════════════════════════════════════════
+   用户原话：「框选擦除为什么会是一个弹窗的情况呀…你没有好好看一下我给你的知鱼的那个截图吗？
+   他们是在画布上面进行的操作呀」「而且你这里的按钮为什么是完成宽选呢？
+   完成宽选之后呢是直接就开始处理了吗？」 */
+test('⑥ 之二 框选直接叠在视频节点上，不再是全屏弹窗，也没有「完成框选」', () => {
+  /* ⚠️ 判"某个东西**不**在了"必须先剥注释：这一批的注释里到处在解释
+     「为什么删掉那颗『完成框选』」，不剥就会把自己的说明当成残留。 */
+  const code = INDEX.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  assert.match(code, /className="ec-canvas-erase-overlay"/, '覆盖层要渲染在画布上');
+  assert.match(code, /left:\s*target\.x,\s*top:\s*target\.y,\s*width:\s*target\.w/,
+    '位置取自**节点矩形** —— 就在这条素材上，不另开一个界面');
+  assert.match(code, /data-canvas-control="true"/,
+    '必须告诉画布总 handler「这块是我的」：否则按下鼠标会同时触发 marquee 框选');
+  assert.doesNotMatch(code, /完成框选/, '那颗按钮删掉了：框完直接点「提交」，中间不留语义不明的按钮');
+  assert.doesNotMatch(code, /video-subtitle-picker[\s\S]{0,400}?createPortal/,
+    '不再有那个 createPortal 的全屏遮罩');
+  /* 坐标换算不能写死放大倍数：画布 stage 自己带 scale */
+  assert.match(PICKER, /rect\.width \/ box\.width/,
+    '显示像素→布局像素的比例要从 DOM 量（否则内嵌进画布会整体偏一个 viewport.scale）');
 });
 
 test('⑦ 操作条贴在视频节点下方，且显示价格与区域计数', () => {

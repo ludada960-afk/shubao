@@ -57,19 +57,40 @@ test('② 上游 ¥/分钟 → 我们该卖多少积分/秒：最低合规价与
   }
 });
 
+/* ⚠️ 2026-10-04：手动档改成**按次固定价**（用户要「固定的费用」），这一条的结论没变，
+     只是"比"的对象变了：
+       · 手动（本机 delogo，成本 ¥0）1 积分/次 ⇒ 无论片子多长都是纯利；
+       · 自动（火山标准版 ¥0.4/分钟）**≤60 秒一律 3 积分/次**，超出才按 0.05 积分/秒。
+     ⇒ 「自动不能与手动同价」现在要验两件更要紧的事：
+       ① 平价档那 3 积分，**按封顶那么长的片子**去比上游成本，仍要过 40% 地板。
+          （只按 1 秒算成本会得出 98% 的假毛利 —— 那正是这条模型最初要防的事，
+            而"perSecond 归一"这种记账口径最容易被平价绕过。）
+       ② 平价档在封顶处的**折合每秒单价**恰好等于原来的按秒单价（3000/60 = 50 units/秒），
+          也就是说这次没让用户变贵，只是不再让那个数随片子长短浮动。 */
 test('③ 自动标记**不能**与手动档同价：这是本模型最重要的一条结论', () => {
-  const manualUnits = FEATURE_SKUS.video_desubtitle_local_short.units;   // 40 units/秒（0.04 积分/秒）
-  const manualFace = manualUnits * anchor;
-  assert.equal(manualUnits, 40, '手动档仍是用户批准的 0.04 积分/秒');
-  const standardMargin = marginOf(manualFace, UPSTREAM_CNY_PER_MINUTE.subtitleEraseStandard / 60);
-  const refinedMargin = marginOf(manualFace, UPSTREAM_CNY_PER_MINUTE.subtitleEraseRefined / 60);
-  assert.ok(standardMargin < FLOOR,
-    `标准版按同价卖毛利 ${(standardMargin * 100).toFixed(1)}% —— 若它涨到地板之上，这份模型就该重算`);
-  assert.ok(refinedMargin < 0, `精细化版按同价卖是亏的（${(refinedMargin * 100).toFixed(1)}%）`);
-  /* 反过来说：手动档（本机）在同价下接近纯利 —— 这正是"能本地就本地"的价格证据 */
-  const localCost = FEATURE_SKUS.video_desubtitle_local_short.providerCostCny;
-  assert.equal(localCost, 0, '本机 delogo 的上游成本必须记 0（localEngine 类别）');
-  assert.ok(marginOf(manualFace, localCost) > 0.95, '手动档毛利应 >95%');
+  const manual = FEATURE_SKUS.video_desubtitle_local_short;
+  const auto = FEATURE_SKUS.video_desubtitle_volc_short;
+  const cap = auto.flatMaxSeconds;
+
+  /* 手动档：成本 0、固定价 ⇒ 纯利，且与时长无关 */
+  assert.equal(manual.providerCostCny, 0, '本机 delogo 的上游成本必须记 0（localEngine 类别）');
+  assert.notEqual(manual.perSecond, true, '手动档已改按次');
+  assert.ok(marginOf(manual.units * anchor, manual.providerCostCny) > 0.95, '手动档毛利应 >95%');
+
+  /* 自动档：平价那一条必须按**封顶时长**的真实成本来算毛利 */
+  const autoFace = auto.flatUnits * anchor;
+  const costAtCap = UPSTREAM_CNY_PER_MINUTE.subtitleEraseStandard / 60 * cap;
+  const autoMargin = marginOf(autoFace, costAtCap);
+  assert.ok(autoMargin >= FLOOR,
+    `封顶 ${cap}s 的平价档毛利 ${(autoMargin * 100).toFixed(1)}% 必须过 ${FLOOR} 地板（成本要按 ${cap} 秒算，不是 1 秒）`);
+  assert.ok(marginOf(autoFace, costAtCap / cap) > 0.95,
+    '只按 1 秒成本算会得到 ~98% 的假毛利 —— 这条门禁就是为了不让那种算法混进来');
+
+  /* 反过来：自动档**必须贵过**手动档（手动是纯利，同价就是白送上游的钱） */
+  assert.ok(auto.flatUnits > manual.units, `自动 ${auto.flatUnits} 必须贵过手动 ${manual.units}`);
+  /* 封顶处的折合每秒单价 = 原来那个按秒单价：这次没让用户变贵，只是不再浮动 */
+  assert.equal(auto.flatUnits / cap, auto.units,
+    `平价在封顶处的折合单价应等于每秒单价（${auto.units} units/秒），否则等于悄悄涨价`);
 });
 
 test('④ 本机路线在价格上完胜上游同类能力（同一条判据的两个例子）', () => {

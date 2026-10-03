@@ -85,8 +85,12 @@ test('④ 两档的产品**本来就不在同一个列表**里 —— 这条要�
 
 test('⑤ 提交按钮禁用时必须说明原因，不许"一只不会亮的按钮"', () => {
   const code = stripComments(INDEX);
-  const bar = code.slice(code.indexOf('ec-canvas-erase-bar'));
-  assert.match(bar.slice(0, 2600), /disabled=\{[^}]*product/, '无产品时禁用（这是对的）');
+  /* ⚠️ 别用「往后数 N 个字符」来截这条操作条：2026-10-04 框选档往里加了
+     放大/撤销/重做/重置/删除五颗按钮，那颗提交按钮被推到了固定窗口之外，
+     于是这条门禁**误报**成"禁用条件没了"。截到下一个独立组件（SkillLibraryModal）为止 ——
+     边界是代码结构，不是字符数，长短都不会漂。 */
+  const bar = code.slice(code.indexOf('ec-canvas-erase-bar'), code.indexOf('<SkillLibraryModal'));
+  assert.match(bar, /disabled=\{[^}]*product/, '无产品时禁用（这是对的）');
   assert.match(code, /该擦除方式暂不可用|自动擦除暂时不可用/,
     '必须有对应的提示文案 —— 用户原话：「这又是为什么呢？」');
 });

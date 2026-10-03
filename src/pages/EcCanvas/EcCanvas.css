@@ -682,6 +682,37 @@
   background: var(--canvas-command); color: var(--sb-neutral-0); font-size: 13px; font-weight: 700;
 }
 .ec-canvas-erase-bar .ec-canvas-erase-bar-submit:hover:not(:disabled) { background: var(--canvas-command-hover); color: var(--sb-neutral-0); }
+/* 2026-10-04：框选档那条「? / 放大 / 撤销 / 重做 / 重置 / 删除」。
+   尺寸与相邻图标按钮一致（30px 方），免得这一排里有个圆有一个方。 */
+.ec-canvas-erase-bar .ec-canvas-erase-bar-help { color: var(--sb-ink-4); font-size: 12px; font-weight: 700; }
+.ec-canvas-erase-bar .ec-canvas-erase-bar-icon[aria-pressed='true'] { color: var(--canvas-command); background: var(--sb-brand-soft); }
+
+/* ═══ 2026-10-04：框选覆盖层 —— **直接贴在视频节点上** ═══════════════════════════════════════
+   用户原话：「框选擦除为什么会是一个弹窗的情况呀…他们是在画布上面进行的操作呀」。
+   原来是一个 portal 到 body 的全屏遮罩弹窗：点了框选，画面整个跳走，框完还要再点一次
+   那个语义不明的「完成框选」。⇒ 现在这一层就叠在那个节点上，节点在哪儿就在哪儿框。
+
+   · 位置由 JS 写成内联（left/top/width/height 取自节点矩形）—— 与其它节点一样，
+     坐标系就是 stage 的世界坐标，不另起一套。
+   · 只盖**媒体本体**（node.h），不盖 footer：footer 上有模型名和操作，
+     盖住它用户在框选途中就没法换节点了。
+   · `pointer-events` 必须显式 auto：它在画布容器里，而画布容器为了拖拽/框选
+     在不少地方设了 pointer-events 控制 —— 这一层不显式要就点不动。 */
+.ec-canvas-erase-overlay {
+  position: absolute;
+  z-index: 30;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--sb-radius-lg);
+  background: var(--sb-surface-inverse);
+  box-shadow: 0 0 0 2px var(--canvas-command);
+}
+.ec-canvas-erase-overlay .video-region-picker { width: 100%; }
+/* 覆盖层里不需要控件行（chrome={false}）也不需要空态文案，兜底补齐间距 */
+.ec-canvas-erase-overlay .video-region-stage { width: 100%; }
 /* 9-11 用户批注③: 加号中心必须与连线端点 (节点垂直中心, canvasGeometry ±17px) 完全重叠 —
    统一 top:50% + translateY(-50%) (基类已含), 不再按节点类型偏移 */
 

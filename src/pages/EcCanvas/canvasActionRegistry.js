@@ -272,9 +272,10 @@ export const CANVAS_ACTIONS = Object.freeze([
   /* ⚠️ 2026-10-02：计价项接好之后（批 之二十）才挂上来。第一版挂过又被撤 —— 那时
      priceFeature 写的是不存在的 'video-subtitle' ⇒ 查表落空、**静默回落成「免费」**，
      而后端 delogo 是按秒真扣的（canvas-billing 门禁原话："UI 显示免费但后端实收"）。
-     现在键是真实存在的 'video-desubtitle'（perSecond + unitsPerSecond 0.04，
-     单价由门禁从服务端 catalog 逐值核对）。
-     ⚠️ 按钮上显示的是**单价**；总价随这条视频的时长变化，由服务端 quote 给出。 */
+     现在键是真实存在的 'video-desubtitle'（**按次固定价**，1 积分/次，
+     面值由门禁从服务端 catalog 逐值核对）。
+     ⚠️ 2026-10-04：按钮上显示的是**这一次调用**的固定价（用户原话「这里应该固定一个费用呀…」），
+        不再是随片子长短浮动的单价/秒。 */
   action('smart-subtitle-erase', '智能去字幕', ['video-toolbar'], 'video-desubtitle', false, {
     type: 'local', handler: 'smart-subtitle-erase',
   }, {
@@ -343,54 +344,73 @@ const VIDEO_SELECTION_SURFACES = new Set(['video-toolbar']);
      稳定排序，不让同档之间的既有次序乱掉。 */
 export const CANVAS_TOOLBAR_TIERS = Object.freeze(['edit', 'ai', 'output', 'asset', 'danger']);
 
-/** 动作 id → 档位。**没列在这里的动作一律排在最后**（而不是留在数组原位），
-    这样将来新增一个动作若忘了定档，会被顶到末尾 —— 不会悄悄插到中间打乱规划。 */
-const CANVAS_ACTION_TIER = Object.freeze({
-  /* ① 就地编辑 */
-  'replace-media': 'edit',
-  crop: 'edit',
-  annotation: 'edit',
-  'move-scale': 'edit',
-  'edit-text': 'edit',
+/** 动作 id → 排序位（`档:序号`）。**没列在这里的动作一律排在最后**（而不是留在数组原位），
+    这样将来新增一个动作若忘了定档，会被顶到末尾 —— 不会悄悄插到中间打乱规划。
+
+    ⚠️ 2026-10-04 补了**档内**的序号。之前只有档位，同档内沿用 `CANVAS_ACTIONS` 的声明顺序 ——
+       于是「就地编辑」那一档实际渲染出来是「编辑文字 · 移动缩放 · 图片标注 · 裁剪」，
+       **裁剪排在第四**。可这条档位自己的注释里写的顺序就是「替换 / 裁剪 / 标注 / 移动缩放 / 编辑文字」：
+       **声明的规划与渲染出来的不一致**，而用户恰恰反复提的就是「裁剪按钮归位」。
+       根因不是"裁剪该往前挪"，是**档内根本没有排序** —— 全靠数组下标，那不是规划，是巧合。
+
+    档内按「用户点它的时机 + 频次」排（与 Figma / Canva / Photoshop 的就地编辑一致）：
+       裁剪（改构图，最常点）→ 编辑文字 → 图片标注 → 移动缩放 → 替换
+    ⚠️ 序号**只决定次序**，不决定可见性 —— 一个动作能不能出现在工具栏上仍由 `surfaces` + `canRun` 决定。
+    ⚠️ 导出是因为**门禁要读它**：这个文件早先自己复制了一份档位表去做断言，
+       那就是"目录之外还有第二份真相"——注册表改了档，门禁还在按旧表验，验的是一个不存在的东西。
+       门禁必须读**这一份**。 */
+export const CANVAS_ACTION_RANK = Object.freeze({
+  /* ① 就地编辑 —— 先裁剪：它是这组里最常被点的（用户原话「图片侧裁剪按钮归位」） */
+  crop: 'edit:1',
+  'edit-text': 'edit:2',
+  annotation: 'edit:3',
+  'move-scale': 'edit:4',
+  'replace-media': 'edit:5',
   /* ② 智能处理 */
-  'smart-subtitle-erase': 'ai',
-  'layer-edit': 'ai',
-  'remove-background': 'ai',
-  'reverse-prompt': 'ai',
-  'grid-split': 'ai',
-  'adjust-requirements': 'ai',
-  regenerate: 'ai',
-  'product-remix': 'ai',
-  outpaint: 'ai',
-  inpaint: 'ai',
-  translate: 'ai',
-  upscale: 'ai',
-  'add-reference': 'ai',
-  'application-1click-suite': 'ai',
-  'application-1click-video': 'ai',
-  'application-tts': 'ai',
-  'application-caption': 'ai',
+  'smart-subtitle-erase': 'ai:1',
+  'layer-edit': 'ai:2',
+  'remove-background': 'ai:3',
+  'grid-split': 'ai:4',
+  'reverse-prompt': 'ai:5',
+  outpaint: 'ai:6',
+  inpaint: 'ai:7',
+  upscale: 'ai:8',
+  translate: 'ai:9',
+  'add-reference': 'ai:10',
+  'application-1click-suite': 'ai:11',
+  'application-1click-video': 'ai:12',
+  'application-tts': 'ai:13',
+  'application-caption': 'ai:14',
+  'adjust-requirements': 'ai:15',
+  regenerate: 'ai:16',
+  'product-remix': 'ai:17',
   /* ③ 产出 / 查看 */
-  'export-video': 'output',
-  download: 'output',
-  'preview-media': 'output',
-  'export-object': 'output',
+  'export-video': 'output:1',
+  download: 'output:2',
+  'preview-media': 'output:3',
+  'export-object': 'output:4',
   /* ④ 收纳 */
-  'save-to-assets': 'asset',
+  'save-to-assets': 'asset:1',
   /* ⑤ 危险 */
-  delete: 'danger',
+  delete: 'danger:1',
 });
 
 function sortByCanvasToolbarIa(actions) {
-  const rank = id => {
-    const tier = CANVAS_ACTION_TIER[id];
-    const index = CANVAS_TOOLBAR_TIERS.indexOf(tier);
-    return index < 0 ? CANVAS_TOOLBAR_TIERS.length : index;
+  /* ⚠️ 不能直接对 `档:序号` 做字典序比较 —— 档名按字母排是 ai < asset < danger < edit < output，
+     与 CANVAS_TOOLBAR_TIERS 定的那一档顺序（edit 最先）完全不是一回事（"asset" 比 "edit" 小）。
+     ⇒ 拆开比：先按**档的下标**，再按**档内序号**。 */
+  const rankOf = id => {
+    const tier = String(CANVAS_ACTION_RANK[id] || '').split(':');
+    /* 未登记的动作排在**所有已登记之后**（而不是留在数组原位）——
+       忘了定档就该被顶到末尾，而不是悄悄插到中间打乱规划。 */
+    if (tier.length !== 2) return [CANVAS_TOOLBAR_TIERS.length, 0];
+    const tierIndex = CANVAS_TOOLBAR_TIERS.indexOf(tier[0]);
+    return [tierIndex < 0 ? CANVAS_TOOLBAR_TIERS.length : tierIndex, Number(tier[1]) || 0];
   };
-  /* stable：同档维持声明顺序 */
+  /* stable：同一位次维持声明顺序（显式带上原下标，将来若有人写了重复位次，行为仍然可预期）。 */
   return actions
-    .map((action, index) => ({ action, index }))
-    .sort((a, b) => (rank(a.action.id) - rank(b.action.id)) || (a.index - b.index))
+    .map((action, index) => ({ action, index, rank: rankOf(action.id) }))
+    .sort((a, b) => (a.rank[0] - b.rank[0]) || (a.rank[1] - b.rank[1]) || (a.index - b.index))
     .map(entry => entry.action);
 }
 

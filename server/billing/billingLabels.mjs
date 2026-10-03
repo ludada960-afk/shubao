@@ -109,15 +109,18 @@ const SKU_LABELS = Object.freeze({
   video_sd_js_long: { label: 'AI 视频 · Seedance 2.0 满参数 720P', category: 'video', per: '条' },
   video_seedance_mini_short: { label: 'AI 视频 · Seedance 2.0 Mini', category: 'video', per: '条' },
   video_seedance_mini_long: { label: 'AI 视频 · Seedance 2.0 Mini', category: 'video', per: '条' },
-  /* 2026-09-25 批 AM：本地方案两条（不走上游模型，本机 ffmpeg 处理）—— 标签如实写它做的是什么，
-     去字幕按**秒**计费（0.04 积分/秒）所以 per 写「秒」，用户对账时能自己对上。 */
+  /* 2026-09-25 批 AM：本地方案两条（不走上游模型，本机 ffmpeg 处理）—— 标签如实写它做的是什么。
+     ⚠️ 2026-10-04：去字幕从**按秒**改成**按次**（用户原话「这里应该固定一个费用呀…
+        都应该是一个固定的费用才对吧」），所以 per 从「秒」改回「条」—— 用户对账时能自己对上，
+        账单上写「按秒」而实际扣一个固定数，那正是"看着 0.5、扣的是 0.04"那类事故。 */
   video_upscale_local_short: { label: 'AI 视频 · 视频高清', category: 'video', per: '条' },
   video_upscale_local_long: { label: 'AI 视频 · 视频高清', category: 'video', per: '条' },
-  video_desubtitle_local_short: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '秒' },
-  video_desubtitle_local_long: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '秒' },
-  /* 批 AR：自动标记那一档（火山擦除，0.05 积分/秒）—— 标签写明"自动"以免与手动档混淆 */
-  video_desubtitle_volc_short: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '秒' },
-  video_desubtitle_volc_long: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '秒' },
+  video_desubtitle_local_short: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '条' },
+  video_desubtitle_local_long: { label: 'AI 视频 · 视频字幕去除', category: 'video', per: '条' },
+  /* 批 AR：自动标记那一档（火山擦除）—— 标签写明"自动"以免与手动档混淆。
+     ⚠️ 这一档是"≤60 秒 3 积分/次，超过按秒"，per 如实写「次」；封顶在界面上写出来。 */
+  video_desubtitle_volc_short: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '次' },
+  video_desubtitle_volc_long: { label: 'AI 视频 · 视频字幕去除（自动）', category: 'video', per: '次' },
   /* 批 AZ：数字人（火山口型对齐，0.12 积分/秒）—— 计费按**配音**秒数，
      所以 per 写「秒」且标签写明"口型对齐"（用户对账时能自己数出这一段配音多少秒）。 */
   video_lipsync_volc_short: { label: 'AI 视频 · 数字人（口型对齐）', category: 'video', per: '秒' },

@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Maximize2, Minimize2, Redo2, RotateCcw, Trash2, Undo2 } from 'lucide-react';
 
 /* 显示框（= 框选坐标系的大小）由视频**固有尺寸**算出，见 videoRegionGeometry.js 的说明：
    2026-10-03 用户批注「点击擦除为什么是这样的」—— 原先读的是祖先容器的 offsetWidth，
    而那个容器被 `max-height:280px` 夹过 ⇒ 画面只剩顶部一条横带，字幕框不到。 */
-import { fitRegionBox } from './videoRegionGeometry.js';
+import { fitRegionBox, REGION_BOX_MAX_H, REGION_BOX_MAX_W } from './videoRegionGeometry.js';
 
 import './VideoRegionPicker.css';
 
@@ -37,7 +37,7 @@ function clampRect(start, end, bounds) {
   return { x: x1, y: y1, w: Math.max(0, x2 - x1), h: Math.max(0, y2 - y1) };
 }
 
-export default function VideoRegionPicker({
+const VideoRegionPicker = forwardRef(function VideoRegionPicker({
   videoUrl = '',
   regions = [],
   onChange = () => {},
@@ -46,7 +46,22 @@ export default function VideoRegionPicker({
   /* 上限：与交互稿一致（"3/5"）。上限来自调用方（SUBTITLE_ERASE_MODES），
      不在这里写死 —— 又一份常量就又一处会对不上。 */
   maxRegions = 8,
-}) {
+  /* ═══ 2026-10-04：**显示框上限**由调用方给 ══════════════════════════════════════════════
+     默认值是 videoRegionGeometry 的 720×560（够整页用）。
+     画布上那一格传的是**节点自己的媒体盒尺寸** —— 于是"框选坐标系有多大"仍然只有一处决定
+     （fitRegionBox），而画布把节点矩形交出去，两边不会各自猜一个。
+     ⚠️ 不传就是旧的整页行为，一处一行都不用改。 */
+  maxBoxWidth = undefined,
+  maxBoxHeight = undefined,
+  /* ═══ 2026-10-04：**自带控件**开关 ══════════════════════════════════════════════════════
+     画布上这一格不再自己渲染「放大/撤销/重做/重置/删除 + N/上限 + 区域清单」——
+     用户要的是「**在画布上直接框**」，控件归画布那条底部操作条（交互稿那一行）。
+     这里传 false ⇒ 只剩"视频 + 拖拽面 + 已框的框"，控件由调用方按交互稿排。
+     ⚠️ 这不是把控件删了，是**换了归属**：撤销/重做的历史仍在下面（见 syncHistory），
+        画布那条操作条通过 ref 调的正是这同一份历史，
+        所以不会出现"框了一格、底部说 0 格"这种两处对不上的情况。 */
+  chrome = true,
+}, ref) {
   const videoRef = useRef(null);
   const surfaceRef = useRef(null);
   const dragRef = useRef(null);
@@ -96,6 +111,20 @@ export default function VideoRegionPicker({
   const reset = () => syncHistory([]);
   const removeLast = () => syncHistory((regions || []).slice(0, -1));
 
+  /* 2026-10-04：`chrome={false}` 时控件在调用方（画布那条操作条），
+     而"撤销/重做"的历史只有这一份 —— 所以把它按命令**交出去**，不复制一份到外面。
+     canUndo/canRedo 在 render 里算完就冻住：undo/redo 会先改 historyRef 再调 onChange，
+     onChange 引发父级重渲染，于是下一帧读到的就是新的 canUndo/canRedo。 */
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => setZoomed(true),
+    zoomOut: () => setZoomed(false),
+    toggleZoom: () => setZoomed(current => !current),
+    get zoomed() { return zoomed; },
+    undo, redo, reset, removeLast,
+    get canUndo() { return canUndo; },
+    get canRedo() { return canRedo; },
+  }), [zoomed, canUndo, canRedo, regions]);
+
   const readGeometry = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -113,13 +142,13 @@ export default function VideoRegionPicker({
          写成内联宽高，于是"显示框"与"坐标系"从此是同一个数。 */
     const intrinsicW = Number(video.videoWidth) || 0;
     const intrinsicH = Number(video.videoHeight) || 0;
-    const box = fitRegionBox(intrinsicW, intrinsicH);
+    const box = fitRegionBox(intrinsicW, intrinsicH, maxBoxWidth ?? REGION_BOX_MAX_W, maxBoxHeight ?? REGION_BOX_MAX_H);
     setSize({ width: intrinsicW, height: intrinsicH, displayWidth: box.width, displayHeight: box.height });
     /* 让首帧真的画出来（只 preload=metadata 时很多浏览器是一片黑，用户没法对着框） */
     if (video.readyState >= 1 && video.currentTime === 0) {
       try { video.currentTime = 0.1; } catch { /* 某些浏览器 metadata 阶段还不允许 seek */ }
     }
-  }, []);
+  }, [maxBoxWidth, maxBoxHeight]);
 
   useEffect(() => { setDraft(null); setSize({ width: 0, height: 0, displayWidth: 0, displayHeight: 0 }); }, [videoUrl]);
   useEffect(() => {
@@ -136,13 +165,25 @@ export default function VideoRegionPicker({
   const scaleY = ready ? size.height / size.displayHeight : 1;
   const box = { width: size.displayWidth, height: size.displayHeight };
 
+  /* ═══ 2026-10-04：**显示像素 → 布局像素**的比例**从 DOM 量出来** ══════════════════════════════
+     原来这里是 `(event.clientX - rect.left) / zoom`，`zoom` 是上面那个 `ZOOM = 1.8` 常量。
+     那个写法只在"框选器是页面里唯一的变换"时成立 —— 而 2026-10-04 起它**内嵌在画布里**，
+     画布 stage 自己带 `transform: scale(viewport.scale)`，于是框出来的区域整体偏了
+     viewport.scale 倍（用户框左下角的字幕、擦掉的是画面中间那块）。
+
+     ⇒ 比例直接量：`rect.width / box.width`。
+       `rect` 是 `getBoundingClientRect()`（**视觉**像素，含所有祖先 transform），
+       `box.width` 是这个 surface 的**布局**像素（它就是框选坐标系的大小）。
+       两者一除，框选器自身的放大、画布的缩放，**一并**进去 —— 一个数，不写死。
+     ⚠️ 顺带把 `ZOOM` 常量从这行移除：CSS 里的 `scale(1.8)` 与这里的常量一旦不同步，
+        偏移量还不小（1.8 vs 2 就是 10%）。这里量出来就没这个同步问题了。 */
   const pointerPosition = event => {
     const node = surfaceRef.current;
     if (!node) return { x: 0, y: 0 };
-    /* rect 是**放大后**的实际边框 ⇒ 除以 zoom 得到未缩放的显示坐标（与 offsetWidth 同一坐标系） */
     const rect = node.getBoundingClientRect();
-    const zoom = zoomed ? ZOOM : 1;
-    return { x: (event.clientX - rect.left) / zoom, y: (event.clientY - rect.top) / zoom };
+    const ratio = box.width > 0 ? rect.width / box.width : 1;
+    const s = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+    return { x: (event.clientX - rect.left) / s, y: (event.clientY - rect.top) / s };
   };
 
   const startDrag = event => {
@@ -239,7 +280,7 @@ export default function VideoRegionPicker({
           </div>
         </div>
       )}
-      {videoUrl && (
+      {videoUrl && chrome && (
         <div className="video-region-actions">
           <button
             type="button"
@@ -271,8 +312,9 @@ export default function VideoRegionPicker({
           <span className="video-region-count">{regions.length}/{maxRegions}</span>
         </div>
       )}
-      {/* 区域按**源像素**列出来（服务端 delogo 用的就是这几个数）：框了什么、下发什么，看得见 */}
-      {regions.length > 0 && (
+      {/* 区域按**源像素**列出来（服务端 delogo 用的就是这几个数）：框了什么、下发什么，看得见。
+          `chrome={false}`（画布上那一格）不画它 —— 一列坐标压在视频上只会挡住画面。 */}
+      {chrome && regions.length > 0 && (
         <ul className="video-region-list">
           {regions.map((region, index) => (
             <li key={`item-${index}-${region.x}-${region.y}`}>
@@ -287,7 +329,9 @@ export default function VideoRegionPicker({
           ))}
         </ul>
       )}
-      {hint && <small className="video-region-hint">{hint}</small>}
+      {chrome && hint && <small className="video-region-hint">{hint}</small>}
     </div>
   );
-}
+});
+
+export default VideoRegionPicker;
