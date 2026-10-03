@@ -33,7 +33,11 @@ test('canvas entitlement layout preserves primary canvas commands on mobile', as
   assert.doesNotMatch(control, /account-entitlement-purchase/);
   // 9-02 用户反馈: 顶部去掉"导出整套图片"按钮 (派生面板里有电商套图), "新建生图"改名"新建画布"
   assert.doesNotMatch(chrome, /导出整套图片/);
-  assert.match(chrome, /新建画布/);
+  /* 2026-10-03 用户批注：「你这个地方也不该叫新建画布呀，明明点击之后是到**我的画布**
+     那个页面仓库去的呀，这里不该是我的画布吗」
+     ⚠️ 这条原来只 `match(/新建画布/)` —— 而「新建画布」在**注释里也有**，
+        改成「我的画布」之后它会**靠注释空过**，等于门禁失效。改成钉真正的按钮文案。 */
+  assert.match(chrome, /我的画布<\/button>/, '顶栏那颗要写「我的画布」（它开的是画布库，不是"新建一张"）');
   const mobile = css.slice(css.indexOf('@media (max-width: 620px)'));
   assert.match(mobile, /\.account-entitlement-control\.is-compact/);
   assert.match(mobile, /\.ec-canvas-topbar-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
