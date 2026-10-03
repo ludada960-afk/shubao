@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Maximize2, Minimize2, Trash2 } from 'lucide-react';
 
+/* 显示框（= 框选坐标系的大小）由视频**固有尺寸**算出，见 videoRegionGeometry.js 的说明：
+   2026-10-03 用户批注「点击擦除为什么是这样的」—— 原先读的是祖先容器的 offsetWidth，
+   而那个容器被 `max-height:280px` 夹过 ⇒ 画面只剩顶部一条横带，字幕框不到。 */
+import { fitRegionBox } from './videoRegionGeometry.js';
+
 import './VideoRegionPicker.css';
 
 /* ═══ VideoRegionPicker：在视频上**手动框选**要擦除的区域（视频字幕去除那一页的核心控件）════════
@@ -48,16 +53,23 @@ export default function VideoRegionPicker({
 
   const readGeometry = useCallback(() => {
     const video = videoRef.current;
-    const surface = surfaceRef.current;
-    if (!video || !surface) return;
-    setSize({
-      width: Number(video.videoWidth) || 0,
-      height: Number(video.videoHeight) || 0,
-      /* offsetWidth/Height 是**未缩放**的布局尺寸（getBoundingClientRect 会被 scale 影响，
-         那是拖拽时用的、要除回来，见 pointerPosition） */
-      displayWidth: surface.offsetWidth || 0,
-      displayHeight: surface.offsetHeight || 0,
-    });
+    if (!video) return;
+    /* ⚠️ 2026-10-03 用户批注：「点击擦除为什么是这样的」——
+       原来这里读的是 `surface.offsetWidth/offsetHeight`，而那个 surface 是
+       `.video-region-canvas` 的 `inset:0` 子元素，**尺寸完全取决于祖先**
+       （曾经祖先是 `max-height:280px` + auto 宽度），也就是说
+       "框选坐标系"建立在**一个我们自己都没约束过的容器**上：
+         · 容器一改（加 letterbox、加祖先 transform、滚动条出现），
+           所有已框的区域立刻整体错位；
+         · `ready` 只判 display>0，而 metadata 未到时 `videoWidth=0`
+           ⇒ scale 变成 0 ⇒ 框全塌成 {0,0,0,0}，再被 MIN_REGION 静默丢掉。
+
+       ⇒ 改成**按视频固有尺寸算框**（纯函数、无 DOM 读），并把这个框
+         写成内联宽高，于是"显示框"与"坐标系"从此是同一个数。 */
+    const intrinsicW = Number(video.videoWidth) || 0;
+    const intrinsicH = Number(video.videoHeight) || 0;
+    const box = fitRegionBox(intrinsicW, intrinsicH);
+    setSize({ width: intrinsicW, height: intrinsicH, displayWidth: box.width, displayHeight: box.height });
     /* 让首帧真的画出来（只 preload=metadata 时很多浏览器是一片黑，用户没法对着框） */
     if (video.readyState >= 1 && video.currentTime === 0) {
       try { video.currentTime = 0.1; } catch { /* 某些浏览器 metadata 阶段还不允许 seek */ }
@@ -72,9 +84,12 @@ export default function VideoRegionPicker({
     return () => window.removeEventListener('resize', onResize);
   }, [readGeometry, videoUrl]);
 
-  const ready = Boolean(videoUrl) && size.displayWidth > 0 && size.displayHeight > 0;
+  const ready = Boolean(videoUrl) && size.width > 0 && size.height > 0
+    && size.displayWidth > 0 && size.displayHeight > 0;
+  /* 显示框就是坐标系：框出来的显示坐标 × scaleX = 源像素。 */
   const scaleX = ready ? size.width / size.displayWidth : 1;
   const scaleY = ready ? size.height / size.displayHeight : 1;
+  const box = { width: size.displayWidth, height: size.displayHeight };
 
   const pointerPosition = event => {
     const node = surfaceRef.current;
@@ -98,9 +113,7 @@ export default function VideoRegionPicker({
   const moveDrag = event => {
     const drag = dragRef.current;
     if (!drag) return;
-    const node = surfaceRef.current;
-    if (!node) return;
-    setDraft(clampRect(drag.start, pointerPosition(event), { width: node.offsetWidth, height: node.offsetHeight }));
+    setDraft(clampRect(drag.start, pointerPosition(event), box));
   };
 
   const endDrag = event => {
@@ -108,11 +121,7 @@ export default function VideoRegionPicker({
     dragRef.current = null;
     surfaceRef.current?.releasePointerCapture?.(event.pointerId);
     if (!drag) return;
-    const node = surfaceRef.current;
-    const rect = clampRect(drag.start, pointerPosition(event), {
-      width: node?.offsetWidth || 0,
-      height: node?.offsetHeight || 0,
-    });
+    const rect = clampRect(drag.start, pointerPosition(event), box);
     setDraft(null);
     const region = {
       type: 'delogo',
@@ -138,7 +147,16 @@ export default function VideoRegionPicker({
       )}
       {videoUrl && (
         <div className={'video-region-stage' + (zoomed ? ' is-zoomed' : '')}>
-          <div className="video-region-canvas" style={zoomed ? { transform: `scale(${ZOOM})` } : undefined}>
+          {/* 显示框的尺寸写成内联 —— 它同时就是框选坐标系的大小，
+              不再让 CSS 与 JS 各自猜一套。 */}
+          <div
+            className="video-region-canvas"
+            style={{
+              width: box.width || undefined,
+              height: box.height || undefined,
+              transform: zoomed ? `scale(${ZOOM})` : undefined,
+            }}
+          >
             {/* 没有 controls：整块被拖拽面盖住，播放控制在这里没有意义（要的是"框住那一行字"） */}
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video

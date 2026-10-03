@@ -202,7 +202,7 @@ import {
   estimateNodeCost,
   canConnectCanvasNodes,
 } from './canvasQuantvExtensions.js';
-import { getCanvasCardHeight, pickCanvasConnectionSnapTarget, CANVAS_SNAP_RADIUS } from './canvasGeometry.js';
+import { getCanvasCardHeight, pickCanvasConnectionSnapTarget, CANVAS_SNAP_RADIUS, CANVAS_CARD_FOOTER_H } from './canvasGeometry.js';
 import { canvasNodeFootprint } from './canvasMediaFitModel.js';
 /* 2026-10-02：滚轮/缩放口径（deltaMode 归一化、捏合、Shift 水平平移、居中缩放、
    拖动阈值）与吸附（对齐参考线 + 边缘自动平移）。口径见两个模块顶部的调研注释。 */
@@ -6677,12 +6677,30 @@ const handlePointerUp = useCallback((e) => {
       /* 4c183cd4 续命 画布拖拽bug修复: 与图片上传一致, 用空白位置错开, 避免节点堆叠遮挡.
          批 CY-⑲：和图片一样，原先只检查了整批里的第一个（且用 320×240 这个写死的框，
          视频真实比例是 9:16 时框高 569 —— 差出来 329px 正好压在下面那个节点身上）。 */
+      /* 2026-10-03 用户批注：「为什么我在画布上上传视频，会这么靠下呢，
+         现在这个视频完全不是居中的状态呀」
+
+         根因有两个，都在这一段：
+         ① `canvasUploadFootprintSizes` 返回的是**媒体本体**高度（没有 footer），
+            而 `createUploadedVideoNodes` 建出来的视频节点是 `showMeta: true`
+            ⇒ 真的渲染了一张 footer（`CANVAS_CARD_FOOTER_H = 46`）。
+            于是 `findCanvasBatchPlacement` 居中的是**媒体框**，整张卡片比它矮 46，
+            卡片中线落在视口中线**下方 23px**（9:16 的片子 h≈569 时还会被
+            `maxY` 夹住，看起来就是"顶到上面、下面挂出去一截"）。
+            ⇒ 用**整卡**高度去排：让卡片中线真正落在视口中线上。
+         ② `preferred` 是 40%×35% 那个经验锚点，空画布上它**优先于居中**被采用
+            （canvasMediaFitModel:178 先试 preferred，188 才试视口居中）。
+            这与用户要的"居中"直接冲突 ⇒ 这一条去掉 preferred，
+            让居中成为默认落位（重叠避让仍然生效）。
+
+         图片上传不受影响：图片节点是 `showMeta: false`（没有 footer），
+         媒体高度就是整卡高度。 */
       const blank = findCanvasBatchPlacement({
-        sizes: canvasUploadFootprintSizes(imported.assets, 320, 42, 'aspectRatio', 16 / 9),
+        sizes: canvasUploadFootprintSizes(imported.assets, 320, 42, 'aspectRatio', 16 / 9)
+          .map(size => ({ ...size, h: size.h + CANVAS_CARD_FOOTER_H })),
         viewport,
         bounds: { width: bounds?.width || 1200, height: bounds?.height || 800 },
         nodes,
-        preferred: { x: baseX, y: baseY },
         gapScreen: CANVAS_MEDIA_GAP_SCREEN,
       }) || { x: baseX, y: baseY };
       const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: blank.x, y: blank.y, now: uploadStartedAt, namer: canvasShotNamerRef.current });
@@ -8257,6 +8275,9 @@ const handlePointerUp = useCallback((e) => {
     imagePreviewOpen: Boolean(zoomImg),
     /* 资产库是页签式全屏弹窗，同样算"弹窗打开" */
     assetLibraryTab: tab === 'assets' && state.logged,
+    /* 2026-10-03：智能去字幕的区域框选器（此前漏了 ⇒ HUD 与 ✨ 都不暗）。
+       见 canvasHudHidden 里那段说明。 */
+    videoRegionPickerOpen: Boolean(subtitlePickNodeId),
   });
 
   /* ⚠️ 2026-10-01 用户批注：「而且你这个生成过程的这个按钮为什么会跟他在同一层呢。

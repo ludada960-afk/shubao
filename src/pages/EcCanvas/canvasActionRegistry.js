@@ -275,21 +275,96 @@ export function actionsForSurface({ surface, node } = {}) {
    对一条视频毫无意义。 */
 const VIDEO_SELECTION_SURFACES = new Set(['video-toolbar']);
 
+/* ═══ 工具栏信息架构（2026-10-03 用户批注：「哪些元素放什么排序要有规划啊」）═════════════
+
+   原状：动作表里其实**已经写了** `group`（优先操作 / 电商处理 / 创作与修改 / 应用节点 /
+   视频处理），但渲染时**从头到尾没按它排过** —— 工具栏就是 `CANVAS_ACTIONS` 的数组顺序。
+   于是视频那条工具栏第一颗是「加入资产库」：
+   它是**收纳**类动作（点一下把素材收进长期资产库、还会让按钮变成高亮态），
+   却是四个动作里最低频的，却占了最前的位置。
+
+   ⇒ 下面是**唯一的排序真相**。分档的依据不是"哪个功能更大"，是**用户点它的时机**：
+
+     ① 就地编辑  —— 我已经选中它了，我要改的就是它本身，不产生任何新东西
+                   （替换 / 裁剪 / 标注 / 移动缩放 / 编辑文字）
+     ② 智能处理  —— 对它跑一次 AI，出来一版新素材
+                   （智能去字幕 / 智能分层 / 去除背景 / 反推提示词 / 宫格切分）
+     ③ 产出      —— 把它拿出去或看一眼（下载 / 导出 / 预览）
+     ④ 收纳      —— 把它放进长期资产（加入资产库）
+     ⑤ 危险      —— 破坏性（删除）
+
+     频次从高到低、破坏性从低到高 —— 与 Figma / Excalidraw 的工具栏一致。
+
+     档内保持 `CANVAS_ACTIONS` 的声明顺序（同档不再二次排序），
+     稳定排序，不让同档之间的既有次序乱掉。 */
+export const CANVAS_TOOLBAR_TIERS = Object.freeze(['edit', 'ai', 'output', 'asset', 'danger']);
+
+/** 动作 id → 档位。**没列在这里的动作一律排在最后**（而不是留在数组原位），
+    这样将来新增一个动作若忘了定档，会被顶到末尾 —— 不会悄悄插到中间打乱规划。 */
+const CANVAS_ACTION_TIER = Object.freeze({
+  /* ① 就地编辑 */
+  'replace-media': 'edit',
+  crop: 'edit',
+  annotation: 'edit',
+  'move-scale': 'edit',
+  'edit-text': 'edit',
+  /* ② 智能处理 */
+  'smart-subtitle-erase': 'ai',
+  'layer-edit': 'ai',
+  'remove-background': 'ai',
+  'reverse-prompt': 'ai',
+  'grid-split': 'ai',
+  'adjust-requirements': 'ai',
+  regenerate: 'ai',
+  'product-remix': 'ai',
+  outpaint: 'ai',
+  inpaint: 'ai',
+  translate: 'ai',
+  upscale: 'ai',
+  'add-reference': 'ai',
+  'application-1click-suite': 'ai',
+  'application-1click-video': 'ai',
+  'application-tts': 'ai',
+  'application-caption': 'ai',
+  /* ③ 产出 / 查看 */
+  'export-video': 'output',
+  download: 'output',
+  'preview-media': 'output',
+  'export-object': 'output',
+  /* ④ 收纳 */
+  'save-to-assets': 'asset',
+  /* ⑤ 危险 */
+  delete: 'danger',
+});
+
+function sortByCanvasToolbarIa(actions) {
+  const rank = id => {
+    const tier = CANVAS_ACTION_TIER[id];
+    const index = CANVAS_TOOLBAR_TIERS.indexOf(tier);
+    return index < 0 ? CANVAS_TOOLBAR_TIERS.length : index;
+  };
+  /* stable：同档维持声明顺序 */
+  return actions
+    .map((action, index) => ({ action, index }))
+    .sort((a, b) => (rank(a.action.id) - rank(b.action.id)) || (a.index - b.index))
+    .map(entry => entry.action);
+}
+
 /* selection 工具栏: 素材存在期间结构稳定且全部可用 (用户 9-05 反馈:
    "功能栏的功能就是留给图片用的, 平时应该开放给用户" — 不再置灰)。 */
 export function stableActionsForSurface({ surface, node } = {}) {
   /* 视频节点 ⇒ 只给视频专属动作（外加"加入资产库"这种两边都成立的通用项） */
   if (isVideoNode(node) && !VIDEO_SELECTION_SURFACES.has(surface)) {
-    return CANVAS_ACTIONS
+    return sortByCanvasToolbarIa(CANVAS_ACTIONS
       .filter(item => item.surfaces.includes('video-toolbar') || item.id === 'save-to-assets')
       .filter(item => item.canRun(node))
-      .map(item => ({ ...item, disabled: false, disabledHint: '' }));
+      .map(item => ({ ...item, disabled: false, disabledHint: '' })));
   }
   const hasPreview = canRunLocally(node);
-  return CANVAS_ACTIONS
+  return sortByCanvasToolbarIa(CANVAS_ACTIONS
     .filter(item => item.surfaces.includes(surface))
     .filter(item => hasPreview || item.canRun(node))
-    .map(item => ({ ...item, disabled: false, disabledHint: '' }));
+    .map(item => ({ ...item, disabled: false, disabledHint: '' })));
 }
 
 export function canvasActionHandler(actionOrId) {

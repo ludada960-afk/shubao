@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { stableActionsForSurface } from '../src/pages/EcCanvas/canvasActionRegistry.js';
+import { stableActionsForSurface, CANVAS_TOOLBAR_TIERS } from '../src/pages/EcCanvas/canvasActionRegistry.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STUDIO = fs.readFileSync(path.join(ROOT, 'src/pages/EcCanvas/components/CanvasStudio.jsx'), 'utf8');
@@ -43,8 +43,8 @@ test('① 视频工具栏上每个动作都必须配了自己的图标', () => {
   const icons = readActionIcons();
   const actions = stableActionsForSurface({ surface: 'selection', node: VIDEO });
   assert.deepEqual(
-    actions.map(a => a.id),
-    ['save-to-assets', 'smart-subtitle-erase', 'preview-media', 'export-video'],
+    [...actions.map(a => a.id)].sort(),
+    ['export-video', 'preview-media', 'save-to-assets', 'smart-subtitle-erase'],
     '视频节点的 selection 工具栏应当就是这 4 项（与用户截图一致）',
   );
   actions.forEach(action => {
@@ -52,6 +52,36 @@ test('① 视频工具栏上每个动作都必须配了自己的图标', () => {
       `「${action.label}」(${action.id}) 在 ACTION_ICONS 里没有条目 —— 会掉进 WandSparkles 兜底，`
       + '于是同屏出现几颗一模一样的魔法棒');
   });
+});
+
+test('⑥ 工具栏排序必须有规划：收纳类动作不许占第一位（2026-10-03 用户批注）', () => {
+  /* 用户原话：「这个加入资产库的按钮为什么在最前面啊，你真的有去研究怎么跟
+     图片生成那边的功能栏做统一规划吗，哪些元素放什么排序要有规划啊。」
+
+     「加入资产库」是**收纳**类：点一下把素材收进长期资产库，还会把按钮变成高亮态，
+     是四个动作里最低频的，却排在最前。 */
+  const video = stableActionsForSurface({ surface: 'selection', node: VIDEO }).map(a => a.id);
+  const image = stableActionsForSurface({ surface: 'selection', node: IMAGE }).map(a => a.id);
+  assert.notEqual(video[0], 'save-to-assets', '加入资产库不许是视频工具栏的第一颗');
+  assert.equal(video.at(-1), 'save-to-assets', '它属于收纳档，应当在产出档之后');
+  assert.equal(image.at(-1), 'save-to-assets', '图片侧也必须落在同一档（两侧统一规划）');
+
+  /* 分档必须单调递增：前面的档位序号不许大于后面的 */
+  const rankOf = id => CANVAS_TOOLBAR_TIERS.indexOf(
+    { 'replace-media': 'edit', crop: 'edit', annotation: 'edit', 'move-scale': 'edit', 'edit-text': 'edit' }[id]
+    ?? { 'smart-subtitle-erase': 'ai', 'layer-edit': 'ai', 'remove-background': 'ai', 'reverse-prompt': 'ai', 'grid-split': 'ai' }[id]
+    ?? { 'export-video': 'output', download: 'output', 'preview-media': 'output', 'export-object': 'output' }[id]
+    ?? { 'save-to-assets': 'asset' }[id]
+    ?? { delete: 'danger' }[id]
+    ?? CANVAS_TOOLBAR_TIERS.length,
+  );
+  for (const ids of [video, image]) {
+    const ranks = ids.map(rankOf);
+    ranks.forEach((rank, i) => {
+      if (i > 0) assert.ok(rank >= ranks[i - 1], `第 ${i} 颗的档位回退了：${ids.join(' → ')}`);
+    });
+  }
+  assert.ok(CANVAS_TOOLBAR_TIERS.length === 5, '五档（编辑/智能处理/产出/收纳/危险）是这套规划本身');
 });
 
 test('② 同屏任意两颗按钮不得用同一个图标（三个魔棒就是这么来的）', () => {

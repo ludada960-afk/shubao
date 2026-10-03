@@ -33,23 +33,43 @@
   color: var(--sb-ink-3);
 }
 
+/* ⚠️ 2026-10-03 用户批注（截图里点开"智能擦除"看到的画面）：
+     这里原来是 `max-height: 280px; overflow: auto`，而 `.video-region-canvas` /
+     `.video-region-video` 都是 `width: 100%`（在 grid 的 `place-items:center` 下
+     解析成 auto ⇒ 宽度=视频**固有宽度**），于是 1080×1920 的 9:16 片子
+     **只有顶部 280px 可见** —— 看上去就是"一条横带"。
+     而字幕通常在画面下三分之一 ⇒ 用户根本框不到它（用户：「框底部字幕不在画面上」）。
+
+     ⇒ 舞台不再夹高度：**框的尺寸由 JS 按视频固有比例算出来**并写成内联宽高
+       （见 VideoRegionPicker.jsx 的 fitRegionBox），这里只负责居中与背景。
+     放大时才允许滚动（那是用户主动要的"看细节"）。 */
 .video-region-stage {
   position: relative;
-  max-height: 280px;
-  overflow: auto;
+  display: grid;
+  place-items: center;
+  overflow: visible;
   border-radius: var(--sb-radius-lg);
   background: var(--sb-surface-inverse);
 }
 
+.video-region-stage.is-zoomed {
+  place-items: start;
+  overflow: auto;
+}
+
 .video-region-canvas {
   position: relative;
-  width: 100%;
   transform-origin: top left;
 }
 
+/* 尺寸来自内联的 --region-w/h（= 固有比例 fit 出来的框），这里填满它。
+   ⚠️ 绝不能加 object-fit: contain —— 那会做信箱式留白，
+   而 .video-region-surface 是 inset:0 铺满整个 canvas，
+   留白会被当成"画面的一部分"，框选坐标就整体对不上。 */
 .video-region-video {
   display: block;
   width: 100%;
+  height: 100%;
   border-radius: var(--sb-radius-lg);
 }
 

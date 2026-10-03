@@ -231,6 +231,18 @@ export function canvasHudHidden(flags = {}) {
     || flags.skillLibraryOpen
     || flags.imageInfoOpen
     || flags.imagePreviewOpen
+    /* 2026-10-03 用户批注（截图：小地图面板 + 左下缩放条在弹窗打开时**照样全亮**，
+       并且左侧那颗 ✨ 任务按钮也还是亮的）：
+       智能去字幕的**区域框选器**此前没有算进"弹窗打开"，于是 `dialogOpen` 为假，
+       整档 HUD 不隐藏 —— 这一档是 `display:none`（连命中测试都退出），
+       所以它是"该消失却还在"，不是"该压暗却没压暗"。
+
+       同一个假值还连累了那颗 ✨：它是 `TaskSidebar` 的浮动触发器，
+       渲染在 `.ec-canvas-page` **之外**（是它的兄弟节点），
+       所以 `.ec-canvas-page.is-dialog-open ...` 这条选择器**够不着它**；
+       它靠的是同一个布尔复制到 `<html data-cvl-dialog-open>`（app-sidebar.css:442）。
+       ⇒ 一处漏，两处坏。补上这一行，两条一起好。 */
+    || flags.videoRegionPickerOpen
     /* 资产库：它是**页签**（切走画布）而不是叠加弹窗，但仍有一层全屏遮罩
        .canvas-asset-library-overlay —— 必须一并算作"弹窗打开"，
        否则它开着时 HUD 仍可能透出来（实测该遮罩原为硬编码 z-index: 9500）。 */
