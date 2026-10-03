@@ -80,9 +80,11 @@ test('隐式标识不能破坏原有的 C2PA 凭证（caBX 仍在且 PNG 合法�
   assert.equal(broken.length, 0, broken.slice(0, 5).join('\n'));
 });
 
-test('红线：默认（AIGC_VISIBLE_LABEL 未设）产物**像素必须不变**', async () => {
-  const prev = process.env.AIGC_VISIBLE_LABEL;
-  delete process.env.AIGC_VISIBLE_LABEL;
+test('红线：产物**像素必须逐字节不变** —— 合规只走隐式，绝不画可见标识', async () => {
+  /* 2026-10-03 产品决定：不做画面角标。实现曾存在
+     （server/aigcVisibleLabel.mjs + AIGC_VISIBLE_LABEL 开关），已**整体删除**。
+     这条测试是那句决定的守卫：隐式标识随便加，但**任何一个像素都不许因为
+     合规而改变**。将来谁又想加可见标识，这里立刻红。 */
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'aigc-redline-'));
   try {
     const upstream = await sharp({
@@ -109,9 +111,28 @@ test('红线：默认（AIGC_VISIBLE_LABEL 未设）产物**像素必须不变**
     const rawUp = await sharp(upstream).raw().toBuffer();
     const rawOut = await sharp(written).raw().toBuffer();
     assert.equal(Buffer.compare(rawUp, rawOut), 0,
-      '默认态下像素变了 —— 说明有人把可见标识打开成默认了');
+      '像素变了 —— 说明有人往产物上画了可见标识');
   } finally {
     await fsp.rm(dir, { recursive: true, force: true });
-    if (prev === undefined) delete process.env.AIGC_VISIBLE_LABEL; else process.env.AIGC_VISIBLE_LABEL = prev;
+  }
+});
+
+test('红线：显式标识的实现已从仓库里彻底移除（不是"默认关"，是"没有"）', async () => {
+  /* 留着开关等于留一颗随时能踩的雷：改个环境变量就能让全站产物带上角标。 */
+  for (const gone of [
+    '../server/aigcVisibleLabel.mjs',
+    '../server/aigcLabelConfig.mjs',
+  ]) {
+    assert.equal(fs.existsSync(new URL(gone, import.meta.url)), false,
+      gone + ' 还在 —— 显式标识的实现应当整体删除');
+  }
+  const storeSrc = fs.readFileSync(new URL('../server/generatedAssets.mjs', import.meta.url), 'utf8');
+  /* ⚠️ 必须先剥注释再查：文件顶部那段注释**故意**写着这两个名字，
+     用来记录「实现曾经存在、已整体删除」这件事。用原文查会自己把自己判红。 */
+  const code = storeSrc
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+  for (const banned of ['applyVisibleLabel', 'AIGC_VISIBLE_LABEL', 'visibleLabelEnabled', 'aigcVisibleLabel']) {
+    assert.ok(!code.includes(banned), 'generatedAssets.mjs 的**代码**里不该再出现 ' + banned);
   }
 });

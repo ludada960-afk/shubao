@@ -21,7 +21,7 @@ const providers = [
   {
     id: 'change2pro',
     label: 'Change2Pro',
-    dashboardUrl: 'https://change2pro.com/',
+    dashboardUrl: 'https://platform.change2pro.com/',
     balanceCny: 9.32,
     reportedSpendCny: 0.78,
     todaySpendCny: 0,

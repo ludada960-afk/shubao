@@ -67,7 +67,11 @@ export function createNanoBananaProviderAdapter({
   apiKey,
   /* 默认用**国内专用**端点：本站服务大陆用户，而供应商的默认端点
      `api.change2pro.com` 在大陆被 DNS 污染（解析到 Meta 的 IP、TCP 不通，实测 15.2s 超时），
-     配成它等于每次生成先白等一轮失败再切备用。国内端点由供应商明示。 */
+     配成它等于每次生成先白等一轮失败再切备用。国内端点由供应商明示。
+     2026-10-03 复测：官方新接入地址 `gateway.change2pro.com` 在大陆**同样连不上**
+     （IP 128.242.240.91，TCP 443 超时），所以本默认值继续留在 forkc2p。
+     换端点前先跑 `powershell -File scripts/check-cn-gateway-reach.ps1`（绕开 DNS/代理的直连判据），
+     通了再用 `NANO_BANANA_BASE_URL` 覆盖，不要直接改这里。 */
   baseUrl = 'https://api.forkc2p.com',
   flashModel = NANO_UPSTREAM_MODELS.flash,
   proModel = NANO_UPSTREAM_MODELS.pro,
