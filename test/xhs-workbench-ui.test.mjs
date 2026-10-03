@@ -23,7 +23,14 @@ test('XHS compact workbench puts content and Plog in the shared top selector', (
   assert.match(xhs, /className="ec-ability-selector xhs-ability-selector"/);
   assert.match(xhs, /className=\{`ec-ability-selector-option/);
   assert.match(xhs, /aria-selected=\{selected\}/);
-  assert.match(xhs, /<CreationShowcase mode="content" subMode=\{xhsSubMode\}/);
+  /* 2026-10-03 批 1003（用户第三次表态）：旧版首页的案例表达区**子页面也不再挂**。
+     「把它给删掉吧，避免后面会有一些互相引用或者互相映射导致的混乱」——
+     这条断言原本要求它在，现在反转成不许它在。
+     切换器本身与真功能控件（XhsInputTemplate）一个字不动。 */
+  assert.doesNotMatch(xhs, /<CreationShowcase/,
+    '子页面不得再渲染旧版首页的案例表达区');
+  assert.match(xhs, /<XhsInputTemplate/,
+    '真功能控件（上传 / 文案 / @提及 / 生成）必须保留');
   assert.doesNotMatch(xhs, /className="xhs-mode-tabs"/);
 });
 

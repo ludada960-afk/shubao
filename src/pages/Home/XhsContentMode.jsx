@@ -44,7 +44,6 @@ import {
 } from './ec/ecommerceTaskProgressModel.js';
 import { CharImg } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
-import CreationShowcase from './CreationShowcase.jsx';
 import ImageMentionPicker from '../../components/creation/ImageMentionPicker.jsx';
 import { EcommerceAddCard, EcommerceImageCard } from './ec/components/EcommerceAssetCards.jsx';
 import { buildXhsPublishPages } from './xhsPublishPreviewModel.js';
@@ -1049,7 +1048,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
       <div className="ec-main-card xhs-main-card">
         <div className="xhs-content-surface">
           <XhsModeSelector value={xhsSubMode} onChange={setXhsSubMode} />
-          <CreationShowcase mode="content" subMode={xhsSubMode} />
           <div className="xhs-workbench-card">
           {xhsSubMode === 'content' ? (
             <XhsInputTemplate
@@ -1126,7 +1124,6 @@ export default function HomePage({ inlineMode, compactMode, renderMode, xhsSubMo
 
     return (
       <div>
-        <CreationShowcase mode="content" subMode={xhsSubMode} />
         {/* ═══ 白色卡片（标签在白色上）═══ */}
         <div style={{
           borderRadius: 20, margin: '0 16px',
