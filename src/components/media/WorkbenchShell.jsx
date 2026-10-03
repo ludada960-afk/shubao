@@ -38,7 +38,14 @@ function groupFields(fields, mergeTitle = '', workbench = null) {
     if (!map.has(name)) { map.set(name, []); order.push(name); }
     map.get(name).push(field);
   }
-  return order.map(name => withMeta(name, map.get(name)));
+  /* ⚠️ 2026-10-03 批 1003：剔掉**空组**。
+     一条 skill 现在按形态分了组，而 ratio / clarity 被 config 触发器收走之后，
+     原来的「生成设置」组会变成空组 —— 渲染出来就是一个只有标题、下面什么都没有的
+     孤零零一块（本函数原注释里本来就写着"若某一组全部字段都被收走，就不渲染那个空
+     `<section>`"，只是从没实现）。 */
+  return order
+    .map(name => withMeta(name, map.get(name)))
+    .filter(group => group.fields.length > 0);
 }
 
 /* ═══ 2026-09-29 批 DC 续-8：**`kind: 'config'` 那一格收起的字段，从网格里剔掉** ═══════════════════
