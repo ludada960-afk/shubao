@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { IMAGE_SKILLS } from '../src/skills/imageSkills.js';
+import { IMAGE_SKILLS, visibleFieldsOf } from '../src/skills/imageSkills.js';
 import { ADAPTIVE_RATIO } from '../src/skills/skillRun.js';
 import {
   QUANTV_IMAGE_COUNTERPARTS,
@@ -117,7 +117,11 @@ test('③ 有对应页的 28 条：字段数 / 控件 / 档位数 / 档位文案
        豁免的**范围被钉死**：只有比例那一格的**第一位**「自适应」被摘掉再比；
        其余档位、档位文案、字段数、控件类型、上传上限、必填**一条都不松**。
        换句话说：我们仍然在逐档核对我们与知渔的差异，只是承认比他们**多**了最前面这一档。 */
-    const ours = (skill.fields || []).map(field => {
+    /* 2026-10-03 批 1003：config 触发器（`kind:'config'`）是**呈现容器**、不是新能力 ——
+       被它收进浮层的 ratio / clarity / imageModel 照旧在 fields 里、照旧逐值比对。
+       把它算进去会让「三格换成一行两颗按钮」被误判成「多了一个字段、与知渔对不上」。
+       判据的能力部分一条没松：仍然是逐字段逐值比。 */
+    const ours = visibleFieldsOf(skill).map(field => {
       const options = Array.isArray(field.options) ? field.options : null;
       const isRatio = field.key === 'ratio';
       const stripped = isRatio && options && options.length && options[0].value === ADAPTIVE_RATIO

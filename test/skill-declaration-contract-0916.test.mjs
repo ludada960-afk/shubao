@@ -8,6 +8,7 @@ import {
   IMAGE_SKILL_CATEGORIES,
   SKILL_COMPLEXITIES,
   getImageSkill,
+  visibleFieldsOf,
 } from '../src/skills/imageSkills.js';
 import { readFileSync } from 'node:fs';
 
@@ -71,7 +72,7 @@ test('③ 复杂度分布符合简报：简单档真的简单、重档只有电�
   const simple = IMAGE_SKILLS.filter(skill => skill.complexity === 'simple');
   assert.ok(simple.length >= 3, '一期至少 3 个 simple');
   for (const skill of simple) {
-    assert.ok(skill.fields.length <= 4, 'simple 档字段不得超过 4 个：' + skill.id);
+    assert.ok(visibleFieldsOf(skill).length <= 4, 'simple 档字段不得超过 4 个：' + skill.id);
   }
 });
 

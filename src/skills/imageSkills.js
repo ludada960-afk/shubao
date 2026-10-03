@@ -2359,6 +2359,94 @@ export const IMAGE_SKILLS = [
   },
 ];
 
+/* ═══ 批 1003（2026-10-03）：把「模型选择 / 分辨率 / 比例」收进**两颗触发器** ═══════
+   用户原话（逐字，批 DC 续-8 说过一次，批 1003 又追问「你为什么现在全部都要让它张开出来呢」）：
+     「你不可以像首页这样就是做成一个**生图模型的按钮和面板**，还有一个**画面规格的一个按钮和面板**吗？
+       你就只排两个按钮进去子页面里面不就好了吗？」
+     「图片生成和视频生成**全局**都要去按这种方式去处理……几十个子页面都要去这样做呀。」
+
+   为什么改这一处而不是逐条技能加声明：
+     · `image.concept_set`（概念视觉方案）**已经是这个形态**了（批 DC 续-8 落地），
+       样板与共用组件 `ConfigTriggers` 都在（FieldRenderer 的 `kind === 'config'` 分支）；
+     · 但当时批注里明写着「本批**只给这一条技能**用（用户选择：先这一条落地验收，再全站铺）」，
+       于是 **49 条图片技能里只有这 1 条**收起了，其余 42 条仍然把三格平铺在左栏。
+     · 逐条手写 = 42 个出错机会（漏一条就是那个页面照旧张开）。
+       而这套 UI 本来就是**声明驱动**的（`dropCoveredFields` 按 `covers` 剔网格），
+       所以在这里统一注入，**只改一处**，漏不掉。
+
+   降级形态是组件本来就有的：`ConfigTriggers` 收 `triggers` prop，
+   `modelKey` 没声明时**只渲染一颗规格触发器**（批 DC 续-19）——
+   46 条图片技能本来就没有模型选择器，不该为了统一硬塞一颗不存在的按钮。
+
+   不动的：
+     · `pipeline` 是 embed 的技能（`xhsNote` 等）—— 它们的左栏**不渲染通用字段网格**，
+       注入的声明不会被渲染，等于白加；等需求 A 定了那批工作台再处理。
+     · 已经有 config 声明的（`concept_set`）。
+     · 三格一个都没有的（`product_suite` / `aplus` / `white_bg` / `multi_angle` / `remove_bg`）。 */
+const CONFIG_TRIGGER_KEYS = ['imageModel', 'ratio', 'clarity'];
+const CONFIG_TRIGGER_GROUP = '生成设置';
+
+/** 与 skillRun.js 的 skillEmbedOf **同一份判据**，不是另写一遍。
+    （skillEmbedOf: pipeline==='xhsNote' 或以 'video' 开头 ⇒ embed） */
+function isEmbedPipeline(pipeline) {
+  return pipeline === 'xhsNote' || (typeof pipeline === 'string' && pipeline.startsWith('video'));
+}
+
+function configTriggersFor(skill) {
+  if (!skill || !Array.isArray(skill.fields)) return null;
+  /* embed 的技能左栏**不渲染通用字段网格**，注入的声明不会被看到 —— 不做无用功。
+     那批工作台本身要按需求 A 定制，等那一批定稿再处理。 */
+  if (isEmbedPipeline(skill.pipeline)) return null;
+  if (skill.fields.some(field => field && field.kind === 'config')) return null;   /* concept_set 已声明 */
+  const keys = CONFIG_TRIGGER_KEYS.filter(key => skill.fields.some(field => field && field.key === key));
+  if (!keys.length) return null;
+  const hasModel = keys.includes('imageModel');
+  /* 这一格必须与被收起的那几格**同组**，否则剔完那几格会连组标题一起消失 */
+  const group = (skill.fields.find(field => field && keys.includes(field.key)) || {}).group || CONFIG_TRIGGER_GROUP;
+  return {
+    key: 'genConfig', label: '生成配置', kind: 'config', group,
+    /* 组标题已经写着「生成设置」，两颗按钮各自带小标题，字段标题再画一遍就是同一句话说两遍 */
+    hideLabel: true,
+    covers: keys,
+    /* 只给 key，不嵌整份字段对象：被收起的仍然是**字段**，
+       面板里渲染的也是 fields 里那几条（FieldRenderer 的 config 分支按 key 取回）。
+       嵌一份会出现「同一 key 在这条技能里出现两次」，且改选项会漏改一处。 */
+    ...(hasModel ? { modelKey: 'imageModel' } : null),
+    specKeys: keys.filter(key => key !== 'imageModel'),
+  };
+}
+
+/* 原地改，不另开一个数组导出 ——
+   另开 `IMAGE_SKILLS_WITH_CONFIG_TRIGGERS` 的话，每个 import 处都得记得换，
+   漏一处那个页面就照旧张开，正是这次要消灭的现象。
+   声明在模块加载时统一注入，所有既有 importer 自动生效。 */
+export const IMAGE_SKILLS_WITH_CONFIG_TRIGGERS = (() => {
+  const ids = [];
+  for (const skill of IMAGE_SKILLS) {
+    const declaration = configTriggersFor(skill);
+    if (!declaration) continue;
+    skill.fields = [...skill.fields, declaration];
+    ids.push(skill.id);
+  }
+  return ids;
+})();
+
+/**
+ * 一条 skill **用户看得见**的字段序列 —— 量的是界面，不是声明表。
+ *
+ * 为什么需要它：config 触发器把 ratio / clarity / imageModel 收进浮层后，
+ * 声明表里**多了**一条 `genConfig`，但界面上是「三格 → 一行两颗按钮」，
+ * 可见字段反而**没变多**。直接拿 `skill.fields.length` 去量复杂度，
+ * 会把「换个容器」误判成「变复杂了」。
+ *
+ * 规则：剔掉 config 触发器本身，它 covers 的那几格照旧算（它们仍是字段，
+ * 只是搬进了面板 —— 能力一条都没少）。**两边不许各写一份**，都从这里取。
+ */
+export function visibleFieldsOf(skill) {
+  const fields = Array.isArray(skill && skill.fields) ? skill.fields : [];
+  return fields.filter(field => !(field && field.kind === 'config'));
+}
+
 export const IMAGE_SKILL_CATEGORIES = [...new Set(IMAGE_SKILLS.map(skill => skill.category))];
 
 export function getImageSkill(id) {
