@@ -48,6 +48,9 @@ import { normalizeCommerceContext } from '../Home/ec/internationalCommerceRegist
 import {
   CanvasAddMenu,
   CanvasAudioNode,
+  /* 2026-10-02：图标表只保留一份（CanvasStudio 那份，紧挨着真正渲染它的组件），
+     本文件原先自带的第二份已删除 —— 两份表必然有一份漏配。 */
+  ACTION_ICONS as CANVAS_ACTION_ICONS,
   CanvasDeriveMenu,
   CanvasDirectionNode,
   CanvasEcommerceComposer,
@@ -406,28 +409,13 @@ function normalizeLayerItems(layers, nodeId) {
   }));
 }
 
-const ACTION_ICONS = {
-  'edit-text': Pencil, /* 9-09: 编辑文字工具图标 */
-  'add-text': Type,
-  'adjust-requirements': Pencil,
-  regenerate: RefreshCw,
-  download: Download,
-  'image-info': Info,
-  'add-reference': ImagePlus,
-  delete: Trash2,
-  'product-remix': Shuffle,
-  outpaint: Ratio,
-  inpaint: SlidersHorizontal,
-  'remove-background': Eraser,
-  'layer-edit': SquarePen,
-  translate: Languages,
-  upscale: Maximize2,
-  crop: Crop,
-  'grid-split': Grid3x3,
-  annotation: Type,
-  /* 用「加入库」语义的图标，不用兜底的星标/魔法棒 */
-  'save-to-assets': FolderPlus,
-};
+/* ⚠️ 2026-10-02：这里原来还有**第二份** `ACTION_ICONS` 表（id → lucide 图标）。
+   两份表必然有一份会漏配 —— 这次就漏了：`smart-subtitle-erase` / `preview-media` /
+   `export-video` 只补在 CanvasStudio 那份里，而这份没有，于是视频工具栏三颗按钮
+   全部显示成同一个魔法棒（用户 9-30 截图批注：「明显对不上」）。
+
+   ⇒ 图标表**只保留一份**（CanvasStudio 那份，紧挨着真正渲染它的组件），
+     本文件从同一处 import（见文件头），行为自动跟着走。 */
 
 const PLATFORM_PRESETS = {
   淘宝: ['1:1 主图', '3:4 主图', '详情长图'],
@@ -534,7 +522,7 @@ function ImageNode({ node, selected, multiSelected, dimmed, hoverActions = [], o
       </button>
       {hovered && hoverActions.length > 0 && <div style={{ position: 'absolute', zIndex: 4, top: 8, right: 8, display: 'flex', gap: 5 }}>
         {hoverActions.map(action => {
-          const Icon = ACTION_ICONS[action.id] || Sparkles;
+          const Icon = CANVAS_ACTION_ICONS[action.id] || Sparkles;
           return <button key={action.id} type="button" data-canvas-control="true" aria-label={action.label} title={action.label} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onAction?.(action.id, node); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 0, borderRadius: 8, padding: '5px 7px', color: '#fff', background: 'rgba(17,24,39,.82)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><Icon size={13} />{action.label}</button>;
         })}
       </div>}
