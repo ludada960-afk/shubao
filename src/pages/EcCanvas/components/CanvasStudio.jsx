@@ -320,7 +320,7 @@ export function CanvasObjectToolbar({ node, actions = [], viewport, bounds, onAc
         title={isDisabled ? (action.disabledHint || '暂时不可用') : (alreadyAsset ? '这个素材已在资产库中，再点一次即可移除' : (action.description || action.label))}
         disabled={isDisabled}
         onPointerDown={event => event.stopPropagation()}
-        onClick={() => { if (!isDisabled) onAction?.(action, node, event); }}
+        onClick={clickEvent => { if (!isDisabled) onAction?.(action, node, clickEvent); }}
         aria-haspopup={action.hasModes ? 'menu' : undefined}
       >
         <Icon size={16} />

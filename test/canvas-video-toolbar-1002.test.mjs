@@ -33,7 +33,8 @@ const IMAGE = { id: 'i1', kind: 'image', url: '/api/generated-assets/y.png', sta
 test('① 视频节点拿到的是**视频专属**动作，不是图片那一套', () => {
   const labels = stableActionsForSurface({ surface: 'selection', node: VIDEO }).map(a => a.label);
   assert.ok(labels.includes('预览'), '视频工具栏要有「预览」，实际 ' + JSON.stringify(labels));
-  assert.ok(labels.includes('下载视频'), '视频工具栏要有「下载视频」');
+  assert.ok(labels.includes('导出视频'),
+    '视频工具栏要有「导出视频」（2026-10-03 用户批注：「这个功能难道不该叫导出吗」—— 与图片侧「导出图片」统一），实际 ' + JSON.stringify(labels));
   assert.ok(labels.includes('加入资产库'), '「加入资产库」两边都该有');
   /* ⚠️ 「智能去字幕」本轮**故意没上**（下一批补）：
      它的计价项还没按真实 SKU 接进 `canvasBillingModel.ACTIONS` ⇒ `priceFeature` 查表落空、
@@ -72,7 +73,7 @@ test('③ 视频动作的 canRun 必须显式认 video（不能靠默认值）',
 test('④ handler 都真的接上了（不是只注册了个名字）', () => {
   for (const [handler, need] of [
     ['preview-media', /openImagePreview\(\{ url: node\.url, kind: 'video'/],
-    ['export-video', /link\.download = node\.name/],
+    ['export-video', /const href = URL\.createObjectURL\(blob\)/],
   ]) {
     assert.match(registryCode, new RegExp("handler: '" + handler + "'"), `注册表里要有 ${handler}`);
     assert.match(indexCode, new RegExp("handler === '" + handler + "'"), `index.jsx 要分发 ${handler}`);

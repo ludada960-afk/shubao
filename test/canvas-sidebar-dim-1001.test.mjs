@@ -34,22 +34,36 @@ test('① 画布弹窗打开时必须把状态写到根节点（选择在 .ec-ca
     '必须依赖 dialogOpen（canvasHudHidden 的结果），不能是一次性的');
 });
 
-test('② 压暗规则必须同时命中侧栏与那颗按钮', () => {
+test('② 画布左下角那颗任务按钮必须**隐藏**，不是压暗（2026-10-03 用户第三次说清）', () => {
   const css = code(CSS);
-  const rule = /html\[data-cvl-dialog-open\][^{]*\{[^}]*\}/.exec(css);
-  assert.ok(rule, 'app-sidebar.css 里必须有这条压暗规则');
-  for (const selector of ['.app-sidebar', '.task-sidebar']) {
-    assert.ok(rule[0].includes(selector), `压暗规则必须覆盖 ${selector}`);
-  }
-  assert.match(rule[0], /opacity:\s*\.\d+/, '必须是「暗下去」而不是只藏起来');
-  assert.match(rule[0], /pointer-events:\s*none/,
-    '压暗的东西不该还能点 —— 否则等于穿透到弹窗后面去');
+  /* 用户原话：「如果是隐藏起来的话，那这个按钮也应该是隐藏起来啊，
+     我说的暗下去，指的是不该在前台展示啊…并且颜色不该是暗下去，改回来」
+
+     ⇒ 之前把"暗下去"做成 `opacity:.45` 是**理解错了**。
+       画布 HUD 那一档（小地图/缩放条/左栏/底部工具栏）用的就是 display:none，
+       「其他是隐藏了，那这个也要隐藏」。
+       压暗还留着两个毛病：仍在前台（z-index 4e7 压住遮罩）、仍可点。 */
+  const hideRule = /html\[data-cvl-dialog-open\][^{]*\.task-sidebar[^{]*\{[^}]*\}/.exec(css);
+  assert.ok(hideRule, '必须有针对 .task-sidebar 的规则');
+  assert.match(hideRule[0], /display:\s*none/,
+    '任务按钮必须是**隐藏**（display:none）—— 与画布 HUD 同一待遇，不是压暗');
+  assert.doesNotMatch(hideRule[0], /opacity/,
+    '不许再压暗：它仍会浮在遮罩上面，而且还要额外补 pointer-events');
+
+  /* 全站侧栏（不属于画布）保持压暗 —— 那是导航，不是画布 HUD */
+  const dimRule = /html\[data-cvl-dialog-open\]\s*\.app-sidebar\s*\{[^}]*\}/.exec(css);
+  assert.ok(dimRule, '全局侧栏仍走压暗');
+  assert.match(dimRule[0], /opacity:\s*\.\d+/);
+  assert.match(dimRule[0], /pointer-events:\s*none/);
 });
 
 test('③ 检测器自证：删掉属性或删掉规则，都必须判红', () => {
   const noAttr = code(CANVAS).replace(/setAttribute\('data-cvl-dialog-open', 'true'\)/, "setAttribute('data-gone', 'true')");
   assert.doesNotMatch(noAttr, /setAttribute\('data-cvl-dialog-open', 'true'\)/, '变异 A：改属性名后 ① 必须红');
-  const noRule = code(CSS).replace(/html\[data-cvl-dialog-open\][^{]*\{[^}]*\}/, '');
+  /* ⚠️ 2026-10-03：规则现在有**两条**（全局侧栏压暗 + 任务按钮隐藏），
+     所以变异必须**全部**删掉（g 标志）；只删第一条会让第二条还在 ⇒ 判不出红，
+     等于这个自证已经失效了。 */
+  const noRule = code(CSS).replace(/html\[data-cvl-dialog-open\][^{]*\{[^}]*\}/g, '');
   assert.doesNotMatch(noRule, /html\[data-cvl-dialog-open\]/, '变异 B：删掉规则后 ② 必须红');
 });
 

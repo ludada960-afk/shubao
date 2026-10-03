@@ -290,10 +290,14 @@ export const CANVAS_ACTIONS = Object.freeze([
     group: '视频处理',
     canRun: isReadyVideoNode,
   }),
-  action('export-video', '下载视频', ['video-toolbar'], null, false, {
+  action('export-video', '导出视频', ['video-toolbar'], null, false, {
     type: 'local', handler: 'export-video',
   }, {
-    description: '把这条视频存到本地',
+    /* 2026-10-03 用户批注：「下载视频点击之后依然是保存画布，
+       这个功能难道不该叫导出吗」—— 除了行为要真导出，文案也一并对齐：
+       它走的是"取回素材 → 存到本地"这条**导出**链路，不是浏览器下载。
+       图片侧同一档叫「导出图片」，两侧统一。 */
+    description: '把这条视频导出到本地',
     group: '视频处理',
     canRun: isReadyVideoNode,
   }),

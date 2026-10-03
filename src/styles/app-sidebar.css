@@ -437,12 +437,29 @@
    而画布原有的 `.is-dialog-open` 规则也救不了：TaskSidebar 是 `createPortal` 挂到
    侧栏底部插槽里的，**在 `.ec-canvas-page` 之外**，选择器够不着。
 
-   ⇒ 由 EcCanvas 把「有弹窗」这件事复制到 `<html data-cvl-dialog-open>`，这里统一压暗。
-   `pointer-events: none` 一并上：压暗的东西不该还能点（点下去等于穿透到弹窗后面）。 */
-html[data-cvl-dialog-open] .app-sidebar,
-html[data-cvl-dialog-open] .task-sidebar,
-html[data-cvl-dialog-open] .app-sidebar-task-host {
+   ⇒ 由 EcCanvas 把「有弹窗」这件事复制到 `<html data-cvl-dialog-open>`，这里统一处理。
+
+   ⚠️ 2026-10-03 用户批注（第三次说这件事，这次说清了）：
+     「我不知道你其他的左边这些加号或者下面的功能栏，在弹窗的时候是去哪了，
+       如果是隐藏起来的话，那这个按钮也应该是隐藏起来啊，
+       我说的暗下去，指的是**不该在前台展示**啊…并且颜色不该是暗下去，改回来」
+
+   ⇒ 之前把「暗下去」理解成 `opacity:.45`（压暗），**理解错了**：
+     用户要的是**和画布 HUD 同一待遇 —— 直接不渲染**。
+     画布那一档（小地图 / 缩放条 / 左栏 / 底部工具栏）用的就是
+     `display:none !important`（EcCanvas.css 的 `.is-dialog-open` 名单）——
+     「其他是隐藏了，那这个也要隐藏」。
+
+     压暗还有两个实际毛病：① 它**仍然在前台**（z-index 4e7 压住遮罩，
+     看着就像浮在弹窗上面）；② 它还能被点到，还要额外补 pointer-events。
+     隐藏一次把两件事一起解决。 */
+html[data-cvl-dialog-open] .app-sidebar {
   opacity: .45;
   pointer-events: none;
   transition: opacity var(--sb-dur-fast, .16s) ease;
+}
+/* 任务入口（画布左下角那颗 ✨）：与画布 HUD 一致 —— 弹窗一开就不渲染。 */
+html[data-cvl-dialog-open] .task-sidebar,
+html[data-cvl-dialog-open] .app-sidebar-task-host {
+  display: none;
 }

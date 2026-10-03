@@ -4614,16 +4614,41 @@ const handlePointerUp = useCallback((e) => {
       return;
     }
     if (handler === 'export-video') {
-      /* 单条视频下载：走站内现成的导出链路（同源地址，直接 <a download>）。 */
+      /* ⚠️ 2026-10-03 用户批注：「下载视频点击之后依然是保存画布，
+         这个功能难道不该叫导出吗」—— 根因是下面原来那行 `<a href download>`。
+
+         素材地址是**跨域**的（上传走对象存储/CDN），而浏览器**只对同源链接
+         认 `download` 属性**；跨域时它直接**导航**到那个地址 ⇒ 触发画布的
+         离开守卫 ⇒ 弹出「保存这张画布？」。
+         也就是说那颗按钮根本不是"下载失败"，是**它把整页导航走了**。
+
+         ⇒ 先 fetch 成 blob 再用 object URL 下载（object URL 是同源的，
+            `download` 一定生效，且**不发生导航**）。
+            拉不到（CDN 没开 CORS）时退到"新标签页打开" ——
+            `window.open` 不卸载当前页，同样不会碰离开守卫。 */
       const url = String(node.url || '');
       if (!url) { showToast('这条视频还没有可用的地址', 'error'); return; }
-      const href = url.startsWith('/') ? url : new URL(url, window.location.origin).toString();
-      const link = document.createElement('a');
-      link.href = href;
-      link.download = node.name || node.displayLabel || 'video.mp4';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      const filename = String(node.name || node.displayLabel || '').trim() || 'video.mp4';
+      showToast('正在导出视频…', 'info');
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`导出失败（${response.status}）`);
+        const blob = await response.blob();
+        const href = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = href;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        /* 立刻 revoke 会让部分浏览器来不及开始下载，延后一拍 */
+        setTimeout(() => URL.revokeObjectURL(href), 4000);
+      } catch {
+        /* 拉不到就在新标签打开：用户右键另存为即可，
+           但**不会**把当前画布页导航走（也就不会弹「保存这张画布」）。 */
+        window.open(url, '_blank', 'noopener');
+        showToast('已在新标签页打开这条视频，右键另存为即可', 'info');
+      }
       return;
     }
     if (handler === 'add-text') {
@@ -6638,7 +6663,29 @@ const handlePointerUp = useCallback((e) => {
     }
   };
 
-  const handleCanvasVideoUpload = async event => {
+  /* ═══ 2026-10-03：上传素材的落位口径 —— **一律以画布视口中心为准** ═══════════════
+   用户批注：「整个上传视频上来依然是没有在画布中心打开，依然视频有点偏下啊」
+
+   之前散着三种口径：① 视口中心（图片/视频搜索的第一候选）；
+   ② 40%×35% 的经验锚点（曾经**优先于**中心，还会当兜底）；
+   ③ `resolveSourceStackPlacement` 按生成框**列排**（占位节点那条路）。
+   同一件事三份真相 ⇒ 用户看到的落点随入口而变。
+
+   ⇒ 统一成一个纯函数：视口中心。搜索失败时也用它兜底，
+     绝不再落回那个 0.35×高度的经验位置。 */
+function centreOfCanvasStage(bounds, viewport, cardWidth, cardHeight) {
+  const scale = Math.max(0.05, Number(viewport?.scale) || 1);
+  const width = Number(bounds?.width) || 1200;
+  const height = Number(bounds?.height) || 800;
+  const w = Math.max(1, Number(cardWidth) || 320);
+  const h = Math.max(1, Number(cardHeight) || 200);
+  return {
+    x: (width / scale - w) / 2 - Number(viewport?.x) / scale,
+    y: (height / scale - h) / 2 - Number(viewport?.y) / scale,
+  };
+}
+
+const handleCanvasVideoUpload = async event => {
     const files = [...(event.target?.files || [])].filter(file => file.type.startsWith('video/')).slice(0, 4);
     event.target.value = '';
     if (!files.length) return;
@@ -6699,9 +6746,40 @@ const handlePointerUp = useCallback((e) => {
         projectContext = await ensureCanvasMediaProject(files[0]?.name || 'Canvas 视频项目');
       } catch {}
       const imported = await importCanvasMediaAssets(assets, projectContext, 'reference-video');
+      /* ⚠️ 2026-10-03 用户批注：「整个上传视频上来依然是没有在画布中心打开，依然视频有点偏下啊」
+
+         **真正的病根在这里**：落位用的尺寸来自 `canvasUploadFootprintSizes(imported.assets…)`，
+         它读的是 `asset.aspectRatio / width / height`；而这些字段是**本地探尺寸**
+         （`probeLocalMediaSizes` → videoWidth/videoHeight）得到的，
+         经过 `importCanvasMediaAssets` 之后**未必还在**。
+         一掉就落回 fallback 16/9 ⇒ 按"高 180 的横片"去排位，
+         视频解码后又按真实的 9:16 涨到 569 ⇒ **整张卡片吊在视口中心线以下**。
+         （这解释了为什么上一批加 footer 那 46px 完全没效果：误差是几百像素，不是几十。）
+
+         ⇒ 把探到的尺寸**贴回**入库后的素材，落位与渲染从此用同一个尺寸。 */
+      const importedAssets = imported.assets.map((asset, index) => {
+        const probe = probedSizes[index] || null;
+        const width = Number(asset?.width) || Number(probe?.width) || 0;
+        const height = Number(asset?.height) || Number(probe?.height) || 0;
+        return {
+          ...asset,
+          width,
+          height,
+          aspectRatio: asset?.aspectRatio || (width > 0 && height > 0 ? width / height : ''),
+          duration: Number(asset?.duration) || Number(probe?.duration) || 0,
+        };
+      });
       const bounds = containerRef.current?.getBoundingClientRect();
-      const baseX = ((bounds?.width || 960) * 0.4 - viewport.x) / viewport.scale;
-      const baseY = ((bounds?.height || 640) * 0.35 - viewport.y) / viewport.scale;
+      /* 2026-10-03 用户批注：「整个上传视频上来依然是没有在画布中心打开，依然视频有点偏下啊」
+
+         真因找到了：上传按钮走的是 **`uploadCanvasMaterials` → 本函数**（这条我上一批改过），
+         但「占位节点」那条路（`handleComposerSourceUpload`）用的是
+         `resolveSourceStackPlacement({ anchor: composer })` —— **按生成框列排**，
+         压根不参与视口居中。用户若是在某个生成框的上下文里传的视频，落到哪跟视口中心无关。
+
+         另外上一批那个 0.35×高度的经验锚点虽然已经从候选里去掉，
+         但**兜底**还写着它 —— 搜索返回 null 时就会落回那个高度（实测 y ≈ 0.35×stage，
+         正好是用户看到的"偏下"）。⇒ 兜底也换成真居中。 */
       /* 4c183cd4 续命 画布拖拽bug修复: 与图片上传一致, 用空白位置错开, 避免节点堆叠遮挡.
          批 CY-⑲：和图片一样，原先只检查了整批里的第一个（且用 320×240 这个写死的框，
          视频真实比例是 9:16 时框高 569 —— 差出来 329px 正好压在下面那个节点身上）。 */
@@ -6724,14 +6802,14 @@ const handlePointerUp = useCallback((e) => {
          图片上传不受影响：图片节点是 `showMeta: false`（没有 footer），
          媒体高度就是整卡高度。 */
       const blank = findCanvasBatchPlacement({
-        sizes: canvasUploadFootprintSizes(imported.assets, 320, 42, 'aspectRatio', 16 / 9)
+        sizes: canvasUploadFootprintSizes(importedAssets, 320, 42, 'aspectRatio', 16 / 9)
           .map(size => ({ ...size, h: size.h + CANVAS_CARD_FOOTER_H })),
         viewport,
         bounds: { width: bounds?.width || 1200, height: bounds?.height || 800 },
         nodes,
         gapScreen: CANVAS_MEDIA_GAP_SCREEN,
-      }) || { x: baseX, y: baseY };
-      const uploadedNodes = createUploadedVideoNodes({ assets: imported.assets, x: blank.x, y: blank.y, now: uploadStartedAt, namer: canvasShotNamerRef.current });
+      }) || centreOfCanvasStage(bounds, viewport, CANVAS_MEDIA_WIDTH, CANVAS_CARD_FOOTER_H);
+      const uploadedNodes = createUploadedVideoNodes({ assets: importedAssets, x: blank.x, y: blank.y, now: uploadStartedAt, namer: canvasShotNamerRef.current });
       draftReadyRef.current = true;
       const mediaFields = canvasMediaFields(result, uploadedNodes);
       if (projectContext || Object.keys(mediaFields).length) {
