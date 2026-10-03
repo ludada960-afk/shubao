@@ -5,18 +5,12 @@ import sharp from 'sharp';
 
 import { createNanoBananaProviderAdapter, NANO_UPSTREAM_MODELS } from '../server/ecommerceEngine/nanoBananaProviderAdapter.mjs';
 
-const BASE_URL = 'https://api.change2pro.com';
-/* ⚠️ 2026-10-03：这两行原来写的是**字面量**
-     'gemini-2.5-flash-image' / 'gemini-3-pro-image'。
-   问题不是"重复写了两遍"，而是：供应商早已下架 flash 那一档，
-   于是这个探针变成一个**必然失败**的工具（实测报
-   "Required Nano Banana model is unavailable"）——
-   而它正是部署链路里验证网关可用的那一环。
-
-   ⇒ 改为引用 provider 适配器导出的**唯一声明**
-     （`test/nano-model-single-source.test.mjs` 守着这条单一来源契约：
-      任何地方写上游模型名字面量都会被它列为 offender）。
-     换档只需改声明一处，探针自动跟着走。 */
+const BASE_URL = 'https://api.forkc2p.com';
+/* 上游模型名只从声明处取，不在本文件再写一份字面量。
+   2026-10-03：本文件原写死 'gemini-2.5-flash-image'，而供应商早已把它换成
+   'gemini-3.1-flash-image' —— 于是 discoverModels 永远报「模型不可用」，
+   探针变成一个必然失败的工具。正确做法就是引用 NANO_UPSTREAM_MODELS，
+   与 test/nano-model-single-source.test.mjs 的契约一致。 */
 const FLASH_MODEL = NANO_UPSTREAM_MODELS.flash;
 const PRO_MODEL = NANO_UPSTREAM_MODELS.pro;
 
