@@ -645,14 +645,19 @@
   background-image: linear-gradient(180deg, var(--sb-brand-500), var(--sb-brand-700));
 }
 .media-field-label:has(+ .media-field-hint) { margin-bottom: -2px; }
-/* 上传框：它是这一栏里最大的可点面 —— 悬停必须**看得出来它可点**（指针 + 描边 + 底色） */
-.media-field-upload-box { cursor: pointer; transition: border-color var(--sb-duration-fast) var(--sb-ease-out), background-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out); }
-.media-field-upload-box:hover { border-color: var(--sb-border-strong); background: var(--sb-surface-tint); }
+/* 上传框：它是这一栏里最大的可点面 —— 悬停必须**看得出来它可点**（指针 + 描边 + 底色 + 抬升）
+   ⚠️ 2026-10-03 用户批注（配图实测）：原来这条写的是
+   `border-color: var(--sb-border-strong)` —— 而**底态本来就是** `--sb-border-strong`
+   （见下方 .media-field-upload-box 基础规则），所以虚线在 hover 时**完全没变化**，
+   用户看不出这个框可点。知渔那边「鼠标放上去虚线会加深」正是我们缺的那一档。
+   ⇒ 改用新加的 --sb-border-hover，并补一层抬升，机制对齐、长度不抄。 */
+.media-field-upload-box { cursor: pointer; }
+.media-field-upload-box:hover { border-color: var(--sb-border-control-hover); background: var(--sb-surface-tint); box-shadow: var(--sb-shadow-2); }
 .media-field-upload-box:focus-within { border-color: var(--sb-brand); box-shadow: var(--sb-focus-ring); }
 /* 技能卡（如果有）与付费动作卡：同一套抬升语言 */
 .media-skill-card { transition: border-color var(--sb-duration-fast) var(--sb-ease-out), box-shadow var(--sb-duration-fast) var(--sb-ease-out); }
 .media-skill-card[role="button"], .media-skill-card.is-clickable { cursor: pointer; }
-.media-skill-card[role="button"]:hover, .media-skill-card.is-clickable:hover { border-color: var(--sb-border-strong); box-shadow: var(--sb-shadow-md); }
+.media-skill-card[role="button"]:hover, .media-skill-card.is-clickable:hover { border-color: var(--sb-border-hover); box-shadow: var(--sb-shadow-md); }
 /* ═══ 2026-09-19 批 Q：「各类型张数」这一组的排版（用户批注 #3-4）══════════════════════════
    用户原话：「你下面一整块的排版都是乱的，你知道吗？」
    根因：这一组（FieldRenderer 的 counts 档）**根本没有 CSS** —— 行是 flex 默认排布，
@@ -1146,11 +1151,17 @@ html:not([data-scrolling]) .media-workbench-submit:hover:not(:disabled) {
   gap: 10px;
   min-height: 168px;
   padding: 21px 17px;
-  border: 1.6px dashed var(--sb-border-strong);
+  border: 2.4px dashed var(--sb-border-control);
   border-radius: 18px;
   background: var(--sb-surface-card);
   text-align: center;
-  transition: border-color .18s ease, background-color .18s ease;
+  /* ⚠️ 2026-10-03：这条基础规则在文件更靠后，会**覆盖**上面那条同选择器的 transition，
+     而它漏了 box-shadow ⇒ 上传框 hover 的抬升不会过渡、直接闪。
+     三条属性一次写全，并改用站内统一的时长/缓动 token。 */
+  transition:
+    border-color var(--sb-duration-fast) var(--sb-ease-out),
+    background-color var(--sb-duration-fast) var(--sb-ease-out),
+    box-shadow var(--sb-duration-fast) var(--sb-ease-out);
 }
 .media-field-upload.is-dragging .media-field-upload-box { border-color: var(--sb-brand-600); background: var(--sb-surface-tint); }
 .media-field-upload-icon { color: var(--sb-ink-3); }
