@@ -29,20 +29,41 @@ const home = stripComments(readFileSync(new URL('../src/pages/Home/index.jsx', i
 const showcase = readFileSync(new URL('../src/pages/Home/CreationShowcase.jsx', import.meta.url), 'utf8');
 const xhs = readFileSync(new URL('../src/pages/Home/XhsContentMode.jsx', import.meta.url), 'utf8');
 
-test('J-⑨（批 T 改判）首页不再渲染案例表达区，但组件与小红书那份引用原样保留', () => {
+/* ═══ 2026-10-03 **再次改判**（用户第三次就这件事表态）══════════════════════════════
+   用户原话（逐字）：
+     「现在工作台里面这些子页面里有引用旧版首页的那些板块，**给重做重做成我们现在这些
+       子页面的样式**，然后旧版首页那几块东西，你就把它们给删掉吧，避免后面会有一些
+       **互相引用或者互相映射导致的混乱**。」
+     「旧版首页那几块东西……**电商生图、万物上升、自由创作、海报封面那些，
+       还有小红书图文和 plog**。」
+
+   批 T（2026-09-21）当时的落点是"首页不再渲染、但子页面那份引用原样保留" ——
+   那时候用户的顾虑是"同一句话在一屏里说两遍"。**现在顾虑变了**：
+   旧版首页版块活在**子页面**里，会与子页面互相引用/映射，越改越乱。
+
+   ⇒ 判据跟着改：不仅首页不能引用它，**子页面也不能再引用它**。
+     `test/xhs-workbench-ui` 那条同步反转。
+     ⚠️ 本组件文件（CreationShowcase.jsx）**暂不删**：它是「一处实现」的历史载体，
+        删文件属于另一件事、且会被别处引用链波及；本轮先切断**子页面对它的引用**，
+        让它回到真正的孤儿状态，再由下一轮决定文件去留。 */
+test('J-⑨（批 1003 再次改判）旧版首页案例表达区**子页面也不再引用**', () => {
   assert.doesNotMatch(home, /<CreationShowcase/,
-    '首页不再渲染这一块（用户本轮：这块整体删掉，不要放这里）');
+    '首页不渲染这一块');
   assert.doesNotMatch(home, /import \{ CreationShowcase \}/,
-    '首页也不再 import 它（否则是死引用）');
-  /* 共用一份实现的最强证据：另一个模式页引用的是**同一个文件**，这一点没变 */
-  assert.match(xhs, /import CreationShowcase from '\.\/CreationShowcase\.jsx';/,
-    '小红书模式引用的必须是同一个文件（两处一份实现里"那份实现"必须还在）');
-  assert.match(xhs, /<CreationShowcase mode="content" subMode=\{xhsSubMode\}/,
-    '小红书模式仍在使用它（组件不是被删除，只是首页不再用）');
-  /* 左文案 + 右效果图：这一块的骨架就是这两栏（组件本身不许被改瘦） */
+    '首页不 import 它（否则是死引用）');
+  /* 本轮新增：子页面同样不许再挂旧版首页那一块 */
+  assert.doesNotMatch(xhs, /import CreationShowcase from '\.\/CreationShowcase\.jsx';/,
+    '小红书图文子页面不得再 import 旧版首页的案例表达区');
+  assert.doesNotMatch(xhs, /<CreationShowcase/,
+    '小红书图文子页面不得再渲染旧版首页的案例表达区');
+  /* 切掉之后，它自己的功能控件必须还在 —— 不能连功能一起删 */
+  assert.match(xhs, /<XhsInputTemplate/,
+    '上传 / 文案 / @提及 / 生成 这些真功能控件必须保留');
+  assert.match(xhs, /<XhsModeSelector/,
+    '「种草图文 / Plog 生活碎片」切换必须保留');
+  /* 左文案 + 右效果图：组件本体没被改瘦（本轮只切引用，不动实现） */
   assert.match(showcase, /className="creation-showcase-copy"/);
   assert.match(showcase, /className="creation-showcase-visual"/);
-  /* 三个模式各有自己那份"这个板块能给你什么"的文案（不写死一句话糊弄） */
   for (const mode of ['ecommerce', 'video', 'visual']) {
     assert.match(showcase, new RegExp('  ' + mode + ':'), '缺少 ' + mode + ' 的文案档');
   }
