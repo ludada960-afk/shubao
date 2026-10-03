@@ -421,8 +421,14 @@ test('production runtime verifier fails closed without exposing secret values', 
 });
 
 test('Nano Banana gateway probe validates stable production aliases without exposing credentials', () => {
-  assert.match(nanoGatewayProbe, /gemini-2\.5-flash-image/);
-  assert.match(nanoGatewayProbe, /gemini-3-pro-image/);
+  // 2026-10-03：本断言原来钉的是 'gemini-2.5-flash-image' / 'gemini-3-pro-image'
+  // 两个**字面量**。前者供应商早已下架，探针因此变成一个必然失败的工具（实测报
+  // "Required Nano Banana model is unavailable"）。改为断言探针**引用声明处**——
+  // 这既保住了"钉住生产实际用的模型"这个原意，又符合
+  // test/nano-model-single-source.test.mjs 的单一来源契约。
+  assert.match(nanoGatewayProbe, /NANO_UPSTREAM_MODELS/);
+  assert.match(nanoGatewayProbe, /NANO_UPSTREAM_MODELS\.flash/);
+  assert.match(nanoGatewayProbe, /NANO_UPSTREAM_MODELS\.pro/);
   assert.match(nanoGatewayProbe, /--generate/);
   assert.doesNotMatch(nanoGatewayProbe, /console\.(?:log|error)\([^\n]*(?:apiKey|NANO_BANANA_API_KEY)/);
 });

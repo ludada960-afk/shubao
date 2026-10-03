@@ -1226,7 +1226,16 @@ const IMG_MODEL = process.env.IMAGE_MODEL || 'gpt-image-2';
 const IMG_AUTH_STRATEGY = String(process.env.IMAGE_AUTH_STRATEGY || 'bearer').trim().toLowerCase();
 const IMG_PROVIDER_PROTOCOL = String(process.env.IMAGE_PROVIDER_PROTOCOL || 'native-tasks').trim().toLowerCase();
 const NANO_BANANA_KEY = process.env.NANO_BANANA_API_KEY || '';
-const NANO_BANANA_BASE = (process.env.NANO_BANANA_BASE_URL || 'https://api.change2pro.com').replace(/\/+$/, '');
+/* 2026-10-03 网关迁移实测（`scripts/check-cn-gateway-reach.ps1`，绕开 DNS 与系统代理直连 IP:443）：
+     gateway.change2pro.com  -> 128.242.240.91    TCP 443 超时（6s 无响应，大陆不可用）
+     api.change2pro.com     -> 69.171.227.37     TCP 443 超时（Meta 段，DNS 污染，至今未修）
+     api.forkc2p.com        -> 206.82.6.10       TCP 204ms，证书 CN=api.forkc2p.com  OK
+   官方文档把新接入地址写成 https://gateway.change2pro.com，但那个主机在大陆连不上，
+   **所以默认值必须留在 forkc2p 这条能通的线上**。控制台另说：后台面板与文档站
+   (platform.change2pro.com) 是给人看的，走浏览器/代理即可，不参与出图链路。
+   ⚠️ 若日后拿到大陆能直连的新域名，改这里 + scripts/verify-runtime-config.cjs 两处，并先用
+   只读口 GET {base}/v1/usage 验 200 再上线。 */
+const NANO_BANANA_BASE = (process.env.NANO_BANANA_BASE_URL || 'https://api.forkc2p.com').replace(/\/+$/, '');
 const NANO_BANANA_FLASH_MODEL = process.env.NANO_BANANA_FLASH_MODEL || 'gemini-2.5-flash-image';
 const NANO_BANANA_PRO_MODEL = process.env.NANO_BANANA_PRO_MODEL || 'gemini-3-pro-image';
 // 演练加固(2026-08-26)：生图网关是否至少配置了一条可用路由。
