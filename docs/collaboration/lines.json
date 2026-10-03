@@ -1,0 +1,69 @@
+{
+  "_readme": [
+    "工作线 / 发布线 / 文件归属的**唯一事实源**（RTK 批之十四条：分开**工作线**是对的，分**部署线**是错的）。",
+    "scripts/collaboration-policy.mjs 从这里读，不在代码里写第二份 —— 名单写两处必然漂移。",
+    "",
+    "policy.releaseBranch      : 唯一有权部署的那条线。deploy-production.ps1 的 -ReleaseBranch",
+    "                            也指它，两处不一致时门禁会红（见 test ②）。",
+    "policy.workBranchPrefixes : 并行开发用的工作线前缀。**多条并存是对的**，它们不部署。",
+    "",
+    "scopes[]                  : 文件归属。**按范围分，不按工作树分** —— 实测两条并发会话",
+    "                            常常共用同一棵工作树（codex-ecommerce-stability），按树分不出谁是谁。",
+    "  id / owner              : 这片归谁（owner 写给人看的，判据不依赖它）。",
+    "  worktree / branch       : 选「本 scope」的判据（谁匹配谁就是自己那片）。",
+    "  owns                    : 前缀列表。改了落在**别人** owns 里的文件 ⇒ ownership conflict。"
+  ],
+
+  "policy": {
+    "releaseBranch": "gm/release-merge-1001",
+    "workBranchPrefixes": ["codex/", "deploy/", "glm/", "glm52/", "cy/"]
+  },
+
+  "scopes": [
+    {
+      "id": "workbench-parity-1004",
+      "owner": "工作台规格对齐这条线（ad068c07 / ccf6f848）",
+      "worktree": "codex-ecommerce-stability",
+      "branch": "deploy/aigc-1003",
+      "owns": [
+        "src/pages/VideoStudio/",
+        "src/components/media/WorkbenchShell.jsx",
+        "src/components/media/WorkbenchShell.css",
+        "src/skills/imageSkills.js",
+        "src/skills/imageSpecExposure.js",
+        "test/video-spec-single-surface-1003.test.mjs",
+        "test/image-spec-exposure-1003.test.mjs",
+        "test/image-tryon-parity-1003.test.mjs",
+        "test/image-copy-parity-1003.test.mjs",
+        "test/collaboration-policy.test.mjs",
+        "test/skill-tier-0918.test.mjs",
+        "test/style-action-button-0928.test.mjs",
+        "scripts/collaboration-policy.mjs",
+        "docs/collaboration/",
+        "docs/design/data/quantv-image-tools-20261003.json",
+        "docs/design/data/quantv-market-20261003.json"
+      ]
+    },
+    {
+      "id": "nano-model-single-source",
+      "owner": "并发会话：Nano Banana 单真源 + 画布那批（未提交中）",
+      "worktree": "codex-ecommerce-stability",
+      "branch": "deploy/aigc-1003",
+      "owns": [
+        "server/ecommerceEngine/",
+        "server/index.mjs",
+        "src/skills/skillRun.js",
+        "src/pages/EcCanvas/",
+        "scripts/probe-nano-banana-gateway.mjs",
+        "scripts/verify-runtime-config.cjs",
+        "test/canvas-generation-contract.test.mjs",
+        "test/canvas-mention-scope-0929.test.mjs",
+        "test/ecommerce-model-routing.test.mjs",
+        "test/ecommerce-spec-parity-1002.test.mjs",
+        "test/nano-model-single-source.test.mjs",
+        "test/adaptive-ratio-priority-1003.test.mjs",
+        "test/canvas-mention-order-1003.test.mjs"
+      ]
+    }
+  ]
+}

@@ -23,6 +23,7 @@ import { generationUnits, imageModelResolutions, normalizeImageModel, DEFAULT_IM
    我们要就地跑套图，就必须用同一份 —— 自己另算一套张数会和服务端的方案对不上，
    而服务端在建 hold 之前会校验报价（数量对不上直接报错），对不上就是白跑一趟。 */
 import { resolveEcommercePlan } from '../pages/Home/ec/ecommercePlanModel.js';
+import { parseSizeMentions } from '../pages/Home/ec/promptSizeConflict.js';
 
 /* 服务端唯一认得的四个视觉方向（server/visualCreationSkills.mjs:1） */
 export const SERVER_VISUAL_SKILL_IDS = Object.freeze(['free', 'poster', 'social-cover', 'brand-kv']);
@@ -585,6 +586,23 @@ export function skillImages(skill, values = {}, { slotIndex = 0 } = {}) {
   return { imageUrl, referenceImages, references: references.slice(0, MAX_REFERENCE_IMAGES), primaryBox: imageBox(primary[0]) };
 }
 
+/* ── ③.5 用户自己输入的自由文本（2026-10-03 新增，为「自适应」解析比例）─────────
+   ⚠️ 为什么**不能**直接解析 buildSkillBrief 的成品：那里面混着我们自己写的模板文案，
+     而实测 108 个技能里有 **5 个**的模板正文自带比例词（image.detail_page 的「竖版」、
+     四个 video.drama_* / talk_show 的「竖屏」，parseSizeMentions 都会判成 9:16）。
+     拿模板去解析 = 把**我们的默认**当成**用户的意图**强塞给他：用户什么都没写，
+     却因为技能模板提了一句"竖屏"就永远拿到 9:16。
+   ⇒ 只取 kind 为 text / textarea 的字段 —— 那才是用户亲手敲的字。
+     选项类（select/segmented/cards）的 label 是我们写的，也不取。 */
+function userTypedText(skill, values) {
+  const fields = Array.isArray(skill && skill.fields) ? skill.fields : [];
+  return fields
+    .filter(field => field && (field.kind === 'text' || field.kind === 'textarea'))
+    .map(field => text(values[field.key]))
+    .filter(Boolean)
+    .join('\n');
+}
+
 /* ── ④ 生成参数：比例 / 清晰度 / 数量 / 模型 / 服务端视觉方向 ──
    ⚠️ 批 R：**模型**从声明里来（field.key = 'imageModel'，选项引用
       services/imageModelCatalog.js 那一份目录，见 imageSkills 的 modelField）。
@@ -592,13 +610,27 @@ export function skillImages(skill, values = {}, { slotIndex = 0 } = {}) {
       但"用户选的模型必须真的进入请求、并且真的参与计费"是这一层的责任：
       skillPointsEstimate 读的就是同一个 settings，改模型 → 报价跟着变，不会各说各话。 */
 export function skillGenerationSettings(skill, values = {}) {
-  /* 比例：显式档位按原值；'自适应' 按**主图实际宽高**就近取一档
-     （知渔的 help 原文口径，见文件上方 nearestLegalRatio）；量不到主图就回落声明里的默认档。 */
+  /* ═══ 2026-10-04 全局统一：比例的判定只有两条 ═══════════════════════════════
+     ① 用户选了**具体档位** → 照做。提示词里写的尺寸字样一律不算数。
+        依据是行业通则「硬配置优先」：DALL-E 3 / SD / 万相 / 即梦 / Runway / Pika
+        全部是面板参数 > 提示词语义描述（提示词只描述画面内容）。
+        —— 这一条本来就成立，下面 explicit 分支一直没动过。
+     ② 用户选了**自适应** → 提示词里写了尺寸就按它；没写就**不指定**，
+        交给上游按内容分配宽高（即梦那条「比例判断依据：完全通过提示词语义识别」）。
+
+     ⚠️ ②里删掉了 2026-10-03 短暂加过的"按主图实测宽高就近取一档"：
+        那正是用户投诉的"自适配自动篡改我的尺寸"—— 他把 2200×1927（1.142）
+        的原图传进来，我们自作主张吸到 5:4，比例变形 9.5%。
+        画布侧（canvasAdaptiveRatio.resolveProtocolRatio）已经先一步删掉了，
+        这里同步，否则同一个「自适应」在技能页和画布上会是两种行为。
+
+     ⚠️ 返回空串 = 不指定比例。计费/校验仍需要一份合法默认值，所以兜底给声明里的
+        默认档；但**请求侧**读的是 modelRoute.autoRatio（见 server/modelCatalog
+        与 providerAdapter），那条链会真的不传 size / aspectRatio。 */
   const askedRatio = text(values.ratio);
-  const box = askedRatio === ADAPTIVE_RATIO ? (skillImages(skill, values).primaryBox || null) : null;
-  const adaptiveRatio = box ? nearestLegalRatio(box.width, box.height) : '';
+  const mentionedRatio = askedRatio === ADAPTIVE_RATIO ? parseSizeMentions(userTypedText(skill, values))[0]?.ratio || '' : '';
   const ratio = askedRatio === ADAPTIVE_RATIO
-    ? (adaptiveRatio || defaultSkillRatio(skill))
+    ? (LEGAL_RATIOS.has(mentionedRatio) ? mentionedRatio : '')
     : (LEGAL_RATIOS.has(askedRatio) ? askedRatio : defaultSkillRatio(skill));
   const askedResolution = (text(values.clarity) || DEFAULT_RESOLUTION).toUpperCase();
   /* ⚠️ 2026-09-19 批 I-9：上限从 **9 → 16**。
@@ -629,7 +661,11 @@ export function skillGenerationSettings(skill, values = {}) {
     ? askedResolution
     : (allowedResolutions.includes(DEFAULT_RESOLUTION) ? DEFAULT_RESOLUTION : allowedResolutions[0]);
   return {
-    ratio: LEGAL_RATIOS.has(ratio) ? ratio : FALLBACK_RATIO,
+    /* ⚠️ 2026-10-04：自适应且提示词没写尺寸时 ratio 是**空串**，这里必须放行 ——
+       空串 = 不指定比例，请求侧据此（modelRoute.autoRatio）真的不传 size。
+       原来这一行是 `LEGAL_RATIOS.has(ratio) ? ratio : FALLBACK_RATIO`，
+       会把空串归一成 1:1，等于自适应又变回"我们替用户定了一个比例"。 */
+    ratio: ratio === '' ? '' : (LEGAL_RATIOS.has(ratio) ? ratio : FALLBACK_RATIO),
     resolution: resolution || DEFAULT_RESOLUTION,
     count,
     imageModel,

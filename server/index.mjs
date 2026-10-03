@@ -163,6 +163,7 @@ import {
   createProviderRouter,
   createModelProviderRouter,
   createNanoBananaProviderAdapter,
+  NANO_UPSTREAM_MODELS,
   ecommerceFeatureForItem,
   evaluateAsset,
   evaluateSuiteDiversity,
@@ -1254,8 +1255,20 @@ const NANO_BANANA_KEY = process.env.NANO_BANANA_API_KEY || '';
    ⚠️ 若日后拿到大陆能直连的新域名，改这里 + scripts/verify-runtime-config.cjs 两处，并先用
    只读口 GET {base}/v1/usage 验 200 再上线。 */
 const NANO_BANANA_BASE = (process.env.NANO_BANANA_BASE_URL || 'https://api.forkc2p.com').replace(/\/+$/, '');
-const NANO_BANANA_FLASH_MODEL = process.env.NANO_BANANA_FLASH_MODEL || 'gemini-2.5-flash-image';
-const NANO_BANANA_PRO_MODEL = process.env.NANO_BANANA_PRO_MODEL || 'gemini-3-pro-image';
+/* ⚠️ 2026-10-03：这两个默认值此前写死 'gemini-2.5-flash-image'，而供应商早已把它换成
+   'gemini-3.1-flash-image'，且这里把值**显式传进**适配器、覆盖掉适配器自己的正确默认。
+   适配器对模型有两道校验（allowedModels，再加网关实时列表），所以下架的名字两条路都过不去：
+     · 要 3.1 → 「不支持的 Nano Banana 模型」（不在 allowedModels）
+     · 要 2.5 → 「模型当前不可用」（不在网关列表）
+   ⇒ nano-banana-2（flash）整档取不到图。而它**不是**"生产可能用 env 覆盖了所以没事"：
+   scripts/verify-runtime-config.cjs 的 validateRuntimeConfig 对每个期望字段**不符即抛错**，
+   部署脚本在服务器上跑它、不符就中止 —— 历次部署都能过，说明生产 .env 里写的就是那个下架名。
+   ⇒ 改为引用单点声明（nanoBananaProviderAdapter 的 NANO_UPSTREAM_MODELS），不再写第二份。
+   ⚠️ 生产 .env 仍需同步改成 NANO_BANANA_FLASH_MODEL=gemini-3.1-flash-image，
+     否则新门禁会**如实报错**（scripts/verify-runtime-config.cjs 的期望值也已同步改）。
+     一行 sed 即可，见 scripts/check-prod-nano-model.sh 顶部说明。 */
+const NANO_BANANA_FLASH_MODEL = process.env.NANO_BANANA_FLASH_MODEL || NANO_UPSTREAM_MODELS.flash;
+const NANO_BANANA_PRO_MODEL = process.env.NANO_BANANA_PRO_MODEL || NANO_UPSTREAM_MODELS.pro;
 // 演练加固(2026-08-26)：生图网关是否至少配置了一条可用路由。
 // 未配置时必须在受理前拒绝，否则任务会以 retryable 方式无限重试、
 // 用户积分被无限期冻结且前端永远等待（本地 dev 实测复现）。

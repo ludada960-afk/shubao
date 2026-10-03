@@ -80,10 +80,24 @@ test('⑤ 自身节点永远不出现（不能 @ 自己）', () => {
 });
 
 test('⑥ 代码里必须真的收窄了（防止有人把 filter 又放回全画布）', () => {
-  assert.match(index, /composerScopeIds\.has\(String\(node\.id\)\)/,
-    '@ 菜单候选必须受 composerScopeIds 约束');
-  assert.match(index, /const composerScopeIds = selectedNode[\s\S]{0,200}mergeGraphMentionSources\(selectedNode, connections\)/,
-    '范围 = 自己的 sourceNodeIds + 一级上游（mergeGraphMentionSources）');
+  /* ⚠️ 2026-10-03 改判：判据从「必须用 composerScopeIds 这个集合」换成
+     「候选必须由 mergeGraphMentionSources 驱动」。原因是那次错位 bug：
+     @ 面板显示的标签取自 selectedComposerMentions（merge 顺序），
+     而点��传出去的 image 来自 availableComposerSources（nodes 数组顺序）——
+     同一个「参考图1」在显示处和插入处指的不是同一张图。
+     驱动源换成 merge 顺序之后，available / selected / 生成 共用一份编号。
+     范围（CY-㉙ 要的那条）由「merge ∪ sourceNodeIds」保证，见下面两条断言。 */
+  assert.match(
+    index,
+    /const composerCandidateIds = selectedNode[\s\S]{0,320}?mergeGraphMentionSources\(selectedNode, connections\)/,
+    '@ 菜单候选必须由 mergeGraphMentionSources 驱动（它就是「自己 + 一级上游」）',
+  );
+  assert.match(
+    index,
+    /composerCandidateIds[\s\S]{0,200}?\.map\(id => nodes\.find/,
+    '候选要按 composerCandidateIds 的顺序取，而不是遍历 nodes',
+  );
+  assert.doesNotMatch(index, /composerScopeIds/, '旧的 scope 集合已无消费者，不留死代码');
   // 改前那行「除了自己全都进」不许再以任何形式出现
   assert.doesNotMatch(
     index,

@@ -222,14 +222,20 @@ export function createNanoBananaProviderAdapter({
         inlineData: { mimeType: asset.contentType || 'image/png', data: asset.buffer.toString('base64') },
       }));
       parts.push({ text: String(request.prompt || '').trim() });
+      const route = request?.modelRoute || {};
+      /* ⚠️ 2026-10-04「自适应 = 不指定比例」：Gemini 侧实测**不传** aspectRatio 时
+         模型会自己按内容分配宽高（瓶子摆窗台 → 1376x768 横图），这正是竞品自适应档的
+         口径。所以自适应时**整个 imageConfig.aspectRatio 都不能带** ——
+         带着就等于我们替它指定了。
+         ⚠️ imageSize（画质档）两种情况都要传：那才是"固定总像素量级"。 */
+      const autoRatio = route.autoRatio === true;
+      const imageConfig = { imageSize: route.resolution || route.imageSize || '2K' };
+      if (!autoRatio) imageConfig.aspectRatio = route.ratio || '1:1';
       const payload = await generate(model, {
         contents: [{ role: 'user', parts }],
         generationConfig: {
           responseModalities: ['TEXT', 'IMAGE'],
-          imageConfig: {
-            aspectRatio: request?.modelRoute?.ratio || '1:1',
-            imageSize: request?.modelRoute?.resolution || request?.modelRoute?.imageSize || '2K',
-          },
+          imageConfig,
         },
       });
       const image = outputImage(payload);

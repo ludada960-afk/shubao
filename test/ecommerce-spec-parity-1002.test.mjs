@@ -110,8 +110,17 @@ test('③ 画布套图请求必须用服务端认的那个 key，否则那一行
   keys.forEach(key => {
     assert.ok(counted.includes(key), `'${key}' 不在服务端 COUNTED_SIZING_KEYS 里，会被 normalizeSizing 整行丢弃`);
   });
-  /* 详情图默认 9:16 —— 与服务端 catalog 一致，不要再写 1:1 */
-  assert.match(block, /key: 'detail', count: detailCount, ratio: composer\.ratio \|\| '9:16'/);
+  /* 详情图默认 9:16 —— 与服务端 catalog 一致，不要再写 1:1
+     ⚠️ 2026-10-03：原来是 `ratio: composer.ratio || '9:16'`，现在换成先解过一轮的
+     `suiteRatio`（面板选「自适应」时 composer.ratio 是那个字面量，直传会被服务端
+     静默回落成 1:1，整篇套图比例全被带偏）。**兜底值 9:16 本身不能动** ——
+     它在 suiteRatio 为空时才生效，正是这条门禁当初要守的东西。 */
+  assert.match(block, /key: 'detail', count: detailCount, ratio: suiteRatio \|\| '9:16'/);
+  /* suiteRatio 声明在 block 之前（它得先算出来），所以这条对全文断言。
+     它必须**只在面板真给了档位时**才去解自适应 —— 否则空值也会被兜成 1:1，
+     把上面那条 9:16 的默认档吃掉。 */
+  assert.match(INDEX, /const suiteRatio = suiteAskedRatio/);
+  assert.match(INDEX, /suiteAskedRatio\s*\n?\s*\? protocolRatioForNodes/, '空档位不许走自适应解析');
 });
 
 test('④ 卡片尺寸只能来自一处：整卡几何与素材归一化必须共用 mediaHeightForRatio', () => {

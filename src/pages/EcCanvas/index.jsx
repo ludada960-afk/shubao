@@ -103,7 +103,7 @@ import { createCanvasImageComposerNode, createCanvasShotNamer, createCanvasSuite
 import { canvasSurfacesToDismiss } from './canvasSurfaceDismiss.js';
 import { useDismissOverlay } from '../../components/media/useDismissOverlay.js';
 import { exportDialogCopy } from './exportCopyModel.js';
-import { ADAPTIVE_RATIO, resolveProtocolRatio } from './canvasAdaptiveRatio.js';
+import { ADAPTIVE_RATIO, resolveProtocolRatio, protocolRatioForNodes } from './canvasAdaptiveRatio.js';
 
 /* ═══ 批 CY-⑭：**哪些节点的框必须跟着素材走** ══════════════════════════════════════════════════════
    只有"框里装的就是那份素材"的节点才按素材真实比例画。
@@ -111,7 +111,21 @@ import { ADAPTIVE_RATIO, resolveProtocolRatio } from './canvasAdaptiveRatio.js';
    它们的框是**版式对象**（用户排出来的输入区 / 方案板 / 文字层），高度由内容决定，
    拿素材比例去改它们会把用户排好的版面推倒。
    video-composer 同理：它是控制台，结果以独立节点出现。 */
-const MEDIA_FIT_KINDS = new Set(['image', 'output', 'video', 'image-composer', 'layer-group']);
+/* ⚠️ 2026-10-03 用户反馈（朋友账号实测）：合成器选了「自适应」，面板里却跳出
+   `5:4` —— 一个**面板上根本没有、用户也从未选过**的比例（尺寸列表只有
+   自适应/1:1/3:4/4:3/9:16/16:9 六档）。根因就是下面这个集合里混进了 'image-composer'：
+
+   · 合成器的 `ratio` 是**用户设置**（自适应 / 某一档），不是测量值；
+   · 但 onNaturalSize 是给所有节点的通用回调，参考图缩略图一 onLoad 就会触发；
+   · handleMediaNaturalSize 于是把 composer.ratio 覆盖成 `exactMediaRatio()` 的结果
+     （2304×1856 → 约分成 '36:29'，或按缩略图尺寸算成别的值）——
+     一个既不在合法档表里、也不是用户选的值。
+
+   ⇒ 合成器是**控制面**，高度由内容决定（与文案板 / 方向框同类，见 handleTextNodeAutoHeight），
+     它的比例是用户的选择。这两样都不能被素材测量覆盖，所以移出本集合。
+   ⚠️ 这类 bug 的共同形状：**测量值覆盖了设置值**。用户改过尺寸的节点还有一层保护
+     （下面 userSized），但合成器没有"用户拖过"这个概念，只能从源头不参与。 */
+const MEDIA_FIT_KINDS = new Set(['image', 'output', 'video', 'layer-group']);
 /* P0-1 派生即执行 (9-06): 生成文案自动请求 + P0-2 视频 composer 上游文案引用 + P0-3 TTS 配音执行链 + P0-4 字幕动效执行链 */
 import { buildCanvasCaptionRequest, buildCanvasCopywritingRequest, buildCanvasTtsRequest, findUpstreamCanvasCopy, normalizeCanvasAudioNodeFromTts, normalizeCanvasCopywritingResult, normalizeCanvasSubtitleNodes, resolveDerivedVideoPrompt } from './canvasDerivedAutoRun.js';
 import { collectNodeInputsFromEdges } from './canvasGraphInputs.js';
@@ -1570,19 +1584,39 @@ const [minimapOpen, setMinimapOpen] = useState(true);
        · 一级上游 = mergeGraphMentionSources（连进来的那些，见下）
      ⚠️ 所以**不动** mergeGraphMentionSources 的实现（它是对的：自身 mention 优先、
      入边按顺序补位）—— 只需要把「菜单的候选」从"全画布"收窄到"这个节点的圈子"。 */
-  const composerScopeIds = selectedNode
-    ? new Set([
-      ...(selectedNode.sourceNodeIds || []),
+  /* ⚠️ 2026-10-03 用户反馈（朋友账号）：@ 面板里点「参考图1」插进输入框的却是「参考图2」，
+     面板上下顺序也是颠倒的；他自己是**用连线**把素材节点接进来的。
+
+     根因是**编号用了两份不同的顺序**：
+       · 面板每一行**显示**的标签 = selectedMention.label，来自 selectedComposerMentions
+         ⇒ 顺序是 mergeGraphMentionSources（自身 mention 优先 + 入边顺序）；
+       · 而点击时 onToggle 传出去的 image 来自 availableComposerSources
+         ⇒ 顺序是 nodes 数组顺序（buildImageMentions 按下标编号）。
+     两份顺序不一致时，显示的「参考图1」和插入的「参考图1」根本不是同一张图 ——
+     而真正参与生成的那份又是第三种可能（selectedComposerMentions）。
+
+     ⇒ 修法：**只保留一份顺序**，且必须是实际下发用的那份。
+       下面改成按「merge 顺序 + 自己的 sourceNodeIds」取节点，
+       于是 available / selected / 生成 三者共用同一个编号，N 就是第 N 张。
+
+     ⚠️ 范围不能因为排序而缩水：原实现是「sourceNodeIds ∪ mergeGraphMentionSources」，
+       而 mergeGraphMentionSources 只读 mentionSourceNodeIds + 入边 —— 点上传写的是
+       sourceNodeIds（见 handleComposerSourceUpload：数组和边一起写）。
+       所以这里取并集并按上面那个顺序去重，范围与改前逐字一致，只是编号统一了。 */
+  const composerCandidateIds = selectedNode
+    ? [...new Set([
       ...mergeGraphMentionSources(selectedNode, connections),
-    ].map(id => String(id ?? '').trim()).filter(Boolean))
-    : new Set();
-  const rawAvailableComposerSources = nodes.filter(node =>
-    node?.url
-    && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind)
-    && node.id !== selectedNode?.id
-    /* 收窄到当前节点的圈子：自己的素材 + 一级上游。
-       没有选中节点时（不该发生）退回空列表，而不是把整张画布倒出来。 */
-    && composerScopeIds.has(String(node.id)));
+      ...(Array.isArray(selectedNode.sourceNodeIds) ? selectedNode.sourceNodeIds : []),
+    ].map(id => String(id ?? '').trim()).filter(Boolean))]
+    : [];
+  const rawAvailableComposerSources = selectedNode
+    ? composerCandidateIds
+      .map(id => nodes.find(node => String(node.id ?? '') === String(id)))
+      .filter(node => node
+        && node?.url
+        && ['image', 'output', 'image-composer', 'layer-group'].includes(node.kind)
+        && node.id !== selectedNode?.id)
+    : [];
   const availableComposerSources = buildImageMentions(rawAvailableComposerSources).map(mention => ({
     ...rawAvailableComposerSources.find(node => node.id === mention.sourceNodeId),
     ...mention,
@@ -3755,7 +3789,9 @@ const handlePointerUp = useCallback((e) => {
       y: Number.isFinite(anchor.y) ? anchor.y : source.y,
       w: Math.max(220, source.w || 240),
       h: Math.max(120, source.h || 240),
-      ratio: source.ratio || '1:1',
+      /* 占位节点的显示比例也要解一次：面板若是「自适应」，这里留着字面量会让
+         占位框按非法比例排版，结果图回来时尺寸一跳（2026-10-03）。 */
+      ratio: protocolRatioForNodes({ ratio: source.ratio, sourceNodes: [source] }),
       sourceNodeIds: [source.id],
       actionId: 'layer-edit',
       layerExpanded: false,
@@ -3831,7 +3867,8 @@ const handlePointerUp = useCallback((e) => {
       y: Number.isFinite(placement.y) ? placement.y : source.y,
       w: Math.max(220, source.w || 240),
       h: Math.max(120, source.h || 240),
-      ratio: source.ratio || '1:1',
+      /* 同上：占位节点的显示比例也解一次，别让「自适应」走到布局层。 */
+      ratio: protocolRatioForNodes({ ratio: source.ratio, sourceNodes: [source] }),
       sourceNodeIds: [source.id],
       actionId: 'remove-bg',
       showMeta: false,
@@ -3982,7 +4019,9 @@ const handlePointerUp = useCallback((e) => {
       }
       /* [/canvas-graph-inputs:generate-refs] */
       const settled = await Promise.allSettled(pendingOutputIndexes.map(index => {
-        const ratio = node.inputs?.ratio || source.ratio;
+        /* ⚠️ 2026-10-03：这一处原先是 `node.inputs?.ratio || source.ratio` 直传，
+           面板选「自适应」时会把 '自适应' 原样发出去，被服务端静默回落成 1:1。 */
+        const ratio = protocolRatioForNodes({ ratio: node.inputs?.ratio || source.ratio, prompt, sourceNodes: edgeInputs.images });
         const resolution = node.inputs?.resolution || source.resolution || '2K';
         const imageModel = node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL;
         return regenerateCanvasImage({
@@ -4142,9 +4181,9 @@ const handlePointerUp = useCallback((e) => {
         url = data.result_url || data.url || '';
         resultGeometry = canvasImageResultGeometry(data, source);
       } else if (actionId === 'inpaint') {
-        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
+        url = await regenerateCanvasImage({ prompt, imageUrl: sourceUrl, ratio: protocolRatioForNodes({ ratio: node.inputs?.ratio || source.ratio, prompt, sourceNodes: [source] }), resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
       } else {
-        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: node.inputs?.ratio || source.ratio, resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
+        const data = await transformCanvasImage({ action: actionId, prompt, imageUrl: sourceUrl, ratio: protocolRatioForNodes({ ratio: node.inputs?.ratio || source.ratio, prompt, sourceNodes: [source] }), resolution: node.inputs?.resolution || source.resolution || '2K', imageModel: node.inputs?.imageModel || source.imageModel || DEFAULT_IMAGE_MODEL });
         url = data.url || data.result_url || '';
       }
       if (!url) throw new Error('处理结果为空');
@@ -4893,7 +4932,9 @@ const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
       try {
         const prompt = [node.direction?.purpose, node.direction?.composition, node.direction?.copy]
           .filter(Boolean).join('\n') || '保持商品、品牌和文字准确，重新生成同一商业用途的电商图片。';
-        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: node.ratio, resolution: node.resolution || '2K', imageModel: node.imageModel || DEFAULT_IMAGE_MODEL });
+        /* ⚠️ 2026-10-03：此前把面板那一档直传给 regenerateCanvasImage，选「自适应」
+           会被服务端静默回落成 1:1。 */
+        const url = await regenerateCanvasImage({ prompt, imageUrl: node.url, ratio: protocolRatioForNodes({ ratio: node.ratio, prompt, sourceNodes: [node] }), resolution: node.resolution || '2K', imageModel: node.imageModel || DEFAULT_IMAGE_MODEL });
         const output = normalizeCanvasNode({
           ...node,
           id: `node_regenerated_${Date.now()}`,
@@ -5822,20 +5863,16 @@ const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
      为什么**必须**在发请求之前解掉：上游 `resolveGenerationSize` 对认不出的比例是**静默回落成 1:1**
      （server/ecommerceEngine/modelCatalog.mjs）—— 那正是用户抱怨的"明明写了 16:9 却被套到 1:1 上"，
      只是发生在服务端、界面上完全看不出来（不报错、不提示）。
-     解析链：提示词里明确写的尺寸 → 参考图实测宽高就近取一档 → 1:1（见 canvasAdaptiveRatio.js）。 */
-  const protocolRatioFor = useCallback((node, sourceNodes = [], prompt = '') => {
-    const asked = String(node?.ratio || '').trim();
-    if (asked && asked !== ADAPTIVE_RATIO) return asked;
-    const list = Array.isArray(sourceNodes) ? sourceNodes : [];
-    const reference = list.find(candidate => Number(candidate?.naturalWidth) > 0 && Number(candidate?.naturalHeight) > 0) || list[0] || null;
-    return resolveProtocolRatio({
-      ratio: asked,
-      prompt: prompt || node?.prompt || '',
-      referenceBox: reference
-        ? { width: Number(reference.naturalWidth) || Number(reference.w) || 0, height: Number(reference.naturalHeight) || Number(reference.h) || 0 }
-        : null,
-    });
-  }, []);
+     解析链：提示词里明确写的尺寸 → 参考图实测宽高就近取一档 → 1:1（见 canvasAdaptiveRatio.js）。
+
+     ⚠️ 2026-10-03：实现已下沉为模块级的 `protocolRatioForNodes`（同文件），
+       因为下面这些调用点里有一半位于本 useCallback **之前**，用组件作用域的函数
+       就得动 deps 数组 —— 那正是 2026-09-02 整页白屏（TDZ）的成因。行为不变。 */
+  const protocolRatioFor = useCallback((node, sourceNodes = [], prompt = '') => protocolRatioForNodes({
+    ratio: node?.ratio,
+    prompt: prompt || node?.prompt || '',
+    sourceNodes,
+  }), []);
 
   const handleImageComposerGenerate = useCallback(async composer => {
     if (!composer?.prompt?.trim() || composer.status === 'processing') return;
@@ -6061,9 +6098,17 @@ const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
     const desiredCount = Math.max(3, Math.min(12, Number(composer.count) || 6));
     const mainCount = Math.min(3, Math.max(1, Math.floor((desiredCount - 1) / 2)));
     const detailCount = Math.max(1, desiredCount - 1 - mainCount);
+    /* ⚠️ 2026-10-03：选「自适应」时先把面板值翻成协议比例，否则 '自适应' 会原样
+       进 imageSelections，被服务端静默回落成 1:1（套图尤其难受：整篇比例全被带偏）。
+       ⚠️ `composer.ratio` 为空时**保持空**，让下面两处原有的 `1:1` / `9:16` 兜底继续生效 ——
+       自适应的兜底是 1:1，若让它把 `|| '9:16'` 也吃掉，详情图会跟着变竖版。 */
+    const suiteAskedRatio = String(composer.ratio || '').trim();
+    const suiteRatio = suiteAskedRatio
+      ? protocolRatioForNodes({ ratio: suiteAskedRatio, prompt: composer.prompt || '' })
+      : '';
     const imageSelections = sizingImages.length ? sizingImages : [
-      { key: 'white_bg', count: 1, ratio: composer.ratio || '1:1' },
-      { key: 'main_text', count: mainCount, ratio: composer.ratio || '1:1' },
+      { key: 'white_bg', count: 1, ratio: suiteRatio || '1:1' },
+      { key: 'main_text', count: mainCount, ratio: suiteRatio || '1:1' },
       /* 2026-10-02 用户批注⑧ 的真根因之二：这里写的是 `detail_slice_feature`，
          而服务端 `assetPlanner.COUNTED_SIZING_KEYS` 只认
          `{white_bg, white_background, main_text, main_3x4, transparent, detail}` ——
@@ -6072,7 +6117,7 @@ const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
          用户看到的详情图其实来自别的路径，比例自然对不上。
          服务端 assetPlanner:179 本来就把 `detail_slice_*` 映射回 `detail`，
          所以前端直接写 `detail` 即可。 */
-      { key: 'detail', count: detailCount, ratio: composer.ratio || '9:16' },
+      { key: 'detail', count: detailCount, ratio: suiteRatio || '9:16' },
     ];
     const rowCounters = new Map();
     const receivedUrls = new Set();
@@ -6260,25 +6305,32 @@ const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
         promptText,
       ].filter(Boolean).join('\n');
       const count = Math.max(1, Math.min(10, Number(composer.count) || 1));
+      /* ⚠️ 2026-10-03：这两处原先 `composer.ratio` 直传，选「自适应」会被服务端
+         静默回落成 1:1。sourceNodes 已在本作用域，按实测宽高就近取一档。
+         解析结果提成一个变量，下面结果节点的**布局**比例也用同一个值 ——
+         否则出图是 16:9、节点框却按 '自适应' 算成 1:1，图会被压变形。 */
+      const askedRatio = sourceNodes.length
+        ? (composer.ratio || sourceNodes[0].ratio)
+        : composer.ratio;
+      const ratio = protocolRatioForNodes({ ratio: askedRatio, prompt, sourceNodes });
       const urls = await Promise.all(Array.from({ length: count }, () => sourceNodes.length
         ? regenerateCanvasImage({
           prompt,
           imageUrl: sourceNodes[0].url,
           referenceImages: sourceNodes.slice(1).map(node => node.url),
           references: sourceReferences.references,
-          ratio: composer.ratio || sourceNodes[0].ratio || '1:1',
+          ratio,
           resolution: composer.resolution || '2K',
           imageModel: composer.imageModel || sourceNodes[0]?.imageModel || DEFAULT_IMAGE_MODEL,
         })
         : regenerateCanvasImage({
           prompt,
           imageUrl: '',
-          ratio: composer.ratio || '1:1',
+          ratio,
           resolution: composer.resolution || '2K',
           imageModel: composer.imageModel || DEFAULT_IMAGE_MODEL,
         })));
       const createdAt = Date.now();
-      const ratio = composer.ratio || '1:1';
       const ratioNumber = ratioValue(ratio);
       /* 9-15 用户决定：文案结果纵向一列（文案是长条，竖排更可读），
          复用套图「右侧锚定 + 派生连线」约定；结果节点左右都有加号。 */

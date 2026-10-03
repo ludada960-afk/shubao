@@ -29,6 +29,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WATCHED = [
   'server/ecommerceEngine/modelCatalog.mjs',
   'server/ecommerceEngine/nanoBananaProviderAdapter.mjs',
+  /* 2026-10-03 补：这两处也曾经各写一份过期名字，而且 server/index.mjs 是把它
+     **显式传进适配器**的 —— 覆盖掉适配器自己的正确默认，于是 nano-banana-2 整档取不到图。
+     实测生产 .env 里也钉着那个下架名（部署门禁对每个期望字段不符即抛错，历次部署都能过
+     就说明它确实在那儿），所以这不是"可能被 env 覆盖所以没事"的假想，是已确认的线上事实。 */
+  'server/index.mjs',
+  'scripts/verify-runtime-config.cjs',
 ];
 const DECLARED = new Set(Object.values(NANO_UPSTREAM_MODELS));
 /** nano 形态：gemini-<版本>-(flash|pro)-image（不含别族的 gemini-3-image 之类） */

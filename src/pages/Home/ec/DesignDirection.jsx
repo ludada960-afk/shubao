@@ -25,8 +25,6 @@ import {
 } from './ecommercePlanModel.js';
 import { buildAbilityAssetRoles, buildSupplementDeck, withEcommerceCanvasSources } from './workbenchState';
 import EcommerceDesignPlanEditor from './EcommerceDesignPlanEditor.jsx';
-import { detectSizingConflict } from './promptSizeConflict.js';
-import PromptSizeConflictNotice from './PromptSizeConflictNotice.js';
 import { applyCanvasSuitePlanToDirection } from '../../EcCanvas/canvasSuitePlanModel.js';
 import { appendSupplementFiles, validateImageFile } from './components/supplementUploadModel';
 import ResponsiveImage from '../../../components/ResponsiveImage.jsx';
@@ -190,20 +188,15 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
     return () => globalThis.removeEventListener?.('keydown', handlePreviewKey);
   }, [previewImageIndex, stableImages.length]);
 
-  // 提示词写出的比例 vs 面板配置：纯本地检测，不调用任何 API
-  const [sizingPatch, setSizingPatch] = useState(null);
   const [userSkills, setUserSkills] = useState(() => (Array.isArray(params?.userSkills) ? params.userSkills.slice(0, 2) : []));
-  const [dismissedConflict, setDismissedConflict] = useState('');
+  /* 2026-10-04：原先这里有 sizingPatch / dismissedConflict / sizeConflict 一整套，
+     专门服务「提示词写了尺寸 → 问用户要不要改面板」那个提示条。提示条已按用户决定移除
+     （档位优先，不需要再问一遍），于是 sizingPatch 再无写入方、sizeConflict 再无消费方，
+     一并删掉，避免留一套永远为空的分支。effectiveSizing 直接就是 params.sizing。 */
   const effectiveSizing = useMemo(
-    () => (sizingPatch ? { ...(params?.sizing || {}), ...sizingPatch } : (params?.sizing || {})),
-    [params?.sizing, sizingPatch],
+    () => (params?.sizing || {}),
+    [params?.sizing],
   );
-  const sizeConflict = useMemo(() => detectSizingConflict({
-    promptText: [extraDesc, params?.description, params?.copywriting?.sellingPoints]
-      .filter(Boolean).join('\n'),
-    images: effectiveSizing?.images || [],
-  }), [extraDesc, params?.description, params?.copywriting?.sellingPoints, effectiveSizing]);
-  const activeConflict = sizeConflict.conflicts.find(item => item.ratio !== dismissedConflict) || null;
 
   const commerceContext = useMemo(() => normalizeCommerceContext({
     ...(params?.commerceContext || {}),
@@ -657,7 +650,7 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
         material: params?.productParams?.material || '',
         restrictions: params?.restrictions || '',
         // B5/B9: 正确传递场景预设和图片选择
-        imageSelections: sizingPatch?.images || params?.imageSelections || params?.sizing?.images || null,
+        imageSelections: params?.imageSelections || params?.sizing?.images || null,
         imageSize: params?.imageSize || (params?.sizing?.smart ? null : null),
         generationSettings: params?.genSettings || null,
         // B5: 场景预设通过 style_skill 字段传递，不是 imageSelections
@@ -1015,17 +1008,12 @@ export default function DesignDirection({ params, onBack, onGenerated }) {
                 promptExamples={['例：主图更突出材质和尺寸感，减少装饰元素', '例：参考竞品构图，但保留我的品牌配色和商品结构']}
               />
 
-              <PromptSizeConflictNotice
-                conflict={activeConflict}
-                onApply={conflict => {
-                  setSizingPatch(current => ({
-                    ...(current || {}),
-                    ...(conflict.suggestion || {}),
-                  }));
-                  setDismissedConflict(conflict.ratio);
-                }}
-                onDismiss={conflict => setDismissedConflict(conflict.ratio)}
-              />
+              {/* 2026-10-04 用户决定：去掉「提示词写了尺寸、要不要改面板」的提示条。
+                  理由与全局口径一致 —— 档位优先于提示词语义（见
+                  src/pages/EcCanvas/canvasAdaptiveRatio.js 的规则说明）：
+                  面板上用户选了哪一档就是哪一档，不需要再问一遍、更不该给一个
+                  「把面板改成提示词里那个尺寸」的按钮（那等于让提示词借 UI 绕过去赢）。
+                  顺带说明：尺寸相关**不向用户解释**是产品决定，不是遗漏。 */}
 
               {supplementError && (
                 <div role="alert" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 8, background: 'var(--sb-danger-soft)', border: '1px solid var(--sb-danger-border)', color: 'var(--sb-ink-danger-strong)', fontSize: 11 }}>

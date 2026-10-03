@@ -13,8 +13,14 @@ const EXPECTED_RUNTIME_CONFIG = Object.freeze({
   IMAGE_MODEL: 'gpt-image-2',
   MINI_BASE_URL: 'https://api2.65535.space',
   MINI_MODEL: 'gpt-5.6-luna',
-  NANO_BANANA_BASE_URL: 'https://api.change2pro.com',
-  NANO_BANANA_FLASH_MODEL: 'gemini-2.5-flash-image',
+  NANO_BANANA_BASE_URL: 'https://api.forkc2p.com',
+  /* ⚠️ 2026-10-03：这里原先期望 'gemini-2.5-flash-image' —— 供应商早已把它换成
+     'gemini-3.1-flash-image'（见 nanoBananaProviderAdapter 的 NANO_UPSTREAM_MODELS 单点声明）。
+     期望值必须与那份声明同源，否则门禁会**逼着**生产 .env 继续钉着一个取不到图的模型名。
+     ⚠️ 代价要说清楚：改完之后，只要生产 .env 还没同步，这次部署会**如实失败**
+       （"NANO_BANANA_FLASH_MODEL must match the production contract"）。
+       那是门禁在说实话，不是回归 —— 先在服务器上把那一行改掉再部署。 */
+  NANO_BANANA_FLASH_MODEL: 'gemini-3.1-flash-image',
   NANO_BANANA_PRO_MODEL: 'gemini-3-pro-image',
   IP233_VIDEO_BASE_URL: 'https://api-new.ip233.com/v1',
   IP233_VIDEO_MODEL: 'sd5-seedance-2.0',
