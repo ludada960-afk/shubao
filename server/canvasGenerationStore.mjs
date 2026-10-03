@@ -296,17 +296,20 @@ export function createCanvasGenerationStore(db, {
       `);
       const settled = [];
       for (const orphan of orphans) {
-        /* 有 provider_job_id 的那一类：上游受理过，只是本进程没来得及收尾。
-           文案要说这一件事，别让用户以为是"上游没收到"。 */
+        /* ⚠️ 文案是**用户可见面**：`test/no-upstream-leakage` 守着"界面/接口文案不许出现上游、
+           供货、渠道这类供应链内部标识"。
+           ⇒ "上游没受理" 是**我们内部**的判据，不能原样写给用户看。
+             换个用户能懂、又不泄漏供应链的说法：这一次的生成**没能开始**。
+           两类的区别对用户有意义（有号的是"开始了但没等到结果"），所以文案要分开写。 */
         const error = orphan.provider_job_id
           ? {
             code: 'CANVAS_GENERATION_INTERRUPTED',
-            message: '生成中断了（服务重启前没有取回结果），请重新生成一次',
+            message: '生成中断了，请重新生成一次',
             retryable: true,
           }
           : {
             code: 'CANVAS_GENERATION_ABANDONED',
-            message: '这一次的生成没有提交到上游，请重新生成一次',
+            message: '这一次的生成没能开始，请重新生成一次',
             retryable: true,
           };
         const changed = terminate.run(JSON.stringify(error), timestamp, orphan.request_id).changes;
