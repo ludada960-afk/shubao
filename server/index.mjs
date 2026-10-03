@@ -458,6 +458,24 @@ const runBilledContentSse = createBilledSseRunner({
 const runContentPreviewSse = createPreviewSseRunner({ previewContentGeneration });
 const ecommerceJobs = createGenerationJobs(resolve(__dirname, 'works.db'));
 const canvasGenerationStore = createCanvasGenerationStore(db);
+/* ═══ 2026-10-04：启动时清算上一次进程遗留的画布生成行 ══════════════════════════════════════
+   生产里留着一行 `2026-10-03T13:23 queued / provider_job_id=''`（用户 240485042@qq.com 报的
+   「image2.5 生成不出来」）。`recordError` 里那个"上游没受理 ⇒ 落终态"的修复只能挡住**此后**新建的活，
+   已经卡住的那一行没有任何代码会去碰 —— 前端照样把它当"仍在生成"轮询满 15 分钟。
+   ⇒ 一次部署不该修不好一条用户亲眼看着卡住的记录。
+   判据是**租约**（持有者还在不在），不是"多久没动" —— 按时间扫会误杀跑得慢的活图。
+   放在建表之后立刻跑：这时表一定在，且此刻还没有任何 worker 拿到租约。 */
+try {
+  const settled = canvasGenerationStore.sweepOrphaned();
+  if (settled.length) {
+    console.warn(`[canvas] 清算遗留的非终态生成任务 ${settled.length} 条：${settled
+      .map(item => `${item.requestId}(${item.previousStatus})`).join(', ')}`);
+  }
+} catch (error) {
+  /* 清算失败**不许**拦住启动（fail open）：它是清理动作，不是启动前置条件。
+     但必须留痕 —— 静默吞掉会让"又有一条卡住"变成查不出来的事。 */
+  console.error('[canvas] 遗留生成任务清算失败：', error?.message || error);
+}
 /* 9-13 修启动期 TDZ：`isProtectedOwner` 闭包会在下面这句 `retentionService.sweep()` 时**立刻被调用**，
    而 worksRetentionService 原来定义在 4000 行之后 → 每次启动都报
    "Cannot access 'worksRetentionService' before initialization"。服务必须先建出来。 */

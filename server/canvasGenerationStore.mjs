@@ -259,5 +259,60 @@ export function createCanvasGenerationStore(db, {
       }
       return get(requestId);
     },
+
+    /* ═══ 2026-10-04：启动时**清算**上一次进程遗留的非终态行 ══════════════════════════════════
+       为什么需要它：`recordError` 那个修复（"上游没受理 ⇒ 落 failed"）只能挡住**此后**新建的活。
+       在它之前就已经卡住的行没有任何代码会去碰 —— 生产里就留着一行
+       `2026-10-03T13:23 queued / provider_job_id=''`（用户 240485042@qq.com 报的那一条），
+       前端照样会把它当"仍在生成"轮询满 15 分钟。
+       ⇒ 一次部署不应该修不好一条用户亲眼看着卡住的记录。
+
+       判据（两条都必须是"**不可能再有进展**"，而不是"看起来很久没动"）：
+         ① **租约已死**：`lease_expires_at IS NULL` 或 `<= now`。
+            租约由 `claim` 写入、`renewLease` 续期，只有持有它的那段进程代码在跑才会续。
+            进程没了 ⇒ 租约必然过期 ⇒ 没有任何代码会去 complete/submit 这一行。
+         ② **非终态**：`queued / submitted / processing`。
+            `completed` / `failed` 是终态，一个字都不动。
+       ⚠️ 不按 `updated_at` 的"多久没动"来判断：一条跑得慢的活图也可能几分钟不更新，
+          按时间扫会误杀正在跑的活。按**租约**判断才是"持有者还在不在"。
+       ⚠️ 落 `failed` 而不是 `queued`：终态才能让 `/api/canvas/regenerate/status`
+          立刻回错误（`inspect()` 只认 failed 才给终态），前端不会继续空转。
+       ⚠️ 错误文案必须说清"要再点一次" —— 这是**一次请求**死了，
+          用户重新点一下是**一次新请求**，不是"重试同一件已经不会动的事"。 */
+    sweepOrphaned() {
+      const timestampMs = nowMs();
+      const timestamp = new Date(timestampMs).toISOString();
+      const orphans = db.prepare(`
+        SELECT request_id, provider_job_id, status FROM ${TABLE}
+        WHERE status NOT IN ('completed', 'failed')
+          AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+      `).all(timestamp);
+      if (!orphans.length) return [];
+      const terminate = db.prepare(`
+        UPDATE ${TABLE}
+        SET status = 'failed', error_json = ?, lease_token = NULL,
+          lease_expires_at = NULL, updated_at = ?
+        WHERE request_id = ? AND status NOT IN ('completed', 'failed')
+      `);
+      const settled = [];
+      for (const orphan of orphans) {
+        /* 有 provider_job_id 的那一类：上游受理过，只是本进程没来得及收尾。
+           文案要说这一件事，别让用户以为是"上游没收到"。 */
+        const error = orphan.provider_job_id
+          ? {
+            code: 'CANVAS_GENERATION_INTERRUPTED',
+            message: '生成中断了（服务重启前没有取回结果），请重新生成一次',
+            retryable: true,
+          }
+          : {
+            code: 'CANVAS_GENERATION_ABANDONED',
+            message: '这一次的生成没有提交到上游，请重新生成一次',
+            retryable: true,
+          };
+        const changed = terminate.run(JSON.stringify(error), timestamp, orphan.request_id).changes;
+        if (changed === 1) settled.push({ requestId: orphan.request_id, previousStatus: orphan.status });
+      }
+      return settled;
+    },
   };
 }
