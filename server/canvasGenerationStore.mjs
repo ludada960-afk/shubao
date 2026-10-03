@@ -217,7 +217,27 @@ export function createCanvasGenerationStore(db, {
           retryable: true,
         });
       }
-      const status = retryable ? current.status : 'failed';
+      /* ⚠️ 2026-10-03：这里原来是 `const status = retryable ? current.status : 'failed'`，
+         把**两个不同的语义**混成了一个：
+           · 「这次 HTTP 尝试失败了，值得再发一次」—— retryable 的本意
+           · 「这个任务迟早会自己变好」—— 上面那行代码实际做的
+         实测后果（用户 240485042@qq.com，2026-10-03 13:23）：
+           上游网关返回 `PROVIDER_ERROR / No available channel for model
+           image2-5-sunburst`，`retryable:true`，**provider_job_id 为空**
+           —— 上游压根没受理这次请求，再重试多少次也是同一个结果。
+           而 status 被留成 `queued`，于是：
+             · `/api/canvas/regenerate/status` 只会返回 202 processing
+               （inspect() 只认 `status==='failed'` 才给终态）；
+             · 前端把 180 次轮询跑满（约 15 分钟）；
+             · 用户看到的就是节点永远"图片仍在生成，请稍后继续查看"。
+           同一用户同一天 image2 连着成功 6 条，只有 2.5 卡住 —— 与他反馈完全一致。
+
+         ⇒ 判据改成「**上游有没有受理**」：没有 provider_job_id ⇒ 不可能有进展，
+           无论 retryable 与否都落终态 failed，前端立刻拿到错误。
+           用户再点一次是**一次新请求**（requestId 不同 ⇒ getOrCreate 建新任务），
+           这才是 retryable 该有的样子。 */
+      const acceptedByProvider = Boolean(current.providerJobId);
+      const status = (!acceptedByProvider || !retryable) ? 'failed' : current.status;
       const timestamp = new Date(nowMs()).toISOString();
       const changed = db.prepare(`
         UPDATE ${TABLE}
