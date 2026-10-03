@@ -127,7 +127,20 @@ owns 里的改动必须被抓出来，否则这个检查等于又变回空转。
   3900 行跨 5 个文件互相覆盖）。独立的 CSS 工程。
 - `CreationShowcase.jsx/.css` 零引用孤儿，删不删待定。
 
-## 6. 复跑命令
+## 6. 最后一次核对时的新事实（2026-10-04 凌晨）
+
+- **并发会话往 `deploy/aigc-1003` 上提交了**（和我们同一条分支）：
+  `809d3f54`（nano 上游模型名收敛到单点声明）、`e037da05`（自适应改为「不指定比例」）。
+  所以「工作线独有 4 条」里有两条不是我写的。
+- 工作线脏文件只剩 1 个：`src/pages/Home/ec/DesignDirection.jsx`（并发会话在写）。
+  发布线脏 3 个：`EcCanvas/canvasGeometry.js` / `index.jsx` / `nodeWorkflow.js`。
+- 工作树 19 → 8，**detached 归零**。孤儿提交已由 `keep/c9325aa7`、`keep/1cb2acc6` 保住。
+- **工作线全量 4803 tests / 0 fail / 3 skipped**（含并发会话已提交的那两条）。
+
+⇒ 下一步很明确：等并发会话把 `DesignDirection.jsx` 与画布那 3 个文件提交掉，
+再把工作线合并进 `gm/release-merge-1001`，然后才轮到部署。
+
+## 7. 复跑命令
 
 ```pwsh
 # 工作线全量（约 7 分钟）
