@@ -243,6 +243,12 @@ export function canvasHudHidden(flags = {}) {
        它靠的是同一个布尔复制到 `<html data-cvl-dialog-open>`（app-sidebar.css:442）。
        ⇒ 一处漏，两处坏。补上这一行，两条一起好。 */
     || flags.videoRegionPickerOpen
+    /* 2026-10-03 线上实测补上的两处漏网：它们的遮罩是全屏的
+       （.ec-canvas-shortcut-help-overlay z 11000 / .ec-canvas-task-log-overlay z 10800），
+       同样该把 HUD 与那颗 ✨ 收掉，但此前**根本没进这个判定** ——
+       实测点开「?」时 `data-cvl-dialog-open` 是 null，整档 HUD 与 ✨ 照常显示。 */
+    || flags.shortcutHelpOpen
+    || flags.taskLogOpen
     /* 资产库：它是**页签**（切走画布）而不是叠加弹窗，但仍有一层全屏遮罩
        .canvas-asset-library-overlay —— 必须一并算作"弹窗打开"，
        否则它开着时 HUD 仍可能透出来（实测该遮罩原为硬编码 z-index: 9500）。 */

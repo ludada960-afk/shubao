@@ -458,8 +458,14 @@ html[data-cvl-dialog-open] .app-sidebar {
   pointer-events: none;
   transition: opacity var(--sb-dur-fast, .16s) ease;
 }
-/* 任务入口（画布左下角那颗 ✨）：与画布 HUD 一致 —— 弹窗一开就不渲染。 */
+/* 任务入口（画布左下角那颗 ✨）：与画布 HUD 一致 —— 弹窗一开就不渲染。
+   ⚠️⚠️ **必须 `!important`**（2026-10-03 线上实测才定位到的）：
+   TaskSidebar 的浮动形态把 `display:'flex'` 写在**行内 style** 上
+   （TaskSidebar.jsx:313），而**行内样式永远赢过没有 !important 的作者规则** ——
+   之前这条规则确实匹配到了元素、属性也确实被设上了，但计算出来仍是 `display:flex`。
+   画布 HUD 那一档（EcCanvas.css 的 `.is-dialog-open … { display:none !important }`）
+   早就知道要加 !important（它们的 display 同样是行内写的），这份漏了。 */
 html[data-cvl-dialog-open] .task-sidebar,
 html[data-cvl-dialog-open] .app-sidebar-task-host {
-  display: none;
+  display: none !important;
 }
