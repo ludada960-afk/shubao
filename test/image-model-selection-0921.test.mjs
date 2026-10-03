@@ -139,38 +139,55 @@ test('④ 分辨率不超出所选模型的档位（声明 optionsFrom ↔ 运�
   assert.equal(reconcileFieldValues(skill.fields, { ...values, imageModel: DEFAULT_IMAGE_MODEL, clarity: '4K' }).clarity, '4K');
 });
 
-test('⑤ 比例「自适应」= 按主图实际宽高就近取一档（知渔 help 原文的口径）', () => {
-  /* 知渔自己的说明就是判据（他们「出图比例」那一格的 help 原文） */
-  const help = workbenches.flatMap(app => app.fields || []).map(field => String(field.help || ''))
-    .filter(text => text.includes('自适应'));
-  assert.ok(help.some(text => text.includes('自动匹配最接近的比例')),
-    '知渔对「自适应」的原文说明变了，实现口径要重新核');
+test('⑤ 比例「自适应」= 提示词说了算，没有就**不指定**（2026-10-04 改判）', () => {
+  /* ⚠️ 2026-10-04 改判，这里曾经是"按主图实际宽高就近取一档"，依据是知渔 help
+     原文「自动匹配最接近的比例」。用户否掉了那条：他把 2200×1927（1.142）的原图
+     传进来，我们自作主张吸到 5:4，比例变形 9.5% —— 这就是他投诉的
+     "自适配自动篡改我的尺寸，然后先后产出的尺寸不一致"。
+     现在的口径（与画布、首页全局一致）：
+       · 选了具体档位 → 档位赢，提示词里的尺寸字样不算数
+       · 选了自适应   → 提示词写了尺寸就按它；没写就**不指定**，交给上游按内容分配
+     ⚠️ 与知渔 help 原文的差异是**有意保留**的：他们是替用户"匹配最接近的"，
+        我们不替用户做这个判断。 */
 
+  /* 就近吸附这个函数本身还在用 —— 显式档位若是面板外的值（如节点精确比例
+     '2304:1856'）仍要吸附到合法档才不至于被服务端拒。 */
   assert.equal(nearestLegalRatio(1024, 1024), '1:1');
   assert.equal(nearestLegalRatio(900, 1600), '9:16');
   assert.equal(nearestLegalRatio(1600, 900), '16:9');
   assert.equal(nearestLegalRatio(1000, 1500), '2:3');
-  /* ⚠️ 批 X：2:1 现在是**合法档**了（本批补的），所以换一个仍不在白名单里的例子（5:3 = 1.6667）。 */
   assert.equal(nearestLegalRatio(1600, 1000), '3:2', '16:10（1.6）不在白名单里，对数距离最近的是 3:2（1.5）');
   assert.equal(nearestLegalRatio(0, 0), '', '量不到宽高就返回空，不许猜一个比例出来');
 
   const skill = getImageSkill('image.copy');
   const upload = (width, height) => [{ url: 'https://example.com/p.png', status: 'ready', width, height }];
-  const adaptive = (width, height) => skillGenerationSettings(skill, {
-    reference: upload(width, height), product: 'x', degree: '参考排版', ratio: '自适应',
+
+  /* 主图的宽高**不再**参与自适应判定 —— 传竖图也不该得到 9:16。 */
+  const adaptive = (values) => skillGenerationSettings(skill, {
+    product: 'x', degree: '参考排版', ratio: '自适应', ...values,
   });
-  assert.equal(adaptive(900, 1600).ratio, '9:16', '竖图 → 就近 9:16');
-  assert.equal(adaptive(1024, 1024).ratio, '1:1');
-  /* 量不到宽高（跨域失败等）→ 回落声明里的默认档；'自适应' 这个字面值**不许**下发给引擎 */
-  const noBox = skillGenerationSettings(skill, {
-    reference: [{ url: 'u', status: 'ready' }], product: 'x', degree: '参考排版', ratio: '自适应',
+  assert.equal(adaptive({ reference: upload(900, 1600) }).ratio, '',
+    '自适应 + 只有参考图 → 不指定比例，交给上游（不再按主图吸 9:16）');
+  assert.equal(adaptive({ reference: upload(1024, 1024) }).ratio, '', '方图同理不指定');
+
+  /* 提示词里写了尺寸 → 按它（自适应唯一的决定依据）。
+     ⚠️ 用的是这个技能**真实存在**的自由文本字段（image.copy 有 product / rules 两个
+        textarea，没有 notes）—— userTypedText 只采 kind 为 text/textarea 的字段，
+        拿一个不存在的字段去测，测的是"字段名写错"而不是规则本身。 */
+  assert.equal(adaptive({ product: '请出 16:9 的封面' }).ratio, '16:9');
+  assert.equal(adaptive({ rules: '要 9:16' }).ratio, '9:16');
+
+  /* 显式档位永远赢，提示词与参考图都无权覆盖 */
+  const explicit = skillGenerationSettings(skill, {
+    reference: upload(900, 1600), product: '请出 16:9 的封面', degree: '参考排版', ratio: '3:4',
   });
-  assert.equal(noBox.ratio, FALLBACK_RATIO, '没有主图宽高时回落 1:1');
-  for (const values of [adaptive(900, 1600), noBox]) {
-    assert.ok(!String(values.ratio).includes('自适应'), '「自适应」是界面档位，不是引擎协议值');
-  }
+  assert.equal(explicit.ratio, '3:4', '选了 3:4，参考图竖构图、提示词写 16:9，都不改它');
   /* 显式档位不受影响 */
   assert.equal(skillGenerationSettings(skill, { ...values0(), ratio: '4:5' }).ratio, '4:5');
+  /* 「自适应」是界面档位，不是引擎协议值 —— 它在请求侧会变成 autoRatio（不传 size） */
+  for (const values of [adaptive({}), adaptive({ reference: upload(900, 1600) })]) {
+    assert.notEqual(String(values.ratio), '自适应', '「自适应」这个字面值不许下发给引擎');
+  }
   /* 两页都要有「自适应」这一档，且照知渔的档位顺序（自适应在最前） */
   for (const id of ['image.copy', 'image.try_on']) {
     const options = getImageSkill(id).fields.find(field => field.key === 'ratio').options.map(option => option.value);

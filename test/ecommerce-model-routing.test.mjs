@@ -41,6 +41,8 @@ test('uses gpt-image-2 and a 2K square for a standard formal asset', () => {
     ratio: '1:1',
     imageSize: '2K',
     size: '2048x2048',
+    /* 2026-10-04：没传 ratio = 自适应 = **不指定比例**，请求构造层据此不传 size */
+    autoRatio: true,
     async: true,
     mode: 'edit',
   });
@@ -100,6 +102,7 @@ test('keeps a 1K 9:16 request in the requested portrait tier', () => {
     ratio: '9:16',
     imageSize: '1K',
     size: '576x1024',
+    autoRatio: false,
     async: true,
     mode: 'edit',
   });
@@ -114,6 +117,8 @@ test('defaults inherited ratio keys to the legal square ratio', () => {
     ratio: '1:1',
     imageSize: '2K',
     size: '2048x2048',
+    /* 'toString' 是畸形输入，不是"用户没指定" —— 两者都不该被当成自适应 */
+    autoRatio: false,
     async: true,
     mode: 'edit',
   });

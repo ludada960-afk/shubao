@@ -983,6 +983,8 @@ test('uses catalog-owned cost routing and exactly matches the asset item generat
     ratio: '3:4',
     imageSize: '2K',
     size: '1536x2048',
+    /* 2026-10-04：电商套图永远有明确尺寸（assetPlanner 已吸附过），不是自适应 */
+    autoRatio: false,
     async: true,
     mode: 'edit',
   });
@@ -994,6 +996,7 @@ test('uses catalog-owned cost routing and exactly matches the asset item generat
     ratio: '3:4',
     imageSize: '4K',
     size: '2448x3264',
+    autoRatio: false,
     async: true,
     mode: 'edit',
   });

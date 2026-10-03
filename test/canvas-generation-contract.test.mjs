@@ -220,6 +220,8 @@ test('shared catalog resolves every Canvas size to an exact legal entry', () => 
     resolution: '1K',
     ratio: '9:16',
     size: '576x1024',
+    /* 2026-10-04：显式档位不是自适应 —— 请求构造层照常带 size */
+    autoRatio: false,
   });
 });
 

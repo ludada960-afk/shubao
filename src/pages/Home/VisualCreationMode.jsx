@@ -731,13 +731,18 @@ export default function VisualCreationMode({ recoveryCheckpoint = null, initialS
           imageUrl: primary,
           referenceImages: supplementary,
           references: referenceMetadata,
-          /* 批 CY-⑭：首页图片侧的「自适应」也必须在**发出去之前**解成具体比例。
-             上游对认不出的比例是静默回落 1:1（server/ecommerceEngine/modelCatalog.mjs）——
-             那就是用户抱怨的"写了 16:9 却被套成 1:1"，只是发生在服务端、界面上完全看不出来。 */
+          /* ⚠️ 2026-10-04 改判：自适应 = **不指定比例**，交给上游按内容分配宽高。
+             这里原来传 referenceBox 让他按参考图宽高"就近取一档"（注释写的是"必须解成
+             具体比例"），那正是用户投诉的"自适配自动篡改我的尺寸"：
+             他把 2200×1927（1.142）传进来，我们自作主张吸到 5:4，比例变形 9.5%。
+             现在与画布、技能子页全局同一口径：
+               显式档位 → 档位赢，提示词里的尺寸字样不算数
+               自适应   → 提示词写了尺寸就按它，没写就不指定
+             实测依据（2026-10-04）：image2 不传 size 一律给 2048x2048 方图；
+             nano 不传 aspectRatio 会按内容给 1376x768。竞品的自适应档就是这个口径。 */
           ratio: resolveProtocolRatio({
             ratio: config.ratio,
             prompt: config.originalPrompt || config.prompt || '',
-            referenceBox: config.referenceAssets?.[0]?.box || null,
           }),
           resolution: config.resolution,
           imageModel: config.imageModel,

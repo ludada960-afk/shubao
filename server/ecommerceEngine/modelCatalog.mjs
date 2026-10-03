@@ -39,7 +39,20 @@ import { NANO_UPSTREAM_MODELS } from './nanoBananaProviderAdapter.mjs';
      1:2 就是它竖过来。
    ⚠️ 四处（引擎 / 前端镜像 / skillRun.LEGAL_RATIOS / 尺寸门禁）必须**同时改**，
       少一处就是"界面能选、服务端静默回落成 1:1"（本项目踩过的坑）。
-   ⚠️ 上游真的收不收这三档，需要一次**付费实测** —— 用户点头后再跑，不许拿"应该能收"当结论。 */
+   ⚠️ 2026-10-03 **付费实测已完成**（gemini-3.1-flash-image / api.forkc2p.com，各 1 张 ≈¥0.06/张）：
+      上游**只认它自己的一小组枚举比例**，而且落到**它自己的像素池**（128 的倍数），
+      不接受我们这张表里的任意值。实测请求 → 实际返回：
+        1:1    → 1024x1024  (1.000)  ✅ 精确
+        3:4    →  896x1200  (0.747)  近似
+        9:16   →  768x1376  (0.558)  近似
+        16:9   → 1376x768   (1.792)  近似
+        5:4    → 1200x896   (1.339)  ❌ **它不认识 5:4，直接给了最近的 4:3（偏差 7%）**
+        1.2414 → 1024x1024  (1.000)  ❌ 非枚举值被**静默丢成 1:1**，不报错
+      ⇒ 两条推论：① **「自适应 = 沿用原图真实比例」在 nano 通道上做不到**（上游会无视）；
+        ② 本表里 5:4 / 4:5 / 2:3 / 3:2 / 21:9 / 9:21 / 2:1 / 1:2 这几档在 nano 上
+        **很可能同样不被采纳**（5:4 已实测被换掉），需要逐档复测才能下结论。
+      ⚠️ 这份实测只覆盖 **nano**。image2（65535 / task-api-1-cn.65535.space）走的是
+        **像素 size 字段**而非比例字段，是另一条上游、**尚未实测**，结论不可外推。 */
 export const LEGAL_IMAGE_SIZES = Object.freeze({
   '1K': { '1:1': '1024x1024', '3:4': '768x1024', '4:3': '1024x768', '9:16': '576x1024', '16:9': '1024x576', '21:9': '1008x432', '2:3': '672x1008', '3:2': '1008x672', '4:5': '768x960', '5:4': '960x768', '9:21': '576x1344', '2:1': '1024x512', '1:2': '512x1024' },
   '2K': { '1:1': '2048x2048', '3:4': '1536x2048', '4:3': '2048x1536', '9:16': '1152x2048', '16:9': '2048x1152', '21:9': '2048x864', '2:3': '1344x2016', '3:2': '2016x1344', '4:5': '1536x1920', '5:4': '1920x1536', '9:21': '1152x2688', '2:1': '2048x1024', '1:2': '1024x2048' },
@@ -47,6 +60,12 @@ export const LEGAL_IMAGE_SIZES = Object.freeze({
 });
 
 const RESOLUTIONS = new Set(Object.keys(LEGAL_IMAGE_SIZES));
+/* 「自适应」这一档的**面板字面量**。它必须由前端翻成具体比例再发过来；发到服务端
+   意味着前端漏了解析（2026-10-03 修的那 5 处），属于调用方的 bug，要让它响。 */
+const ADAPTIVE_RATIO_MARKER = '自适应';
+/* 「看得出来的比例」：3:4 / 16x9 / 16：9。只有这类值才值得硬失败 ——
+   纯乱码与原型属性名走旧口径回落 1:1（理由见 resolveGenerationSize 里的注释）。 */
+const RATIO_SHAPED = /^\d{1,4}\s*[:：x×]\s*\d{1,4}$/i;
 export const IMAGE_MODEL_IDS = Object.freeze({
   SMART: 'smart',
   IMAGE2: 'image2',
@@ -158,23 +177,63 @@ export function resolveGenerationSize(input = {}) {
      不做「静默换成别的模型」那种替换：宁可少一档清晰度，也不偷偷给别的结果。 */
   if (normalizeImageModel(input.imageModel) === IMAGE_MODEL_IDS.MIDJOURNEY && resolution === '4K') resolution = '2K';
   const requestedRatio = input.ratio ?? input.aspectRatio;
+  /* ═══ 2026-10-04「自适应 = 不指定比例」═══
+     实测（本项目自己花钱跑的，见 docs/design/94 自适应方案）：
+       · image2 不传 size  → 一律 2048x2048 方图（两个完全不同的内容都是）
+       · nano  不传 aspect → 1376x768 横图（瓶子摆窗台，横构图合理）
+     即竞品那条「固定总像素量级 + 模型智能分配宽高」：留空才是"让它自己定"，
+     而我们过去把「自适应」翻译成了一个具体档位 —— 那正是用户抱怨"尺寸被篡改"的来源。
+     ⇒ 空值 / 「自适应」= 不指定，标记 autoRatio，由请求构造层**真的不传** size。
+     ⚠️ 这里仍然返回 1:1 那套值，是为了让计费、布局、promptCompiler 的既有校验
+       （compileModelRoute 断言 route.size === generationSize）一行都不用改；
+       真正生效的地方是 providerAdapter / nano 适配器读 route.autoRatio。 */
+  const autoRatio = !requestedRatio || String(requestedRatio).trim() === ADAPTIVE_RATIO_MARKER;
   if (requestedRatio && !Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio)) {
     const resolutionOrder = Object.keys(LEGAL_IMAGE_SIZES);
     const requestedIndex = resolutionOrder.indexOf(resolution);
     const promoted = resolutionOrder.slice(Math.max(0, requestedIndex + 1)).find(candidate => Object.hasOwn(LEGAL_IMAGE_SIZES[candidate], requestedRatio));
     if (promoted) resolution = promoted;
   }
+  /* ⚠️ 2026-10-03：这一行原来是**静默回落成 1:1**。
+     线上后果实测得到过：画布上有 5 类调用点（工作流节点、inpaint/transform、
+     节点重生成、文本驱动出图、电商套图）没把面板上的「自适应」翻成协议比例就发过来，
+     字符串 '自适应' 不在尺寸表里 → 用户选了自适应、拿到的是 1:1，
+     **界面上不报错也不提示**（这正是用户抱怨的"明明选了却被套到 1:1 上"）。
+     ⇒ 现在对**确实认不出的**比例直接抛错。宁可让调用方看见失败，
+     也不要"给它一张别的图还装作成功"—— 计费、交付、界面显示会三方不一致。
+     ⚠️ 只在**看得���调用方想要一个比例**时才硬失败（ratio 形状，或就是「自适应」本身）。
+       纯乱码 / 原型属性名（'toString' 这种，见 test/ecommerce-model-routing.test.mjs
+       「defaults inherited ratio keys to the legal square ratio」——它防的是
+       `LEGAL_IMAGE_SIZES[res][ratio]` 捞到 Object.prototype 上的方法）仍按旧口径回落 1:1：
+       那类值不存在"用户意图被辜负"，硬失败只会把一条防御性测试逼成事故。
+     ⚠️ 上面「换个分辨率档也许合法」的尝试仍保留：那是**合法比例**在当前档缺失，
+       与「非法比例」是两回事，不该一起拒。空值也仍然走默认档。
+     ⚠️ 2026-10-04 改判：autoRatio（空值或「自适应」）**不再走这条抛错** ——
+       「自适应」现在��确表示"不指定比例"，不是"一个认不出的比例"。
+       把它继续当非法比例拒掉，等于自适应档一用就 400。 */
+  if (!autoRatio && requestedRatio && !Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio)) {
+    const raw = String(requestedRatio).trim();
+    if (RATIO_SHAPED.test(raw)) {
+      const invalid = new Error(`INVALID_IMAGE_RATIO: ${requestedRatio}`);
+      /* 挂上 status/code，好让 canvasGenerationService 的 catch 原样透传成 400 ——
+         那里只认 `Number.isInteger(error.status)`，不带就是 500。 */
+      invalid.status = 400;
+      invalid.code = 'INVALID_IMAGE_RATIO';
+      invalid.retryable = false;
+      throw invalid;
+    }
+  }
   const ratio = Object.hasOwn(LEGAL_IMAGE_SIZES[resolution], requestedRatio) ? requestedRatio : '1:1';
   const size = LEGAL_IMAGE_SIZES[resolution][ratio];
 
   validateGenerationSize(size);
 
-  return { resolution, ratio, size };
+  return { resolution, ratio, size, autoRatio };
 }
 
 export function buildModelRoute(input = {}) {
   const imageModel = normalizeImageModel(input.imageModel);
-  const { resolution, ratio, size } = resolveGenerationSize(input);
+  const { resolution, ratio, size, autoRatio } = resolveGenerationSize(input);
   const provider = ADVANCED_IMAGE_MODELS.has(imageModel)
     ? 'advanced-image'
     : imageModel === IMAGE_MODEL_IDS.NANO_BANANA_2 || imageModel === IMAGE_MODEL_IDS.NANO_BANANA_PRO
@@ -189,6 +248,9 @@ export function buildModelRoute(input = {}) {
     ratio,
     imageSize: resolution,
     size,
+    /* 「自适应」= 不指定比例：请求构造层据此**不传** size / aspectRatio，
+       让上游按内容自己分配宽高（见 resolveGenerationSize 里 2026-10-04 的实测记录）。 */
+    autoRatio,
     async: true,
     mode: 'edit',
   };

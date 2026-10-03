@@ -242,7 +242,15 @@ function buildEditForm(request, { standardFields = false } = {}) {
   return { form, idempotencyKey };
 }
 
-function resolveNativeTaskSizing(pixelSize) {
+/* ⚠️ 2026-10-04：autoRatio = 用户选的是「自适应」，即**不指定宽高比**。
+   实测 image2 收到 size 才会按那个比例出图；不传 size 时它一律给 2048x2048 方图
+   （两个完全不同的内容都如此），而"不指定比例、让模型自己分配宽高"正是竞品
+   自适应档的口径（固定总像素量级 + 模型分配宽高）。
+   ⇒ 自适应时**只传 resolution、不传 size**，那条"必须是目录里的合法尺寸"的闸
+   在自适应下不适用 —— 它防的是乱传，不该挡住"故意不指定"。
+   ⚠️ 非自适应时这道闸一字不改：用户显式选了档位，就必须是那一档。 */
+function resolveNativeTaskSizing(pixelSize, { autoRatio = false, resolution = '' } = {}) {
+  if (autoRatio) return { resolution: String(resolution || '2K').toLowerCase() };
   for (const [resolution, ratios] of Object.entries(LEGAL_IMAGE_SIZES)) {
     for (const [ratio, candidateSize] of Object.entries(ratios)) {
       if (candidateSize === pixelSize) {
@@ -269,7 +277,12 @@ async function buildNativeTask(request) {
   if (!prompt || !model || !size) throw new TypeError('provider edit prompt, model, and size are required');
   if (!Array.isArray(assets)) throw new TypeError('provider image inputs must be an array');
   if (assets.length > MAX_INPUT_IMAGES) throw new RangeError('provider edit accepts at most 10 images');
-  const nativeSizing = resolveNativeTaskSizing(size);
+  /* ⚠️ resolution 必须从 route 单独取：pixelSize 是像素串（'2048x2048'），
+     自适应分支要的是**档位名**（'2K'），两者不是一回事。 */
+  const nativeSizing = resolveNativeTaskSizing(size, {
+    autoRatio: own(route, 'autoRatio') === true,
+    resolution: cleanString(own(route, 'resolution') || own(route, 'imageSize')),
+  });
 
   const images = await Promise.all(assets.map(async (asset, index) => {
     const { blob } = normalizeAsset(asset, index);
