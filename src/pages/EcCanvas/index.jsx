@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, Bookmark, Crop, Download, Eraser, ExternalLink, FileDown, FolderPlus, Grid3x3, Image as ImageIcon, ImagePlus, Images, Info, Languages, Layers3, Map as MapIcon, Maximize2, Music, Pencil, Pin, Play, Plus, Ratio, RefreshCw, Shuffle, SlidersHorizontal, Square, SquareCheck, SquarePen, Stamp, Trash2,
-  Upload, Type, Video, Wand2, X } from 'lucide-react';
+  Upload, Type, Video, Wand2, WandSparkles, X } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { flushSync } from 'react-dom';
 import { HeroGlyph } from './components/HeroIcons';
@@ -82,7 +82,8 @@ import CanvasAssetPickerModal from './components/CanvasAssetPickerModal.jsx';
 import { createCanvasSession, createProject, createProjectVersion, getProjectAsset, getProjectAssetLineage, fetchAssetUsage, deleteProjectAsset, deleteCanvas,  importImageAssetToProject, importVideoAssetToProject, listProjectAssetLibrary, loadCanvasSession, registerGeneratedAssetToProject, saveCanvasSession, setProjectAssetProductionState, setProjectAssetRetention, addToProjectAssetLibrary } from '../../services/projects.js';
 import { useDialog } from '../../components/ui/DialogProvider.jsx';
 import ContextMenu from './ContextMenu.jsx';
-import { actionsForSurface, getCanvasAction, stableActionsForSurface } from './canvasActionRegistry.js';
+import { actionsForSurface, getCanvasAction, stableActionsForSurface, SUBTITLE_ERASE_MODES } from './canvasActionRegistry.js';
+import { formatCanvasActionPrice } from './canvasBillingModel.js';
 import { createPlanLaunchGraph, isPlanLaunch } from './canvasPlanLaunch.js';
 import { canvasNodeSeedValues, canvasWorkbenchTargetOf } from './canvasWorkbenchBridge.js';
 import { isWorkbenchInbound, workbenchInboundNodesOf } from './canvasWorkbenchInbound.js';
@@ -833,6 +834,12 @@ export default function EcCanvas() {
      `videoProducts`（上游模型 `data.products`）**不是一份东西**。VideoStudio 也是分开取的。
      没有它就没有 productId，也就没有报价、没法建单。 */
   const [videoLocalProducts, setVideoLocalProducts] = useState([]);
+  /* 「智能擦除」那一档的服务端可售状态（available / reason / quotes），见上面的读取处。 */
+  const [subtitleAutoCapability, setSubtitleAutoCapability] = useState(null);
+  /* 当前正在做哪种擦除：{ nodeId, mode }。null = 没在做。
+     激活时节点下方出现那条操作条（交互稿里的 ✕ / 价格 / 提交）。 */
+  const [subtitleErase, setSubtitleErase] = useState(null);
+  const [subtitleModeAnchor, setSubtitleModeAnchor] = useState(null);
   /* 正在框选字幕区域的目标视频节点（null = 未进入框选）。**必须 portal 出画布渲染**。 */
   const [subtitlePickNodeId, setSubtitlePickNodeId] = useState(null);
   useEffect(() => {
@@ -845,6 +852,11 @@ export default function EcCanvas() {
         ? data.localProducts.filter(product => product?.public !== false)
         : [];
       if (localProducts.length) setVideoLocalProducts(localProducts);
+      /* 「智能擦除」（自动检测那一档）的**可售状态与报价**由服务端 capabilities 给。
+         ⚠️ 前端不许自己判"能不能用"—— 凭据没配、或那一档还没跑通一次真片子时，
+         服务端会把它标成不可选并写明原因；页面自己写一份就成了第二份真相
+         （server 批 AZ 的原话：目录一改，页面不会跟着改，而且没人会发现）。 */
+      if (data?.subtitleAuto) setSubtitleAutoCapability(data.subtitleAuto);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -4487,12 +4499,19 @@ const handlePointerUp = useCallback((e) => {
         「只有服务端能把它算成份数（它同时决定建单时冻结多少，两边不一致就是 409「费用确认不一致」）」
      ⇒ 这里只传「{ sku, seconds }」，金额与份数全用服务端返回的 quote；
         界面上显示的价也来自同一个 quote —— **不在前端算第二份**。 */
-  const runVideoDesubtitle = useCallback(async (targetNode) => {
+  const runVideoDesubtitle = useCallback(async (targetNode, modeId = 'box') => {
     if (!targetNode?.url) { showToast('这条视频还没有可用的地址', 'error'); return; }
+    /* 方式与产品**一起取自那一份声明**（SUBTITLE_ERASE_MODES），
+       不在这里写死 productId —— 否则目录改一次，页面就悄悄对不上了。 */
+    const mode = SUBTITLE_ERASE_MODES.find(item => item.id === modeId);
+    if (!mode) { showToast('擦除方式暂不可用', 'error'); return; }
+    const product = [...videoLocalProducts, ...videoProducts].find(item => item.id === mode.productId);
+    if (!product) { showToast('该擦除方式暂不可用，请稍后再试', 'error'); return; }
     const regions = Array.isArray(targetNode.subtitleRegions) ? targetNode.subtitleRegions : [];
-    if (!regions.length) { showToast('先在视频上框出要擦除的字幕区域', 'info'); return; }
-    const product = videoLocalProducts.find(item => item.id === 'desubtitle_local');
-    if (!product) { showToast('去字幕方案暂不可用，请稍后再试', 'error'); return; }
+    if (mode.needsRegions && !regions.length) {
+      showToast('先在视频上框出要擦除的区域', 'info');
+      return;
+    }
     /* 时长以**元素读到的**为准（上传那一步已经本地探过并写进节点）；拿不到就按 1 秒起算。 */
     const seconds = Math.max(1, Math.ceil(Number(targetNode.duration) || 0));
     let quote = null;
@@ -4510,18 +4529,22 @@ const handlePointerUp = useCallback((e) => {
         aspectRatio: '',
         generateAudio: false,
         billingQuoteId: quote.quoteId,
-        /* delogo 的坐标口径：{type:'delogo', x, y, w, h}，服务端 localVideoPlan.normalizeRegion 会再判一次 */
-        localSpecs: { regions },
+        /* 两种方式的规格不同（server/localVideoPlan）：
+             · 框选 → { regions }（delogo 坐标口径，服务端会再判一次）
+             · 自动 → { auto: true }（"要做的事"交给上游检测，这一格不参与区域非空判定） */
+        localSpecs: mode.needsRegions ? { regions } : { auto: true },
         references: { videos: [sourceId], audios: [], urls: { [sourceId]: targetNode.url } },
-        idempotencyKey: `canvas-desubtitle-${targetNode.id}-${Date.now()}`,
+        idempotencyKey: `canvas-desubtitle-${mode.id}-${targetNode.id}-${Date.now()}`,
       });
-      showToast('已提交去字幕，成片会出现在作品里', 'success');
+      setSubtitleErase(null);
+      setSubtitlePickNodeId(null);
+      showToast(`已提交${mode.label}，成片会出现在作品里`, 'success');
     } catch (error) {
-      showToast(error?.message || '去字幕提交失败，请重试', 'error');
+      showToast(error?.message || '擦除提交失败，请重试', 'error');
     }
-  }, [videoLocalProducts, showToast]);
+  }, [videoLocalProducts, videoProducts, showToast]);
 
-  const handleToolAction = async (action, node) => {
+  const handleToolAction = async (action, node, event = null) => {
     if (!node) return;
     const actionSpec = getCanvasAction(action?.id || action);
     const actionId = actionSpec?.id || String(action || '');
@@ -4572,11 +4595,16 @@ const handlePointerUp = useCallback((e) => {
     /* ═══ 2026-10-02 视频专属动作（用户照知渔提的：「视频跟图片生成是不同的逻辑，
        你应该定制化的为他去开发一些功能」）═══════════════════════════════════════ */
     if (handler === 'smart-subtitle-erase') {
-      /* ⚠️ 必须 portal 出画布：VideoRegionPicker 内部用 `surface.offsetWidth`（未缩放布局尺寸）
-         配 `rect ÷ 自身放大(1.8)` 换算**源视频像素**（delogo 的坐标口径）。画布 stage 带
-         `transform: scale(viewport.scale)`，内嵌会让 `rect/1.8` 仍差一个 viewport.scale
-         ⇒ **框出来的区域整体偏移**（用户框底部字幕、擦出来落在画面中间）。 */
-      setSubtitlePickNodeId(node.id);
+      /* ⚠️ 这一条**不直接开框选器**了：2026-10-03 用户交互稿里它是「智能去字幕 ▾」，
+         点了先展开两种擦除方式（智能擦除 / 框选擦除），选完再各自往下走。
+         两种方式的规格、可售状态、价格全部来自服务端（见 SUBTITLE_ERASE_MODES
+         与 `capabilities().subtitleAuto`），前端只读不算。
+
+         ⚠️ 框选器仍必须 portal 出画布：VideoRegionPicker 的坐标换算要的是
+         **未缩放**的布局尺寸（`rect ÷ 自身放大(1.8)`），而画布 stage 带
+         `transform: scale(viewport.scale)`，内嵌会让换算仍差一个 viewport.scale
+         ⇒ 框出来的区域整体偏移。 */
+      setSubtitleModeAnchor({ nodeId: node.id, triggerEl: event?.currentTarget || null });
       return;
     }
     if (handler === 'preview-media') {
@@ -9994,19 +10022,95 @@ const handlePointerUp = useCallback((e) => {
             <VideoRegionPicker
               videoUrl={target.url}
               regions={target.subtitleRegions || []}
+              maxRegions={SUBTITLE_ERASE_MODES.find(m => m.id === 'box')?.maxRegions || 5}
               hint={target.name || ''}
               onChange={(next) => setNodes(previous => previous.map(node => (
                 node.id === target.id ? { ...node, subtitleRegions: next } : node)))}
             />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '10px 12px 0' }}>
-              <button type="button" onClick={() => setSubtitlePickNodeId(null)}>取消</button>
+              <button type="button" onClick={() => { setSubtitlePickNodeId(null); setSubtitleErase(null); }}>取消</button>
               <button
                 type="button"
                 disabled={!(target.subtitleRegions || []).length}
-                onClick={() => { setSubtitlePickNodeId(null); void runVideoDesubtitle(target); }}
-              >开始擦除</button>
+                onClick={() => { setSubtitlePickNodeId(null); void runVideoDesubtitle(target, 'box'); }}
+              >完成框选</button>
             </div>
           </div>
+        </div>;
+      })(), document.body)}
+
+      {typeof document !== 'undefined' && createPortal((() => {
+        if (!subtitleModeAnchor?.triggerEl) return null;
+        const rect = subtitleModeAnchor.triggerEl.getBoundingClientRect();
+        const target = nodes.find(item => item.id === subtitleModeAnchor.nodeId);
+        if (!target) return null;
+        return <div className="ec-canvas-erase-modes" role="menu" aria-label="选择擦除方式" style={{ position: 'fixed', left: rect.left, top: rect.bottom + 6, zIndex: CANVAS_Z.popover }}>
+          {SUBTITLE_ERASE_MODES.map(mode => {
+            const disabled = mode.needsRegions
+              ? false
+              : subtitleAutoCapability?.available === false;
+            const reason = mode.needsRegions ? '' : (subtitleAutoCapability?.reason || '');
+            return <button
+              key={mode.id}
+              type="button"
+              role="menuitem"
+              className="ec-canvas-erase-mode"
+              disabled={disabled}
+              title={disabled && reason ? reason : mode.hint}
+              onClick={() => {
+                if (disabled) { if (reason) showToast(reason, 'info'); return; }
+                setSubtitleModeAnchor(null);
+                setSubtitleErase({ nodeId: target.id, mode: mode.id });
+                /* 框选那档要立刻开框选器；自动那档不用（它没有区域要框）。 */
+                if (mode.needsRegions) setSubtitlePickNodeId(target.id);
+              }}
+            >
+              <WandSparkles size={15} aria-hidden="true" />
+              <span><strong>{mode.label}</strong><small>{disabled && reason ? reason : mode.hint}</small></span>
+            </button>;
+          })}
+        </div>;
+      })(), document.body)}
+
+      {subtitleErase && !subtitlePickNodeId && typeof document !== 'undefined' && createPortal((() => {
+        const target = nodes.find(item => item.id === subtitleErase.nodeId);
+        const nodeEl = containerRef.current?.querySelector(`[data-canvas-node-id="${subtitleErase.nodeId}"]`);
+        if (!target || !nodeEl) return null;
+        const rect = nodeEl.getBoundingClientRect();
+        const mode = SUBTITLE_ERASE_MODES.find(item => item.id === subtitleErase.mode);
+        const product = [...videoLocalProducts, ...videoProducts].find(item => item.id === mode?.productId);
+        const points = mode?.priceFeature ? formatCanvasActionPrice(mode.priceFeature) : '—';
+        /* 交互稿里这条操作条是**贴在视频节点下方**的，不是一条屏幕底栏 ——
+           它属于这个节点的操作，不是全局状态。 */
+        return <div
+          className="ec-canvas-erase-bar"
+          role="group"
+          aria-label="擦除操作条"
+          style={{
+            position: 'fixed',
+            left: rect.left + rect.width / 2,
+            top: rect.bottom + 10,
+            transform: 'translateX(-50%)',
+            zIndex: CANVAS_Z.popover,
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 12px', borderRadius: 12,
+            background: '#fff', boxShadow: '0 10px 30px rgba(15,23,42,.18)',
+          }}
+        >
+          <button type="button" aria-label="取消擦除" title="取消" onClick={() => setSubtitleErase(null)}><X size={15} /></button>
+          <strong>{mode?.label}</strong>
+          {mode?.needsRegions && (
+            <span className="ec-canvas-erase-bar-count">
+              {(target.subtitleRegions || []).length}/{mode.maxRegions}
+            </span>
+          )}
+          <span className="ec-canvas-erase-bar-price">预计 {points}</span>
+          <button
+            type="button"
+            className="ec-canvas-erase-bar-submit"
+            disabled={!product || (mode?.needsRegions && !(target.subtitleRegions || []).length)}
+            onClick={() => void runVideoDesubtitle(target, subtitleErase.mode)}
+          >提交</button>
         </div>;
       })(), document.body)}
 

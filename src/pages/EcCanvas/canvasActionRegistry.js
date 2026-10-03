@@ -79,10 +79,49 @@ function action(id, label, surfaces, priceFeature, requiresPrompt, execute, opti
     description: options.description || '',
     group: options.group || '常用操作',
     canRun: options.canRun || isReadyImage,
+    /* 有下拉的按钮：点了不开面板，而是展开一列「方式」（见 SUBTITLE_ERASE_MODES） */
+    hasModes: options.hasModes === true,
     billing,
     priceLabel: priceFeature ? formatCanvasActionPrice(priceFeature) : '免费',
   });
 }
+
+/* ═══ 智能去字幕的两种擦除方式（2026-10-03 用户交互稿）════════════════════════════
+   工具栏上是「智能去字幕 ▾」，下拉两项：
+     · **智能擦除** —— 自动识别画面里的字幕并擦掉
+       （服务端 `spec.auto`，走火山 MediaKit，0.05 积分/秒）
+     · **框选擦除** —— 自己框区域
+       （服务端 `spec.regions`，本机 ffmpeg delogo，0.04 积分/秒、成��� 0）
+
+   ⚠️ 这**不是新造能力**：`server/localVideoPlan` 早就把两种规格分开了
+     （`spec.auto` 不参与"区域非空"判定，`spec.regions` 必须有区域），
+     `server/videoCatalog` 也早就有 `desubtitle_volc` 与 `desubtitle_local`
+     两个产品。这一批做的是把前端那个**只有一种**的入口补齐。
+
+   ⚠️ **可售状态不许前端自己判**：`capabilities().subtitleAuto.available/reason`
+     由服务端给（凭据没配、或还没跑通一次真片子时就不可选）。
+     前端只读不算 —— 页面里自己写一份就是"目录之外还有第二份真相"
+     （server 批 AZ 的原话：目录一改，页面不会跟着改，而且没人会发现）。 */
+export const SUBTITLE_ERASE_MODES = Object.freeze([
+  Object.freeze({
+    id: 'auto',
+    label: '智能擦除',
+    productId: 'desubtitle_volc',
+    priceFeature: 'video-desubtitle-auto',
+    needsRegions: false,
+    hint: '自动识别画面里的字幕并擦除',
+  }),
+  Object.freeze({
+    id: 'box',
+    label: '框选擦除',
+    productId: 'desubtitle_local',
+    priceFeature: 'video-desubtitle',
+    needsRegions: true,
+    /* 上限 5：与交互稿一致（"3/5"）。再多则超出本机 delogo 一次能表达的合理范围。 */
+    maxRegions: 5,
+    hint: '自己框选要擦除的区域 —— 不止字幕，画面里任何字都行',
+  }),
+]);
 
 export const CANVAS_ACTIONS = Object.freeze([
   action('adjust-requirements', '调整生成要求', [], 'smart-remix', true, {
@@ -239,9 +278,10 @@ export const CANVAS_ACTIONS = Object.freeze([
   action('smart-subtitle-erase', '智能去字幕', ['video-toolbar'], 'video-desubtitle', false, {
     type: 'local', handler: 'smart-subtitle-erase',
   }, {
-    description: '在视频上框出字幕区域，用本机 ffmpeg delogo 补掉（照知渔的「智能去字幕 · 框选擦除」）',
+    description: '擦除画面里的字幕：可自动识别，也可自己框选',
     group: '视频处理',
     canRun: isReadyVideoNode,
+    hasModes: true,
   }),
   action('preview-media', '预览', ['video-toolbar'], null, false, {
     type: 'local', handler: 'preview-media',

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Maximize2, Minimize2, Trash2 } from 'lucide-react';
+import { Maximize2, Minimize2, Redo2, RotateCcw, Trash2, Undo2 } from 'lucide-react';
 
 /* 显示框（= 框选坐标系的大小）由视频**固有尺寸**算出，见 videoRegionGeometry.js 的说明：
    2026-10-03 用户批注「点击擦除为什么是这样的」—— 原先读的是祖先容器的 offsetWidth，
@@ -43,6 +43,9 @@ export default function VideoRegionPicker({
   onChange = () => {},
   hint = '',
   disabled = false,
+  /* 上限：与交互稿一致（"3/5"）。上限来自调用方（SUBTITLE_ERASE_MODES），
+     不在这里写死 —— 又一份常量就又一处会对不上。 */
+  maxRegions = 8,
 }) {
   const videoRef = useRef(null);
   const surfaceRef = useRef(null);
@@ -50,6 +53,48 @@ export default function VideoRegionPicker({
   const [size, setSize] = useState({ width: 0, height: 0, displayWidth: 0, displayHeight: 0 });
   const [zoomed, setZoomed] = useState(false);
   const [draft, setDraft] = useState(null);
+  /* 框选历史的**指针**落在哪一版上；frames 存已提交的快照。
+     每次 onChange 之前先把当前版本压栈，于是撤销/重做都是真历史。 */
+  const historyRef = useRef({ past: [], present: null, future: [] });
+  const syncHistory = next => {
+    const h = historyRef.current;
+    h.past = [...h.past, h.present];
+    h.present = next;
+    h.future = [];
+    onChange(next);
+  };
+  /* 外部改了 regions（切换节点）⇒ 历史重置，别把别的节点的框带过来 */
+  const lastRegionsKeyRef = useRef(null);
+  const regionsKey = JSON.stringify(regions || []);
+  if (lastRegionsKeyRef.current !== null && lastRegionsKeyRef.current !== regionsKey && !draft) {
+    /* onChange 触发的回填不动历史；只有"外部来的"变化才重置。
+       判据：变化后的值与 history.present 相同 ⇒ 是我们自己的回填。 */
+    if (JSON.stringify(historyRef.current.present) !== regionsKey) {
+      historyRef.current = { past: [], present: regions || [], future: [] };
+    }
+  }
+  lastRegionsKeyRef.current = regionsKey;
+
+  const canUndo = historyRef.current.past.length > 0;
+  const canRedo = historyRef.current.future.length > 0;
+  const undo = () => {
+    const h = historyRef.current;
+    if (!h.past.length) return;
+    h.future = [h.present, ...h.future];
+    h.present = h.past[h.past.length - 1];
+    h.past = h.past.slice(0, -1);
+    onChange(h.present);
+  };
+  const redo = () => {
+    const h = historyRef.current;
+    if (!h.future.length) return;
+    h.past = [...h.past, h.present];
+    h.present = h.future[0];
+    h.future = h.future.slice(1);
+    onChange(h.present);
+  };
+  const reset = () => syncHistory([]);
+  const removeLast = () => syncHistory((regions || []).slice(0, -1));
 
   const readGeometry = useCallback(() => {
     const video = videoRef.current;
@@ -132,7 +177,8 @@ export default function VideoRegionPicker({
     };
     /* 太小的框（误点）不记：服务端也会丢，但"多一条废区域"会让用户以为框上了 */
     if (region.w < MIN_REGION || region.h < MIN_REGION) return;
-    onChange([...regions, region].slice(0, 8));
+    if ((regions || []).length >= maxRegions) return;
+    syncHistory([...(regions || []), region]);
   };
 
   const displayOf = region => ({ x: region.x / scaleX, y: region.y / scaleY, w: region.w / scaleX, h: region.h / scaleY });
@@ -205,12 +251,24 @@ export default function VideoRegionPicker({
             {zoomed ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             {zoomed ? '退出放大' : '放大视频'}
           </button>
-          {regions.length > 0 && (
-            <button type="button" className="video-region-clear" disabled={disabled} onClick={() => onChange([])}>
-              <Trash2 size={13} />清空区域
-            </button>
-          )}
-          {regions.length > 0 && <span className="video-region-count">已框选 {regions.length} 个区域</span>}
+          {/* 2026-10-03 交互稿：框选那一档底部是「撤销 / 重做 / 重置 / 删除」四个，
+              外加 `N/上限` 计数。
+              ⚠️ 撤销/重做必须是**真的历史**：这里保留一个已提交区域的栈，
+                 每次框选/删除都压栈；"撤销"回退一格、"重做"再前进一格。
+                 只做"删除最后一条"那种假撤销，用户第二次就会发现不对。 */}
+          <button type="button" className="video-region-clear" disabled={disabled || !canUndo} onClick={undo} title="撤销上一次框选">
+            <Undo2 size={13} />撤销
+          </button>
+          <button type="button" className="video-region-clear" disabled={disabled || !canRedo} onClick={redo} title="重做">
+            <Redo2 size={13} />重做
+          </button>
+          <button type="button" className="video-region-clear" disabled={disabled || !historyRef.current.length} onClick={reset} title="清空全部">
+            <RotateCcw size={13} />重置
+          </button>
+          <button type="button" className="video-region-clear" disabled={disabled || !regions.length} onClick={removeLast} title="删除最后一个框">
+            <Trash2 size={13} />删除
+          </button>
+          <span className="video-region-count">{regions.length}/{maxRegions}</span>
         </div>
       )}
       {/* 区域按**源像素**列出来（服务端 delogo 用的就是这几个数）：框了什么、下发什么，看得见 */}

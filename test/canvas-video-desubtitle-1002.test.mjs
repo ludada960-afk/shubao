@@ -49,13 +49,24 @@ test('② 框选面板必须 portal 出画布（否则 stage 的 scale 会让区
   assert.match(code, /subtitleRegions/, '框出来的区域存在节点上');
 });
 
-test('③ 产品取自 localProducts（去字幕是本机方案，不是上游模型）', () => {
+test('③ 产品取自产品目录（去字幕的两种方式各自一个产品，不是上游模型）', () => {
   assert.match(code, /data\?\.localProducts/, '必须加载 capabilities.localProducts');
-  assert.match(code, /videoLocalProducts\.find\(item => item\.id === 'desubtitle_local'\)/,
-    '必须按 productId 找 desubtitle_local');
-  /* 本机 ffmpeg：零上游成本（catalog 里 providerCostCny: 0 / localEngine: true） */
+  /* 2026-10-03：入口从"只有一种"拆成「智能擦除 / 框选擦除」，
+     于是 productId **不再写死在一处** —— 它跟着那一份方式声明走
+     （SUBTITLE_ERASE_MODES：auto→desubtitle_volc、box→desubtitle_local）。
+     这条门禁原来钉的是"必须出现 desubtitle_local 字面量"，
+     那样会把"写死"当正确做法保下来 —— 目录之外又一份真相正是它要防的。
+     ⇒ 改成：方式声明里必须**两个产品都在**，且提交时必须查这份声明。 */
+  assert.match(registry, /export const SUBTITLE_ERASE_MODES/);
+  assert.match(registry, /productId: 'desubtitle_volc'/, '自动那一档走火山');
+  assert.match(registry, /productId: 'desubtitle_local'/, '框选那一档走本机 ffmpeg');
+  assert.match(code, /SUBTITLE_ERASE_MODES\.find\(item => item\.id === modeId\)/,
+    '提交时必须按方式取对应产品');
+  assert.match(code, /item\.id === mode\.productId/, '必须按 productId 找产品');
+  /* 本机 ffmpeg 那一档：零上游成本（catalog 里 providerCostCny: 0 / localEngine: true） */
   assert.match(code, /mode: product\.modes\?\.\[0\] \|\| 'local'/, '建单模式取产品声明，不能写死');
-  assert.match(code, /localSpecs: \{ regions \}/, 'delogo 区域必须走 localSpecs.regions');
+  assert.match(code, /localSpecs: mode\.needsRegions \? \{ regions \} : \{ auto: true \}/,
+    '两种方式发出去的规格必须不同（服务端 localVideoPlan 靠这个分流）');
 });
 
 test('④ 动作注册：按秒计价项真实存在，且不许残留查不到的键', () => {
