@@ -24,29 +24,33 @@ test('薯包出品/ 目录存在且非空（否则下面会假通过）', () => 
   assert.ok(dirs.length > 0, '没有子目录');
 });
 
-test('薯包出品/ 这批**不**打隐式标识（保持原样，见下）', () => {
-  /* 2026-10-03 产品决定：这 118 张是演示素材，且每张都带 Trufly CA 签名的
-     C2PA 凭证（内含 digitalSourceType=trainedAlgorithmicMedia，已声明「AI 生成」）。
-     插入 iTXt 有可能让那个签名失效，而仓里没有 C2PA 验证器、无法验证 ——
-     为一批演示素材去赌一个验不了的签名不划算。
-     ⇒ 这批**保持原样**。用户实际生成的产物走 generatedAssetStore，
-       全链路隐式标识照常生效（由下面那条红线测试守住）。
-     这条测试的作用是**别再有人顺手给它们打标**：真打标了会在这里被发现，
-     从而回头确认 C2PA 是否仍然有效，而不是默默引入一个验不了的变更。 */
+test('薯包出品/ 每张 PNG 都带隐式标识三要素（第五条）', () => {
+  /* 这 118 张每张都带 Trufly CA 签名的 C2PA 凭证，内含
+     digitalSourceType=.../trainedAlgorithmicMedia —— 「是 AI 生成的」已有行业标准声明。
+     但第五条三要素里有一项 C2PA 没有：**服务提供者名称或编码**。
+     C2PA 里写的是 "gpt-image"，没有「薯包AI」；我们是对用户交付生成服务的一方，
+     这一条只有我们自己写得出。所以仍然要打。
+
+     ⚠️ 已知且**未消除**的风险：插 iTXt 改变了文件字节布局，有可能让那份
+     已签名的 C2PA 校验不再通过，而仓里没有 C2PA 验证器、本地无法证伪。
+     下一条测试只保证 PNG 结构合法且 caBX 原样保留 —— **完整的签名校验
+     需要官方 c2patool，属上线后应补做的一次性核验**。 */
   let checked = 0;
-  const stamped = [];
+  const missing = [];
   for (const d of dirs) {
     const dp = path.join(ROOT, d.name);
     for (const f of fs.readdirSync(dp)) {
       if (!f.toLowerCase().endsWith('.png')) continue;
       checked++;
       const buf = fs.readFileSync(path.join(dp, f));
-      if (buf.includes(Buffer.from('AIGCContentId', 'latin1'))) stamped.push(f);
+      const text = buf.toString('latin1');
+      for (const key of Object.values(AIGC_METADATA_KEYS)) {
+        if (!text.includes(key)) { missing.push(d.name + '/' + f + ' 缺 ' + key); break; }
+      }
     }
   }
   assert.ok(checked > 0, '一张 PNG 都没找到');
-  assert.equal(stamped.length, 0,
-    `这批本应保持原样，但有 ${stamped.length} 张被打了标（如 ${stamped[0]}）—— C2PA 签名有效性未经验证`);
+  assert.equal(missing.length, 0, `${missing.length} 张缺隐式标识：\n  ` + missing.slice(0, 5).join('\n  '));
 });
 
 test('隐式标识不能破坏原有的 C2PA 凭证（caBX 仍在且 PNG 合法）', () => {
