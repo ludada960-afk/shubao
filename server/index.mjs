@@ -4206,7 +4206,31 @@ const createConfiguredImageAdapter = (baseUrl, {
    否则会带着空凭据去构造适配器 → 启动即抛 exactly one provider auth credential is required，整站 502。 */
 const IMG_BACKUP_BASE = String(process.env.IMAGE_BACKUP_BASE_URL || '').trim().replace(/\/+$/, '');
 const IMG_BACKUP_KEY = String(process.env.IMAGE_BACKUP_API_KEY || '').trim();
+/* ═══ 2026-10-04：兜底模型表必须**带档位**，否则会静默降级 ═══════════════════════
+   用户反馈：「image2 他能生成成功，但是 2.5 生成不了」。生产取证（canvas_generation_jobs）：
+     · image2  六条全 completed（provider_job_id = image2:primary:img_…）
+     · 2.5      一条都失败（PROVIDER_ERROR / No available channel for model
+                 image2-5-sunburst under group default）
+   主通道 65535 的 2.5 通道没开；而 IP233（api-new.ip233.com）对**同一个密钥**是通的
+   （已用 /v1/models 实测：key 有效，且能看到 gpt-image-2.5-sunburst 的 1k/2k/4k
+   与完整的 gpt-image-2 系）。
+
+   ⚠️ 原来这张表只按**分辨率**索引（1K/2K/4K），不带档位。
+      于是 2.5 的请求失败后兜底会落到 `gpt-image-2-2k` ——
+      **用户要 2.5，拿回来的是 2**，静默降级，比直接报错更坏。
+      而 `createProviderAdapter` 认的键顺序是 `${model}:${resolution}` → `${resolution}` → `${model}`
+      （providerAdapter.mjs:384-386），所以**只要把键写成"档位:分辨率"就能保住档位**。
+
+   ⇒ 下面按 `档位:分辨率` 登记，并保留原来的纯分辨率键作为兜底
+      （老的 IMAGE_BACKUP_MODEL_* 环境变量仍然生效，不破坏已有部署）。 */
 const IMG_BACKUP_MODELS = {
+  'image2:1K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_1K || 'gpt-image-2-1k',
+  'image2:2K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_2K || 'gpt-image-2-2k',
+  'image2:4K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_4K || 'gpt-image-2-4k',
+  'image2-5:1K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_5_1K || 'gpt-image-2.5-sunburst-1k',
+  'image2-5:2K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_5_2K || 'gpt-image-2.5-sunburst-2k',
+  'image2-5:4K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_5_4K || 'gpt-image-2.5-sunburst-4k',
+  /* 纯分辨率键：老部署的 IMAGE_BACKUP_MODEL_* 仍然认，行为不变 */
   '1K': process.env.IMAGE_BACKUP_MODEL_1K || 'gpt-image-2-1k',
   '2K': process.env.IMAGE_BACKUP_MODEL_2K || 'gpt-image-2-2k',
   '4K': process.env.IMAGE_BACKUP_MODEL_4K || 'gpt-image-2-4k',
