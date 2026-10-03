@@ -94,7 +94,7 @@ test('③ 上传视频必须按整卡高度居中：媒体本体比卡片矮一�
   /* 用户原话：「为什么我在画布上上传视频，会这么靠下呢，现在这个视频完全不是居中的状态呀」 */
   assert.match(INDEX, /CANVAS_CARD_FOOTER_H/,
     'index.jsx 要用整卡高度常量，不能继续按媒体本体算');
-  const call = INDEX.slice(INDEX.indexOf('canvasUploadFootprintSizes(imported.assets'));
+  const call = INDEX.slice(INDEX.indexOf('canvasUploadFootprintSizes(importedAssets'));
   assert.match(call.slice(0, 300), /\+ CANVAS_CARD_FOOTER_H/,
     '这批视频的占位高度必须加上 footer，否则卡片中线落在视口中线下方');
   /* 空画布上那个 40%×35% 的经验锚点优先于居中，与"居中"直接冲突 */

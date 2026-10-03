@@ -162,7 +162,13 @@ test('上传路径确实改成了整批落位（不再是只算第一个节点�
   // 图片上传
   assert.match(page, /const blank = findCanvasBatchPlacement\(\{\s*\n\s*sizes: canvasUploadFootprintSizes\(assets, 240, 38\)/);
   // 视频上传
-  assert.match(page, /sizes: canvasUploadFootprintSizes\(imported\.assets, 320, 42, 'aspectRatio', 16 \/ 9\)/);
+  /* 2026-10-03：这里原来钉的是 `imported.assets`，但那份**丢了本地探到的尺寸**
+     （比例退回 fallback 16/9 ⇒ 按"高 180 的横片"排位，视频解码后涨到 569
+     ⇒ 整张卡片吊在视口中心线以下 —— 用户原话：「依然视频有点偏下」）。
+     ⇒ 现在排位与渲染都改用**贴回真实尺寸后**的 `importedAssets`。 */
+  assert.match(page, /const importedAssets = imported\.assets\.map/);
+  assert.match(page, /sizes: canvasUploadFootprintSizes\(importedAssets, 320, 42, 'aspectRatio', 16 \/ 9\)/);
+  assert.match(page, /createUploadedVideoNodes\(\{ assets: importedAssets/);
   // 上传路径里不再有那个写死 200x200 的单框避让
   assert.doesNotMatch(page, /findCanvasBlankPlacement\(\{\s*\n\s*width: 200,\s*\n\s*height: 200,/);
   assert.doesNotMatch(page, /findCanvasBlankPlacement\(\{\s*\n\s*width: 320,\s*\n\s*height: 240,/);

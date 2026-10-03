@@ -72,8 +72,12 @@ test('③ 「智能去字幕」是带下拉的入口，点了展开方式而不�
   /* 工具栏那一颗要有 caret */
   const studio = read('src/pages/EcCanvas/components/CanvasStudio.jsx');
   assert.match(studio, /action\.hasModes/, '工具栏要为带下拉的按钮渲染下拉标记');
-  assert.match(studio, /onAction\?\.\(action, node, event\)/,
+  assert.match(studio, /onClick=\{clickEvent => \{ if \(!isDisabled\) onAction\?\.\(action, node, clickEvent\); \}\}/,
     '必须把事件传出去 —— 下拉要锚在**这颗按钮**上，不是凭空出现在屏幕中间');
+  /* ⚠️ 而且那个事件参数必须是 onClick **自己**声明的：
+     写成 `onClick={() => … onAction?.(action, node, event) }` 时，
+     `event` 只存在于相邻 onPointerDown 的参数里 ⇒ 每次点击都抛 ReferenceError
+     ⇒ 用户看到的是「点了完全没反应」（2026-10-03 实测）。 */
   /* handler 不得再直接开框选器（那会跳过"选哪种方式"这一步） */
   const handler = INDEX.slice(INDEX.indexOf("if (handler === 'smart-subtitle-erase')"));
   assert.match(handler.slice(0, 900), /setSubtitleModeAnchor\(/,
