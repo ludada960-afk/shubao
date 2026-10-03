@@ -1,6 +1,10 @@
 /* 批 CY-㊴：框选要按"节点真实占位"判（含 footer），不再用写死的 +60。
    这条 import 只为 selectNodesInRect 服务，别把它挪去别处。 */
 import { canvasNodeFootprint } from './canvasMediaFitModel.js';
+/* 2026-10-02：fitViewport / readableInitialViewport 原先自己写死 `n.h + 60`，
+   与「整卡高度」的另一个口径又对不上。统一走 footprint（含 footer、按 showMeta 分支）。 */
+/* 比例 → 高度的唯一口径（认全 13 种生成比例，而不是只认 3:4 / 9:16 / 长图）。 */
+import { mediaHeightForRatio } from './canvasGeometry.js';
 
 export function getCanvasPointerIntent({ tool = 'select', button = 0, altKey = false, spaceKey = false, isInteractive = false } = {}) {
   if (isInteractive) return 'ignore';
@@ -43,6 +47,45 @@ export function zoomPreviewByWheel(scale, deltaY) {
 
 export const ASSET_GROUPS = ['白底图', '主图', '详情图', 'SKU', '素材'];
 
+/* ═══ 2026-10-02 用户批注：顶栏那个「全部」下拉是**电商锁定**的 ═══════════════════
+   原话：「这个全部的下拉是白边，而且里面是电商锁定的那些分类，
+          能不能换成通用的图片/视频/音频/文案？」
+
+   原来这个下拉直接吃 `ASSET_GROUPS`（白底图/主图/详情图/SKU/素材）——
+   那是**电商套图**的产物分类。画布本身早就支持图片/视频/音频/文案四种素材了，
+   拿它当画布级筛选器，等于把一个通用画布锁死在一种业务场景里：
+   用户传个视频，顶栏能选的只有「全部」和那几个根本不存在的电商分类。
+
+   ⇒ 筛选维度改成**素材类型**（业界通行：tldraw / Excalidraw 的筛选也按类型，不按业务分类）。
+     `ASSET_GROUPS` 一个字没动 —— 它是"把这张图归到电商套图哪一类"的**归类**功能，
+     与"画布上现在显示哪些素材"的**筛选**是两件事，不该共用一个下拉。 */
+export const CANVAS_FILTER_ALL = '全部';
+export const CANVAS_MEDIA_FILTERS = Object.freeze([
+  CANVAS_FILTER_ALL,
+  '图片',
+  '视频',
+  '音频',
+  '文案',
+]);
+
+/** 各类素材对应的节点 kind。分不清的（应用节点等）只在「全部」里出现，
+    不假装自己是图片 —— 宁可多显示，也不要让用户以为视频不见了。 */
+const FILTER_KINDS = Object.freeze({
+  图片: ['image', 'output', 'source_group', 'layer-group', 'image-composer', 'suite-composer'],
+  视频: ['video', 'video-composer'],
+  音频: ['audio'],
+  文案: ['text', 'text-composer'],
+});
+
+/** 画布级筛选：按素材类型，不按业务分类。 */
+export function canvasNodeMatchesFilter(node, filter = CANVAS_FILTER_ALL) {
+  if (!node) return false;
+  if (!filter || filter === CANVAS_FILTER_ALL) return true;
+  const kinds = FILTER_KINDS[filter];
+  if (!kinds) return true;
+  return kinds.includes(String(node.kind || ''));
+}
+
 const ASSET_META = {
   white_bg: { name: '白底首图', group: '白底图', role: '白底首图', ratio: '1:1', usage: '搜索结果首图，平台必备，白底突出产品，提升点击率' },
   main_text: { name: '场景主图', group: '主图', role: '场景主图', ratio: '1:1', usage: '搜索展示主力图，场景+卖点文案，吸引买家点击' },
@@ -58,23 +101,70 @@ const ASSET_META = {
   detail_long: { name: '详情长图', group: '详情图', role: '详情长图', ratio: '长图', usage: '将多张详情切片合成为一张可交付长图' },
 };
 
-export function getAssetMeta(sourceKey = '') {
-  const baseKey = String(sourceKey).replace(/_\d+$/, '');
-  const meta = ASSET_META[baseKey];
+/* ═══ 2026-10-02 用户批注⑧：「详情图这个规格不对呀，我这边明明是 200×267，
+      它显示的是 1:1…」 ⇒ 追出来的是**三张互相打架的比例表**。
+
+   服务端真正产出像素的地方是 `modelCatalog.LEGAL_IMAGE_SIZES`，详情图是 9:16（1152×2048）。
+   而本表 `ASSET_META` 的 6 个 `detail_slice_*` 里，**5 个服务端根本不发**（key 对不上），
+   服务端实际发的 10 个详情 role（`detail_slice_visual_form` / `exterior_structure` /
+   `surface_finish` …）**一个都不在本表里** ⇒ 全部掉进下面的兜底。
+
+   而兜底写死了 `ratio: '1:1'` —— 这就是"标签说 1:1、画面是竖图"的全部来源。
+   顺带：卡片尺寸 `200×267` 也不是服务端给的，是下面那行 `ratio==='3:4'` 分支自己算的，
+   而且它**把服务端下发的 `width/height` 扔掉了**。 */
+
+export function getAssetMeta(sourceKey = '', delivered = {}) {
+  const raw = String(sourceKey || '');
+  /* 服务端 role 与本表不是同一套 key：
+     · 白底图   服务端 `white_background` / 本表 `white_bg`
+     · 详情切片 服务端 `detail-slice-visual-form`（连字符）/ 本表 `detail_slice_visual_form`（下划线）
+     · 主图     服务端 `main` / 本表 `main_text` */
+  const baseKey = raw
+    .replace(/_\d+$/, '')
+    .replace(/-slice-/g, '_slice_')
+    .replace(/_slice_/, '_slice_');
+  const meta = ASSET_META[baseKey] || ASSET_META[ROLE_KEY_ALIASES[baseKey]];
   if (meta) return meta;
-  return { name: sourceKey || '电商素材', group: '素材', role: '电商素材', ratio: '1:1', usage: '' };
+
+  /* 没命中 ⇒ 按 role 的**前缀**判定，而不是一律 1:1。
+     判定顺序刻意是「服务端下发的 ratio 优先」—— 它才是真正决定像素的那个。 */
+  const isDetail = /detail/i.test(baseKey);
+  const isVideo = /video/i.test(baseKey);
+  const isAudio = /audio/i.test(baseKey);
+  const deliveredRatio = String(delivered.ratio || '').trim();
+  const ratio = deliveredRatio
+    || (isDetail ? '9:16' : isVideo ? '16:9' : isAudio ? '1:1' : '1:1');
+  return {
+    name: raw || '电商素材',
+    group: isDetail ? '详情图' : isVideo ? '素材' : isAudio ? '素材' : '素材',
+    role: raw || '电商素材',
+    ratio,
+    usage: '',
+  };
 }
+
+/** 本表没有、但服务端确实会发的 key → 已有条目的别名。 */
+const ROLE_KEY_ALIASES = Object.freeze({
+  white_background: 'white_bg',
+  main: 'main_text',
+});
 
 export function normalizeAsset(input = {}, index = 0, counters = {}) {
   const sourceKey = input.sourceKey || input.key || input.label || `image_${index + 1}`;
-  const meta = getAssetMeta(sourceKey);
+  const meta = getAssetMeta(sourceKey, input);
   const roleCounter = (counters[meta.role] || 0) + 1;
   counters[meta.role] = roleCounter;
   const suffix = roleCounter > 1 || String(sourceKey).match(/_\d+$/) ? `-${String(roleCounter).padStart(2, '0')}` : '-01';
   const name = input.name || `${meta.name}${suffix}`;
+  /* 下发的 ratio 优先于本表 —— 服务端才是真正决定像素的那一方。 */
   const ratio = input.ratio || meta.ratio;
-  const w = input.w || 200;
-  const h = input.h || (ratio === '3:4' ? Math.round(w * 4 / 3) : ratio === '9:16' ? Math.round(w * 16 / 9) : ratio === '长图' ? 300 : w);
+  /* ⚠️ 2026-10-02：原来只读 `input.w/h`，**把服务端下发的 width/height 整个扔掉了**
+     （deliveryMetadata.mjs 下发的就是 width/height）。于是无论真实像素是 1152×2048
+     还是 2048×2048，画布上永远画成默认 200 宽的方框/竖框 —— 用户看到的"200×267"
+     就是这个丢弃 + 比例分支算出来的产物，不是真实尺寸。
+     并且原来的三分支只认 3:4 / 9:16 / 长图，4:3、2:3、5:4 全部退化成正方形。 */
+  const w = Number(input.w) || Number(input.width) || 200;
+  const h = Number(input.h) || Number(input.height) || mediaHeightForRatio(ratio, w);
   return {
     id: input.id || `asset_${sourceKey}_${index}`,
     assetId: input.assetId || `asset_${sourceKey}_${index}`,
@@ -105,10 +195,15 @@ export function normalizeAsset(input = {}, index = 0, counters = {}) {
 
 export function fitViewport(nodes, rect, padding = 56) {
   if (!nodes.length || !rect?.width || !rect?.height) return null;
-  const minX = Math.min(...nodes.map(n => n.x));
-  const minY = Math.min(...nodes.map(n => n.y));
-  const maxX = Math.max(...nodes.map(n => n.x + n.w));
-  const maxY = Math.max(...nodes.map(n => n.y + n.h + 60));
+  /* 2026-10-02：原先是 `n.y + n.h + 60`。那个 60 是"猜的 footer + 行距"，
+     而 footer 的真值就在 canvasNodeFootprint 里（还会按 showMeta 分支）——
+     两处各猜一次，就必然对不上，表现为「适应画布后底部被切掉一截」。
+     现在整卡高度只有 footprint 一个口径。 */
+  const boxes = nodes.map(canvasNodeFootprint).filter(Boolean);
+  const minX = Math.min(...boxes.map(n => n.x));
+  const minY = Math.min(...boxes.map(n => n.y));
+  const maxX = Math.max(...boxes.map(n => n.x + n.w));
+  const maxY = Math.max(...boxes.map(n => n.y + n.h));
   const scale = Math.max(0.15, Math.min(1.5, Math.min(
     (rect.width - padding * 2) / Math.max(1, maxX - minX),
     (rect.height - padding * 2) / Math.max(1, maxY - minY),
@@ -119,9 +214,10 @@ export function fitViewport(nodes, rect, padding = 56) {
 export function readableInitialViewport(nodes, rect, { padding = 72, minScale = 0.68 } = {}) {
   const fitted = fitViewport(nodes, rect, padding);
   if (!fitted || fitted.scale >= minScale) return fitted;
-  const minX = Math.min(...nodes.map(node => node.x));
-  const minY = Math.min(...nodes.map(node => node.y));
-  const maxX = Math.max(...nodes.map(node => node.x + node.w));
+  const boxes = nodes.map(canvasNodeFootprint).filter(Boolean);
+  const minX = Math.min(...boxes.map(node => node.x));
+  const minY = Math.min(...boxes.map(node => node.y));
+  const maxX = Math.max(...boxes.map(node => node.x + node.w));
   const scale = minScale;
   return {
     scale,

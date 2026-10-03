@@ -1,5 +1,7 @@
 import { selectDeliverableNodes } from './canvasAssetProvenance.js';
 import { isLongDetailCandidate } from './detailCompositionModel.js';
+/* 整卡占位（含 footer）的唯一口径 —— 组框/多选框都必须按它算，否则框比卡片矮一截。 */
+import { canvasNodeFootprint } from './canvasMediaFitModel.js';
 
 const VIEWPORT_GUTTER = 12;
 const PANEL_GAP = 13;
@@ -26,9 +28,19 @@ export const CANVAS_CREATION_OPTIONS = Object.freeze([
 ]);
 
 export const MULTI_SELECTION_ACTIONS = Object.freeze([
+  /* 2026-10-02：原来只有「左/垂直居中/右」三条，且中间那条的 label 写的是
+     「垂直居中」而它算的其实是**水平**居中（`x = bounds.x + (w - node.w)/2`）——
+     标签与行为对不上，用户按���「垂直居中」结果发现图是横着排的。
+     现在补齐六向（业界六件套：左/水平居中/右 + 顶/垂直居中/底），
+     并把 label 改成与行为一致的说法。 */
   Object.freeze({ id: 'align-left', label: '左对齐' }),
-  Object.freeze({ id: 'align-center', label: '垂直居中' }),
+  Object.freeze({ id: 'align-center', label: '水平居中' }),
   Object.freeze({ id: 'align-right', label: '右对齐' }),
+  Object.freeze({ id: 'align-top', label: '顶对齐' }),
+  Object.freeze({ id: 'align-middle', label: '垂直居中' }),
+  Object.freeze({ id: 'align-bottom', label: '底对齐' }),
+  Object.freeze({ id: 'distribute-h', label: '水平等距', needsSelection: 3 }),
+  Object.freeze({ id: 'distribute-v', label: '垂直等距', needsSelection: 3 }),
   Object.freeze({ id: 'auto-layout', label: '自动排版' }),
   /* 9-16 用户批注（图15~19）：打组与绑定元素原来是**同一套逻辑**（只差一个 bound 布尔），
      既不能取消、按钮也不高亮。现在两者语义彻底分开：
@@ -76,10 +88,13 @@ export function canvasSelectionGroupState(nodes = [], selectedIds = new Set()) {
 export function canvasGroupBounds(nodes = [], groupId = '', gap = CANVAS_GROUP_GAP) {
   const members = nodes.filter(node => node && node.groupId === groupId && node.hidden !== true);
   if (members.length < 2) return null;
-  const left = Math.min(...members.map(node => finite(node.x)));
-  const top = Math.min(...members.map(node => finite(node.y)));
-  const right = Math.max(...members.map(node => finite(node.x) + finite(node.w)));
-  const bottom = Math.max(...members.map(node => finite(node.y) + finite(node.h)));
+  /* 2026-10-02：原来用裸 node.h（只有媒体本体），于是组框**永远盖不住 footer** ——
+     组框比实际卡片矮一截，看起来像「框没框全」。改走 footprint（整卡口径）。 */
+  const boxes = members.map(canvasNodeFootprint).filter(Boolean);
+  const left = Math.min(...boxes.map(box => box.x));
+  const top = Math.min(...boxes.map(box => box.y));
+  const right = Math.max(...boxes.map(box => box.x + box.w));
+  const bottom = Math.max(...boxes.map(box => box.y + box.h));
   return {
     x: roundCoordinate(left - gap),
     y: roundCoordinate(top - gap),
@@ -345,10 +360,14 @@ export function selectedCanvasBounds(nodes = [], selectedIds = new Set()) {
   const ids = selectedIds instanceof Set ? selectedIds : new Set(selectedIds || []);
   const selected = nodes.filter(node => ids.has(node.id));
   if (!selected.length) return null;
-  const left = Math.min(...selected.map(node => finite(node.x)));
-  const top = Math.min(...selected.map(node => finite(node.y)));
-  const right = Math.max(...selected.map(node => finite(node.x) + Math.max(1, finite(node.w, 1))));
-  const bottom = Math.max(...selected.map(node => finite(node.y) + Math.max(1, finite(node.h, 1))));
+  /* 2026-10-02：与 canvasGroupBounds 同源 —— 多选工具栏的框也必须按**整卡**算，
+     否则它比卡片矮 footer 一截（对齐/排版/导出范围都跟着偏）。 */
+  const boxes = selected.map(canvasNodeFootprint).filter(Boolean);
+  if (!boxes.length) return null;
+  const left = Math.min(...boxes.map(box => box.x));
+  const top = Math.min(...boxes.map(box => box.y));
+  const right = Math.max(...boxes.map(box => box.x + box.w));
+  const bottom = Math.max(...boxes.map(box => box.y + box.h));
   return { x: left, y: top, w: right - left, h: bottom - top };
 }
 
@@ -368,11 +387,42 @@ export function applyMultiSelectionAction(nodes = [], selectedIds = new Set(), a
       return next;
     });
   }
+  /* 等距分布（Excalidraw `distribute.ts` / tldraw `alt+shift+H|V`）：
+     保持首尾不动，中间那些按可用空隙**均分**。少于 3 个没有「中间」可言，直接不动作。 */
+  if (actionId === 'distribute-h' || actionId === 'distribute-v') {
+    if (selected.length < 3) return nodes;
+    const horizontal = actionId === 'distribute-h';
+    const positionOf = node => (horizontal ? finite(node.x) : finite(node.y));
+    const sizeOf = node => Math.max(1, horizontal ? finite(node.w, 1) : finite(node.h, 1));
+    const ordered = [...selected].sort((a, b) => positionOf(a) - positionOf(b));
+    const first = ordered[0];
+    const last = ordered[ordered.length - 1];
+    const span = (positionOf(last) + sizeOf(last)) - positionOf(first);
+    const totalSize = ordered.reduce((sum, node) => sum + sizeOf(node), 0);
+    const gap = (span - totalSize) / (ordered.length - 1);
+    if (!(gap > 0)) return nodes;
+    const targetById = new Map();
+    let cursor = positionOf(first);
+    ordered.forEach(node => {
+      targetById.set(node.id, cursor);
+      cursor += sizeOf(node) + gap;
+    });
+    return nodes.map(node => {
+      if (!targetById.has(node.id)) return node;
+      return horizontal
+        ? { ...node, x: targetById.get(node.id) }
+        : { ...node, y: targetById.get(node.id) };
+    });
+  }
   return nodes.map(node => {
     if (!ids.has(node.id)) return node;
     if (actionId === 'align-left') return { ...node, x: bounds.x };
     if (actionId === 'align-center') return { ...node, x: bounds.x + (bounds.w - finite(node.w, 1)) / 2 };
     if (actionId === 'align-right') return { ...node, x: bounds.x + bounds.w - finite(node.w, 1) };
+    /* 2026-10-02 补齐：纵向三条（原来是缺的，只能横着排） */
+    if (actionId === 'align-top') return { ...node, y: bounds.y };
+    if (actionId === 'align-middle') return { ...node, y: bounds.y + (bounds.h - finite(node.h, 1)) / 2 };
+    if (actionId === 'align-bottom') return { ...node, y: bounds.y + bounds.h - finite(node.h, 1) };
     return node;
   });
 }

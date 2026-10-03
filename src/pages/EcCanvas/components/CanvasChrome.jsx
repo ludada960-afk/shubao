@@ -5,6 +5,8 @@ import React from 'react';
    下一个人照着 `resolveAnchoredRight` 改半天，改的却是一条已经不再生效的内联样式。 */
 import {
   ArrowLeft,
+  BoxSelect,
+  Crosshair,
   Download,
   Eye,
   EyeOff,
@@ -239,12 +241,19 @@ export function CanvasLayersPanel({
   </aside>;
 }
 
-export function CanvasZoomControls({ scale, onZoomOut, onZoomIn, onFit, trailing = null }) {
+export function CanvasZoomControls({ scale, onZoomOut, onZoomIn, onFit, onReset, onZoomSelection, hasSelection, trailing = null }) {
   return <div className="ec-canvas-zoom-controls" role="group" aria-label="画布缩放">
     <IconButton label="缩小" onClick={onZoomOut}><Minus size={15} /></IconButton>
-    <span aria-live="polite">{Math.round((Number(scale) || 1) * 100)}%</span>
+    {/* 2026-10-02：百分比变成**可点的「回到 100%」**。
+        Figma / tldraw / draw.io 都是这个交互：数字本身就是按钮。
+        原来那是个纯文本 span，用户看得见自己的缩放比例却改不回去。 */}
+    <button type="button" className="ec-canvas-zoom-value" onClick={onReset} title="回到 100%" aria-label="回到 100%">
+      {Math.round((Number(scale) || 1) * 100)}%
+    </button>
     <IconButton label="放大" onClick={onZoomIn}><Plus size={15} /></IconButton>
     <IconButton label="适配画布" onClick={onFit}><Maximize2 size={15} /></IconButton>
+    {/* 有选中时才给「聚焦所选」——tldraw 的 shift+2 */}
+    {hasSelection && <IconButton label="缩放到所选" onClick={onZoomSelection}><Crosshair size={15} /></IconButton>}
     {trailing}
   </div>;
 }

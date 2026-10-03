@@ -90,7 +90,7 @@ import { resolveAnchoredRight, CANVAS_Z } from '../canvasVisualLanguage.js';
 import { buildVideoPlan } from '../../VideoStudio/videoPlanModel.js';
 import { CANVAS_PLAN_ANALYSIS_POINTS, estimateImageComposerPoints, estimateSuiteComposerPoints, estimateTextComposerPoints, estimateVideoComposerPoints, formatCanvasPoints } from '../canvasPointsEstimate.js';
 
-const ACTION_ICONS = {
+export const ACTION_ICONS = {
   'add-text': Type,
   'edit-text': FileText,
   'grid-split': Grid2X2,
@@ -109,6 +109,22 @@ const ACTION_ICONS = {
   /* 9-15 用户批注：「加入资产库」不能是 AI 魔法棒图标 —— 换成语义明确的入库图标
      （BookmarkPlus = 收藏进入资产库），点过后高亮表示已在资产库（is-active 态已有）。 */
   'save-to-assets': BookmarkPlus,
+  /* ⚠️ 2026-10-02 用户批注（框选指着视频节点那条工具栏）：
+       「你知道你在胡说什么吗，现在线上视频功能栏是这几个啊，明显对不上好吗」
+
+     根因就是下面这三行**原本根本不存在** —— `smart-subtitle-erase` / `preview-media` /
+     `export-video` 在这张表里没有条目，而渲染是
+     `const Icon = ACTION_ICONS[action.id] || WandSparkles;`
+     ⇒ **三个按钮全部显示成同一个魔法棒**。
+     用户看到的是「加入资产库 + 三颗一模一样的魔棒」，对不上是哪三个功能。
+
+     "漏配就静默兜底"这种写法必须堵住：门禁 `canvas-video-toolbar-icons-1002`
+     断言「selection / video-toolbar 两个面上出现的每个动作都必须有自己的图标，
+     且同屏任意两颗不得用同一个图标」。
+     去字幕 = Captions（字幕语义）、预览 = ImagePlay（画面+播放）、下载 = Download。 */
+  'smart-subtitle-erase': Captions,
+  'preview-media': ImagePlay,
+  'export-video': Download,
 };
 
 /* Panel entrance gate: each floating-panel family plays its ecPanelIn spring
@@ -176,6 +192,15 @@ const LABELED_TOOLBAR_ACTIONS = new Set([
   'move-scale',
   'reverse-prompt',
   'annotation',
+  /* 2026-10-02：视频节点那 4 颗原本全是**纯图标**（这三个不在表里 ⇒ 走 compact）。
+     4 颗没有文字的按钮挤在一行，本来就分不清 —— 再叠上"三个都是同一个魔法棒"，
+     用户完全对不上（他框选指着的就是这条）。
+     ⇒ 视频这一组给出文字：数量少、带文字才读得懂，
+       也与图片侧"高频动作带文字"的规则一致。
+     `save-to-assets` 仍然保持纯图标：它两侧都有，已经能认出来，且是跨节点的通用动作。 */
+  'smart-subtitle-erase',
+  'preview-media',
+  'export-video',
 ]);
 
 export function isCompactCanvasToolbarAction(actionId) {

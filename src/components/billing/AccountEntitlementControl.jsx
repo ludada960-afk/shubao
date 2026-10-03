@@ -30,7 +30,11 @@ export default function AccountEntitlementControl({
       >
         <Coins size={15} aria-hidden="true" />
         <span className="account-entitlement-copy">
-          <small>AI 积分</small>
+          {/* 2026-10-02 用户批注：「AI 积分」这几个字是重复的，按钮也太宽了。
+              compact（画布顶栏这种横向空间紧张的地方）只留**图标 + 数字**：
+              语义没有丢 —— aria-label 与 title 里都还写着「AI 积分」，
+              读屏用户和悬停提示拿到的信息一字不少，而视觉上少了一行字、窄了一截。 */}
+          {compact ? null : <small>AI 积分</small>}
           <strong>{display.value}</strong>
         </span>
         {logged && <ArrowUpRight size={14} aria-hidden="true" className="account-entitlement-arrow" />}
@@ -51,6 +55,9 @@ export default function AccountEntitlementControl({
         .account-entitlement-control { display: inline-flex; align-items: center; min-width: 0; color: var(--sb-neutral-0); }
         .account-entitlement-control button { border: 0; font: inherit; cursor: pointer; }
         .account-entitlement-value { min-width: 0; display: inline-flex; align-items: center; gap: 7; min-height: 40px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 8px; background: #17181c; color: inherit; text-align: left; box-shadow: 0 4px 14px rgba(20,22,28,.15); transition: background .15s, border-color .15s, transform .15s; }
+        /* compact = 横向空间紧张的地方（画布顶栏）：隐藏那行"AI 积分"后收紧内边距与间距，
+           按钮整体窄一截，但可点面积仍保持 36px 高（触控下限）。 */
+        .account-entitlement-control.is-compact .account-entitlement-value { gap: 6; min-height: 36px; padding: 4px 9px; }
         .account-entitlement-value:hover { background: var(--sb-neutral-900); border-color: rgba(255,255,255,.28) !important; transform: translateY(-1px); }
         .account-entitlement-value > svg:first-child { color: #f3c969; }
         .account-entitlement-copy { min-width: 0; display: grid; gap: 1; }

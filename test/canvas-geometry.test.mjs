@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { cubicEdgePath, getNodePortCenter, layoutAssetLanes, mediaHeightForRatio } from '../src/pages/EcCanvas/canvasGeometry.js';
+import { cubicEdgePath, getNodePortCenter, layoutAssetLanes, mediaHeightForRatio, CANVAS_CARD_FOOTER_H } from '../src/pages/EcCanvas/canvasGeometry.js';
 
 test('model geometry keeps a node port synchronized with its rectangle (9-11: 端点=加号中心, 外偏 17px)', () => {
   const node = { x: 10, y: 20, w: 200, h: 100 };
-  // 加号中心: 输入 = 左缘外 17px (10-17=-7), 输出 = 右缘外 17px (210+17=227)
-  assert.deepEqual(getNodePortCenter(node, 'input'), { x: -7, y: 70 });
-  assert.deepEqual(getNodePortCenter(node, 'output'), { x: 227, y: 70 });
-  assert.equal(cubicEdgePath({ x: 227, y: 70 }, { x: 410, y: 130 }), 'M 227 70 C 318.5 70, 318.5 130, 410 130');
+  /* 2026-10-02：y 从 70 改成 **整卡**中线。
+     用户批注：「为什么你右边这些图片的线都没拉到加号上呢，你现在都是偏移加号上下面的呀」
+     根因：端口 CSS 是 `top:50%`，参照物是**整张卡片**（媒体 + footer）；
+     而这里原来算的是「只有媒体」的中线 ⇒ 端点比加号高了半个 footer。
+     业界四家一致取**整卡**中线（React Flow top:50% / tldraw 完整 bounds /
+     Excalidraw 完整 AABB / Draw.io exitY=0.5），**CSS 是对的，错的是模型**。
+     横向不变：输入 = 左缘外 17px (10-17=-7)，输出 = 右缘外 17px (210+17=227)。 */
+  const midY = 20 + (100 + CANVAS_CARD_FOOTER_H) / 2;
+  assert.deepEqual(getNodePortCenter(node, 'input'), { x: -7, y: midY });
+  assert.deepEqual(getNodePortCenter(node, 'output'), { x: 227, y: midY });
+  assert.equal(cubicEdgePath({ x: 227, y: midY }, { x: 410, y: 130 }),
+    `M 227 ${midY} C 318.5 ${midY}, 318.5 130, 410 130`);
 });
 
 test('asset lanes retain ratio geometry and place same-category outputs horizontally', () => {

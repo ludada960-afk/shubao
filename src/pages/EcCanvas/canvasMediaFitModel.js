@@ -29,6 +29,9 @@
       素材在视口外只应该「没被画出来」，绝不能「从状态里消失」。
    ══════════════════════════════════════════════════════════════════════════════ */
 
+/** 整卡高度（含 footer）是**唯一口径**，在 canvasGeometry 里定义 —— 别在这里再抄一份。 */
+import { getCanvasCardHeight } from './canvasGeometry.js';
+
 /** 画布素材框的宽度基准（与 createUploadedImageNodes 的 width 保持一致）。 */
 export const CANVAS_MEDIA_WIDTH = 240;
 
@@ -80,20 +83,27 @@ export function canvasRectsOverlap(a, b, gap = 0) {
  *
  * ⚠️ 这一条是「明明排得好好的却还是互相盖住」的真正根因：
  *   `node.h` 只是**图片本体**的高度，而 `.ec-canvas-media-node` 在图片下面
- *   还渲染了一个 `<footer>`（名称 + 比例/尺寸，`.ec-canvas-media-node footer`：
- *   padding 6px 8px 7px + 两行 12px/10px 文字 ≈ 34px）。
- *   落位避让只按 `node.h` 算 ⇒ **每个带 footer 的节点都多出 34px 压到下一个**。
- *   ��是用户说的「互相之间会有遮挡、会有覆盖」——不是错觉，是几何事实。
+ *   还渲染了一个 `<footer>`（名称 + 比例/尺寸，`.ec-canvas-media-node footer`）。
+ *   落位避让只按 `node.h` 算 ⇒ **每个带 footer 的节点都多出一截压到下一个**。
+ *   这就是用户说的「互相之间会有遮挡、会有覆盖」——不是错觉，是几何事实。
+ *
+ * 2026-10-02（批 之二十二）：这里曾有一份**自己的** footer 高度常量 34，
+ * 而端口几何那边是 46 —— 同一个「整卡多高」的问题有两个答案。
+ * 后果不是玄学：框选按 34 算、连线端点按 46 算 ⇒
+ *   「框选矩形明明盖住了整张卡片，节点却没被选中」，而卡片上的加号又对不上线。
+ * 现在**整卡高度只有一处定义**（canvasGeometry.getCanvasCardHeight），
+ * 本模块不再持有第二份常量。
  */
-export const CANVAS_MEDIA_FOOTER_HEIGHT = 34;
-
 export function canvasNodeFootprint(node) {
   if (!node) return null;
   const w = Math.max(1, Number(node.w) || CANVAS_MEDIA_WIDTH);
-  /* showMeta === false 的节点（上传素材）不渲染 footer。 */
-  const h = Math.max(1, Number(node.h) || w)
-    + (node.showMeta === false ? 0 : CANVAS_MEDIA_FOOTER_HEIGHT);
-  return { x: Number(node.x) || 0, y: Number(node.y) || 0, w, h };
+  return {
+    x: Number(node.x) || 0,
+    y: Number(node.y) || 0,
+    w,
+    /* 整卡高度（含 footer，showMeta===false 时不含）—— 唯一口径。 */
+    h: getCanvasCardHeight({ ...node, w, h: Math.max(1, Number(node.h) || w) }),
+  };
 }
 
 /**

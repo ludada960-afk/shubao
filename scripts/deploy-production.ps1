@@ -153,7 +153,14 @@ function Invoke-BoundedSshCapture {
     }
     $output = $process.StandardOutput.ReadToEnd()
     if ($process.ExitCode -ne 0) {
-      throw "Bounded SSH capture failed (exit code $($process.ExitCode))"
+      # ssh 的失败原因**只在 stderr**里（255=连不上/认证失败，命令失败是别的码）。
+      # 不带出来的话，每次都只能靠猜 —— 2026-10-02 那次 exit 255 就白查了很久。
+      $errorOutput = ''
+      try { $errorOutput = ([string]$process.StandardError.ReadToEnd()).Trim() } catch { $errorOutput = '' }
+      $errorOutput = ($errorOutput -replace '[\r\n]+', ' ')
+      if ($errorOutput.Length -gt 600) { $errorOutput = $errorOutput.Substring(0, 600) }
+      $detail = if ([string]::IsNullOrWhiteSpace($errorOutput)) { '' } else { ": $errorOutput" }
+      throw "Bounded SSH capture failed (exit code $($process.ExitCode))$detail`n  target: $script:target`n  argv: $($processInfo.Arguments)"
     }
     return $output
   } finally {

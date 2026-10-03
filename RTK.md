@@ -18090,3 +18090,189 @@ catalog 原话：「这两个功能**不走上游模型**（用户原话：『�
 若用户反馈字幕区域有偏移，第一嫌疑是 canvas 的 `viewport.scale` 在 portal 定位层
 还残留了一点影响（`VideoRegionPicker` 自己的算法是量过 `offsetWidth` 的，但**外层容器**
 的定位没有参与过实测）。
+---
+
+## 批 之二十三：画布「隐性缺陷」全量对齐业界口径（2026-10-02）
+
+### ✦ 用户原话与做法
+
+> 「既然有可以参考的成熟方案，你就去把我们画布上面**隐性存在的问题**补充进来…参考成熟产品的升级和优化…如果有直接可以使用的方案就直接使用，如果没有只能参考，就参考他们比较成熟的做法…你觉得有哪些功能可以添加、哪些能力我们还没有的，那你可以把他们加进来。」
+
+做法不是"凭手感改"，而是**先查证四家源码再动手**：React Flow(`@xyflow/system`)、tldraw、Excalidraw、draw.io。
+口径全部写进新门禁 `test/canvas-industry-baseline-1002.test.mjs`（19 条），钉的是**判据**不是写法。
+
+### ✦ 查证出来的「隐性缺陷」——都是"看起来有、其实没有"的
+
+审计发现画布里有一批**死代码冒充功能**的地方，比缺功能更坏（用户以为能用，一按没反应）：
+
+| 现象 | 真相 |
+| --- | --- |
+| Ctrl+Z / Ctrl+Shift+Z 撤销重做 | `createCanvasHistory` 建好了，**全仓 0 次 push**（唯一一次在 undo 自己体内）⇒ past 永远空 ⇒ 静默无反应 |
+| Ctrl+D 复制节点 | 被更早的「Ctrl+D = 取消全选」分支**完全遮住**，从未生效 |
+| Ctrl+S 手动保存 | `setTimeout(220)` 然后就把状态改成"已保存"，**全程零 I/O** —— 假保存比不绑定更危险 |
+| Shift+滚轮水平滚动 | `?` 面板里宣传了，**根本没实现** |
+| 「删除选中节点（优先删线）」 | 没有任何"选中线"的概念，删线只能双击那条 2px 细线 |
+| 「粘贴到鼠标位置」 | 实际是"原位 + 固定 36px 偏移"，与鼠标无关 |
+
+### ✦ 真正被低估的三个隐性 bug
+
+1. **「整卡高度」有四份口径**（这是「多选框没框全」的真正根因，用户报过）
+   - `canvasGeometry` 46（连线端点 + 端口 CSS `top:50%`）
+   - `canvasMediaFitModel` 34（框选 + 视口裁剪）
+   - `canvasState.fitViewport` 写死 `+60`
+   - `canvasGroupBounds` / `selectedCanvasBounds` 用裸 `node.h`（连 footer 都没有）
+   ⇒ 框选按 34 判、连线端点按 46 判：**框明明盖住了整张卡片却没选中**。
+   现在整卡高度只有 `getCanvasCardHeight(node)` 一处定义。
+
+2. **平移一次 = 整个画布重新快照 + 发一次网络请求**
+   `viewport` 挂在本地草稿与远端保存两个 effect 的依赖数组尾部。平移是每秒最多 60 次，
+   而 `createCanvasSnapshot` 实测 12 节点就要 59ms 同步占用。
+   ⇒ 视口改从 `viewportRef` 读、**不进依赖**；另给一条 2s 防抖单独持久化视口
+   （下次进来还停在上次位置是产品期望，不是性能优化）。
+   口径同 tldraw：相机属于 session state，不属于文档变更。
+
+3. **滚轮不归一化 `deltaMode`**：Windows 鼠标滚轮是「行」(1)、触控板是「像素」(0)、Firefox 能给「页」(2)，
+   数量级差 20~400 倍。照抄 React Flow `wheelDelta` 的口径：
+   `-deltaY * (deltaMode === 1 ? 0.05 : deltaMode ? 1 : 0.002)`。
+   同时补上触控板**捏合**（ctrlKey+wheel）与对数步长（原来固定 0.92/1.09 = 永远缩 8%）。
+
+### ✦ 本批做的（对应业界哪一家）
+
+| 改动 | 口径来源 |
+| --- | --- |
+| 整卡高度单一真相（框选/裁剪/组框/多选框/适配/端点同源） | RF `getNodeBounds` + tldraw `shape page bounds` |
+| 吸附阈值 = **屏幕像素 8 ÷ 缩放** | Excalidraw `SNAP_DISTANCE=8`、tldraw `snapThreshold/zoom` |
+| 对齐参考线（边 + **中心**候选、中心优先） | tldraw `BoundsSnaps.points` |
+| 参考线与网格**互斥** | RF `calculateSnapOffset`（否则一组节点各吸各的格子、互相错位） |
+| 边缘自动平移（40px 边缘带、逐级加速） | RF `calcAutoPan` |
+| 拖动阈值 3px（按世界坐标算） | RF `nodeDragThreshold` |
+| 按钮/键盘缩放**以视口中心为锚** | tldraw 明确拆开 zoom-in（居中）/ zoom-in-on-cursor（保焦点） |
+| 连线加 20px **隐形命中区** + 可选中 + Delete 删线 | RF `BaseEdge interactionWidth=20` |
+| 连线**防成环** | 自由连线必须自己判（RF 要你写 `isValidConnection`）；成环后图执行互相等、永远转圈 |
+| 撤销/重做按**手势**记（不是每帧）、能还原连线、视口不入栈 | tldraw `HistoryManager` + session state 分离 |
+| 六向对齐 + 水平/垂直等距（原来只有三条横排，且中间那条 label 写「垂直居中」而行为是水平居中） | Excalidraw `align.ts` / `distribute.ts` |
+| Ctrl+A 排除隐藏节点 | RF `getNodesInside` 跳过 `hidden` |
+| Ctrl+C 补输入态守卫 | RF `isInputDOMNode`（粘贴那条 9-17 就加了，复制这条漏了） |
+| Ctrl+0 / Ctrl+± / 百分比可点复位 | Figma / tldraw / draw.io |
+
+### ✦ 还没做的（按风险排序，留给下一批）
+
+- **视口 transform 走 ref/订阅，不走 React state**（RF `Viewport` 直接写 `style.transform`）。
+  现在平移是**每个 pointermove 一次 setViewport**，无节流（只有滚轮和拖节点做了 rAF）。收益大但改动面大，夜里不做。
+- 离屏节点/边**虚拟化**（已有视口裁剪，但裁剪判定和渲染是同一次 map）。
+- 边端点**拖拽重连**（RF `EdgeUpdateAnchors`）、连线标签（`getConnectionLabel` 已写好但从未渲染）。
+- 正交走线 / 路点编辑（draw.io `OrthogonalEdgeRouter`；RF 的 smoothstep 自述"不是真路由"）。
+- 网格吸附的**开关是死的**（`snapEnabled` 写了从不读）—— 本批先做了对齐参考线，网格开关要么接上要么删掉。
+
+---
+
+## ⚠️ 工具坑（本轮踩了两次，浪费了不少时间）
+
+### ① `Bash` 工具在 Windows 上是 **cmd.exe**，**`;` 不是命令分隔符**
+
+`cmd1 > log 2>&1; cmd2` 会被 cmd 当成**同一条命令**，后半段的 token 全部变成 cmd1 的参数。
+
+实际后果：把
+```
+pwsh -File scripts/deploy-production.ps1 -ReleaseBranch gm/release-merge-1001 > log 2>&1; powershell -Command "..."
+```
+当成一条命令发出去 ⇒ 部署脚本的 `$User` 收到 `"powershell"`、`$HostName` 收到 `";"` ⇒
+`$target` 变成 `powershell@;` ⇒ ssh 报 `Could not resolve hostname`。
+
+**⇒ 一律用 `&&` 连接多条命令；要把输出和命令分开，就分成两次 Bash 调用。**
+
+### ② Windows PowerShell 5.1 读无 BOM 的 UTF-8 `.ps1` 会按 GBK 解，中文注释直接**解析报错**
+
+`scripts/deploy-production.ps1` 是无 BOM 的 UTF-8，里面全是中文注释。
+用 `powershell -File` 跑会在第 372 行报一堆莫名其妙的 ParserError。
+**⇒ 用 `pwsh`（PowerShell 7，默认 UTF-8）跑仓库里的 ps1**：
+`"C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -File scripts\deploy-production.ps1 ...`
+
+顺带把 `Invoke-BoundedSshCapture` 的失败信息补上了 **stderr + argv** ——
+原来只报 `exit code 255`，ssh 的真实原因（"没有到主机的路由"）被丢进黑洞，全靠猜。
+
+### ③ 部署脚本要从**发布分支的工作树**跑，且**工作树必须干净**
+
+`deploy-production.ps1` 是 `npm run test && npm run build`，build 读的是**工作树**不是 commit。
+中途改文件 ⇒ 会把**没提交的东西**一起发上线。
+**⇒ 部署前先 `git stash`（含 `-u`），部署完再 pop。**
+
+### ④ 公网校验在「机房来源 + 域名未备案」时**物理上不可能跑通**
+
+`Public gallery verification failed ... fetch failed` 三次重试全败 ——
+这是部署机出口 IP 被腾讯云拦（见 `docs/ops-server-migration-cutover.md` 第七节），
+不是版本不合格。**⇒ 部署必须带 `-SkipPublicChecks`**，
+且事后从服务器本机 `curl --resolve shuimg.cn:443:127.0.0.1` 复核。
+
+⚠️ 这次还暴露了一个**更糟的情况**：校验失败后自动回滚，**回滚自己也失败了**（exit code 2），
+于是 `current` 符号链接**仍指向新 release**。即"判据失败"与"版本状态"可以不一致 ——
+判断线上到底跑的是哪一版，**只认 `readlink -f /var/www/shubao/current`，别信脚本的退出码**。
+
+### ⑤ PowerShell 单行里写 `$_` / `$LASTEXITCODE` 会被外层 cmd 的转义吃掉
+
+**⇒ 复杂 PowerShell 一律写成 `.tmp/xxx.ps1` 再 `-File` 跑。**（本仓既有约定）---
+
+## 批 之二十三 收尾：用户批注 ⑥⑦⑧ 的根因（2026-10-02）
+
+### ✦ ⑧「详情图这个规格不对呀，我这边明明是 200×267，它显示的是 1:1」
+
+用户接着问「SKU 和 PNG 是不是也有同样的问题」—— 查完的结论是**不是同一个问题**，
+但比想象的更糟：**根因是三张互相打架的比例表 + 一处把服务端下发尺寸整个扔掉的代码**。
+
+| 谁 | 详情图比例 | 说了算吗 |
+| --- | --- | --- |
+| 服务端 `modelCatalog.LEGAL_IMAGE_SIZES` | 9:16 → **1152×2048** | ✅ **真正决定像素的那一方** |
+| `assetPlanner` / `promptAssembler` / `ecommercePromptEngine` | 9:16 | 跟随 catalog |
+| 前端 `ASSET_META`（6 个 `detail_slice_*`） | 9:16 | ❌ 其中 **5 个服务端根本不发** |
+| `src/constants/data.js` 的 `EC_IMG_RATIOS` | **3:4** | ❌ 全仓唯一的异类 |
+| `getAssetMeta` 的兜底 | **1:1** | ⚠️ **实际生效的就是它** |
+
+链路是这样断的：
+
+1. 服务端实际发的 10 个详情 role（`detail_slice_visual_form` / `exterior_structure` /
+   `surface_finish` …）**一个都不在 `ASSET_META` 里** ⇒ 全部掉进兜底；
+2. 兜底写死 `ratio: '1:1'` ⇒ **卡片脚注（`[node.group, node.ratio, node.size]`）显示 1:1**；
+3. 而画面是竖的，因为 `normalizeAsset` 又按自己那套分支算高度 ——
+   用户看到的 `200×267` 就是这个「标签一套算法、画面另一套算法」的产物，
+   **不是真实尺寸**（服务端早就把 `width/height` 一起发过来了，`normalizeAsset` 只读
+   `input.w/h`，把 `width/height` 扔了）；
+4. 更狠的是第四层：画布套图请求写的是 `key: 'detail_slice_feature'`，
+   而服务端 `assetPlanner.COUNTED_SIZING_KEYS = {white_bg, white_background, main_text,
+   main_3x4, transparent, detail}` —— **`detail_slice_*` 不在其中**，
+   `normalizeSizing` 把这一行**整个丢掉**，`configuredCount('detail')` 返回 0
+   ⇒ **画布发的套图请求里，一张详情图都不会生成。**
+
+**SKU 与透明 PNG 没有这个问题**（1:1 三方一致、实际 2048×2048、卡片 200×200 正确）。
+白底图与主图比例正确，但 `ASSET_META` 的 key（`white_bg` / `main_text`）
+与服务端发的（`white_background` / `main`）对不上 ⇒ 名称与分组掉进兜底。
+
+修法（`test/ecommerce-spec-parity-1002.test.mjs` 5 条钉住）：
+- `getAssetMeta` 按 role 前缀兜底（`detail*` → 详情图 / 9:16），并**优先采信服务端下发的 ratio**；
+  加 `ROLE_KEY_ALIASES` 对齐两套 key；连字符写法也认。
+- `normalizeAsset` 先读 `width/height`；比例→高度改用 `mediaHeightForRatio`。
+- `mediaHeightForRatio` 由**枚举**改为**解析** `宽:高` —— 原来只认 3:4/4:3/9:16/16:9/长图，
+  而 catalog 有 13 种，2:3、5:4、1:5 全部退化成正方形。
+  （**每加一种比例就要记得回来补** —— 枚举式写法的固有代价，这次又踩了一次。）
+- 画布请求 `key: 'detail_slice_feature'` → `'detail'`，默认比例 `1:1` → `9:16`。
+
+### ✦ ⑥「全部下拉是白边 + 电商锁定」
+
+两个问题都在一处：
+- **白边**：只写了 `border: 0` 却没写 `appearance: none` —— 那圈"白边"是**浏览器画的**。
+  补上 `appearance: none` + 自绘箭头 + `background-color: transparent`，弹出层底色显式给。
+- **电商锁定**：下拉吃的是 `ASSET_GROUPS`（电商套图的产物分类）。
+  改成按**素材类型**筛（图片/视频/音频/文案），判定下沉到纯函数 `canvasNodeMatchesFilter`。
+  `ASSET_GROUPS` 一个字没动 —— 它是"把这张图归到电商套图哪一类"的**归类**功能，
+  与"画布上现在显示哪些素材"的**筛选**是两件事，不该共用一个下拉。
+  分不清类型的节点（应用节点）只在「全部」里出现 —— 宁可多显示，也不要让用户的视频"消失"。
+
+### ✦ ⑦「AI 积分重复了，按钮也太宽」
+
+`AccountEntitlementControl` 在 compact（画布顶栏）下不再渲染那行 `<small>AI 积分</small>`：
+语义一字不少（`aria-label` 与 `title` 里都还写着「AI 积分」，读屏与悬停都拿得到），
+视觉上少一行字、按钮窄一截。
+
+### ✦ 还没做的（④ 工具栏信息架构）
+
+「去掉重复的『保存到画布』按钮 / 图片式布局从右下角展开」需要先确定新的工具栏分组，
+属于信息架构改动，没有硬依据就动容易改错 —— 留到用户确认过再动。
