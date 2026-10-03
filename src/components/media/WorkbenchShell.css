@@ -528,14 +528,6 @@
    那就是"专属度低"的根因。这三件把可变部分交回声明层，逐条 skill 只写声明、不碰 JSX。
    全部默认不渲染：不给 `workbench` / `presets` 的页面逐像素不变。 */
 
-/* ① 这一条 skill 的一句话说明 */
-.media-workbench-intro {
-  margin: 0;
-  font-size: var(--sb-text-sm);
-  line-height: 1.6;
-  color: var(--sb-ink-3);
-}
-
 /* ② 「一键上手」：把整页配成一套推荐值 —— 用户要的是"快速产出最佳效果"，
      而此前全站没有任何声明能表达"整页最佳配置"。 */
 .media-workbench-presets { display: flex; align-items: center; gap: var(--sb-space-2); flex-wrap: wrap; }
