@@ -20,10 +20,42 @@ function withRoute(route, result) {
   return { ...result, jobId: `${route}:${result.jobId}` };
 }
 
+/* ═══ 2026-10-04：主通道说「**这个模型我这儿没有**」时也要切兜底 ═════════════════════════════
+   生产实测（65535 + `image2-5-sunburst`），两条真实回复：
+
+     · 403  {"message":"group \"任务专用分组\" not authorized for model image2-5-sunburst"}
+     · 503  {"detail":"No available channel for model image2-5-sunburst under group default (distributor)"}
+
+   原来 `canOverflow` 只认 `PROVIDER_NETWORK_ERROR`，而上面两条经 providerError 落成
+   `PROVIDER_ERROR`（403 甚至 `retryable:false`）⇒ **都不切兜底**，请求直接失败。
+   也就是说：把 IP233 接成兜底之后，2.5 这条路**实际上一根手指都没够着** ——
+   用户看到的还是"生成不出来"，而我们以为已经修好了。
+   （`test/ecommerce-provider-router` 那条 "does not evade provider rate limits" 守的是
+     429：**不许**靠换供应商绕过限速。那条意图是对的，403/503 也不是限速，两件事不该混。）
+
+   ⇒ 判据改成"主通道**没有受理**这次请求，原因是它自己**没有这个模型/这个分组没权限**"：
+     · 必须**没有 jobId** —— 受理过了就不许二次提交（否则会重复出图、重复扣费）；
+     · **429 一律不切** —— 那是限速，绕过它就是那条门禁说的 "evade rate limits"；
+     · 匹配「模型不可用 / 分组无权 / 渠道缺失」这几种说法才切。
+
+   ⚠️ 为什么不按 status 一刀切（403/404/503 全放行）：用户自己的问题（400 参数错、
+     内容被拒 CONTENT_REJECTED）在备用那边**同样会失败**，切过去只是白跑一趟、
+      还多一次上游请求。内容拒单尤其不能切（用户原话：「为什么还要重新花钱呢」）。 */
+const MODEL_UNAVAILABLE_HINT = /(no available channel|not authori[sz]ed for model|model[^\n]{0,40}not (?:found|available)|无可用渠道|无权使用该模型|没有可用的渠道)/i;
+const RATE_LIMIT_STATUS = new Set([429]);
+
+function providerRefusedToServeThisModel(error) {
+  if (RATE_LIMIT_STATUS.has(error?.status)) return false;
+  if (error?.code === 'CONTENT_REJECTED') return false;
+  const detail = String(error?.message || error?.detail || '');
+  return MODEL_UNAVAILABLE_HINT.test(detail);
+}
+
 function canOverflow(error) {
-  return error?.code === 'PROVIDER_NETWORK_ERROR'
-    && error?.retryable === true
-    && !String(error?.jobId || '').trim();
+  /* 已受理 ⇒ 绝不二次提交（重复出图 + 重复扣费） */
+  if (String(error?.jobId || '').trim()) return false;
+  if (error?.code === 'PROVIDER_NETWORK_ERROR' && error?.retryable === true) return true;
+  return providerRefusedToServeThisModel(error);
 }
 
 export function createProviderRouter({ primary, overflow, legacy } = {}) {
