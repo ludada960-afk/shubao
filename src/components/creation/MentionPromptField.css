@@ -14,6 +14,13 @@
   line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* 2026-10-03 用户批注：「为什么我鼠标放上去不是输入的光标呢？而是鼠标的箭头啊」
+     —— 它是 contentEditable，却没显式声明 cursor，各处祖先（画布 .ec-canvas-context-composer
+     就写着 `cursor: default`）把"这能打字"这件事藏掉了。
+     ⇒ 能编辑的地方一律显式 text，不靠浏览器 UA 的默认推断。 */
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 .mention-prompt-field:focus {
@@ -29,6 +36,7 @@
 .mention-prompt-field.is-disabled {
   opacity: .62;
   pointer-events: none;
+  cursor: not-allowed;
 }
 .mention-prompt-token {
   display: inline;

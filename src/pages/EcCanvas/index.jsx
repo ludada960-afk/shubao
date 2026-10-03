@@ -3066,7 +3066,7 @@ const flushDragFrame = useCallback(() => {
     setSelectedEdgeId(null);
     if (intent === 'marquee') {
       const point = toWorldPoint(e);
-      setPointerMode({ kind: 'marquee', start: point, additive: e.shiftKey || e.ctrlKey || e.metaKey });
+      setPointerMode({ kind: 'marquee', start: point, additive: e.shiftKey || e.ctrlKey || e.metaKey, altKey: e.altKey });
       setMarquee({ x: point.x, y: point.y, w: 0, h: 0 });
     } else {
       setPointerMode({ kind: 'pan', startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y });
@@ -3306,7 +3306,10 @@ const handlePointerUp = useCallback((e) => {
        - 点素材右侧 + / 拖线松开: 才打开派生菜单
        因此单击这里不再自动弹派生菜单。 */
     if (pointerMode?.kind === 'marquee' && marquee) {
-      const ids = new Set(selectNodesInRect(nodes, marquee));
+      /* 2026-10-03 用户批注：「应该换成容差选择，就是哪怕圈到一点点也算圈到他」。
+         默认口径已在 `selectNodesInRect` 里改成**相交即选**；
+         按住 Alt 时走 `strict` 那一档（必须完整框住），留给需要精确圈选的场合。 */
+      const ids = new Set(selectNodesInRect(nodes, { ...marquee, strict: pointerMode.altKey === true }));
       setMultiSelected(pointerMode.additive ? new Set([...multiSelected, ...ids]) : ids);
       setSelected(null);
     }
@@ -7801,7 +7804,17 @@ const handleCanvasVideoUpload = async event => {
        · 真正写文案的路径没丢：**画布上「生成文案」节点**仍在（双击空白处那一项、
          以及文案 composer 面板都照旧），只是右栏这一个"从素材派生文案"的入口收掉了。
      ⇒ 4 个核心项：图片生成 / 电商套图 / 上传视频 / 生成视频。 */
-  const DERIVE_MENU_HIDDEN_IDS = useMemo(() => new Set(['text-generation']), []);
+  /* 2026-10-03 用户批注：「我不明白为什么这里会有个上传视频的选项，
+     正常这里不是选择一个节点派生一个节点吗，下一个节点怎么会是上传视频呢？什么逻辑啊，
+     **你应该取消**」。
+
+     他说得对：这个菜单的语义是「**从当前这个节点派生出一个新节点**」，
+     而「上传视频」是**新增素材**，不是派生 —— 放在这里逻辑是错的
+     （而且它会绕过"派生"应有的引用关系）。真正要传视频，
+     走左侧「+」的素材入口或直接拖进来，那才是"新增"该在的地方。
+
+     ⇒ 从派生菜单里去掉「上传视频」，剩下三项。 */
+  const DERIVE_MENU_HIDDEN_IDS = useMemo(() => new Set(['text-generation', 'video-upload']), []);
   const portCreationActions = CANVAS_CREATION_OPTIONS
     .filter(option => !DERIVE_MENU_HIDDEN_IDS.has(option.id))
     .filter(option => !(option.videoOnly && selectedNode?.kind !== 'video'))

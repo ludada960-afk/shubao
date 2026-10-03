@@ -137,6 +137,14 @@ const MentionPromptField = forwardRef(function MentionPromptField({
     role="textbox"
     aria-multiline="true"
     data-placeholder={placeholder}
+    /* 2026-10-03 用户批注：「我双击输入框居然会给我画布的双击选项出来，很奇怪啊，
+       可能不止这里有问题，可能所有画布的输入框都有这个问题啊」。
+       真因：这个可编辑框**坐在画布节点的子树里**，而节点自己挂了 `onDoubleClick`
+       （打开预览 / 派生），双击一次"选词"就变成了"打开那个节点"。
+       ⇒ 在这里截断双击与指针序列，选词行为还给浏览器。
+          修在这个共用组件上 ⇒ 首页 / 视频页 / 画布所有输入框一次都好。 */
+    onDoubleClick={event => event.stopPropagation()}
+    onPointerDown={event => event.stopPropagation()}
     onInput={event => {
       rememberSelection();
       lastSyncKey.current = '';

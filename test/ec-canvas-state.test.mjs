@@ -131,43 +131,52 @@ test('white-background deliverables keep a dedicated Canvas lane', () => {
   assert.equal(node.group, '白底图');
 });
 
-test('marquee 只选中**完整落在框内**的节点（部分相交不算 —— 批 CY-㊴ 改了口径）', () => {
+test('marquee 默认**容差选择**（碰到就算），按住 Alt 才要求完整框住', () => {
   const nodes = [
     { id: 'a', x: 10, y: 10, w: 100, h: 100 },
     { id: 'b', x: 300, y: 300, w: 100, h: 100 },
   ];
-  /* 2026-10-02：框选现在按**整卡**算（含 footer，footer 46px）。
-     ⇒ 这两个 fixture 的框必须真的盖住整张卡片（底边 10+100+46=156）。
-     旧口径按 34/裸 h 判，于是「框明明盖住了卡片却没选中」——
-     那正是用户报的「多选框没框全」。 */
-  assert.deepEqual(selectNodesInRect(nodes, { x: 0, y: 0, w: 150, h: 156 }), ['a'],
-    '框住整卡（含 footer）就选中');
-  assert.deepEqual(selectNodesInRect(nodes, { x: 0, y: 0, w: 150, h: 150 }), [],
-    '差 6px 没盖住 footer ⇒ 不算完整框住（这条正是旧口径漏掉的那截）');
+  /* 2026-10-03 用户批注：「你现在几个素材一起选择的话，你的选择效率还是很低，
+     应该换成**容差选择**，就是哪怕圈到一点点也算圈到他」。
+     ⇒ 默认口径 = 相交即选（draw.io 的 intersectionSelect 默认、也是多数画布的手感）。
+        框边擦到一点就把素材排除掉，对"我要这几张"的意图来说是意外的。 */
+  assert.deepEqual(selectNodesInRect(nodes, { x: 0, y: 0, w: 20, h: 20 }), ['a'],
+    '哪怕只圈到一个角也算圈到（容差选择）');
+  assert.deepEqual(selectNodesInRect(nodes, { x: 0, y: 0, w: 200, h: 200 }), ['a'],
+    '容差下只要相交就选中');
+  assert.deepEqual(selectNodesInRect(nodes, { x: 0, y: 0, w: 5, h: 5 }), [],
+    '完全没碰到就不选');
+  assert.deepEqual(selectNodesInRect(nodes, { x: 200, y: 200, w: 200, h: 200 }), ['b'],
+    '只碰到第二张就只选第二张');
 
-  /* ⚠️ 口径在批 CY-㊴（2026-10-01）变过一次：原来只要**相交**就算选中。
-     用户原话：「你的拖动框选却没有把最下面的图**完整选中**呀。
-       …这下面为什么还是漏了一些呀？」—— 蓝色框选矩形并没有盖住那个节点，
-     它却整块变成了选中态，视觉上就是"框没盖满却被选中"。
-     ⇒ 现在要求**四条边都落在框内**。下面这几条才是那次变更真正要守的东西。 */
+  /* ⚠️ 2026-10-02 那个"整卡（含 footer）"的判据**仍然重要**：
+     节点在屏幕上是整张卡（含 footer 46px），不是只有媒体本体。
+     这条现在挂在 `strict` 档上 —— 需要精确圈选时按住 Alt。 */
   const one = [{ id: 'p', x: 10, y: 10, w: 100, h: 100 }];
-  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 60, h: 60 }), [],
-    '只框住一部分不算选中（本次口径变更的核心）');
-  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 1000, h: 1000 }), ['p'],
-    '完整框住就选中');
+  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 60, h: 60, strict: true }), [],
+    'strict：只框住一部分不算选中');
+  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 60, h: 60 }), ['p'],
+    '默认容差：同一张卡擦到一点就选中');
+  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 150, h: 156, strict: true }), ['p'],
+    'strict：框住整卡（含 footer，底边 10+100+46=156）就选中');
+  assert.deepEqual(selectNodesInRect(one, { x: 0, y: 0, w: 150, h: 150, strict: true }), [],
+    'strict：差 6px 没盖住 footer 就不算完整框住');
+
   /* showMeta=false（不渲染 footer）的节点，判据里也不能给它留那截高度 */
   assert.deepEqual(
-    selectNodesInRect([{ id: 'q', x: 10, y: 10, w: 100, h: 100, showMeta: false }], { x: 0, y: 0, w: 150, h: 150 }),
+    selectNodesInRect([{ id: 'q', x: 10, y: 10, w: 100, h: 100, showMeta: false }], { x: 0, y: 0, w: 150, h: 110, strict: true }),
     ['q'],
     '没有 footer 的节点按它自己的高度判',
   );
   /* 方向无关：往右下拖与往左上拖结果一致（w/h 为负） */
   assert.deepEqual(selectNodesInRect(nodes, { x: 156, y: 156, w: -156, h: -156 }), ['a'],
     '反向拖拽结果必须一致');
-  /* 隐藏节点不参与 */
+  /* 隐藏节点不参与（两种档位都不参与） */
   const hidden = [{ id: 'h', x: 10, y: 10, w: 100, h: 100, hidden: true }];
   assert.deepEqual(selectNodesInRect(hidden, { x: 0, y: 0, w: 1000, h: 1000 }), [],
     '隐藏节点不该被框选');
+  assert.deepEqual(selectNodesInRect(hidden, { x: 0, y: 0, w: 1000, h: 1000, strict: true }), [],
+    '隐藏节点在 strict 档也不该被框选');
 });
 
 test('moving a selection preserves unrelated node positions', () => {

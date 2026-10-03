@@ -256,9 +256,21 @@ export function selectNodesInRect(nodes, rect) {
     if (node?.hidden) return false;
     const box = canvasNodeFootprint(node);
     if (!box) return false;
-    /* 完整包含：四条边都落在框内（用户要的"完整选中"） */
-    return box.x >= left && box.x + box.w <= right
-      && box.y >= top && box.y + box.h <= bottom;
+    /* 2026-10-03 用户批注：「你现在几个素材一起选择的话，你的选择效率还是很低，
+       应该换成**容差选择**，就是哪怕圈到一点点也算圈到他」。
+
+       ⇒ 默认口径从「四条边都要在框内」改成「**碰到就算**」（相交即选）。
+          这也是 draw.io 的默认（`intersectionSelect`）与多数画布的手感：
+          用户拖框的意图是"我要这几张"，框边擦到一点就排除它反而意外。
+
+       ⚠️ `strict` 保留成**可切换的严格档**（必须完整框住）：按住 Alt 时用
+          —— 需要精确圈选时仍然可用，且这条判据仍有门禁守着，不再是死代码。 */
+    if (rect?.strict) {
+      return box.x >= left && box.x + box.w <= right
+        && box.y >= top && box.y + box.h <= bottom;
+    }
+    return box.x < right && box.x + box.w > left
+      && box.y < bottom && box.y + box.h > top;
   }).map(node => node.id);
 }
 

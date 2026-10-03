@@ -91,15 +91,18 @@ test('canvas-derive-menu.css exists as a standalone asset in src/styles/', () =>
 
 test('canvas-derive-menu.css contains 7-action grid + 2 bucket markers (core/audio) + glass + dark mode', () => {
   const css = readFileSync(cssPath, 'utf8');
-  /* 批 CY-㊴（2026-10-01）：桌面由 3 列改 **2 列**。
-     用户逐字：「"反推提示词"和"生成文案"我觉得只保留反推提示词就好，你把生成文案去掉吧，
-       然后右边的面板就只有4个核心常用功能了，你就把他们重新适配一下，让UI整体更舒服一点」
-     ⇒ 核心项 5 → **4**，而 3 列会排成「3 + 1」：右边空一格、视觉上像缺了一块。
-       2 列正好 2×2 方阵，每格也从约 1/3 宽变成 1/2 宽（实测 228px）。
-     平板本来就是 2 列、移动 1 列，都不变。 */
-  assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/, '桌面 2 列（4 项排成 2×2；3 列会排成 3+1 缺一块）');
-  assert.match(css, /@media \(max-width: 960px\)[\s\S]*grid-template-columns:\s*repeat\(2,/, '平板 2 列 grid 必填');
+  /* 批 CY-㊴（2026-10-01）：桌面曾由 3 列改 **2 列**，理由是 4 个核心项 3 列会排成「3+1」。
+   * 2026-10-03（用户批注）：核心项去掉「上传视频」后只剩 **3 个**
+   *   「我不明白为什么这里会有个上传视频的选项，正常这里不是选择一个节点派生一个节点吗…
+   *     你应该取消」「既然要删掉一个选项，你就做成三个选项，然后变成**竖着排版**吧」
+   *   ⇒ 3 个横排永远缺一块（2+1 或 1+1+1 都别扭），竖排一列最干净，
+   *      顺带把宽度从 360 收到贴合内容（「这几个按钮不要做得那么宽」）。 */
+  assert.match(css, /grid-template-columns:\s*minmax\(0, 1fr\)/, '核心项 3 个 ⇒ 桌面竖排一列（横排必然缺一块）');
+  assert.doesNotMatch(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/,
+    '不许再回 2 列：3 个项排 2 列会留一个空格子');
+  assert.match(css, /@media \(max-width: 960px\)[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)/, '平板同样竖排');
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*grid-template-columns:\s*1fr/, '移动 1 列 grid 必填');
+  assert.match(css, /\.ec-canvas-derive-menu \{ width: min\(300px/, '宽度收窄到贴合三项');
   assert.ok(css.indexOf('.ec-canvas-derive-bucket.is-core') !== -1, 'core 桶标记必填 (5 原有)');
   assert.ok(css.indexOf('.ec-canvas-derive-bucket.is-core') !== -1, 'core 桶标记必填');
   assert.ok(css.indexOf('.ec-canvas-derive-bucket.is-audio') !== -1 || css.indexOf('.ec-canvas-derive-bucket.is-magic') !== -1, 'audio 桶标记必填 (magic 样式可复用)');
