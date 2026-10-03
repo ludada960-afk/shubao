@@ -78,13 +78,23 @@
   padding: 20px 16px;
   /* 批 V：虚线照知渔实测的**形态**（2.4px 粗虚线 / 圆角 14）—— 颜色用站内那颗"强调描边" token，
      不抄他们的那个 hex（本站纪律：抄机制不抄长相，色值一律走 --sb-*）。 */
-  border: 2.4px dashed var(--sb-border-strong);
+  border: 2.4px dashed var(--sb-border-control);
   border-radius: 14px;
   background: var(--sb-surface-card);
   text-align: center;
-  transition: border-color .18s ease, background-color .18s ease;
+  cursor: pointer;
+  transition:
+    border-color var(--sb-duration-fast) var(--sb-ease-out),
+    background-color var(--sb-duration-fast) var(--sb-ease-out),
+    box-shadow var(--sb-duration-fast) var(--sb-ease-out);
 }
-.video-wb-upload.is-dragging { border-color: var(--sb-border-focus); background: var(--sb-surface-tint); }
+/* 2026-10-03 用户批注：「鼠标放上去，他上传框的周边虚线是会加深一点的。」
+   ⚠️ 视频侧原来**根本没有 :hover**（只有 .is-dragging 拖拽态）⇒ 这一栏最大的
+   可点面在静息态完全看不出能点。图片侧同一个组件早就写了 hover、只是写成了空操作
+   （底态和 hover 同一个 token），两边都是"看着能点、其实看不出"。
+   ⇒ 两边现在用**同一对** token，机制一致。 */
+.video-wb-upload:hover { border-color: var(--sb-border-control-hover); background: var(--sb-surface-tint); box-shadow: var(--sb-shadow-2); }
+.video-wb-upload.is-dragging { border-color: var(--sb-border-focus); background: var(--sb-surface-tint); box-shadow: var(--sb-shadow-2); }
 .video-wb-upload-item { display: grid; gap: 5px; justify-items: start; }
 .video-wb-upload-item .media-asset-card { width: 120px; }
 .video-wb-upload-add,

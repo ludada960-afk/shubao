@@ -204,6 +204,11 @@ input, textarea { font-family: inherit; }
   white-space: nowrap;
   user-select: none;
 }
+/* ⚠️ 2026-10-03：这里原来写 `transform: scale(0.97)`，但文件更靠后还有一条
+   `.btn-pill:active:not(:disabled):not([aria-disabled='true']) { … transform: translateY(0) }`，
+   特异性 (0,4,0) > 本条 (0,2,0) ⇒ **按下时的缩放被整条覆盖掉**，实测三颗次级按钮
+   按下态宽度与静息一模一样，"按下去"完全没有位移。
+   ⇒ 下面那条改成不再声明 transform，把位移的唯一真源让回这里。 */
 .btn-pill:active { transform: scale(0.97); }
 .btn-pill:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
@@ -544,7 +549,34 @@ input, textarea { font-family: inherit; }
    会影响内部 position:fixed 子元素与 backdrop-filter，风险面更大（§22 备选 B 慎用）。 */
 button:hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--sb-shadow-3); }
 
+/* ①b 按下的「陷进去」立体感（2026-10-03 用户批注：「按钮已经有阴影层和立体感了，
+   用户才能知道这个是可以点击交互的按钮啊」）。
+   悬停抬起来、松手按下去 —— 这是"可按"与"只是块颜色"的区别。
+   两条纪律：
+     · 只动 box-shadow，**不碰 background**（同 ① 的理由：实色/透明底都得安全）；
+     · 阴影塌掉 + 顶部内阴影 = 物理上"压下去"，比单纯位移更像真按钮。
+   ⚠️⚠️ 这里**绝不能声明 transform** —— 本条特异性 (0,3,1)，会同时压死两条：
+       · `.btn-pill:active { transform: scale(0.97) }`      (0,2,0)
+       · `.shubao-gen-cta:active:not(:disabled) { … translateY(1px) }` (0,3,0)
+     第一版我在这写了 `transform: translateY(0)`，结果是主 CTA 按下**不沉**、
+     次级按钮按下**不缩放** —— 真机 Chrome 实测 transform 全是单位矩阵。
+     而截图核查台把伪类规则抄进内联 style（内联无特异性、按源码顺序决胜），
+     **恰好把真机上这个 bug 藏住了**，所以截图看着是好的。
+     位移是"按下去"最直观的一半，交给各按钮自己的规则，这里只管阴影。 */
+button:active:not(:disabled):not([aria-disabled='true']) {
+  box-shadow: var(--sb-press-shadow);
+}
+a[role='button']:active:not([aria-disabled='true']),
+[role='button']:active:not([aria-disabled='true']) {
+  box-shadow: var(--sb-press-shadow);
+}
+
 /* ② 中性底工具类：这些类**自己声明了**中性/透明底，用表面色是安全的 */
 .btn-pill:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
 .ui-btn:hover:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-hover-bg); }
+/* 按下：中性底工具类**可以**动底色（它们自己声明了中性底），比 hover 再深一档。
+   ⚠️ 故意**不写 transform** —— .btn-pill 的按下缩放在本文件更靠前那条（:207）声明，
+      这里若再声明（同为 active 但特异性更高）会把缩放覆盖成 0。 */
+.btn-pill:active:not(:disabled):not([aria-disabled='true']),
+.ui-btn:active:not(:disabled):not([aria-disabled='true']) { background-color: var(--sb-active-bg); }
 

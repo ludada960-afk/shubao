@@ -211,7 +211,14 @@ test('⑨ 视频子页面左栏的**分区语言**（无嵌套白卡 / 浅灰子
     '块间用发丝线 + 留白分隔（不是整圈描边）');
   assert.match(wbCss, /\.video-workbench-blocks \{ display: grid; gap: 16px; \}/, '卡与卡之间 16 间距');
   assert.match(wbCss, /\.video-wb-notes, \.video-wb-tags \{[\s\S]{0,160}background: var\(--sb-surface-sunken\);/, '清单/胶囊套浅灰子卡（凹槽底 token）');
-  assert.match(wbCss, /\.video-wb-upload \{[\s\S]{0,320}border: 2\.4px dashed var\(--sb-border-strong\);/, '上传框虚线照他们实测的形态（2.4px 粗虚线）');
+  /* 2026-10-03：上传框的描边 token 从 --sb-border-strong 换成 --sb-border-control。
+     判据的**意图一个字没动** —— 仍然是知渔实测的形态（2.4px 粗虚线），仍然只走 token
+     不写死 hex。变的是"用哪颗"：截图实测 --sb-border-strong 那档虚线只有 1.41:1，
+     连 WCAG 1.4.11 对 UI 组件边界的 3:1 都不到，用户批注「上传框的周边虚线是没有的 /
+     看不出来可点」说的就是它。--sb-border-control 是按 3:1 定的那一档。 */
+  assert.match(wbCss, /\.video-wb-upload \{[\s\S]{0,320}border: 2\.4px dashed var\(--sb-border-control\);/, '上传框虚线照他们实测的形态（2.4px 粗虚线）');
+  /* 悬停必须**再深一档**且带抬升 —— 与图片侧共用同一对 token，两边机制一致 */
+  assert.match(wbCss, /\.video-wb-upload:hover \{[\s\S]{0,160}border-color: var\(--sb-border-control-hover\);/, '上传框悬停时虚线要加深（此前视频侧根本没有 :hover）');
   /* 左栏不再压一层暖色盒子（那是"两回事"最刺眼的一条） */
   assert.match(videoCss, /\.video-composer\.is-workbench \{[\s\S]{0,240}background: none;/, '子页面左栏不再有暖色底');
 });

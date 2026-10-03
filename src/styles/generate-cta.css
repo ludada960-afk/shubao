@@ -24,6 +24,9 @@
      ⚠️ 别再把两端调回相邻两档 —— 那就是"看不见的渐变"。 */
   --sb-cta-grad: linear-gradient(135deg, var(--sb-brand-500) 0%, var(--sb-brand-700) 100%);
   --sb-cta-grad-hover: linear-gradient(135deg, var(--sb-brand-400) 0%, var(--sb-brand-600) 55%, var(--sb-brand-600) 100%);
+  /* 按下：比静息再压暗一档。悬停是"提亮"，按下就该"压暗"——
+     三步（静息 → 悬停变亮抬起 → 按下变暗下沉）才是一条完整的物理链路。 */
+  --sb-cta-grad-press: linear-gradient(135deg, var(--sb-brand-600) 0%, var(--sb-brand-700) 60%, var(--sb-brand-700) 100%);
   --sb-cta-shadow: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 18%, transparent), 0 10px 24px var(--sb-brand-a32);
   --sb-cta-shadow-hover: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-card) 22%, transparent), 0 12px 26px var(--sb-brand-a32);
 }
@@ -55,7 +58,16 @@ html:not([data-scrolling]) .shubao-gen-cta:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: var(--sb-cta-shadow-hover);
 }
-.shubao-gen-cta:active:not(:disabled) { transform: translateY(0); }
+/* 2026-10-03 用户批注：「按钮已经有阴影层和立体感了，用户才能知道这个是可以点击
+   交互的按钮啊」。原来 :active 只把位移归零、**阴影原封不动** —— 松手的一瞬间
+   视觉上毫无变化，看不出"按下去了"。
+   ⚠️ 截图复核又发现一处：只塌光晕的话，**按下态的填充与静息逐像素相同**（±1 级），
+      快速点一下中间没有台阶。所以这里要同时给**下沉 1px + 压暗一档**。 */
+.shubao-gen-cta:active:not(:disabled) {
+  transform: translateY(1px);
+  background: var(--sb-cta-grad-press);
+  box-shadow: var(--sb-press-shadow);
+}
 /* 批 BN：禁用档改用 V3 的既有语言（--sb-state-disabled-bg / -ink，与 Button.jsx / Home.css /
    skill-library.css 同一对）—— 三处主 CTA（全局 / 图片侧工作台 / 视频侧）从此只认一份来源，
    也不再硬编码色值。旧写法是 V2 家族的 footer-actions-* 两个 hex（全仓棘轮要求 V2 用法为 0）。
@@ -90,6 +102,33 @@ html:not([data-scrolling]) .shubao-gen-cta:hover:not(:disabled) {
 }
 .shubao-gen-cta:disabled .shubao-gen-cta-points::before { background: rgba(109, 40, 217, .28); }
 .shubao-gen-cta.is-busy { opacity: .82; cursor: progress; }
+
+/* ═══ 2026-10-03 深色模式下的**对比度硬伤**（截图实测发现）════════════════════════════
+   症状：深色下主 CTA 是**淡紫配白字**，白字对比度只有 ≈1.84:1（AA 要 4.5:1），
+        整颗按钮读起来像「禁用/幽灵态」，**可供性方向是反的** —— 越禁用越像主按钮。
+
+   根因：`[data-theme="dark"]` 把品牌色阶**整体调亮**（brand-500 #8B5CF6→#A78BFA、
+        brand-700 #6D28D9→#C4B5FD）—— 这对**描边/图标**是对的（深底上要看得见），
+        但 `--sb-cta-grad` 直接吃这两个变量，而主 CTA 压的是**白字**：
+        底被调亮、白字没跟着变，于是读不清。
+
+   ⇒ 深色下把渐变**按页面底色压回去**：color-mix 到 `--sb-surface-page`（深色 #0F0E0D），
+      保留品牌色相但把明度拉回白字可读的范围。不写死 hex，走 token 混色。 */
+[data-theme='dark'] {
+  --sb-cta-grad: linear-gradient(135deg,
+    color-mix(in srgb, var(--sb-brand-600) 58%, var(--sb-surface-page)) 0%,
+    color-mix(in srgb, var(--sb-brand-700) 46%, var(--sb-surface-page)) 100%);
+  --sb-cta-grad-press: linear-gradient(135deg,
+    color-mix(in srgb, var(--sb-brand-600) 48%, var(--sb-surface-page)) 0%,
+    color-mix(in srgb, var(--sb-brand-700) 38%, var(--sb-surface-page)) 100%);
+  --sb-cta-grad-hover: linear-gradient(135deg,
+    color-mix(in srgb, var(--sb-brand-500) 62%, var(--sb-surface-page)) 0%,
+    color-mix(in srgb, var(--sb-brand-600) 52%, var(--sb-surface-page)) 55%,
+    color-mix(in srgb, var(--sb-brand-600) 52%, var(--sb-surface-page)) 100%);
+  /* 深色下外发光用品牌色的低透明档，否则 60px 光晕在深底上糊成一片 */
+  --sb-cta-shadow: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-page) 16%, transparent), 0 10px 24px var(--sb-brand-a32);
+  --sb-cta-shadow-hover: inset 0 1px 0 color-mix(in srgb, var(--sb-surface-page) 20%, transparent), 0 12px 26px var(--sb-brand-a32);
+}
 /* ═══ 2026-09-25 批 BN：CTA 下方那行「还差什么」提示（用户批注，逐字）════════════════════════════
    用户原话：「你好好看一下他们这个按钮是怎么做的……**他们这个按钮是当用户没有满足条件的时候，
    这个按钮是不能够亮起来的**。然后当你这个是必须要上传素材的时候，**它下面是会有一个提示**
