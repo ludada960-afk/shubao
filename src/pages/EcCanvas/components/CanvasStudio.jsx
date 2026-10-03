@@ -1535,7 +1535,25 @@ function CanvasGenerationNodeView({ node, layerChildren = [], selected = false, 
         syncTextBoardHeight();
       }}
       onBlur={() => { if (!textComposingRef.current) onTextBlur?.(node.id); }}
-    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame" onPointerEnter={playOnHover} onPointerLeave={pauseOnLeave}><video ref={hoverVideoRef} src={node.url} controls playsInline preload="metadata" onPointerDown={event => event.stopPropagation()} onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); /* 首帧拨一下，否则没播过之前是黑的（用户：「为什么这里是个黑图呀」） */ if (!media.currentTime) { try { media.currentTime = 0.05; } catch { /* 元数据未就绪 */ } } }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
+    >{editing ? textEditSeedRef.current : (node.text || '')}</div> : isVideo && node.url && node.mediaPlaybackStatus !== 'unavailable' ? <div className="ec-canvas-video-frame" onPointerEnter={playOnHover} onPointerLeave={pauseOnLeave}><video ref={hoverVideoRef} src={node.url} playsInline muted preload="metadata" tabIndex={-1}
+                /* ⚠️⚠️ 2026-10-03 用户批注（这是本批最严重的一条）：
+                     「我刚刚只是点击了一下其他的弹窗操作…这个节点它会自己死掉。
+                      连右边的派生栏都不会出现了」，而且「一开始上传进来时功能都还算正常」。
+
+                   根因就在这个 `<video>` 上：
+                     ① `controls` —— 浏览器原生控件条**把整块视频变成事件黑洞**，
+                        点哪儿都是"点了播放器"，永远不会冒泡到节点；
+                     ② `onPointerDown={e => e.stopPropagation()}` —— 就算不点在控件条上，
+                        也被这句拦在节点外面。
+                   结果：视频节点**永远选不中** ⇒ 没有功能栏、没有右栏、拖不动、删不掉。
+                   「刚上传完正常」是因为那会儿还没走到这个分支（或 metadata 未就绪）。
+
+                   ⇒ 画布上的节点是**被选中、被拖动的对象**，不是播放器。
+                     播放交给那颗独立的「预览」动作（走放大灯箱，自带 controls）——
+                     这也正是那颗动作存在的意义。
+                     这里：去 controls、去 stopPropagation（让事件正常冒泡给节点）、
+                     muted + tabIndex=-1（别进 Tab 序列，键盘用户不该被一段视频截住）。 */
+                onLoadedMetadata={event => { const media = event.currentTarget; onNaturalSize?.(node.id, { naturalWidth: Number(media?.videoWidth) || 0, naturalHeight: Number(media?.videoHeight) || 0 }); /* 首帧拨一下，否则没播过之前是黑的（用户：「为什么这里是个黑图呀」） */ if (!media.currentTime) { try { media.currentTime = 0.05; } catch { /* 元数据未就绪 */ } } }} /></div> : isLayerGroup && node.status !== 'processing' && layerChildren.length ? <div className="ec-canvas-layer-composite" aria-label="智能分层合成预览">
       {[...layerChildren].sort((left, right) => layerCompositeOrder(left) - layerCompositeOrder(right)).map(layer => <div key={layer.id} className={`ec-canvas-layer-composite-item is-${layer.kind}`} style={layerCompositeStyle(layer, node)}>
         {layer.kind === 'text'
           ? <span style={layer.textStyle || undefined}>{layer.text}</span>

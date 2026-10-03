@@ -62,7 +62,13 @@ test('③ 产品取自产品目录（去字幕的两种方式各自一个产品�
   assert.match(registry, /productId: 'desubtitle_local'/, '框选那一档走本机 ffmpeg');
   assert.match(code, /SUBTITLE_ERASE_MODES\.find\(item => item\.id === modeId\)/,
     '提交时必须按方式取对应产品');
-  assert.match(code, /item\.id === mode\.productId/, '必须按 productId 找产品');
+  /* 2026-10-03：产品解析收敛进 `resolveEraseProduct` —— 因为两档**不在同一个列表**里
+     （框选 = 本机，在 localProducts；自动 = 云端，可能还没 public，会被过滤掉）。
+     所以"按 productId 找产品"现在发生在那个函数里，而不是散在提交处。 */
+  assert.match(code, /function resolveEraseProduct\(/, '必须有一个统一的产品解析入口');
+  assert.match(code, /item\?\.id === mode\.productId/, '框选那档仍按 productId 找产品');
+  assert.match(code, /autoCapability\.quotes\?\.short\?\.sku/,
+    '自动那档必须用服务端 capabilities 的 sku，否则查不到产品、提交按钮永远灰着');
   /* 本机 ffmpeg 那一档：零上游成本（catalog 里 providerCostCny: 0 / localEngine: true） */
   assert.match(code, /mode: product\.modes\?\.\[0\] \|\| 'local'/, '建单模式取产品声明，不能写死');
   assert.match(code, /localSpecs: mode\.needsRegions \? \{ regions \} : \{ auto: true \}/,
