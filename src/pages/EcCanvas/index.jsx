@@ -8419,7 +8419,11 @@ const handleCanvasVideoUpload = async event => {
     assetLibraryTab: tab === 'assets' && state.logged,
     /* 2026-10-03：智能去字幕的区域框选器（此前漏了 ⇒ HUD 与 ✨ 都不暗）。
        见 canvasHudHidden 里那段说明。 */
-    videoRegionPickerOpen: Boolean(subtitlePickNodeId),
+        videoRegionPickerOpen: Boolean(subtitlePickNodeId),
+    /* 2026-10-03 线上实测补漏：这两个遮罩是全屏的，但此前没进 canvasHudHidden，
+       所以点「?」或「任务日志」时 HUD 与那颗 ✨ 全部照常显示（实测 attribute 是 null）。 */
+    shortcutHelpOpen,
+    taskLogOpen,
   });
 
   /* ⚠️ 2026-10-01 用户批注：「而且你这个生成过程的这个按钮为什么会跟他在同一层呢。
@@ -9004,7 +9008,7 @@ const handleCanvasVideoUpload = async event => {
                     y1={guide.axis === 'y' ? guide.value : -20000}
                     x2={guide.axis === 'x' ? guide.value : 20000}
                     y2={guide.axis === 'y' ? guide.value : 20000}
-                    stroke="var(--sb-brand-600, #7C3AED)"
+                    stroke="var(--canvas-command)"
                     strokeWidth={1 / Math.max(0.05, viewport.scale)}
                     strokeDasharray={`${4 / Math.max(0.05, viewport.scale)} ${4 / Math.max(0.05, viewport.scale)}`}
                     opacity={0.75}

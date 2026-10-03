@@ -268,6 +268,9 @@ export default function TaskSidebar() {
         cursor: 'pointer',
         display: 'grid',
         placeItems: 'center',
+        /* dock 本体已经 pointer-events:none（见下方注释：它压着画布左下角那一格，
+           吃事件会把落到那儿的节点变成"死节点"）⇒ 按钮自己把事件开回来。 */
+        pointerEvents: 'auto',
       }}
     >
       {triggerIcon}
@@ -313,6 +316,17 @@ export default function TaskSidebar() {
         display: 'flex',
         alignItems: 'flex-end',
         gap: 'var(--sb-space-2-5)',
+        /* ⚠️⚠️ 2026-10-03 线上实测定位到的**真病根**（用户：「一旦我去点击其他的东西之后，
+           这个节点它会自己死掉」）：
+           这个 dock 的 z-index 是 4e7，压住画布所有层；而它自己占着左下角一块
+           46×46 且默认吃事件。于是**任何落到那块区域的节点都点不动**：
+           选不中 ⇒ 工具栏不出现、右派生栏不出现、拖不动、Delete 也删不掉
+           （Delete 的前置条件是 selected || multiSelected.size）。
+           节点一旦被拖到左下角附近，就正好进了这个格子 —— 症状与用户描述完全一致。
+
+           ⇒ dock 本体**不吃事件**，只有那颗按钮吃（trigger 上显式开回来）。
+              与本仓 hover-only 浮层的既有做法一致。 */
+        pointerEvents: 'none',
       }}
     >
       {inline ? sidebarTrigger : floatingTrigger}
