@@ -2419,6 +2419,18 @@ function configTriggersFor(skill) {
   if (skill.fields.some(field => field && field.kind === 'config')) return null;   /* concept_set 已声明 */
   const keys = CONFIG_TRIGGER_KEYS.filter(key => skill.fields.some(field => field && field.key === key));
   if (!keys.length) return null;
+  /* 这一格放哪个组，要分两种情况（下面 groupByForm 会按同一判据决定要不要自动分组）：
+     · 已有 ≥2 个显式组（电商族 / 建筑家装 / xhs_note 是**手工设计过**的）
+       → 沿用被收起那几格原来的组，组名与顺序一个字不动（parity 门禁在管）。
+     · 还没有分组（本函数下面会自动分组）
+       → 给它**自己的**组「画面规格」：ratio / clarity 被收走之后，
+         原来的组会变成空组，而空组会被 groupFields 滤掉 —— 触发器就一起没了。 */
+  const declaredGroups = new Set(
+    skill.fields.filter(f => f && f.group && !(f.kind === 'config')).map(f => f.group),
+  );
+  const group = declaredGroups.size >= 2
+    ? ((skill.fields.find(field => field && keys.includes(field.key)) || {}).group || CONFIG_TRIGGER_GROUP)
+    : '画面规格';
   /* 2026-10-03 批 1003：**embed 的图片技能（`xhsNote`）也给**。
      原来这里一遇到 embed 就跳过 —— 因为 WorkbenchShell 的 embed 分支只渲染
      `panel`，通用字段网格与通用 CTA 全都不渲染，注入也看不到，于是
@@ -2430,11 +2442,8 @@ function configTriggersFor(skill) {
         与这里的 imageModel/ratio/clarity 零重叠；它们本来就有自己的触发器机制
         （videoSpecExposure.js 逐页控制露不露）。 */
   const hasModel = keys.includes('imageModel');
-  /* 这一格必须与被收起的那几格**同组**，否则剔完那几格会连组标题一起消失 */
-  const group = (skill.fields.find(field => field && keys.includes(field.key)) || {}).group || CONFIG_TRIGGER_GROUP;
   return {
     key: 'genConfig', label: '生成配置', kind: 'config', group,
-    /* 组标题已经写着「生成设置」，两颗按钮各自带小标题，字段标题再画一遍就是同一句话说两遍 */
     hideLabel: true,
     covers: keys,
     /* 只给 key，不嵌整份字段对象：被收起的仍然是**字段**，
@@ -2460,6 +2469,45 @@ export const IMAGE_SKILLS_WITH_CONFIG_TRIGGERS = (() => {
   return ids;
 })();
 
+
+/* ═══ 批 1003（2026-10-03）：按**形态签名**补分组 ══════════════════════════════════
+   用户 2026-10-03：「他们的模式应该是有**类似的逻辑和模板**的，只是各个 skill 自己的能力不同，
+   所以才需要在基础上去做独特的一些功能定制。」—— 形态相同就该长得像，形态不同就该分得开。
+
+   查出来的实情：字段层面早就与知渔**逐值对齐**（parity 门禁 ② ③ 在管，控件形态也一致），
+   **唯一没复刻的是分组结构** —— 35/49 条只有「生成设置」一个有名组，其余字段无组名、
+   全落进默认组，渲染出来就是「一条平铺流 + 一个空组」。
+
+   分组 = 把形态签名里连续的同类控件并成一块。**不动已显式声明的组。 */
+const GROUP_OF_KIND = new Map([
+  ['upload', '素材'],
+  ['textarea', '内容'],
+  ['text', '内容'],
+  ['cards', '内容'],
+]);
+const GROUP_ORDER = ['素材', '内容', '出图设置'];
+
+function groupByForm(skill) {
+  if (!skill || !Array.isArray(skill.fields)) return skill;
+  /* 已有两个以上显式分组的（电商族 / 建筑家装 / xhs_note）是自己设计过的，不碰。
+     ⚠️ 计数时**必须排除 config 那一格** —— 它自己带一个组（画面规格），
+     而它是本文件上一段刚注入的；把它算进来会让每条 skill 都「看起来已设计过」，
+     于是这段对 47 条**一条都不生效**（踩过一次：所有字段退回无组名）。 */
+  const declared = new Set(
+    skill.fields.filter(f => f && f.group && f.kind !== 'config').map(f => f.group),
+  );
+  if (declared.size >= 2) return skill;
+  const fields = skill.fields.map(field => {
+    if (!field || field.group || field.kind === 'config') return field;
+    return { ...field, group: GROUP_OF_KIND.get(field.kind) || '出图设置' };
+  });
+  /* ⚠️ **绝不重排字段顺序**。
+     声明顺序 = 与知渔那一页逐字段对齐的顺序（parity 门禁 ③ 按下标逐值比）。
+     第一版这里按「素材→内容→出图设置」sort 了一次，当场把 image.multi_angle 的
+     #2/#3 顺序打乱、parity 门禁报红 —— 组是**给字段贴标签**，不是重排字段。 */
+  return { ...skill, fields };
+}
+
 /**
  * 一条 skill **用户看得见**的字段序列 —— 量的是界面，不是声明表。
  *
@@ -2471,6 +2519,15 @@ export const IMAGE_SKILLS_WITH_CONFIG_TRIGGERS = (() => {
  * 规则：剔掉 config 触发器本身，它 covers 的那几格照旧算（它们仍是字段，
  * 只是搬进了面板 —— 能力一条都没少）。**两边不许各写一份**，都从这里取。
  */
+/* 分组在 config 注入**之后**跑：config 那一格自带 group:'生成设置'，
+   先注入再排序，触发器才不会排到素材前面去。
+   ⚠️ 这一段必须放在 GROUP_OF_KIND / groupByForm **声明之后** ——
+   放前面就是渲染期 TDZ（仓里 test/no-tdz-dependency 就在管这条）。 */
+for (const skill of IMAGE_SKILLS) {
+  const grouped = groupByForm(skill);
+  if (grouped !== skill) skill.fields = grouped.fields;
+}
+
 export function visibleFieldsOf(skill) {
   const fields = Array.isArray(skill && skill.fields) ? skill.fields : [];
   return fields.filter(field => !(field && field.kind === 'config'));
