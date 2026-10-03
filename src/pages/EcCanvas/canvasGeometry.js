@@ -56,7 +56,22 @@ export function getCanvasCardHeight(node = {}) {
   return media + footer;
 }
 
-export function getNodePortCenter(node = {}, port = 'output') {
+export function getNodePortCenter(node = {}, port = 'output', measured = null) {
+  /* ═══ 2026-10-04：实测端口优先，模型 rect 兜底 ══════════════════════════════════
+     用户连续三轮报「连线还是没连上素材本身 / 没连到加号身上」。
+
+     离线实测（Playwright 量真实渲染盒）确认：模型公式本身**是对的**
+     —— 输出端口实测中心 x=436，公式预期 437（差 1px 是边框）。
+     真正错位的是另一件事：**加号按钮贴在渲染出来的元素上，而这个元素不一定等于
+     模型矩形**。生成框/composer 面板的视觉宽度大于 `node.w`（要放参考图槽、输入框、底栏），
+     于是用 `node.x + node.w` 算出来的端点会落在卡片**里面**或旁边几十像素处。
+
+     业界口径（查证）：React Flow 的 `nodeInternals.handleBounds` 用**实测**的 handle 盒子，
+     量不到才退回 `positionAbsolute + width/height`；tldraw / Excalidraw 同理。
+     ⇒ 这里优先用实测（canvasNodeRects.js），量不到再走下面这段模型口径。
+        实测值的来源与纪律见 canvasNodeRects.js 顶部说明。 */
+  if (measured) return { x: numeric(measured.x), y: numeric(measured.y) };
+
   const isInput = port === 'input' || port === 'in';
   const width = Math.max(1, numeric(node.w, 200));
   /* ⚠️ 用**整卡**高度，不是 node.h：端口的 CSS 是 `top:50%`，参照物就是整张卡片

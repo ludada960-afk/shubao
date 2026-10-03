@@ -204,6 +204,7 @@ import {
   canConnectCanvasNodes,
 } from './canvasQuantvExtensions.js';
 import { getCanvasCardHeight, pickCanvasConnectionSnapTarget, CANVAS_SNAP_RADIUS, CANVAS_CARD_FOOTER_H } from './canvasGeometry.js';
+import { measuredPortCenter, useCanvasNodePortRects } from './canvasNodeRects.js';
 import { canvasNodeFootprint } from './canvasMediaFitModel.js';
 /* 2026-10-02：滚轮/缩放口径（deltaMode 归一化、捏合、Shift 水平平移、居中缩放、
    拖动阈值）与吸附（对齐参考线 + 边缘自动平移）。口径见两个模块顶部的调研注释。 */
@@ -594,7 +595,7 @@ function SourceGroupNode({ node, selected, dimmed, onPointerDown, onContextMenu,
 }
 
 /* A6: 连线 SVG 层 */
-function ConnectionLines({ connections, nodes, onRemove, focusNodeIds, selectedEdgeId, onSelectEdge }) {
+function ConnectionLines({ connections, nodes, onRemove, focusNodeIds, selectedEdgeId, onSelectEdge, portCenterOf }) {
   if (!connections?.length) return null;
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const styles = {
@@ -610,8 +611,8 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds, selectedE
         const from = nodeMap.get(conn.fromNodeId || conn.from);
         const to = nodeMap.get(conn.toNodeId || conn.to);
         if (!from || !to) return null;
-        const fromPort = getCanvasPortCenter(from, conn.fromPort || 'output');
-        const toPort = getCanvasPortCenter(to, conn.toPort || 'input');
+        const fromPort = getCanvasPortCenter(from, conn.fromPort || 'output', portCenterOf(from, conn.fromPort || 'output'));
+        const toPort = getCanvasPortCenter(to, conn.toPort || 'input', portCenterOf(to, conn.toPort || 'input'));
         const x1 = fromPort.x;
         const y1 = fromPort.y;
         const x2 = toPort.x;
@@ -665,12 +666,12 @@ function ConnectionLines({ connections, nodes, onRemove, focusNodeIds, selectedE
 const TRANSIENT_POINTER_KINDS = new Set(['drag', 'resize', 'layer-extract']);
 const isTransientPointer = kind => TRANSIENT_POINTER_KINDS.has(kind);
 
-function ConnectionDraftLine({ draft, nodes }) {
+function ConnectionDraftLine({ draft, nodes, portCenterOf }) {
   const pointer = draft?.pointer || draft?.world;
   if (!draft?.sourceNodeId || !pointer) return null;
   const source = nodes.find(node => node.id === draft.sourceNodeId);
   if (!source) return null;
-  const sourcePort = getCanvasPortCenter(source, 'output');
+    const sourcePort = getCanvasPortCenter(source, 'output', portCenterOf(source, 'output'));
   const x1 = sourcePort.x;
   const y1 = sourcePort.y;
   const x2 = pointer.x;
@@ -1165,6 +1166,16 @@ const [minimapOpen, setMinimapOpen] = useState(true);
   const [canvasLibraryOpen, setCanvasLibraryOpen] = useState(false);
   const [canvasSessionBusy, setCanvasSessionBusy] = useState(false);
   const containerRef = useRef(null);
+  /* 2026-10-04：量一次**真实渲染的端口盒子**，让连线端点与加号严丝合缝。
+     背景与业界口径见 ./canvasNodeRects.js 顶部（React Flow `nodeInternals.handleBounds`
+     / tldraw / Excalidraw 都是"端点取实测 handle，量不到才退回模型 rect"）。
+     量不到的节点自动退回旧口径，行为不变 —— 不会因为量不到就断线。 */
+  useCanvasNodePortRects(containerRef, viewport);
+  /** 实测端口中心；量不到返回 null，由 getCanvasPortCenter 走模型口径。 */
+  const portCenterOf = useCallback((node, port) => {
+    if (!node?.id) return null;
+    return measuredPortCenter(node.id, port, containerRef.current?.getBoundingClientRect(), viewportRef.current);
+  }, []);
   /* ═══ 批 CY-㊴ 之十七：容器尺寸/rect 改到**提交后**测量（批 CY-㉙ 的同一套约束）══════
      为什么必须放在这里（containerRef 之后、任何消费者之前）：
        ① 视口裁剪要用 `canvasVisibleViewportSize` 算世界坐标矩形；
@@ -9011,8 +9022,8 @@ const handleCanvasVideoUpload = async event => {
             transformOrigin: '0 0',
             willChange: 'transform',
           }}>
-            <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} selectedEdgeId={selectedEdgeId} onSelectEdge={handleSelectEdge} />
-            <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} />
+            <ConnectionLines connections={connections} nodes={connectionNodes} onRemove={handleRemoveConnection} focusNodeIds={focusedNodeIds} selectedEdgeId={selectedEdgeId} onSelectEdge={handleSelectEdge} portCenterOf={portCenterOf} />
+            <ConnectionDraftLine draft={connectionDraft || connectionPicker} nodes={connectionNodes} portCenterOf={portCenterOf} />
             {/* 2026-10-02：对齐参考线。tldraw / Excalidraw 拖动时的标准反馈 ——
                 没有它，用户只能靠"看着差不多"去猜有没有吸上。
                 画在**世界坐标层**里（和节点同一个 transform），所以跟着缩放一起缩。 */}

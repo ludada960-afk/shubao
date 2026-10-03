@@ -140,9 +140,19 @@ export function clampCanvasPickerPosition({ world = {}, viewport = {}, bounds = 
   };
 }
 
-export function getCanvasPortCenter(node = {}, port = 'output') {
+/**
+ * 端口中心（世界坐标）。
+ * @param {object} node
+ * @param {'output'|'input'} port
+ * @param {{x:number,y:number}|null} measured 实测端口中心（见 canvasNodeRects.js）。
+ *        有就优先用它 —— 加号按钮贴在**渲染出来的元素**上，而那个元素不一定等于模型矩形
+ *        （生成框 / composer 面板的视觉宽度 > node.w），只用模型 rect 会让线端点与加号错开
+ *        （用户 2026-10-03/04 连续三轮报「连线还是没连上素材本身」）。
+ *        量不到时退回模型口径，行为与之前完全一致。
+ */
+export function getCanvasPortCenter(node = {}, port = 'output', measured = null) {
   const normalized = normalizeCanvasNode(node);
-  return getNodePortCenter(normalized, port);
+  return getNodePortCenter(normalized, port, measured);
 }
 
 export function normalizeCanvasNode(input = {}) {

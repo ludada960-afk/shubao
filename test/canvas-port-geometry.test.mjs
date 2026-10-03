@@ -8,10 +8,22 @@ const workflowSource = readFileSync(new URL('../src/pages/EcCanvas/nodeWorkflow.
 
 test('Canvas derives port geometry from node rectangles without viewport-bound DOM measurements', () => {
   assert.match(geometrySource, /export function getNodePortCenter/);
-  assert.match(workflowSource, /return getNodePortCenter\(normalized, port\)/);
+  /* 2026-10-04：端点现在**优先**用实测的端口盒子（React Flow `nodeInternals.handleBounds`
+     的口径），量不到才退回模型 rect —— 见 canvasNodeRects.js。
+     `normalized, port` 仍是兜底路径的实参，所以这条判据形状变了但意图没变。 */
+  assert.match(workflowSource, /return getNodePortCenter\(normalized, port, measured\)/);
+  assert.match(geometrySource, /if \(measured\) return/,
+    '实测端口必须优先于模型矩形');
+  /* 旧的"不许把 DOM 测量塞进画布页"这条纪律仍然成立 ——
+     实测必须走**提交后的 hook**（canvasNodeRects.js），不许进渲染路径。 */
   assert.doesNotMatch(canvasSource, /getCanvasDomPortCenter/);
   assert.doesNotMatch(canvasSource, /setRenderedPortCenters/);
   assert.doesNotMatch(canvasSource, /new ResizeObserver\(measure\)/);
+  const rectsSource = readFileSync(new URL('../src/pages/EcCanvas/canvasNodeRects.js', import.meta.url), 'utf8');
+  assert.match(rectsSource, /useLayoutEffect/,
+    'DOM 实测只许在提交后的 layout effect 里做（本仓既有纪律）');
+  assert.match(canvasSource, /useCanvasNodePortRects\(containerRef, viewport\)/,
+    '画布必须挂上测量 hook');
   assert.match(canvasSource, /requestAnimationFrame\(flushDragFrame\)/);
   assert.match(canvasSource, /cancelAnimationFrame\(dragFrameRef\.current\)/);
   /* 批 CY-㉕ 把裁切盒与变换盒分开（治「可见世界范围不随缩放变大」）；
