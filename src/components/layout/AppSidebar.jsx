@@ -49,7 +49,18 @@ export default function AppSidebar() {
   ]), []);
 
   const workspace = [
-    { key: 'canvas', label: '无限画布', icon: Layers, motion: 'canvas', active: page === 'ec-canvas', onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS' }) : requestLogin('ec-canvas')) },
+    /* 2026-10-03 用户批注（用户已拍板「你做就对了」）：
+       「首页右边的那个无限画布的按钮，它其实点击进来之后的逻辑是不是应该变成
+         我们的那个画布的管理仓库那里呢？然后从那个页面用户再决定要新建画布，
+         还是要点击之前保存的画布素材进来呢？…因为我们现在点击无限画布的话，
+         正常来说进来它应该是一个新建的空白画布，但是这样的话，
+         用户他其实并不知道他之前保存的素材去哪了。」
+
+       ⇒ 入口改为**先进画布仓库**（canvasEntryTab='canvas' 那张库页），
+         用户在库里点「+ 新建」或点某张已存的画布。
+         这与「我的作品」「我的资产」两个入口的语义也终于一致了 ——
+         三个入口进的是同一个仓库，而不是一个进仓库、一个直接开新画布。 */
+    { key: 'canvas', label: '无限画布', icon: Layers, motion: 'canvas', active: page === 'ec-canvas', onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS', tab: 'canvas' }) : requestLogin({ type: 'OPEN_CANVAS', tab: 'canvas' })) },
     { key: 'works', label: '我的作品', icon: FolderOpen, motion: 'folder', active: false, onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS', tab: 'works' }) : requestLogin({ type: 'OPEN_CANVAS', tab: 'works' })) },
     { key: 'assets', label: '我的资产', icon: Images, motion: 'assets', active: page === 'ec-canvas' && state.canvasEntryTab === 'assets', onClick: () => (state.logged ? dispatch({ type: 'OPEN_CANVAS', tab: 'assets' }) : requestLogin({ type: 'OPEN_CANVAS', tab: 'assets' })) },
   ];

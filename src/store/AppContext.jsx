@@ -96,6 +96,35 @@ export function pathnameToPage(pathname) {
   return 'home';
 }
 
+/** page → 路径（上面那张表的反向）。
+ *  ⚠️ 2026-10-03 用户批注：「我很多次是在其他页面的时候，随便刷新页面和切换页面，
+ *     都会跳到图片生成总页面呀」—— 根因就是**URL 与 `state.page` 是两个真相**：
+ *     只有侧边栏那几处调了 `history.pushState`，画布内部的 NAVIGATE / OPEN_CANVAS
+ *     **不更新 URL**。于是刷新时由 URL 决定去哪，而 URL 永远停在上次 pushState 的地方
+ *     —— 那个地方几乎总是 `/image-creation`（侧边栏的图片生成/视频生成都会 push）。
+ *  ⇒ 每一次换页都同步 URL，两个真相合成一个。 */
+const PAGE_PATH_MAP = Object.freeze(
+  Object.entries(PATHNAME_PAGE_MAP).reduce((acc, [path, page]) => {
+    /* `/ec-canvas` 是 `/canvas` 的别名，canonical 取 `/canvas`，别名不重复登记 */
+    if (acc[page] === undefined || path === '/canvas' || path === '/') acc[page] = path;
+    return acc;
+  }, {}),
+);
+
+export function pageToPathname(page) {
+  const path = PAGE_PATH_MAP[page];
+  return path || '/';
+}
+
+/** 换页时把 URL 一起换掉（replace 而不是 push：换页不该塞满浏览器历史）。 */
+function syncUrlToPage(page) {
+  if (typeof globalThis === 'undefined' || !globalThis.history?.replaceState) return;
+  const path = pageToPathname(page);
+  const current = globalThis.location?.pathname || '';
+  if (current === path) return;
+  try { globalThis.history.replaceState(null, '', path); } catch { /* 某些沙箱里 replaceState 会抛，忽略即可 */ }
+}
+
 function createInitialState() {
   const browserQaState = createCanvasBrowserQaState({
     enabled: import.meta.env.DEV,
@@ -144,6 +173,7 @@ function reducer(state, action) {
   switch (action.type) {
     case 'NAVIGATE':
       if (action.page === 'works') {
+        syncUrlToPage('ec-canvas');
         return {
           ...state,
           page: 'ec-canvas',
@@ -152,8 +182,12 @@ function reducer(state, action) {
           result: state.result || createEmptyCanvasResult(),
         };
       }
+      syncUrlToPage(action.page);
       return { ...state, page: action.page, galleryItem: null };
     case 'OPEN_CANVAS':
+      /* URL 一起换：否则"进画布 → 刷新"会被 URL 拽回上一次 pushState 的地方
+         （实测几乎总是 /image-creation —— 用户原话：「随便刷新页面就会跳到图片生成总页面」） */
+      syncUrlToPage('ec-canvas');
       return {
         ...state,
         page: 'ec-canvas',

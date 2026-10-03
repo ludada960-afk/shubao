@@ -1,3 +1,5 @@
+import { pickCanvasCoverUrl } from './canvasCover.mjs';
+
 function routeError(error, res) {
   const code = error?.code || 'PROJECT_REQUEST_FAILED';
   if (code.startsWith('AUTH_SESSION_')) {
@@ -555,11 +557,12 @@ export function mountProjectRoutes(app, {
           updatedAt: session.updatedAt,
           createdAt: session.createdAt,
           nodeCount: Array.isArray(session.snapshot?.nodes) ? session.snapshot.nodes.length : 0,
-          coverUrl: (() => {
-            const nodes = Array.isArray(session.snapshot?.nodes) ? session.snapshot.nodes : [];
-            const image = nodes.find(node => node && (node.kind === 'image' || node.kind === 'output') && (node.url || node.localPreviewUrl));
-            return image ? String(image.localPreviewUrl || image.url) : '';
-          })(),
+          /* 2026-10-03 用户批注：「明明有节点，为什么说是空画布」——
+             原来这里只认 image / output ⇒ 一张只放了视频的画布取不到封面，
+             卡片写「空画布」而下面又写「1 个节点」，同一张卡自相矛盾。
+             现在按 canvasCover 的优先级挑（有画面的都能当封面，
+             生成的作品优先），不生成新图、不额外存储。 */
+          coverUrl: pickCanvasCoverUrl(session.snapshot?.nodes),
         })),
       });
     } catch (error) { return routeError(error, res); }

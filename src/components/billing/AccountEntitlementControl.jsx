@@ -62,14 +62,19 @@ export default function AccountEntitlementControl({
       <style>{`
         .account-entitlement-control { display: inline-flex; align-items: center; min-width: 0; color: var(--sb-neutral-0); }
         .account-entitlement-control button { border: 0; font: inherit; cursor: pointer; }
-        .account-entitlement-value { min-width: 0; display: inline-flex; align-items: center; gap: 7; min-height: 40px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 8px; background: #17181c; color: inherit; text-align: left; box-shadow: 0 4px 14px rgba(20,22,28,.15); transition: background .15s, border-color .15s, transform .15s; }
+        .account-entitlement-value { min-width: 0; display: inline-flex; align-items: center; gap: 8; min-height: 40px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 8px; background: #17181c; color: inherit; text-align: left; box-shadow: 0 4px 14px rgba(20,22,28,.15); transition: background .15s, border-color .15s, transform .15s; }
         /* 2026-10-03：compact（画布顶栏那种横向空间紧张的地方）**只**收紧内边距与间距 ——
            用户原话：「**高度**还是要跟原来这样一样，但是宽度肯定就要适配紧一点了」。
            ⇒ 这里不再写 min-height（主态的 40px 就是全站高度）。 */
         .account-entitlement-control.is-compact .account-entitlement-value { gap: 5; padding: 4px 9px; }
         .account-entitlement-value:hover { background: var(--sb-neutral-900); border-color: rgba(255,255,255,.28) !important; transform: translateY(-1px); }
         .account-entitlement-value > svg:first-child { color: #f3c969; }
-        .account-entitlement-copy { min-width: 0; display: grid; gap: 1; }
+        /* 2026-10-03 用户批注：「你图标和积分之间要留点空间啊，然后整体适配上要再做一次调整，
+   全部的这个积分按钮都要一起做调整」。
+   之前 gap:1px 是把图标和「AI 积分 / 数字」两行挤在一起排的，
+   去掉数字后面的重复单位之后行数没变、视觉上就更挤了。
+   ⇒ 上下留 2px、图标与文字块之间由 .account-entitlement-value 的 gap 承担（8px）。 */
+.account-entitlement-copy { min-width: 0; display: grid; gap: 2px; justify-items: end; }
         .account-entitlement-copy small { color: #aeb3bf; font-size: 10px; line-height: 1; }
         .account-member-entry { margin-left: 8px; min-height: 40px; padding: 6px 12px; border: 1px solid rgba(255,255,255,.14) !important; border-radius: 8px; background: #17181c; color: var(--sb-neutral-0); font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
         .account-member-entry:hover { background: var(--sb-neutral-900); border-color: rgba(255,255,255,.28) !important; }
