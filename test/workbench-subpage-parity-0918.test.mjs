@@ -34,11 +34,17 @@ test('① 工作台按区块分组，组名与顺序照竞品实测', () => {
         应用市场来的 app 页在知渔那边**只有一个「参数配置」组头**（CDP 逐页量过：
         技能名 → 分类 → 参数配置@y≈202 → 第一个字段@y≈252），内置 ?tool= 页才是真分组。
         所以渲染层多了一个"并成一组"的开关，两边的分组事实各按各的走。 */
-  assert.match(shell, /function groupFields\(fields, mergeTitle = ''\)/);
+  /* ⚠️ 2026-10-03 批 1003：签名多了第三个参数 `workbench`，返回值多了 `note` / `layout`
+     —— 那是把「组说明」「组版式」交回声明层（以前 group 只是个字符串，组标题与网格
+     对所有技能一模一样，那正是"专属度低"的根因）。
+     **判据的意图一个字没动**：仍然是"按字段出现的先后成组"，仍然"并成一组"。
+     断言跟着改形状。 */
+  assert.match(shell, /function groupFields\(fields, mergeTitle = '', workbench = null\)/);
   /* ⚠️ 2026-09-29 批 DC 续-8：单组模式那一支现在多走一步 `dropCoveredFields(fields)` ——
      `kind:'config'` 那一格收起的字段要从**渲染**里剔掉（取值仍在 fields 里，判据见
-     test/config-triggers-0929 ②）。断言跟着改形状，不改意图：**仍然是"并成一组"**。 */
-  assert.match(shell, /if \(mergeTitle\) return \[\{ name: mergeTitle, fields: dropCoveredFields\(fields\) \}\];/,
+     test/config-triggers-0929 ②）。断言跟着改形状，不改意图：**仍然是"并成一组"**。
+     （批 1003 后并组那一步收进 `withMeta()`，它照样先 dropCoveredFields 再补 note/layout。） */
+  assert.match(shell, /const withMeta = \(name, list\) => \(\{ name, fields: dropCoveredFields\(list\), note: noteOf\(name\), layout: layoutOf\(name\) \}\);/,
     '单组模式要真的并成一组（并把被 config 收起的字段剔出渲染）');
   assert.match(shell, /media-workbench-group-title/);
   /* 页面侧：app 页必须传「参数配置」，且判据来自对照表（不在页面里再写一份名单） */

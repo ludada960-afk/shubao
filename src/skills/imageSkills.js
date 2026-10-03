@@ -1669,16 +1669,51 @@ export const IMAGE_SKILLS = [
     visual: 'social-cover',
     brief: '围绕这个主题做一组小红书配图。主题：{{prompt}}。文风：{{style}}。要求：真实感优先，像手机随手拍出来的生活记录，不要做成广告海报；不出现水印与二维码。',
     fields: [
-      { key: 'assets', label: '素材', kind: 'upload', required: true, maxImages: 6, role: 'reference', slotLabel: '上传素材图' },
-      { key: 'prompt', label: '描述', kind: 'textarea', rows: 3, placeholder: '例如：厦门 3 天 2 夜，第一次去怎么玩' },
-      { key: 'style', label: '文风', kind: 'segmented', options: [
+      /* ⚠️ 2026-10-03 批 1003：这三格原来**没有组名**，于是和下面的出图设置
+         一起落进默认组、糊成一条平铺流 —— 用户看到的「首页搬进来」就是这个形状。
+         这一条 skill 的能力就两步：「讲什么」和「出多少」，所以按这两步分组。 */
+      { key: 'assets', label: '素材', kind: 'upload', group: '素材与内容', required: true, maxImages: 6, role: 'reference', slotLabel: '上传素材图' },
+      { key: 'prompt', label: '描述', kind: 'textarea', group: '素材与内容', rows: 3, placeholder: '例如：厦门 3 天 2 夜，第一次去怎么玩' },
+      { key: 'style', label: '文风', group: '素材与内容', kind: 'segmented', options: [
         { value: '真实分享', label: '真实分享' }, { value: '攻略清单', label: '攻略清单' },
         { value: '好物测评', label: '好物测评' }, { value: '生活记录', label: '生活记录' },
       ] },
-      ratioField(),
-      { key: 'count', label: '数量', kind: 'stepper', min: 1, max: 9 },
+      { key: 'count', label: '数量', group: '出图设置', kind: 'stepper', min: 1, max: 9 },
+      /* 比例 / 清晰度：被下面注入的 config 触发器收进「画面规格」浮层，
+         但**声明仍在**（面板里渲染的就是这两条）。
+         ⚠️ clarityField() 不接 group 参数（写死「生成设置」），这里覆盖掉 ——
+            否则这一格会掉到另一个组里，与它的兄弟字段分家。 */
+      ratioField(RATIO, '比例', '出图设置'),
       /* 批 O-六：补「分辨率」—— 知渔这一页有这一档，我们原来没有 */
-      clarityField(),
+      { ...clarityField(), group: '出图设置' },
+    ],
+    /* ═══ 2026-10-03 批 1003：这条 skill 的**专属**工作台配置 ══════════════════════════════════
+       用户批注（对着这一页）：「我们把这些 skill 放到这些子页面的目的是要结合他们对应的
+         **专属工作台**去进行设计呀。你现在根本就没有去定制相应的工作台，
+         **你只是把以前老版的首页给挪到里面来了**。」
+
+       这一条尤其该定制 —— 它是**整站唯一一个 embed 型图片技能**：工作台就是首页那块
+       `XhsContentMode`（它连 CSS 都是 `import './Home.css'`），通用字段网格压根不渲染。
+       所以「专属」不能靠通用骨架给，只能在这一条声明上写清楚：
+         · intro      —— 这一条一句话说明（顶栏已有 summary，左栏这一句讲的是"怎么用"）
+         · groupNotes —— 「文风」这一组是干什么的（`hint` 说"这一格怎么填"，组说明说"这几格是一件事"）
+         · presets    —— 一键上手。用户要的是「简单上手、快速产出最佳效果」，
+                          而全站此前没有任何声明能表达"整页最佳配置"。
+       预设值取自这一条 brief 里的真实约束（真实感优先、像随手拍、不做广告海报）。 */
+    workbench: {
+      intro: '上传 2–6 张实拍素材，写一句这次想讲什么，选好文风就能出图。文风决定语气，比例决定小红书竖图还是方图。',
+      groupNotes: {
+        '素材与内容': '这两格决定这一组图「讲什么、什么语气」—— 真实感优先，不要做成广告海报。',
+        '出图设置': '比例与清晰度收在下面那颗「画面规格」里；数量直接改。',
+      },
+    },
+    presets: [
+      { key: 'xhs_real', label: '真实随手拍', hint: '生活记录 + 3:4 竖图，最像随手拍的一条',
+        values: { style: '生活记录', ratio: '3:4', clarity: '2K', count: 6 } },
+      { key: 'xhs_guide', label: '攻略清单', hint: '攻略清单 + 3:4，适合「几天几夜怎么玩」这类',
+        values: { style: '攻略清单', ratio: '3:4', clarity: '2K', count: 9 } },
+      { key: 'xhs_review', label: '好物测评', hint: '好物测评 + 1:1 方图，适合单品横评',
+        values: { style: '好物测评', ratio: '1:1', clarity: '2K', count: 6 } },
     ],
     cases: [], history: true,
   },
@@ -2386,20 +2421,21 @@ export const IMAGE_SKILLS = [
 const CONFIG_TRIGGER_KEYS = ['imageModel', 'ratio', 'clarity'];
 const CONFIG_TRIGGER_GROUP = '生成设置';
 
-/** 与 skillRun.js 的 skillEmbedOf **同一份判据**，不是另写一遍。
-    （skillEmbedOf: pipeline==='xhsNote' 或以 'video' 开头 ⇒ embed） */
-function isEmbedPipeline(pipeline) {
-  return pipeline === 'xhsNote' || (typeof pipeline === 'string' && pipeline.startsWith('video'));
-}
-
 function configTriggersFor(skill) {
   if (!skill || !Array.isArray(skill.fields)) return null;
-  /* embed 的技能左栏**不渲染通用字段网格**，注入的声明不会被看到 —— 不做无用功。
-     那批工作台本身要按需求 A 定制，等那一批定稿再处理。 */
-  if (isEmbedPipeline(skill.pipeline)) return null;
   if (skill.fields.some(field => field && field.kind === 'config')) return null;   /* concept_set 已声明 */
   const keys = CONFIG_TRIGGER_KEYS.filter(key => skill.fields.some(field => field && field.key === key));
   if (!keys.length) return null;
+  /* 2026-10-03 批 1003：**embed 的图片技能（`xhsNote`）也给**。
+     原来这里一遇到 embed 就跳过 —— 因为 WorkbenchShell 的 embed 分支只渲染
+     `panel`，通用字段网格与通用 CTA 全都不渲染，注入也看不到，于是
+     `image.xhs_note` 声明的 ratio / clarity 成了**死声明**：
+     用户在那一页**根本调不了比例和清晰度**（用户批注「你只是把老版首页挪进来了」的实锤之一）。
+     现在 embed 分支会渲染这两颗触发器（WorkbenchShell 的 is-head-only 分支），
+     口径与其余 43 条页面一致。
+     ⚠️ 视频侧不受影响：`videoSkills.js` 是另一个文件，字段键是 model/resolution/duration，
+        与这里的 imageModel/ratio/clarity 零重叠；它们本来就有自己的触发器机制
+        （videoSpecExposure.js 逐页控制露不露）。 */
   const hasModel = keys.includes('imageModel');
   /* 这一格必须与被收起的那几格**同组**，否则剔完那几格会连组标题一起消失 */
   const group = (skill.fields.find(field => field && keys.includes(field.key)) || {}).group || CONFIG_TRIGGER_GROUP;

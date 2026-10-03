@@ -519,6 +519,65 @@
   .media-workbench-fields { grid-template-columns: minmax(0, 1fr); }
 }
 .media-workbench-fields > .media-field { grid-column: 1 / -1; }
+
+/* ═══ 2026-10-03 批 1003：专属工作台的三个新件 ═══════════════════════════════════
+   用户批注：「我们把这些 skill 放到这些子页面的目的是要结合他们对应的**专属工作台**去进行设计呀。
+             你现在根本就没有去定制相应的工作台，**你只是把以前老版的首页给挪到里面来了**。」
+
+   以前这条左栏的骨架（组标题 / 网格 / CTA）对**所有**技能一模一样，字段是唯一变量 ——
+   那就是"专属度低"的根因。这三件把可变部分交回声明层，逐条 skill 只写声明、不碰 JSX。
+   全部默认不渲染：不给 `workbench` / `presets` 的页面逐像素不变。 */
+
+/* ① 这一条 skill 的一句话说明 */
+.media-workbench-intro {
+  margin: 0;
+  font-size: var(--sb-text-sm);
+  line-height: 1.6;
+  color: var(--sb-ink-3);
+}
+
+/* ② 「一键上手」：把整页配成一套推荐值 —— 用户要的是"快速产出最佳效果"，
+     而此前全站没有任何声明能表达"整页最佳配置"。 */
+.media-workbench-presets { display: flex; align-items: center; gap: var(--sb-space-2); flex-wrap: wrap; }
+.media-workbench-presets-label {
+  font-size: var(--sb-text-xs);
+  color: var(--sb-ink-4);
+  font-weight: 600;
+}
+.media-workbench-presets-row { display: flex; gap: var(--sb-space-1-5); flex-wrap: wrap; }
+.media-workbench-preset {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--sb-border-default);
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface-card);
+  color: var(--sb-ink-2);
+  font: inherit;
+  font-size: var(--sb-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--sb-duration-fast) var(--sb-ease-out),
+              background-color var(--sb-duration-fast) var(--sb-ease-out),
+              box-shadow var(--sb-duration-fast) var(--sb-ease-out);
+}
+.media-workbench-preset:hover:not(:disabled) { border-color: var(--sb-border-control); box-shadow: var(--sb-shadow-2); }
+.media-workbench-preset:active:not(:disabled) { box-shadow: var(--sb-press-shadow); }
+.media-workbench-preset:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ③ 组说明：「这一组是干什么的」。与字段 hint 是两件事 ——
+     hint 说"这一格怎么填"，组说明说"这几格是一件事"。 */
+.media-workbench-group-note {
+  margin: 0;
+  font-size: var(--sb-text-xs);
+  line-height: 1.55;
+  color: var(--sb-ink-4);
+}
+/* 组版式：默认单列基线不动；声明 layout 的组才换。 */
+.media-workbench-fields[data-layout='grid2'] { grid-template-columns: 1fr 1fr; }
+.media-workbench-fields[data-layout='cards'] { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (max-width: 520px) {
+  .media-workbench-fields[data-layout='grid2'] { grid-template-columns: minmax(0, 1fr); }
+}
 /* ═══ 2026-09-28 批 CY-⑥：分段档位那一族的**整颗动作按钮**（照知渔：芯片下面那一颗）═══════════════
    用户原话（逐字）：「你看一下**人家 AI 推荐风格**，它这里是有个按钮的。他点击这个按钮才会生成结果
    在这里啊。他这个按钮其实就跟右上角那个 AI 推荐应该是同一个按钮的。」（完整实测见 JSX 里同一段注释）

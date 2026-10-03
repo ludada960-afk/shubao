@@ -19,10 +19,18 @@ import { HelpCircle } from 'lucide-react';
    我们原来是**一条平铺的字段流** —— 十几个字段从上排到底，用户看不出"这几格是一件事"。
    分组从哪来：声明源里每个 field 写一个 group 名（不写就落在"默认组"），
    本组件按**字段出现的先后**决定组的先后（不是另写一张顺序表 —— 那会有第二份真相）。 */
-function groupFields(fields, mergeTitle = '') {
+function groupFields(fields, mergeTitle = '', workbench = null) {
   /* mergeTitle：把全部字段并进**一个**组（知渔的应用市场 app 页就是这样：左栏只有一个「参数配置」）。
-     内置 ?tool= 页保持各自的分组名（基础信息 / 产品卖点与设计风格 / 套图结构配置 …）。 */
-  if (mergeTitle) return [{ name: mergeTitle, fields: dropCoveredFields(fields) }];
+     内置 ?tool= 页保持各自的分组名（基础信息 / 产品卖点与设计风格 / 套图结构配置 …）。
+
+     ⚠️ 2026-10-03 批 1003：`workbench` 把**这一条 skill 专属**的组级信息带进来
+     （组说明 / 组版式）。以前 group 只是个字符串，组标题与网格对所有技能一模一样 ——
+     那就是"专属度低"的根因：骨架写死，字段是唯一变量。 */
+  const noteOf = name => (workbench && workbench.groupNotes && workbench.groupNotes[name]) || '';
+  const layoutOf = name => (workbench && workbench.groupLayouts && workbench.groupLayouts[name]) || 'stack';
+  const withMeta = (name, list) => ({ name, fields: dropCoveredFields(list), note: noteOf(name), layout: layoutOf(name) });
+
+  if (mergeTitle) return [withMeta(mergeTitle, fields)];
   const order = [];
   const map = new Map();
   for (const field of fields) {
@@ -30,7 +38,7 @@ function groupFields(fields, mergeTitle = '') {
     if (!map.has(name)) { map.set(name, []); order.push(name); }
     map.get(name).push(field);
   }
-  return order.map(name => ({ name, fields: dropCoveredFields(map.get(name)) }));
+  return order.map(name => withMeta(name, map.get(name)));
 }
 
 /* ═══ 2026-09-29 批 DC 续-8：**`kind: 'config'` 那一格收起的字段，从网格里剔掉** ═══════════════════
@@ -99,6 +107,15 @@ export default function WorkbenchShell({
   fields = [],
   /* 单组标题：应用市场来的那 28 条页面传「参数配置」（照知渔），内置页不传 */
   groupTitle = '',
+  /* 2026-10-03 批 1003：**这一条 skill 专属的工作台配置**（声明层，页面不写 JSX）。
+     `{ intro, groupNotes, groupLayouts, presets }` —— 见 imageSkills 的 workbenchFor()。
+     默认 null ⇒ 一个字都不渲染，其余页面行为逐像素不变。 */
+  workbench = null,
+  /* 「一键上手」：把整页配成一套推荐值。用户要的是「简单上手、快速产出最佳效果」，
+     而全站此前只有 concept_set 有局部预设，没有任何声明能表达"整页最佳配置"。
+     形状 `{ key, label, hint, values: { 字段key: 值 } }`，点击即批量写值。 */
+  presets = [],
+  onPresetApply = null,
   values = {},
   onFieldChange = () => {},
   disabled = false,
@@ -168,7 +185,7 @@ export default function WorkbenchShell({
   const tabList = tabs || [{ key: 'cases', label: '示例' }, { key: 'history', label: '历史' }];
   const embedded = Boolean(panel);
   /* 分组与「档内容块末尾那颗整颗按钮」都先算好（原来 groupFields 是在 JSX 里现算的）。 */
-  const groups = groupFields(fields, groupTitle);
+  const groups = groupFields(fields, groupTitle, workbench);
   const bigActions = bigActionAfter(groups, paidActions);
   /* ═══ 2026-09-29 批 DC 续-16：清单块可以**声明自己排在哪个分组之后** ═══════════════════════════
      原来 `sections` 一律排在**所有**字段组之后（硬编码）。概念视觉方案那一页的「版式族」是
@@ -347,14 +364,79 @@ export default function WorkbenchShell({
                 教学示例入口并进卡片右上角（门禁 test/skill-tutorial-0919 要求它必须存在）。 */}
           <div className="media-workbench-left is-head-only">
             {/* 2026-09-26 批 BW：**技能信息卡整块删除**（用户原话：「工作台它就是用来配置、
-                用来输入提示词、用来删删改改的一个平台，不是用来写教程搞说明的」）。
+                用来输入提示词、用来删删改改的一个平台，不是用来写教程搞说明的）。
                 原来的三样（技能名 / 一句话说明 / 分类标签）在**顶栏**已经有 —— 技能名就是居中 H1，
                 分类也在顶栏；这里不再重复一遍、也不再占一行高度。教学入口挪到右栏页签那一行。 */}
+            {/* ═══ 2026-10-03 批 1003：嵌入形态也**要能配比例/清晰度** ═══════════════════════════════
+                用户批注（小红书图文那一页）：「你只是把以前老版的首页给挪到里面来了」——
+                查下来是真的：`image.xhs_note` 声明了 6 个字段（assets / prompt / style /
+                ratio / count / clarity），而 `pipeline:'xhsNote'` 走 embed 分支，
+                **通用字段网格与通用 CTA 一个都不渲染** ⇒ 那 6 条声明全是死代码，
+                用户在页面上**根本调不了比例和清晰度**。
+
+                这里不把整块字段网格塞回嵌入形态（那才是"首页搬进来"的病根），
+                只把**两颗配置触发器**补上：比例 / 清晰度是所有 skill 都有、且用户
+                一定会调的两项，让嵌入页与其余 43 条页面**口径一致**。 */}
+            {(() => {
+              const configFields = (fields || []).filter(f => f && f.kind === 'config');
+              if (!configFields.length) return null;
+              return (
+                <div className="media-workbench-embed-config">
+                  {configFields.map(field => (
+                    <FieldRenderer
+                      key={field.key}
+                      field={field}
+                      allFields={fields}
+                      value={values[field.key]}
+                      values={values}
+                      disabled={disabled}
+                      onChange={onFieldChange}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
             <div className="media-workbench-panel">{panel}</div>
           </div>
         </>
       ) : (
         <div className="media-workbench-left">
+          {/* ═══ 2026-10-03 批 1003：**这一条 skill 自己的话 + 一键上手** ══════════════════════
+              用户 2026-10-03 批注（小红书图文那一页）：
+                「我们把这些 skill 放到这些子页面的目的是要结合他们对应的**专属工作台**去进行设计呀。
+                  你现在根本就没有去定制相应的工作台，**你只是把以前老版的首页给挪到里面来了**。」
+                「是怎么去发挥 skill 能力的？**让 skill 简单上手，能够快速的在用户手里去产出最佳的效果。**」
+
+              `workbench.intro` —— 这条 skill 一句话说明（视频侧早就写了 56 条 `headline`，
+                但**全仓零消费** —— 声明写了、渲染层没接，那是另一笔"两套东西"的账。
+                本次先在图片侧把它接上，视频侧那一批是同一个口子，下一步接）。
+              `presets` —— 一键把整页配成一套推荐值。这是"快速产出最佳效果"唯一缺的声明：
+                此前全站只有 concept_set 有局部预设，没有任何机制能表达"整页最佳配置"。
+
+              ⚠️ 两样都默认不渲染（`workbench` / `presets` 为空 ⇒ 一行都不出），
+                 其余 40+ 个技能页面逐像素不变。 */}
+          {workbench && workbench.intro ? (
+            <p className="media-workbench-intro">{workbench.intro}</p>
+          ) : null}
+          {presets.length ? (
+            <div className="media-workbench-presets" role="group" aria-label="一键上手">
+              <span className="media-workbench-presets-label">一键上手</span>
+              <div className="media-workbench-presets-row">
+                {presets.map(preset => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    className="media-workbench-preset"
+                    title={preset.hint || ''}
+                    disabled={disabled}
+                    onClick={() => onPresetApply?.(preset)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {/* ═══ 2026-09-19 批 O-⑪：**左栏顶部这一整块搬走**（照知渔）══════════════════════════
              用户第 19 轮批注（对着我们的商品套图页）：
                「然后你这两个为什么不是在上面呢？**你上面留白那么多，是要干嘛呢？**」
@@ -414,6 +496,11 @@ export default function WorkbenchShell({
             {groups.map((group, index) => (
             <React.Fragment key={group.name || 'default'}>
             <section className="media-workbench-group">
+              {/* 2026-10-03 批 1003：**组说明**（`workbench.groupNotes`）——
+                  以前 group 只是个字符串，所以「这一组是干什么的」无处可写，
+                  299 个字段里 `hint` 只用了 20 次。组说明与字段 hint 是两件事：
+                  前者说"这几格是一件事"，后者说"这一格怎么填"。 */}
+              {group.note ? <p className="media-workbench-group-note">{group.note}</p> : null}
               {/* ⚠️ 批 O-⑫：标题行在**第一组**即使没有组名也要渲染 ——
                   教学示例入口与一键解析都落在这里；若挂在 group.name 条件里，
                   第一条技能（如「中文海报」的第一个分组没有组名）就会**两颗按钮都不出现**。
@@ -450,7 +537,7 @@ export default function WorkbenchShell({
                   )}
                 </h3>
               )}
-              <div className="media-workbench-fields">
+              <div className="media-workbench-fields" data-layout={group.layout === 'stack' ? undefined : group.layout}>
                 {group.fields.map(field => {
                   /* ═══ 2026-09-19 批 O-⑪：付费动作**贴着字段标签右端**（照知渔的形态）═══════════
                      用户第 19 轮批注（对着我们的商品套图页）原话：

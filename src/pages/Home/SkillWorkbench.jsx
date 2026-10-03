@@ -127,6 +127,15 @@ export default function SkillWorkbench({
         panel={panel}
         tutorial={tutorial}
         groupTitle={groupTitle}
+        /* 2026-10-03 批 1003：**这条 skill 专属**的工作台配置与一键上手。
+           声明在 imageSkills 的 skill.workbench / skill.presets 上，
+           页面只负责转手 —— 专属度由**声明**决定，不在这一层写死。 */
+        workbench={skill.workbench || null}
+        presets={Array.isArray(skill.presets) ? skill.presets : []}
+        onPresetApply={preset => {
+          if (!preset || !preset.values) return;
+          for (const [key, value] of Object.entries(preset.values)) onFieldChange(key, value);
+        }}
         sections={sections}
         parseAction={parseAction}
         paidActions={paidActions}
