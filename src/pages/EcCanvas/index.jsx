@@ -8476,10 +8476,24 @@ const handleCanvasVideoUpload = async event => {
         onFilterChange={setActiveFilter}
         onBack={handleBack}
         onExport={() => {
-          setExportSelectionIds(new Set());
+          /* 2026-10-03 用户批注（紧急）：「你的导出功能似乎出现大问题，现在根本导出不了，
+             选择了素材，但是没法导出呀」，弹窗写「这张画布上没有可导出的生成结果」。
+
+             根因就在这一行原来写的 `setExportSelectionIds(new Set())` ——
+             **顶栏导出每次都把用户的选中清空**，于是 `selectDeliverableNodes` 走
+             "整张画布"分支，只认 generated/derived 的**生成结果**；
+             用户手动多选的那几张（往往是上传的源图）被当成"已排除的原始素材"，
+             于是列表为空 ⇒ 弹窗说没有可导出的。
+             （`selectDeliverableNodes` 本身是对的：明确选中就会导出它们。）
+
+             ⇒ 有选中就按选中导出；什么都没选才是"整张画布"。 */
+          const liveSelection = multiSelected.size
+            ? new Set(multiSelected)
+            : (selected ? new Set([selected]) : new Set());
+          setExportSelectionIds(liveSelection);
           setExportMode('images');
           setExportFormat('PNG');
-          setExportIntent('suite');
+          setExportIntent(liveSelection.size ? 'selection' : 'suite');
           setExportOpen(true);
         }}
         onRestore={handleCanvasSessionRestore}
