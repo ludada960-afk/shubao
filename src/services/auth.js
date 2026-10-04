@@ -433,6 +433,16 @@ export async function getSession() {
     if (getStoredRefresh()?.refreshToken) {
       const refreshed = await refreshSession();
       if (refreshed) return getSessionAfterRefresh();
+      /* ⚠️ 2026-10-04 修：**续期"没成功"不等于"掉登录"**。
+         refreshSession() 对网络抖动是明确"不判负"的（它只在服务端回 400/401/403
+         ——也就是服务端真的拒收这个 refresh 凭据 —— 时才清凭据）。
+         所以这里的 false 至少有两种含义：服务端拒收（真掉线）／网络没打通（人还在）。
+         原来不区分，一律 clearSession() → 广播 → 弹登录框，而 clearSession 只删
+         sb-auth 不删 sb-auth-refresh ⇒ 用户表现就是"明明登录过，一进来弹登录框，
+         关掉或刷新一下又好了"。
+         判据：refresh 凭据还在 = 网络问题，不清；凭据被服务端收走了 = 真掉线。 */
+      if (!getStoredRefresh()?.refreshToken) clearSession();
+      return null;
     }
     clearSession();
     return null;
@@ -461,6 +471,11 @@ async function verifyAndAdoptSession(session) {
             headers: { Authorization: `Bearer ${retrySession.token}` },
           });
           if (retry.ok) return finalizeVerifiedSession(retrySession, await retry.json());
+          /* ⚠️ 2026-10-04 修：这个分支漏了下面那段注释说的豁免。
+             2026-10-01 只给**第一次**响应打了 5xx 豁免，重试这次仍是"非 ok 就当掉线"——
+             于是 refresh 已经成功、token 已经是新的，只要重试抖一下（502/500），
+             就把一个完全有效的会话清掉。5xx 场景线上真出现过（见下）。 */
+          if (retry.status !== 401) return null;
         }
       }
       clearSession();
