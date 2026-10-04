@@ -4253,11 +4253,29 @@ const IMG_BACKUP_KEY = String(process.env.IMAGE_BACKUP_API_KEY || '').trim();
       （providerAdapter.mjs:384-386），所以**只要把键写成"档位:分辨率"就能保住档位**。
 
    ⇒ 下面按 `档位:分辨率` 登记，并保留原来的纯分辨率键作为兜底
-      （老的 IMAGE_BACKUP_MODEL_* 环境变量仍然生效，不破坏已有部署）。 */
+      （老的 IMAGE_BACKUP_MODEL_* 环境变量仍然生效，不破坏已有部署）。
+
+   ⚠️⚠️ **自我更正（2026-10-04 晚，Playwright 之外的真实端到端实测之后）**═════════════════════
+   这段注释原来宣称「按档位:分辨率登记 = 2.5 的兜底不再静默降级」。**那是错的。**
+   2.5（`image2-5-sunburst`）**根本不走这张表**：它属于 `ADVANCED_IMAGE_MODELS`
+   （见 modelCatalog），`buildModelRoute` 给它的 provider 是 `advanced-image`，
+   于是走的是 `advancedImageProviderAdapter` —— 它的模型表是**另一张**
+   （`ADVANCED_IMAGE_MODELS`，键 `image2-5-sunburst:1K`），凭据与地址复用 `IMAGE_BACKUP_*`。
+
+   我当时只验到「IP233 的 /v1/models 列表里有 gpt-image-2.5-sunburst」就下了"接好了"的结论，
+   没走一次真出图 —— 而"列表里有"与"通道是活的"**不是一回事**
+   （2026-10-03 那次故障恰恰就是这两件事不等价）。端到端实测之后才看清这条链。
+   ⇒ 本表里的 `image2-5:*` 键其实是**用不上的**（`image2` 族里没有这个模型名），
+     留着无害，但**不要再拿它当 2.5 的证据**。2.5 通不通，看的是 `advancedImageProviderAdapter`
+     配没配（`IMAGE_ADVANCED_BASE_URL` 或 `IMAGE_BACKUP_BASE_URL` + 各自的 key）。 */
 const IMG_BACKUP_MODELS = {
   'image2:1K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_1K || 'gpt-image-2-1k',
   'image2:2K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_2K || 'gpt-image-2-2k',
   'image2:4K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_4K || 'gpt-image-2-4k',
+  /* ⚠️ 下面三行是 2026-10-04 按错误前提加的：`image2-5` 不是 `image2` 族的模型名，
+     真实键是 `image2-5-sunburst:<档>`，在 `ADVANCED_IMAGE_MODELS` 里（见上面的自我更正）。
+     为不破坏可能已按 env 覆盖过这些键的既有部署，键名保持原样（env 仍然生效），
+     但它们**不参与** 2.5 的路由。 */
   'image2-5:1K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_5_1K || 'gpt-image-2.5-sunburst-1k',
   'image2-5:2K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_5_2K || 'gpt-image-2.5-sunburst-2k',
   'image2-5:4K': process.env.IMAGE_BACKUP_MODEL_IMAGE2_5_4K || 'gpt-image-2.5-sunburst-4k',
