@@ -7452,7 +7452,23 @@ const handleCanvasVideoUpload = async event => {
     }
     apply();
   }, [dispatch]);
-  const handleBack = () => dispatch({ type: 'NAVIGATE', page: 'home' });
+  /* ═══ 2026-10-04 修：从画布「返回」要真的落在**首页**，而不是某个技能的子页 ══════
+     用户反馈（逐字）：「我在浏览其他页面的时候，比如无限画布，我点击左上角的返回按钮，
+     你会帮我跳回图片生成的总页面去，难道不该是回到首页去吗」
+
+     为什么看起来像"没跳"：`NAVIGATE` 只改 page（AppContext.jsx:155），**不清 creationLaunch**；
+     而首页把残留的 `creationLaunch.skillId` 当 `initialSkillId` 传给 VisualCreationMode，
+     那里会**强制切到那个技能**（VisualCreationMode.jsx:457-459）。于是从画布返回时，
+     首页一打开就直接落在上次那个技能的工作台上 —— 看着就像"跳到了图片生成总页面"。
+
+     ⚠️ 用户明确不要"在首页加一个非生图的入口"（首页就是生图，这是产品形态不是 bug）。
+       所以修法是**清残留**而不是加入口：返回 = 回到首页的本来面目。
+     ⚠️ 只清 creationLaunch/inputText，不动画布内容（画布要在侧栏里留着，用户还要回来）。 */
+  const handleBack = () => {
+    dispatch({ type: 'SET_CREATION_LAUNCH', launch: null });
+    dispatch({ type: 'SET_INPUT', text: '' });
+    dispatch({ type: 'NAVIGATE', page: 'home' });
+  };
   const openWork = (work) => {
     dispatch({ type: 'SET_RESULT', result: buildCanvasImportResult(work) });
     handleTabChange('canvas');

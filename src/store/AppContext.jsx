@@ -255,6 +255,18 @@ function reducer(state, action) {
       return {
         ...state,
         logged: Boolean(action.logged),
+        /* ⚠️ 2026-10-04 修：登录态成立时**必须关掉登录弹窗**。
+           用户反馈「经常一访问就弹出登录，但是其实之前已经登录了，要关掉登录弹窗
+           或者刷新一下才能看到登录了」——
+           关键在后半句：登录态其实**恢复成功**了，只是弹窗盖在上面不撤。
+           根因是所有"会话恢复成功"的通道（onSessionRestored、挂载期 getSession、
+           401 后的静默续期）都只 dispatch SET_LOGGED，**从不 dispatch SHOW_LOGIN:false**，
+           于是 logged===true 与 showLogin===true 长期共存。
+           放在 reducer 里而不是各调用点，是因为"已登录"与"弹着登录框"在语义上
+           本来就不该同时成立 —— 每条恢复通道各写一遍，漏一条就会复现。
+           ⚠️ 只在 logged===true 时关：用户主动点登录框时 logged 还是 false，
+              不受影响；401 的软登出走的是上面 softSignOut 分支，也不受影响。 */
+        ...(action.logged ? { showLogin: false } : {}),
         phone: Object.prototype.hasOwnProperty.call(action, 'phone') ? action.phone : state.phone,
         ...(action.logged ? {} : {
           page: 'home',
